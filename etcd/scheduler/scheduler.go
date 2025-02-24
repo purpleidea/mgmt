@@ -146,8 +146,8 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 
 	sessionOptions := []concurrency.SessionOption{}
 
-	// here we try to re-use lease between multiple runs of the code
-	// TODO: is it a good idea to try and re-use the lease b/w runs?
+	// here we try to reuse lease between multiple runs of the code
+	// TODO: is it a good idea to try and reuse the lease b/w runs?
 	if options.reuseLease {
 		if leaseID, exists := schedulerLeases[path]; exists {
 			sessionOptions = append(sessionOptions, concurrency.WithLease(leaseID))

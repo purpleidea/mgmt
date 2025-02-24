@@ -3916,7 +3916,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 	// Track all the bind statements, functions, and classes. This is used
 	// for duplicate checking. These might appear out-of-order as code, but
-	// are iterated in the topoligically sorted node order. When we collect
+	// are iterated in the topologically sorted node order. When we collect
 	// all the functions, we group by name (if polyfunc is ok) and we also
 	// do something similar for classes.
 	// TODO: if we ever allow poly classes, then group in lists by name
@@ -4494,7 +4494,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants = append(invariants, invar)
 
 	// I think the invariants should come in from ExprCall instead, because
-	// ExprCall operates on an instatiated copy of the contained ExprFunc
+	// ExprCall operates on an instantiated copy of the contained ExprFunc
 	// which will have different pointers than what is seen here.
 
 	// nope!
@@ -7398,7 +7398,7 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		// copied = true // XXX: add this if anyone isn't static?
 	}
 
-	// We wan't to allow static functions, although we have to be careful...
+	// We want to allow static functions, although we have to be careful...
 	// Doing this for static functions causes us to hit a strange case in
 	// the SetScope function for ExprCall... Investigate if we find a bug...
 	if !copied { // it's static

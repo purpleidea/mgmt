@@ -407,7 +407,7 @@ func (obj *DockerContainerRes) Cmp(r engine.Res) error {
 		return errwrap.Wrapf(err, "the Cmd field differs")
 	}
 	if err := util.SortedStrSliceCompare(obj.Env, res.Env); err != nil {
-		return errwrap.Wrapf(err, "tne Env field differs")
+		return errwrap.Wrapf(err, "the Env field differs")
 	}
 	if len(obj.Ports) != len(res.Ports) {
 		return fmt.Errorf("the Ports length differs")
@@ -461,7 +461,7 @@ func (obj *DockerContainerRes) AutoEdges() (engine.AutoEdge, error) {
 	}, nil
 }
 
-// Next returnes the next automatic edge.
+// Next returns the next automatic edge.
 func (obj *DockerContainerResAutoEdges) Next() []engine.ResUID {
 	if len(obj.UIDs) == 0 {
 		return nil

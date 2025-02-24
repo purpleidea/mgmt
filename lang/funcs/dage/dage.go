@@ -806,7 +806,7 @@ func (obj *Engine) process(ctx context.Context) (reterr error) {
 	// Check each leaf and make sure they're all ready to send, for us to
 	// send anything to ag channel. In addition, we need at least one send
 	// message from any of the valid isLeaf nodes. Since this only runs if
-	// everyone is loaded, we just need to check for activty leaf nodes.
+	// everyone is loaded, we just need to check for activity leaf nodes.
 	obj.stateMutex.Lock()
 	for node := range obj.activity {
 		if obj.leafSend {

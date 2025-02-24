@@ -133,7 +133,7 @@ result, it might be very hard for them to improve their API's, particularly
 without breaking compatibility promises for their existing customers. As a
 result, they should either add a versioned API, which lets newer consumers get
 the benefit, or add new parallel services which offer the modern features. If
-they don't, the only solution is for new competitors to build-in these better
+they don't, the only solution is for new competitors to build in these better
 efficiencies, eventually offering better value to cost ratios, which will then
 make legacy products less lucrative and therefore unmaintainable as compared to
 their competitors.

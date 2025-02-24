@@ -228,7 +228,7 @@ func (obj *State) Init() error {
 				if !ok {
 					continue
 				}
-				// pass in information on requestor...
+				// pass in information on requester...
 				if err := r1.GraphQueryAllowed(
 					engine.GraphQueryableOptionKind(res.Kind()),
 					engine.GraphQueryableOptionName(res.Name()),
@@ -243,7 +243,7 @@ func (obj *State) Init() error {
 					if !ok {
 						continue
 					}
-					// pass in information on requestor...
+					// pass in information on requester...
 					if err := r2.GraphQueryAllowed(
 						engine.GraphQueryableOptionKind(res.Kind()),
 						engine.GraphQueryableOptionName(res.Name()),

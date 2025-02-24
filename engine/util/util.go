@@ -51,7 +51,7 @@ import (
 )
 
 const (
-	// DBusInterface is the dbus interface that contains genereal methods.
+	// DBusInterface is the dbus interface that contains general methods.
 	DBusInterface = "org.freedesktop.DBus"
 	// DBusAddMatch is the dbus method to receive a subset of dbus broadcast
 	// signals.
@@ -387,7 +387,7 @@ func GetGID(group string) (int, error) {
 	return -1, errwrap.Wrapf(err, "group lookup error (%s)", group)
 }
 
-// RestartUnit resarts the given dbus unit and waits for it to finish starting.
+// RestartUnit restarts the given dbus unit and waits for it to finish starting.
 func RestartUnit(ctx context.Context, conn *dbus.Conn, unit string) error {
 	return unitStateAction(ctx, conn, unit, DBusRestartUnit)
 }

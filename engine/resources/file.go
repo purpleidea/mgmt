@@ -145,7 +145,7 @@ type FileRes struct {
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content or Fragments parameters. It must be an
 	// absolute path, and it can point to a file or a directory. If it
-	// points to a file, then that will will be copied throuh directly. If
+	// points to a file, then that will will be copied through directly. If
 	// it points to a directory, then it will copy the directory "rsync
 	// style" onto the file destination. As a result, if this is a file,
 	// then the main file res must be a file, and if it is a directory, then
@@ -643,7 +643,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 				return "", false, err
 			}
 			sha256sum = hex.EncodeToString(hash.Sum(nil))
-			// since we re-use this src handler below, it is
+			// since we reuse this src handler below, it is
 			// *critical* to seek to 0, or we'll copy nothing!
 			if n, err := src.Seek(0, 0); err != nil || n != 0 {
 				return sha256sum, false, err
@@ -673,7 +673,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 	if err != nil {
 		return sha256sum, false, err
 	}
-	defer dstFile.Close() // TODO: is this redundant because of the earlier defered Close() ?
+	defer dstFile.Close() // TODO: is this redundant because of the earlier deferred Close() ?
 
 	if isFile { // set mode because it's a new file
 		if err := dstFile.Chmod(srcStat.Mode()); err != nil {

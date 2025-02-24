@@ -26,7 +26,7 @@ if [ "$COMMITS" != "" ] && [ "$COMMITS" -gt "1" ]; then
 	HACK="yes"
 fi
 
-# find all go files, exluding temporary directories and generated files
+# find all go files, excluding temporary directories and generated files
 LINT=$(find * -maxdepth 9 -iname '*.go' -not -path 'old/*' -not -path 'tmp/*' -not -path 'lang/parser/y.go' -not -path 'lang/parser/lexer.nn.go' -not -path 'lang/interpolate/parse.generated.go' -not -path 'vendor/*' -exec golint {} \;)	# current golint output
 
 COUNT=`echo -e "$LINT" | wc -l`	# number of golint problems in current branch

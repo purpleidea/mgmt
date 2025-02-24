@@ -151,7 +151,7 @@ type UEvent struct {
 }
 
 // ReceiveUEvent is a wrapper around ReceiveBytes. Parses the UEvent data
-// receieved from the socket and puts it into a UEvent struct.
+// received from the socket and puts it into a UEvent struct.
 func (obj *SocketSet) ReceiveUEvent() (*UEvent, error) {
 	// TODO: can multiple events come in the same socket?
 	event := &UEvent{Data: map[string]string{}}

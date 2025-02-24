@@ -58,7 +58,7 @@ func Append(reterr, err error) error {
 }
 
 // String returns a string representation of the error. In particular, if the
-// error is nil, it returns an empty string instead of panicing.
+// error is nil, it returns an empty string instead of panicking.
 func String(err error) string {
 	if err == nil {
 		return ""

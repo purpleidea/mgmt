@@ -1366,7 +1366,7 @@ type_struct_field:
 	IDENTIFIER type
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.arg = &interfaces.Arg{ // re-use the Arg struct
+		$$.arg = &interfaces.Arg{ // reuse the Arg struct
 			Name: $1.str,
 			Type: $2.typ,
 		}

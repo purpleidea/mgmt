@@ -134,7 +134,7 @@ func (ag *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	return
 }
 
-// VertexCmp can be used in addition to an overridding implementation.
+// VertexCmp can be used in addition to an overriding implementation.
 func (ag *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	if v1 == nil || v2 == nil {
 		return fmt.Errorf("the vertex is nil")

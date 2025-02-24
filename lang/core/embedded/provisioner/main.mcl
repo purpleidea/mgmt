@@ -562,7 +562,7 @@ class base:host($name, $config) {
 	#} else {
 	#	"" + get_value("network") # XXX: implement some sort of lookup function
 	#}
-	#$ip = $config->ip || magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Re-use based on $name hash.
+	#$ip = $config->ip || magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Reuse based on $name hash.
 	$bios = $config->bios || false
 	$password = $config->password || ""	# empty means disabled
 	panic(len($password) != 0 and len($password) != 106) # length of salted password

@@ -40,7 +40,7 @@ timezone {{ .timezone }} --isUtc
 #	security
 #
 {{ if .password -}}
-# password can be crypted with:
+# password can be encrypted with:
 # python3 -c 'import crypt; print(crypt.crypt("password", crypt.mksalt(crypt.METHOD_SHA512)))'
 # or
 # openssl passwd -6 -salt <YOUR_SALT> (salt can be omitted to generate one)

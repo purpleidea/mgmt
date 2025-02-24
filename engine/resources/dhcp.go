@@ -1863,7 +1863,7 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 
 	// FIXME: Run this somewhere for now, eventually it should get scheduled
 	// to run in the returned duration of time. This way, it would clean old
-	// peristed entries when they're stale, not when a new request comes in.
+	// persisted entries when they're stale, not when a new request comes in.
 	if _, err := obj.leaseClean(); err != nil {
 		return nil, errwrap.Wrapf(err, "clean error")
 	}

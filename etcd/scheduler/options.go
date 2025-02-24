@@ -84,7 +84,7 @@ func MaxCount(maxCount int) Option {
 	}
 }
 
-// ReuseLease specifies whether we should try and re-use the lease between runs.
+// ReuseLease specifies whether we should try and reuse the lease between runs.
 // Ordinarily it would get discarded with each new version (deploy) of the code.
 func ReuseLease(reuseLease bool) Option {
 	return func(so *schedulerOptions) {

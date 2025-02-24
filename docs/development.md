@@ -139,7 +139,7 @@ easy as copying one of the files in [`test/shell/`](/test/shell) and adapting
 it.
 
 This test suite won't run by default (unless when on CI server) and needs to be
-called explictly using:
+called explicitly using:
 
 ```
 make test-shell

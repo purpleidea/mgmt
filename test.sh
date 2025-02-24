@@ -45,7 +45,7 @@ function skip-testsuite() {
 		echo skipping "$@" "($REASON)"
 		echo 'SKIP'
 	else
-		# if a skipped suite is explicity called, run it anyway
+		# if a skipped suite is explicitly called, run it anyway
 		if test "test-$testsuite" == "$testname"; then
 			run-testsuite "$@"
 		fi

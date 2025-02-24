@@ -193,7 +193,7 @@ type AwsEc2Res struct {
 
 	// UserData is used to run bash and cloud-init commands on first launch.
 	// See http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html
-	// for documantation and examples.
+	// for documentation and examples.
 	UserData string `lang:"userdata" yaml:"userdata"`
 
 	client *ec2.EC2 // client session for AWS API calls

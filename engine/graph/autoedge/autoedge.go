@@ -56,7 +56,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 		sorted = append(sorted, res)
 	}
 
-	for _, res := range sorted { // for each vertexes autoedges
+	for _, res := range sorted { // for each vertices autoedges
 		autoEdgeObj, e := res.AutoEdges()
 		if e != nil {
 			err = errwrap.Append(err, e) // collect all errors

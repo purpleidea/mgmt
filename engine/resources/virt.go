@@ -853,7 +853,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// FIXME: is doing this early check (therefore twice total) a good idea?
-	// run additional pre-emptive attr change checks here for hotplug stuff!
+	// run additional preemptive attr change checks here for hotplug stuff!
 	if !obj.absent {
 		if c, err := obj.attrCheckApply(ctx, apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "early attrCheckApply failed")

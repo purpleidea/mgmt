@@ -53,7 +53,7 @@ type function struct {
 	GolangPackage *golangPackage `yaml:"golangPackage"`
 	// GolangFunc is the name of the function in golang.
 	GolangFunc string `yaml:"golangFunc"`
-	// Errorful indicates wether the golang function can return an error
+	// Errorful indicates whether the golang function can return an error
 	// as second argument.
 	Errorful bool `yaml:"errorful"`
 	// Args is the list of the arguments of the function.

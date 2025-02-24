@@ -142,7 +142,7 @@ type CronRes struct {
 	WakeSystem bool `lang:"wakesystem" yaml:"wakesystem"`
 
 	// RemainAfterElapse, if true, means an elapsed timer will stay loaded,
-	// and its state remains queriable. If false, an elapsed timer unit that
+	// and its state remains queryable. If false, an elapsed timer unit that
 	// cannot elapse anymore is unloaded. It defaults to true.
 	RemainAfterElapse bool `lang:"remainafterelapse" yaml:"remainafterelapse"`
 
@@ -271,7 +271,7 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 	//args = append(args, "eavesdrop='true'") // XXX: not allowed anymore?
 	args = append(args, fmt.Sprintf("arg2='%s.timer'", obj.Name()))
 
-	// match dbus messsages
+	// match dbus messages
 	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, strings.Join(args, ",")); call.Err != nil {
 		return call.Err
 	}

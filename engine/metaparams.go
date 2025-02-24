@@ -150,7 +150,7 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	// XXX: add a one way cmp like we used to have ?
 	//if obj.Noop != meta.Noop {
 	//	// obj is the existing res, res is the *new* resource
-	//	// if we go from no-noop -> noop, we can re-use the obj
+	//	// if we go from no-noop -> noop, we can reuse the obj
 	//	// if we go from noop -> no-noop, we need to regenerate
 	//	if obj.Noop { // asymmetrical
 	//		return fmt.Errorf("values for Noop are different") // going from noop to no-noop!

@@ -43,6 +43,10 @@ type UnificationInvariant struct { // formerly the SamInvariant
 	// our error messages.
 	Expr Expr
 
+	// Node is the AST node holding that expression. This improves our error
+	// messages more.
+	Node Node
+
 	// Expect is one of the two types to unify.
 	Expect *types.Type
 
@@ -65,6 +69,7 @@ func GenericCheck(obj Expr, typ *types.Type) ([]*UnificationInvariant, error) {
 
 	invar := &UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ, // sam says not backwards
 		Actual: actual,
 	}

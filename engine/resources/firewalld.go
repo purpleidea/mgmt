@@ -425,7 +425,8 @@ func (obj *FirewalldRes) portCheckApply(ctx context.Context, apply bool, pp stri
 	}
 	protocol := split[1]
 
-	// .zone.getPorts(s: zone) -> aas
+	// getPorts(s: zone) returns an array of [port, protocol] tuples
+	// See https://manpages.ubuntu.com/manpages/focal/man5/firewalld.dbus.5.html
 	var ports [][]string
 	args := []interface{}{obj.zone}
 	if err := obj.call(ctx, ".zone.getPorts", args...).Store(&ports); err != nil {

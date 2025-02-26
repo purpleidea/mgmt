@@ -134,8 +134,15 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 		if err := unificationUtil.Unify(x.Expect, x.Actual); err != nil {
 			// Storing the Expr with this invariant is so that we
 			// can generate this more helpful error message here.
-			// TODO: Improve this error message!
-			return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
+			displayer, ok := x.Node.(interfaces.TextDisplayer)
+			if !ok {
+				obj.Logf("not displayable: %v\n", x.Node)
+				return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
+			}
+			if highlight := displayer.HighlightText(); highlight != "" {
+				obj.Logf("%s: %s", err.Error(), highlight)
+			}
+			return nil, fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
 		}
 		if obj.Debug {
 			e1, e2 := unificationUtil.Extract(x.Expect), unificationUtil.Extract(x.Actual)

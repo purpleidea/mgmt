@@ -2,4 +2,4 @@
 import "fmt"
 test fmt.printf("%d%d", 42) {} # should not pass, missing second int
 -- OUTPUT --
-# err: errUnify: unify error with: call:fmt.printf(str("%d%d"), int(42)): type error: str != list
+# err: errUnify: type error: str != list: /main.mcl @ 2:1-2:30

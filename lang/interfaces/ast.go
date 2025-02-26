@@ -230,6 +230,15 @@ type Data struct {
 	// cycles.
 	StrInterpolater func(string, *Pos, *Data) (Expr, error)
 
+	// SourceFinder is a function that returns the contents of a source file
+	// when requested by filename. This data is used to annotate error
+	// messages with some context from the source, and as a result is
+	// optional. This function is passed in this way so that the different
+	// consumers of this can use different methods to find the source. The
+	// three main users are: (1) normal GAPI CLI, before the bundle is
+	// created, (2) the main bundled execution, and (3) the tests.
+	SourceFinder SourceFinderFunc
+
 	//World engine.World // TODO: do we need this?
 
 	// Prefix provides a unique path prefix that we can namespace in. It is
@@ -242,6 +251,16 @@ type Data struct {
 
 	// Logf is a logger which should be used.
 	Logf func(format string, v ...interface{})
+}
+
+// AbsFilename returns the absolute filename path to the code this Data struct
+// is running. This is used to pull out a filename for error messages.
+func (obj *Data) AbsFilename() string {
+	// TODO: is this correct? Do we want to check if Metadata is nil?
+	if obj == nil || obj.Metadata == nil { // for tests
+		return ""
+	}
+	return obj.Base + obj.Metadata.Main
 }
 
 // Scope represents a mapping between a variables identifier and the
@@ -424,3 +443,39 @@ func EmptyOutput() *Output {
 		Edges:     []*Edge{},
 	}
 }
+
+// PositionableNode is the interface implemented by AST nodes that store their
+// code position. It is implemented by node types that embed Textarea.
+type PositionableNode interface {
+	// IsSet returns if the position was already set with Locate already.
+	IsSet() bool
+
+	// Locate sets the position in zero-based (start line, start column, end
+	// line, end column) format.
+	Locate(int, int, int, int)
+
+	// Pos returns the zero-based start line and then start column position.
+	Pos() (int, int)
+
+	// End returns the zero-based end line and then end column position.
+	End() (int, int)
+
+	// String returns a friendly representation of the positions.
+	String() string
+}
+
+// TextDisplayer is a graph node that is aware of its position in the source
+// code, and can emit a textual representation of that part of the source.
+type TextDisplayer interface {
+	// Byline returns a simple version of the error location.
+	Byline() string
+
+	// HighlightText returns a textual representation of this definition
+	// for this node in source.
+	HighlightText() string
+}
+
+// SourceFinderFunc is the function signature used to return the contents of a
+// source file when requested by filename. This data is used to annotate error
+// messages with some context from the source, and as a result is optional.
+type SourceFinderFunc = func(string) ([]byte, error)

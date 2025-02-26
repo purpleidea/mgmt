@@ -214,6 +214,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
 		StrInterpolater: interpolate.StrInterpolate,
+		SourceFinder:    os.ReadFile,
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 

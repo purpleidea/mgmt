@@ -155,6 +155,7 @@ func HilInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (int
 		LexParser:       data.LexParser,
 		Downloader:      data.Downloader,
 		StrInterpolater: data.StrInterpolater,
+		SourceFinder:    data.SourceFinder,
 		//World: data.World, // TODO: do we need this?
 
 		Prefix: data.Prefix,

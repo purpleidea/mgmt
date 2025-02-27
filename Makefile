@@ -191,13 +191,6 @@ path: ## create working paths
 deps: ## install system and golang dependencies
 	./misc/make-deps.sh
 
-run: ## run mgmt
-	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
-
-# include race flag
-race:
-	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
-
 generate:
 	go generate
 

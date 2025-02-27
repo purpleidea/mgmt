@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that our modules still build, even if we don't run them here
 
 # shellcheck disable=SC1091

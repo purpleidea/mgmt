@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script generates a deb changelog from the project's git history.
 
 # version we're releasing

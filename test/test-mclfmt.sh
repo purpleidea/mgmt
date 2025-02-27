@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check for any mcl files that aren't properly formatted
 # TODO: this is hardly exhaustive
 

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # simple test for reproducibility, probably needs major improvements
 echo running "$0"
 set -o errexit

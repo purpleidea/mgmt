@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This script packages rpm, deb, and pacman packages of mgmt with fpm. The
 # first argument is the distro type, and the second argument is the version. All
 # subsequent arguments are the dependencies.

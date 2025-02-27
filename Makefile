@@ -213,6 +213,10 @@ build: $(PROGRAM)
 build-debug: LDFLAGS=
 build-debug: $(PROGRAM)
 
+# if you're using the bad/dev branch, you might want this too!
+baddev: BUILD_FLAGS = -tags 'noaugeas novirt'
+baddev: $(PROGRAM)
+
 # pattern rule target for (cross)building, mgmt-OS-ARCH will be expanded to the correct build
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))

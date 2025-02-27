@@ -412,7 +412,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 	}
 
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-	if err != nil && ok {
+	if ok {
 		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 		wStatus, ok := pStateSys.(syscall.WaitStatus)
 		if !ok {
@@ -432,13 +432,8 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 
 		t.Logf("exit status: %d", wStatus.ExitStatus())
 		return
-
-	} else if err != nil {
-		t.Errorf("general cmd error")
-		return
 	}
-
-	// no error
+	t.Errorf("general cmd error")
 }
 
 func TestExecAutoEdge1(t *testing.T) {

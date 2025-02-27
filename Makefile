@@ -636,5 +636,6 @@ funcgen: lang/core/generated_funcs.go
 lang/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
 	@echo "Generating: funcs..."
 	@go run `find lang/funcs/funcgen/ -maxdepth 1 -type f -name '*.go' -not -name '*_test.go'` -templates=lang/funcs/funcgen/templates/generated_funcs.go.tpl >/dev/null
+	@gofmt -s -w $@
 
 # vim: ts=8

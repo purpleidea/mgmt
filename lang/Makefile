@@ -40,11 +40,13 @@ clean:
 parser/lexer.nn.go: parser/lexer.nex
 	@echo "Generating: lexer..."
 	nex -e -o $@ $<
+	gofmt -s -w $@
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/lexer.nn.go'
 
 parser/y.go: parser/parser.y
 	@echo "Generating: parser..."
 	goyacc -v parser/y.output -o $@ $<
+	gofmt -s -w $@
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl

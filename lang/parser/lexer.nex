@@ -335,7 +335,7 @@
 			yylex.pos(lval) // our pos
 			s := yylex.Text()
 
-			lval.str = s[1:len(s)] // remove the leading #
+			lval.str = s[1:] // remove the leading #
 			//log.Printf("lang: lexer: comment: `%s`", lval.str)
 			//return COMMENT // skip return to avoid parsing
 		}

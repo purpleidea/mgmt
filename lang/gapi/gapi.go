@@ -557,6 +557,11 @@ func (obj *GAPI) LangInit(ctx context.Context) error {
 	go func() {
 		defer obj.wgRun.Done()
 		obj.reterr = obj.lang.Run(obj.ctx)
+		if obj.reterr == nil {
+			return
+		}
+		// XXX: Temporary extra logging for catching bugs!
+		obj.data.Logf(Name+": %+v", obj.reterr)
 	}()
 
 	return nil

@@ -740,7 +740,7 @@ func (obj *StmtRes) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // the case of this resource statement, this is definitely the case.
 func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.namePtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	nameValue, exists := table[obj.namePtr]
 	if !exists {
@@ -818,7 +818,7 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return nil, ErrFuncPointerNil
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
@@ -866,7 +866,7 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 		}
 
 		if x.valuePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		fv, exists := table[x.valuePtr]
 		if !exists {
@@ -898,7 +898,7 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return nil, ErrFuncPointerNil
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
@@ -911,7 +911,7 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 		}
 
 		if x.EdgeHalf.namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue, exists := table[x.EdgeHalf.namePtr]
 		if !exists {
@@ -1041,7 +1041,7 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return ErrFuncPointerNil
+				return fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
@@ -1054,7 +1054,7 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 		}
 
 		if x.metaExprPtr == nil {
-			return ErrFuncPointerNil
+			return fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		v, exists := table[x.metaExprPtr]
 		if !exists {
@@ -2379,7 +2379,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 	// EdgeHalfList goes in a chain, so we increment like i++ and not i+=2.
 	for i := 0; i < len(obj.EdgeHalfList)-1; i++ {
 		if obj.EdgeHalfList[i].namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue1, exists := table[obj.EdgeHalfList[i].namePtr]
 		if !exists {
@@ -2406,7 +2406,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 		}
 
 		if obj.EdgeHalfList[i+1].namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue2, exists := table[obj.EdgeHalfList[i+1].namePtr]
 		if !exists {
@@ -2962,7 +2962,7 @@ func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.conditionPtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	b, exists := table[obj.conditionPtr]
 	if !exists {
@@ -3469,7 +3469,7 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtFor) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.exprPtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	expr, exists := table[obj.exprPtr]
 	if !exists {
@@ -3968,7 +3968,7 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtForKV) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.exprPtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	expr, exists := table[obj.exprPtr]
 	if !exists {

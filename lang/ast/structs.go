@@ -744,7 +744,7 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 	}
 	nameValue, exists := table[obj.namePtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
 	names := []string{} // list of names to build
@@ -822,7 +822,7 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return nil, ErrTableNoValue
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -870,7 +870,7 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 		}
 		fv, exists := table[x.valuePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// mutate the struct field f with the mcl data in fv
@@ -902,7 +902,7 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return nil, ErrTableNoValue
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -915,7 +915,7 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 		}
 		nameValue, exists := table[x.EdgeHalf.namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -1045,7 +1045,7 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return ErrTableNoValue
+				return fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1058,7 +1058,7 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 		}
 		v, exists := table[x.metaExprPtr]
 		if !exists {
-			return ErrTableNoValue
+			return fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		switch p := strings.ToLower(x.Property); p {
@@ -2383,7 +2383,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 		}
 		nameValue1, exists := table[obj.EdgeHalfList[i].namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -2410,7 +2410,7 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 		}
 		nameValue2, exists := table[obj.EdgeHalfList[i+1].namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		names2 := []string{} // list of names to build
@@ -2966,7 +2966,7 @@ func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Ou
 	}
 	b, exists := table[obj.conditionPtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
 	var output *interfaces.Output
@@ -3473,7 +3473,7 @@ func (obj *StmtFor) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 	}
 	expr, exists := table[obj.exprPtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
 	if obj.Body == nil { // logically body is optional
@@ -3972,7 +3972,7 @@ func (obj *StmtForKV) Output(table map[interfaces.Func]types.Value) (*interfaces
 	}
 	expr, exists := table[obj.exprPtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
 	if obj.Body == nil { // logically body is optional

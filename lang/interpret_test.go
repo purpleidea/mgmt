@@ -507,7 +507,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(interfaces.EmptyEnv()) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1101,8 +1101,29 @@ func TestAstFunc2(t *testing.T) {
 			// in implementation and before unification, and static
 			// once we've unified the specific resource.
 
+			// build the env
+			//fgraph := &pgraph.Graph{Name: "functionGraph"}
+			env := interfaces.EmptyEnv()
+			// XXX: Do we need to do something like this?
+			//for k, v := range scope.Variables {
+			//	g, builtinFunc, err := v.Graph(nil)
+			//	if err != nil {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: calling Graph on builtins errored: %+v", index, err)
+			//		return
+			//	}
+			//	fgraph.AddGraph(g)
+			//	env.Variables[k] = builtinFunc // XXX: Ask Sam (.Functions ???)
+			//}
+			//for k, closure := range scope.Functions {
+			//	env.Functions[k] = &interfaces.Closure{
+			//		Env: interfaces.EmptyEnv(),
+			//		Expr: closure.Expr, // XXX: Ask Sam
+			//	}
+			//}
+
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(env) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1931,7 +1952,7 @@ func TestAstFunc3(t *testing.T) {
 			// once we've unified the specific resource.
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(interfaces.EmptyEnv()) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)

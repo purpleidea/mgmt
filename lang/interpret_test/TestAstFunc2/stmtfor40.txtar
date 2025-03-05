@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+for $index, $value in $list {
+	$foo = $index	# does nothing
+}
+
+-- OUTPUT --

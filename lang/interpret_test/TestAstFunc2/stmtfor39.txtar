@@ -1,0 +1,21 @@
+-- main.mcl --
+import "fmt"
+
+$list1 = ["a", "b", "c",]
+
+class foo($x) {
+	$result = "hello " + fmt.printf("%d", $x)
+}
+
+for $index1, $value1 in $list1 {
+
+	include foo($index1) as included
+
+	$s = fmt.printf("%s is %d", $included.result, $index1)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello 0 is 0]
+Vertex: test[hello 1 is 1]
+Vertex: test[hello 2 is 2]

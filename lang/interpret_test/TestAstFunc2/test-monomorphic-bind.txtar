@@ -10,4 +10,4 @@ test "test2" {
 	anotherstr => $id("hello"),
 }
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: int != str
+# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: str != int

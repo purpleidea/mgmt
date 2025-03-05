@@ -339,9 +339,52 @@ func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
 		return trueCallee(x.Definition)
 	case *ExprSingleton:
 		return trueCallee(x.Definition)
+	case *ExprIterated:
+		return trueCallee(x.Definition)
+	case *ExprPoly: // XXX: Did we want this one added too?
+		return trueCallee(x.Definition)
+
 	default:
 		return apparentCallee
 	}
+}
+
+// findExprPoly is a helper used in SetScope.
+func findExprPoly(apparentCallee interfaces.Expr) *ExprPoly {
+	switch x := apparentCallee.(type) {
+	case *ExprTopLevel:
+		return findExprPoly(x.Definition)
+	case *ExprSingleton:
+		return findExprPoly(x.Definition)
+	case *ExprIterated:
+		return findExprPoly(x.Definition)
+	case *ExprPoly:
+		return x // found it!
+	default:
+		return nil // not found!
+	}
+}
+
+// newExprParam is a helper function to create an ExprParam with the internal
+// key set to the pointer of the thing we're creating.
+func newExprParam(name string, typ *types.Type) *ExprParam {
+	expr := &ExprParam{
+		Name: name,
+		typ:  typ,
+	}
+	expr.envKey = expr
+	return expr
+}
+
+// newExprIterated is a helper function to create an ExprIterated with the
+// internal key set to the pointer of the thing we're creating.
+func newExprIterated(name string, definition interfaces.Expr) *ExprIterated {
+	expr := &ExprIterated{
+		Name:       name,
+		Definition: definition,
+	}
+	expr.envKey = expr
+	return expr
 }
 
 // variableScopeFeedback logs some messages about what is actually in scope so

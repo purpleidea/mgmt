@@ -1,0 +1,21 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+
+	$fn = func($x) {
+		"hello " + $value
+	}
+
+	$s = fmt.printf("%s is %d", $fn("whatever"), $index)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello a is 0]
+Vertex: test[hello b is 1]
+Vertex: test[hello c is 2]

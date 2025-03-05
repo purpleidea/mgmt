@@ -290,16 +290,23 @@ func (obj *Lang) Init(ctx context.Context) error {
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
 	obj.graph = &pgraph.Graph{Name: "functionGraph"}
-	env := make(map[string]interfaces.Func)
-	for k, v := range scope.Variables {
-		g, builtinFunc, err := v.Graph(nil)
-		if err != nil {
-			return errwrap.Wrapf(err, "calling Graph on builtins")
-		}
-		obj.graph.AddGraph(g)
-		env[k] = builtinFunc
-	}
-	g, err := obj.ast.Graph() // build the graph of functions
+	env := interfaces.EmptyEnv()
+	// XXX: Do we need to do something like this?
+	//for k, v := range scope.Variables {
+	//	g, builtinFunc, err := v.Graph(nil)
+	//	if err != nil {
+	//		return errwrap.Wrapf(err, "calling Graph on builtins")
+	//	}
+	//	obj.graph.AddGraph(g)
+	//	env.Variables[k] = builtinFunc // XXX: Ask Sam (.Functions ???)
+	//}
+	//for k, v := range scope.Functions {
+	//	env.Functions[k] = &interfaces.Closure{
+	//		Env: interfaces.EmptyEnv(),
+	//		Expr: v,
+	//	}
+	//}
+	g, err := obj.ast.Graph(env) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}

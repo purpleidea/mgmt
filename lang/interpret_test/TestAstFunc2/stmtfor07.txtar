@@ -1,0 +1,17 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+	$index = 42
+	$s = fmt.printf("%s is %d", $value, $index)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a is 42]
+Vertex: test[b is 42]
+Vertex: test[c is 42]

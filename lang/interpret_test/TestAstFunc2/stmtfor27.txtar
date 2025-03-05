@@ -1,0 +1,38 @@
+-- main.mcl --
+import "fmt"
+
+$list1 = ["a", "b", "c",]
+$list2 = ["x", "y", "z",]
+
+$word = "hello"
+
+for $index1, $value1 in $list1 {
+
+	class foo($x, $y) {
+		$result = "hello " + $x + $y + $value1
+		$result1 = $x + $value1
+	}
+
+	for $index2, $value2 in $list2 {
+
+		include foo($value1, $value2) as included
+
+		$s = fmt.printf("%s is {%d,%d}", $included.result, $index1, $index2)
+		$s1 = fmt.printf("one: %s", $included.result1)
+		test [$s, $s1,] {}
+	}
+}
+
+-- OUTPUT --
+Vertex: test[hello axa is {0,0}]
+Vertex: test[hello aya is {0,1}]
+Vertex: test[hello aza is {0,2}]
+Vertex: test[hello bxb is {1,0}]
+Vertex: test[hello byb is {1,1}]
+Vertex: test[hello bzb is {1,2}]
+Vertex: test[hello cxc is {2,0}]
+Vertex: test[hello cyc is {2,1}]
+Vertex: test[hello czc is {2,2}]
+Vertex: test[one: aa]
+Vertex: test[one: bb]
+Vertex: test[one: cc]

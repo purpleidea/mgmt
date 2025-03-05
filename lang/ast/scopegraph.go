@@ -74,6 +74,11 @@ func (obj *StmtIf) ScopeGraph(g *pgraph.Graph) {
 }
 
 // ScopeGraph adds nodes and vertices to the supplied graph.
+func (obj *StmtFor) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+// ScopeGraph adds nodes and vertices to the supplied graph.
 func (obj *StmtProg) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
 	for _, stmt := range obj.Body {
@@ -194,6 +199,17 @@ func (obj *ExprVar) ScopeGraph(g *pgraph.Graph) {
 // ScopeGraph adds nodes and vertices to the supplied graph.
 func (obj *ExprParam) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
+}
+
+// ScopeGraph adds nodes and vertices to the supplied graph.
+func (obj *ExprIterated) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	definition, ok := obj.Definition.(interfaces.ScopeGrapher)
+	if !ok {
+		panic("can't graph scope") // programming error
+	}
+	definition.ScopeGraph(g)
+	g.AddEdge(obj, obj.Definition, &pgraph.SimpleEdge{Name: "def"})
 }
 
 // ScopeGraph adds nodes and vertices to the supplied graph.

@@ -92,7 +92,7 @@ func init() {
 %token OPEN_CURLY CLOSE_CURLY
 %token OPEN_PAREN CLOSE_PAREN
 %token OPEN_BRACK CLOSE_BRACK
-%token IF ELSE
+%token IF ELSE FOR
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
@@ -213,6 +213,18 @@ stmt:
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+	// iterate over lists
+	// `for $index, $value in $list { <body> }`
+|	FOR var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+	{
+		$$.stmt = &ast.StmtFor{
+			Index: $2.str, // no $ prefix
+			Value: $4.str, // no $ prefix
+			Expr:  $6.expr, // XXX: name this List ?
+			Body:  $8.stmt,
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}

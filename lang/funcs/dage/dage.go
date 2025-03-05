@@ -1240,6 +1240,8 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 				}
 
 				fn := func(nodeCtx context.Context) (reterr error) {
+					// NOTE: Comment out this defer to make
+					// debugging a lot easier.
 					defer func() {
 						// catch programming errors
 						if r := recover(); r != nil {

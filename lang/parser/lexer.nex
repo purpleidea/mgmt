@@ -154,6 +154,11 @@
 			lval.str = yylex.Text()
 			return IN
 		}
+/for/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FOR
+		}
 /\->/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

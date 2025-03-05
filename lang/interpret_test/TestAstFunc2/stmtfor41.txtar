@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+import "thing.mcl"	# works
+
+for $index, $value in $list {
+	# The semantics are that only one copy of an import is needed... Not one per iteration.
+	# XXX: Error: could not find `inside` in env for ExprIterated
+	# XXX: I added a hack to catch this obvious case
+	#import "thing.mcl"	# XXX: doesn't work :(
+
+	$x = 42 + $thing.inside
+
+	$s = fmt.printf("%s is %d = %d", $value, $index, $x)
+	test [$s,] {}
+}
+-- thing.mcl --
+$inside = 13
+-- OUTPUT --
+Vertex: test[a is 0 = 55]
+Vertex: test[b is 1 = 55]
+Vertex: test[c is 2 = 55]

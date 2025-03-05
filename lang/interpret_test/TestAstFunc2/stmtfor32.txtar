@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+
+	class foo($x) {
+		$result = "hello" + $x + $value
+	}
+	include foo($value) as thing
+	$result = "please"
+
+	# XXX: add $thing.some_func and so on... add more tests says sam.
+	$s = fmt.printf("%s is %d is %s", $thing.result, $index, $result)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[helloaa is 0 is please]
+Vertex: test[hellobb is 1 is please]
+Vertex: test[hellocc is 2 is please]

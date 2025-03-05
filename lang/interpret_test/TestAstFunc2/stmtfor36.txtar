@@ -1,0 +1,29 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+#$index = 42 # should be out of scope
+
+for $index, $value in $list {
+
+	class foo($x) {
+		#$result = "hello" + $x + $value # harder
+		#$result = $value # works
+		#$result = $x # works
+		$resultx = "hello" + $x # harder
+		#$result = "hello" + $value # harder
+		#$result = $x + $value # harder
+	}
+	include foo($value)# as included
+	$result = "please"
+
+	# XXX: add $included.some_func and so on... add more tests says sam.
+	$s = fmt.printf("%s is %d is %s", $value, $index, $result)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a is 0 is please]
+Vertex: test[b is 1 is please]
+Vertex: test[c is 2 is please]

@@ -100,6 +100,15 @@ expression
 	}
 	```
 
+- **for**: loop over a list with a body of statements
+
+	```mcl
+	$list = ["a", "b", "c",]
+	for $index, $value in $list {
+		# some statements go here
+	}
+	```
+
 - **resource**: produces a resource
 
 	```mcl

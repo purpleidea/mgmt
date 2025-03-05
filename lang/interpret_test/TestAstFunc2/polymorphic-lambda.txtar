@@ -17,4 +17,4 @@ $out2 = $add($val) # hellohello
 
 test [fmt.printf("%s + %s is %s", $val, $val, $out2),] {} # simple concat
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(singleton(func(x) { call:_operator(str("+"), var(x), var(x)) })): type error: int != str
+# err: errUnify: unify error with: topLevel(singleton(func(x) { call:_operator(str("+"), var(x), var(x)) })): type error: str != int

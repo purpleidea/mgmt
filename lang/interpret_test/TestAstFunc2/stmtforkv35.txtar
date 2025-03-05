@@ -1,0 +1,32 @@
+-- main.mcl --
+import "fmt"
+
+$map1 = {0 => "a", 1 => "b", 2 => "c",}
+$map2 = {0 => "x", 1 => "y", 2 => "z",}
+
+$word = "hello"
+
+class foo($x, $y) {
+	$result = "hello " + $x + $y
+}
+
+forkv $key1, $val1 in $map1 {
+	forkv $key2, $val2 in $map2 {
+
+		include foo($val1, $val2) as included
+
+		$s = fmt.printf("%s is {%d,%d}", $included.result, $key1, $key2)
+		test [$s,] {}
+	}
+}
+
+-- OUTPUT --
+Vertex: test[hello ax is {0,0}]
+Vertex: test[hello ay is {0,1}]
+Vertex: test[hello az is {0,2}]
+Vertex: test[hello bx is {1,0}]
+Vertex: test[hello by is {1,1}]
+Vertex: test[hello bz is {1,2}]
+Vertex: test[hello cx is {2,0}]
+Vertex: test[hello cy is {2,1}]
+Vertex: test[hello cz is {2,2}]

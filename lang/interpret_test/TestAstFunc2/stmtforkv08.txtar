@@ -1,0 +1,20 @@
+-- main.mcl --
+import "fmt"
+import "math"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+$key = 42 # should be out of scope
+
+forkv $key, $val in $map {
+	$key = if math.mod($key, 2) == 0 {
+		$key
+	} else {
+		42
+	}
+	$s = fmt.printf("%s is %d", $val, $key)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

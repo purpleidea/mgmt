@@ -1,0 +1,13 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+forkv $key, $val in $map {
+	test [fmt.printf("%s is %d", $val, $key),] {}
+}
+
+-- OUTPUT --
+Vertex: test[a is 0]
+Vertex: test[b is 1]
+Vertex: test[c is 2]

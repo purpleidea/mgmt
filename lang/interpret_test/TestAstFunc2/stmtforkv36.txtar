@@ -1,0 +1,29 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+#$key = 42 # should be out of scope
+
+forkv $key, $val in $map {
+
+	class foo($x) {
+		#$result = "hello" + $x + $val # harder
+		#$result = $val # works
+		#$result = $x # works
+		$resultx = "hello" + $x # harder
+		#$result = "hello" + $val # harder
+		#$result = $x + $val # harder
+	}
+	include foo($val)# as included
+	$result = "please"
+
+	# XXX: add $included.some_func and so on... add more tests says sam.
+	$s = fmt.printf("%s is %d is %s", $val, $key, $result)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a is 0 is please]
+Vertex: test[b is 1 is please]
+Vertex: test[c is 2 is please]

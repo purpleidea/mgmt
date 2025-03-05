@@ -1,0 +1,23 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+$key = 42 # should be out of scope
+
+forkv $key, $val in $map {
+
+	class foo($x) {
+		$result = "hello " + $x
+		test [$result,] {}
+	}
+	include foo($val) # as included
+
+	#$s = fmt.printf("%s is %d", $included.result, $key)
+	#test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello a]
+Vertex: test[hello b]
+Vertex: test[hello c]

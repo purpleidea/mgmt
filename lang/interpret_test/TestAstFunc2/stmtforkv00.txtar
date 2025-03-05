@@ -1,0 +1,13 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+forkv $key, $val in $map {
+	test [$val,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[b]
+Vertex: test[c]

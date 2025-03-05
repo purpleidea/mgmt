@@ -159,6 +159,11 @@
 			lval.str = yylex.Text()
 			return FOR
 		}
+/forkv/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FORKV
+		}
 /\->/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

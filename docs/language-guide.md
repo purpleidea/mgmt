@@ -109,6 +109,15 @@ expression
 	}
 	```
 
+- **forkv**: loop over a map with a body of statements
+
+	```mcl
+	$map = {0 => "a", 1 => "b", 2 => "c",}
+	forkv $key, $val in $map {
+		# some statements go here
+	}
+	```
+
 - **resource**: produces a resource
 
 	```mcl

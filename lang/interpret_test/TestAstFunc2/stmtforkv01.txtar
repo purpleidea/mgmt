@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+forkv $key, $val in $map {
+	$s = $val # our first major bug was triggered by this!
+	test [$s,] {}
+}
+
+# The buggy version would return "test[a]" three times!
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[b]
+Vertex: test[c]

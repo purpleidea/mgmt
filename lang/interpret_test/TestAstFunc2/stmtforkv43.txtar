@@ -1,0 +1,22 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+#import "thing.mcl"	# works
+
+forkv $key, $val in $map {
+	# The semantics are that only one copy of an import is needed... Not one per iteration.
+	# XXX: Error: could not find `inside` in env for ExprIterated
+	# XXX: We don't want this to be an error, but it is for now.
+	import "thing.mcl"	# XXX: doesn't work :(
+
+	$x = 42 + $thing.inside
+
+	$s = fmt.printf("%s is %d = %d", $val, $key, $x)
+	test [$s,] {}
+}
+-- thing.mcl --
+$inside = 13
+-- OUTPUT --
+# err: errInit: a StmtImport can't be contained inside a StmtForKV

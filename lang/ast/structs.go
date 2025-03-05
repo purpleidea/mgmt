@@ -3505,6 +3505,509 @@ func (obj *StmtFor) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 	}, nil
 }
 
+// StmtForKV represents an iteration over a map. The body contains statements.
+type StmtForKV struct {
+	Textarea
+	data  *interfaces.Data
+	scope *interfaces.Scope // store for referencing this later
+
+	Key string // no $ prefix
+	Val string // no $ prefix
+
+	TypeKey *types.Type
+	TypeVal *types.Type
+
+	keyParam *ExprParam
+	valParam *ExprParam
+
+	Expr    interfaces.Expr
+	exprPtr interfaces.Func // ptr for table lookup
+	Body    interfaces.Stmt // optional, but usually present
+
+	iterBody map[types.Value]interfaces.Stmt
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtForKV) String() string {
+	// TODO: improve/change this if needed
+	s := fmt.Sprintf("forkv($%s, $%s)", obj.Key, obj.Val)
+	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	if obj.Body != nil {
+		s += fmt.Sprintf(" { %s }", obj.Body.String())
+	}
+	return s
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtForKV) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Expr.Apply(fn); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtForKV) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
+	obj.iterBody = make(map[types.Value]interfaces.Stmt)
+
+	if err := obj.Expr.Init(data); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Init(data); err != nil {
+			return err
+		}
+	}
+	// XXX: remove this check if we can!
+	for _, stmt := range obj.Body.(*StmtProg).Body {
+		if _, ok := stmt.(*StmtImport); !ok {
+			continue
+		}
+		return fmt.Errorf("a StmtImport can't be contained inside a StmtForKV")
+	}
+	return nil
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtForKV) Interpolate() (interfaces.Stmt, error) {
+	expr, err := obj.Expr.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Expr")
+	}
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Interpolate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not interpolate Body")
+		}
+	}
+	return &StmtForKV{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Key: obj.Key,
+		Val: obj.Val,
+
+		TypeKey: obj.TypeKey,
+		TypeVal: obj.TypeVal,
+
+		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
+		valParam: obj.valParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
+	copied := false
+	expr, err := obj.Expr.Copy()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy Expr")
+	}
+	if expr != obj.Expr { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Copy()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy Body")
+		}
+		if body != obj.Body {
+			copied = true
+		}
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtForKV{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Key: obj.Key,
+		Val: obj.Val,
+
+		TypeKey: obj.TypeKey,
+		TypeVal: obj.TypeVal,
+
+		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
+		valParam: obj.valParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtForKV) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraints: We know the condition has to be satisfied
+	// before this for statement itself can be used, since we depend on that
+	// value.
+	edge := &pgraph.SimpleEdge{Name: "stmtforkvexpr1"}
+	graph.AddEdge(obj.Expr, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Expr.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "stmtforkvexpr2"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	if obj.Body == nil { // return early
+		return graph, cons, nil
+	}
+
+	// additional constraints...
+	edge1 := &pgraph.SimpleEdge{Name: "stmtforkvbodyexpr"}
+	graph.AddEdge(obj.Expr, obj.Body, edge1) // prod -> cons
+	edge2 := &pgraph.SimpleEdge{Name: "stmtforkvbody1"}
+	graph.AddEdge(obj.Body, obj, edge2) // prod -> cons
+
+	nodes := []interfaces.Stmt{obj.Body} // XXX: are there more to add?
+
+	for _, node := range nodes { // "dry"
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtforkvbody2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope // store for later
+
+	if err := obj.Expr.SetScope(scope, map[string]interfaces.Expr{}); err != nil { // XXX: empty sctx?
+		return err
+	}
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
+
+	// We need to build the two ExprParam's here, and those will contain the
+	// type unification variables, so we might as well populate those parts
+	// now, rather than waiting for the subsequent TypeCheck step.
+
+	typExprKey := obj.TypeKey
+	if obj.TypeKey == nil {
+		typExprKey = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.keyParam = newExprParam(
+		obj.Key,
+		typExprKey,
+	)
+
+	typExprVal := obj.TypeVal
+	if obj.TypeVal == nil {
+		typExprVal = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.valParam = newExprParam(
+		obj.Val,
+		typExprVal,
+	)
+
+	newScope := scope.Copy()
+	newScope.Iterated = true // important!
+	newScope.Variables[obj.Key] = obj.keyParam
+	newScope.Variables[obj.Val] = obj.valParam
+
+	return obj.Body.SetScope(newScope)
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtForKV) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Expr.Check here!
+	typ, invariants, err := obj.Expr.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	// The type unification variables get created in SetScope! (If needed!)
+	typExprKey := obj.keyParam.typ
+	typExprVal := obj.valParam.typ
+
+	typExpr := &types.Type{
+		Kind: types.KindMap,
+		Key:  typExprKey,
+		Val:  typExprVal,
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.Expr,
+		Expect: typExpr, // the map
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	// The following two invariants are needed to ensure the ExprParam's are
+	// added to the unification solver so that we actually benefit from that
+	// relationship and solution!
+	invarKey := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.keyParam,
+		Expect: typExprKey, // the map key type
+		Actual: typExprKey, // not necessarily an int!
+	}
+	invariants = append(invariants, invarKey)
+
+	invarVal := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.valParam,
+		Expect: typExprVal, // the map val type
+		Actual: typExprVal,
+	}
+	invariants = append(invariants, invarVal)
+
+	if obj.Body != nil {
+		invars, err := obj.Body.TypeCheck()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular for statement has lots of complex magic to
+// make it all work.
+func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("forkv")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Expr.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.exprPtr = f
+
+	if obj.Body == nil { // no loop body, we're done early
+		return graph, nil
+	}
+
+	mutex := &sync.Mutex{}
+
+	// This gets called once per iteration, each time the map changes.
+	setOnIterBody := func(innerTxn interfaces.Txn, ptr types.Value, key, val interfaces.Func) error {
+		// Extend the environment with the two loop variables.
+		extendedEnv := env.Copy()
+
+		// calling convention
+		extendedEnv.Variables[obj.keyParam.envKey] = &interfaces.FuncSingleton{
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := key
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// XXX: create the function in ForKVFunc instead?
+		extendedEnv.Variables[obj.valParam.envKey] = &interfaces.FuncSingleton{ // XXX: We could set this one statically
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := val
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// NOTE: We previously considered doing a "copy singletons" here
+		// instead, but decided we didn't need it after all.
+		body, err := obj.Body.Copy()
+		if err != nil {
+			return err
+		}
+
+		mutex.Lock()
+		obj.iterBody[ptr] = body
+		// XXX: Do we fake our map by giving each key an index too?
+		// NOTE: We can't do append since the key might not be an int.
+		//obj.iterBody = append(obj.iterBody, body) // not possible
+		mutex.Unlock()
+
+		// Create a subgraph from the lambda's body, instantiating the
+		// lambda's parameters with the args and the other variables
+		// with the nodes in the captured environment.
+		subgraph, err := body.Graph(extendedEnv)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+		}
+
+		innerTxn.AddGraph(subgraph)
+
+		// We don't need an output func because body.Graph is a
+		// statement and it doesn't return an interfaces.Func,
+		// only the expression versions return those!
+		return nil
+	}
+
+	// Add a vertex for the map passing itself.
+	edgeName := structs.ForKVFuncArgNameMap
+	forKVFunc := &structs.ForKVFunc{
+		KeyType: obj.keyParam.typ,
+		ValType: obj.valParam.typ,
+
+		EdgeName: edgeName,
+
+		SetOnIterBody: setOnIterBody,
+		ClearIterBody: func(length int) { // XXX: use length?
+			mutex.Lock()
+			obj.iterBody = map[types.Value]interfaces.Stmt{}
+			mutex.Unlock()
+		},
+	}
+	graph.AddVertex(forKVFunc)
+	graph.AddEdge(f, forKVFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+
+	return graph, nil
+}
+
+// Output returns the output that this "program" produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output.
+func (obj *StmtForKV) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.exprPtr == nil {
+		return nil, ErrFuncPointerNil
+	}
+	expr, exists := table[obj.exprPtr]
+	if !exists {
+		return nil, ErrTableNoValue
+	}
+
+	if obj.Body == nil { // logically body is optional
+		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
+	}
+
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+
+	m := expr.Map() // must not panic!
+
+	for key := range m {
+		// key and val are both an mcl types.Value
+		// XXX: Do we need a mutex around this iterBody access?
+		if _, exists := obj.iterBody[key]; !exists {
+			// programming error
+			return nil, fmt.Errorf("programming error on key: %s", key)
+		}
+		output, err := obj.iterBody[key].Output(table)
+		if err != nil {
+			return nil, err
+		}
+
+		if output != nil {
+			resources = append(resources, output.Resources...)
+			edges = append(edges, output.Edges...)
+		}
+	}
+
+	return &interfaces.Output{
+		Resources: resources,
+		Edges:     edges,
+	}, nil
+}
+
 // StmtProg represents a list of stmt's. This usually occurs at the top-level of
 // any program, and often within an if stmt. It also contains the logic so that
 // the bind statement's are correctly applied in this scope, and irrespective of
@@ -3799,6 +4302,25 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		//		return nil, nil, fmt.Errorf("missing value name")
 		//	}
 		//	uid2 := varOrderingPrefix + stmt.Value // ordering id
+		//	if n, exists := prod[uid2]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid2, n)
+		//	}
+		//	prod[uid2] = stmt // store
+		//}
+		//if stmt, ok := x.(*StmtForKV); ok {
+		//	if stmt.Key == "" {
+		//		return nil, nil, fmt.Errorf("missing index name")
+		//	}
+		//	uid1 := varOrderingPrefix + stmt.Key // ordering id
+		//	if n, exists := prod[uid1]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid1, n)
+		//	}
+		//	prod[uid1] = stmt // store
+		//
+		//	if stmt.Val == "" {
+		//		return nil, nil, fmt.Errorf("missing val name")
+		//	}
+		//	uid2 := varOrderingPrefix + stmt.Val // ordering id
 		//	if n, exists := prod[uid2]; exists {
 		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid2, n)
 		//	}
@@ -5060,7 +5582,7 @@ func (obj *StmtProg) Output(table map[interfaces.Func]types.Value) (*interfaces.
 func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 	for _, x := range obj.Body {
 		// stmt's allowed: import, bind, func, class
-		// stmt's not-allowed: for, if, include, res, edge
+		// stmt's not-allowed: for, forkv, if, include, res, edge
 		switch x.(type) {
 		case *StmtImport:
 		case *StmtBind:

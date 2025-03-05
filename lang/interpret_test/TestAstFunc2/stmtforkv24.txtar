@@ -1,0 +1,17 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a",}
+
+forkv $key, $val in $map {
+
+	$fn = func() {
+		"hello " + $val
+	}
+
+	$s = $fn()
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello a]

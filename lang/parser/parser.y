@@ -92,7 +92,7 @@ func init() {
 %token OPEN_CURLY CLOSE_CURLY
 %token OPEN_PAREN CLOSE_PAREN
 %token OPEN_BRACK CLOSE_BRACK
-%token IF ELSE FOR
+%token IF ELSE FOR FORKV
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
@@ -225,6 +225,18 @@ stmt:
 			Value: $4.str, // no $ prefix
 			Expr:  $6.expr, // XXX: name this List ?
 			Body:  $8.stmt,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+	// iterate over maps
+	// `forkv $key, $val in $map { <body> }`
+|	FORKV var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+	{
+		$$.stmt = &ast.StmtForKV{
+			Key:  $2.str, // no $ prefix
+			Val:  $4.str, // no $ prefix
+			Expr: $6.expr, // XXX: name this Map ?
+			Body: $8.stmt,
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}

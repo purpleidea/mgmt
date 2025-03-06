@@ -10484,6 +10484,13 @@ func (obj *ExprVar) SetType(typ *types.Type) error {
 func (obj *ExprVar) Type() (*types.Type, error) {
 	// TODO: should this look more like Type() in ExprCall or vice-versa?
 
+	if obj.scope == nil { // avoid a possible nil panic if we speculate here
+		if obj.typ == nil {
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		}
+		return obj.typ, nil
+	}
+
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
 	expr, exists := obj.scope.Variables[obj.Name]
@@ -10602,6 +10609,10 @@ func (obj *ExprVar) SetValue(value types.Value) error {
 // it can lookup in the previous set scope which expression this points to, and
 // then it can call Value on that expression.
 func (obj *ExprVar) Value() (types.Value, error) {
+	if obj.scope == nil { // avoid a possible nil panic if we speculate here
+		return nil, errwrap.Wrapf(interfaces.ErrValueCurrentlyUnknown, obj.String())
+	}
+
 	expr, exists := obj.scope.Variables[obj.Name]
 	if !exists {
 		return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)

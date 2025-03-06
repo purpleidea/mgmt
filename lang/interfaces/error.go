@@ -36,7 +36,15 @@ import (
 const (
 	// ErrTypeCurrentlyUnknown is returned from the Type() call on Expr if
 	// unification didn't run successfully and the type isn't obvious yet.
+	// Note that it is perfectly legal to return any error, but this one can
+	// be used instead of inventing your own.
 	ErrTypeCurrentlyUnknown = util.Error("type is currently unknown")
+
+	// ErrValueCurrentlyUnknown is returned from the Value() call on Expr if
+	// we're speculating and we don't know a value statically. Note that it
+	// is perfectly legal to return any error, but this one can be used
+	// instead of inventing your own.
+	ErrValueCurrentlyUnknown = util.Error("value is currently unknown")
 
 	// ErrExpectedFileMissing is returned when a file that is used by an
 	// import is missing. This might signal the downloader, or it might

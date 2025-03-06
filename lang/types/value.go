@@ -50,6 +50,12 @@ var (
 	// ErrInvalidValue is returned when ValueOf() is called on an invalid or
 	// zero reflect.Value.
 	ErrInvalidValue = errors.New("cannot represent invalid reflect.Value")
+
+	// ValueFalse is a false value in our system. Can be used where needed.
+	ValueFalse, _ = ValueOfGolang(false)
+
+	// ValueTrue is a true value in our system. Can be used where needed.
+	ValueTrue, _ = ValueOfGolang(true)
 )
 
 // Value represents an interface to get values out of each type. It is similar

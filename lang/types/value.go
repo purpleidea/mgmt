@@ -927,6 +927,11 @@ func (obj *ListValue) List() []Value {
 	return obj.V
 }
 
+// Len returns the number of elements in this list.
+func (obj *ListValue) Len() int {
+	return len(obj.V)
+}
+
 // Add adds an element to this list. It errors if the type does not match.
 func (obj *ListValue) Add(v Value) error {
 	if obj.T.Val.Kind != KindVariant { // skip cmp if dest is a variant
@@ -1057,6 +1062,11 @@ func (obj *MapValue) Value() interface{} {
 // is not a map, then this panics.
 func (obj *MapValue) Map() map[Value]Value {
 	return obj.V
+}
+
+// Len returns the number of elements in this map.
+func (obj *MapValue) Len() int {
+	return len(obj.V)
 }
 
 // Add adds an element to this map. It errors if the types do not match.

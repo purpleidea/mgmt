@@ -5017,7 +5017,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// If we don't do this deterministically the type unification errors can
 	// flip from `type error: int != str` to `type error: str != int` etc...
 	nodeOrder, err := orderingGraph.DeterministicTopologicalSort() // sorted!
-
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {
@@ -5025,6 +5024,12 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			//obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
 		return errwrap.Wrapf(err, "recursive reference while setting scope")
+	}
+	if obj.data.Debug { // XXX: catch ordering errors in the logs
+		obj.data.Logf("nodeOrder:")
+		for i, x := range nodeOrder {
+			obj.data.Logf("nodeOrder[%d]: %+v", i, x)
+		}
 	}
 
 	// XXX: implement ValidTopoSortOrder!

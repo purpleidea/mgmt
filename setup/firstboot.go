@@ -158,7 +158,7 @@ func (obj *Firstboot) Run(ctx context.Context) error {
 	}
 
 	if obj.SetupFirstbootArgs.Start {
-		cmdArgs := []string{"start", "mgmt-firsboot.service"}
+		cmdArgs := []string{"start", "mgmt-firstboot.service"}
 		if err := util.SimpleCmd(ctx, cmdNameSystemctl, cmdArgs, opts); err != nil {
 			return err
 		}

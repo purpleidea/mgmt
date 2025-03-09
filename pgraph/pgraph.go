@@ -707,8 +707,13 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
-		// This doesn't need to loop in a deterministically sorted order.
+
+		var vertices []Vertex
 		for n := range g.adjacency[v] { // map[Vertex]Edge
+			vertices = append(vertices, n)
+		}
+		sort.Sort(VertexSlice(vertices)) // add determinism
+		for _, n := range vertices {     // map[Vertex]Edge
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {

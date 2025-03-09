@@ -244,44 +244,70 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failSetScope := false
 			failUnify := false
 			failGraph := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
 				t.Logf("errStr has length %d", len(errStr))
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -367,7 +393,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -423,7 +449,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -453,7 +479,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -492,7 +518,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -515,7 +541,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -748,9 +774,11 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failInterpolate := false
@@ -761,54 +789,82 @@ func TestAstFunc2(t *testing.T) {
 			failInterpret := false
 			failAutoEdge := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicInterpolate) {
+					errMagic = magicInterpolate
 					errStr = strings.TrimPrefix(expstr, magicInterpolate)
 					expstr = errStr
 					failInterpolate = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
 				if strings.HasPrefix(expstr, magicErrorStream) {
+					errMagic = magicErrorStream
 					errStr = strings.TrimPrefix(expstr, magicErrorStream)
 					expstr = errStr
 					failStream = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInterpret) {
+					errMagic = magicErrorInterpret
 					errStr = strings.TrimPrefix(expstr, magicErrorInterpret)
 					expstr = errStr
 					failInterpret = true
 				}
 				if strings.HasPrefix(expstr, magicErrorAutoEdge) {
+					errMagic = magicErrorAutoEdge
 					errStr = strings.TrimPrefix(expstr, magicErrorAutoEdge)
 					expstr = errStr
 					failAutoEdge = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -917,7 +973,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -973,7 +1029,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -995,7 +1051,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInterpolate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1018,7 +1074,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1082,7 +1138,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1131,7 +1187,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1305,7 +1361,7 @@ func TestAstFunc2(t *testing.T) {
 							t.Logf("test #%d: stream errored: %+v", index, err)
 							// Stream errors often have pointers in them, so don't compare for now.
 							//s := err.Error() // convert to string
-							//if s != expstr {
+							//if !foundErr(s) {
 							//	t.Errorf("test #%d: FAIL", index)
 							//	t.Errorf("test #%d: expected different error", index)
 							//	t.Logf("test #%d: err: %s", index, s)
@@ -1353,7 +1409,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInterpret && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1376,7 +1432,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failAutoEdge && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1598,9 +1654,11 @@ func TestAstFunc3(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failInterpolate := false
@@ -1611,54 +1669,82 @@ func TestAstFunc3(t *testing.T) {
 			failAutoEdge := false
 			failValidate := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicInterpolate) {
+					errMagic = magicInterpolate
 					errStr = strings.TrimPrefix(expstr, magicInterpolate)
 					expstr = errStr
 					failInterpolate = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInterpret) {
+					errMagic = magicErrorInterpret
 					errStr = strings.TrimPrefix(expstr, magicErrorInterpret)
 					expstr = errStr
 					failInterpret = true
 				}
 				if strings.HasPrefix(expstr, magicErrorAutoEdge) {
+					errMagic = magicErrorAutoEdge
 					errStr = strings.TrimPrefix(expstr, magicErrorAutoEdge)
 					expstr = errStr
 					failAutoEdge = true
 				}
 				if strings.HasPrefix(expstr, magicErrorValidate) {
+					errMagic = magicErrorValidate
 					errStr = strings.TrimPrefix(expstr, magicErrorValidate)
 					expstr = errStr
 					failValidate = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -1767,7 +1853,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1823,7 +1909,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1845,7 +1931,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInterpolate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1868,7 +1954,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1932,7 +2018,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1960,7 +2046,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2162,7 +2248,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInterpret && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2186,7 +2272,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failAutoEdge && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2273,7 +2359,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failValidate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)

@@ -11,3 +11,4 @@ test "test2" {
 }
 -- OUTPUT --
 # err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: str != int
+# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: int != str

@@ -144,9 +144,9 @@ type Config struct {
 	// this many seconds. Use 0 to disable this.
 	MaxRuntime uint `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
 
-	// Seeds are the list of default etc client endpoints. If empty, it will
-	// startup a new server.
-	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etc client endpoint"`
+	// Seeds are the list of default etcd client endpoints. If empty, it
+	// will startup a new server.
+	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 
 	// ClientURLs are a list of URLs to listen on for client traffic. Ports
 	// 2379 and 4001 are common.

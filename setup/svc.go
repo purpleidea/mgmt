@@ -88,6 +88,7 @@ func (obj *Svc) Validate() error {
 // Run performs the desired actions. This templates and installs a systemd
 // service and enables and starts it if so desired.
 func (obj *Svc) Run(ctx context.Context) error {
+	once := false
 	cmdNameSystemctl := "/usr/bin/systemctl"
 	opts := &util.SimpleCmdOpts{
 		Debug: obj.Debug,
@@ -140,6 +141,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 			return err
 		}
 		obj.Logf("wrote file to: %s", unitPath)
+		once = true
 	}
 
 	if obj.SetupSvcArgs.Start {
@@ -147,6 +149,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 		if err := util.SimpleCmd(ctx, cmdNameSystemctl, cmdArgs, opts); err != nil {
 			return err
 		}
+		once = true
 	}
 
 	if obj.SetupSvcArgs.Enable {
@@ -154,7 +157,11 @@ func (obj *Svc) Run(ctx context.Context) error {
 		if err := util.SimpleCmd(ctx, cmdNameSystemctl, cmdArgs, opts); err != nil {
 			return err
 		}
+		once = true
 	}
 
+	if !once {
+		return fmt.Errorf("nothing done")
+	}
 	return nil
 }

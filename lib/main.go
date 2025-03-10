@@ -1024,6 +1024,12 @@ func (obj *Main) Run() error {
 		defer wg.Done()
 		defer close(deployChan) // no more are coming ever!
 
+		// if "empty" and we don't want to wait for a fresh deploy...
+		if obj.Deploy != nil && max != 0 {
+			if emptyGAPI, ok := obj.Deploy.GAPI.(*empty.GAPI); ok && !emptyGAPI.Wait {
+				obj.Deploy = nil // erase the empty deploy
+			}
+		}
 		// we've been asked to deploy, so do that first...
 		if obj.Deploy != nil {
 			deploy := obj.Deploy

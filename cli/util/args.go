@@ -70,7 +70,9 @@ func LookupSubcommand(obj interface{}, st interface{}) string {
 }
 
 // EmptyArgs is the empty CLI parsing structure and type of the parsed result.
-type EmptyArgs struct{}
+type EmptyArgs struct {
+	Wait bool `arg:"--wait" help:"don't use any existing (stale) deploys"`
+}
 
 // LangArgs is the lang CLI parsing structure and type of the parsed result.
 type LangArgs struct {

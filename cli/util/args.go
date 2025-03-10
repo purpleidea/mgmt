@@ -163,10 +163,13 @@ type SetupPkgArgs struct {
 // SetupSvcArgs is the setup service CLI parsing structure and type of the
 // parsed result.
 type SetupSvcArgs struct {
-	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
-	Install    bool   `arg:"--install" help:"install the systemd mgmt service"`
-	Start      bool   `arg:"--start" help:"start the mgmt service"`
-	Enable     bool   `arg:"--enable" help:"enable the mgmt service"`
+	BinaryPath string   `arg:"--binary-path" help:"path to the binary"`
+	Seeds      []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
+	NoServer   bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
+
+	Install bool `arg:"--install" help:"install the systemd mgmt service"`
+	Start   bool `arg:"--start" help:"start the mgmt service"`
+	Enable  bool `arg:"--enable" help:"enable the mgmt service"`
 }
 
 // SetupFirstbootArgs is the setup service CLI parsing structure and type of the

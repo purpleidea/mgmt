@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/util"
@@ -93,16 +94,38 @@ func (obj *Svc) Run(ctx context.Context) error {
 		Logf:  obj.Logf,
 	}
 
+	if obj.SetupSvcArgs.NoServer && len(obj.SetupSvcArgs.Seeds) == 0 {
+		return fmt.Errorf("--no-server can't be used with zero seeds")
+	}
+
 	if obj.SetupSvcArgs.Install {
 		binaryPath := "/usr/bin/mgmt" // default
 		if s := obj.SetupSvcArgs.BinaryPath; s != "" {
 			binaryPath = s
 		}
 
+		argv := []string{
+			binaryPath,
+			"run", // run command
+		}
+
+		if seeds := obj.SetupSvcArgs.Seeds; len(seeds) > 0 {
+			// TODO: validate each seed?
+			s := fmt.Sprintf("--seeds=%s", strings.Join(seeds, ","))
+			argv = append(argv, s)
+		}
+
+		if obj.SetupSvcArgs.NoServer {
+			argv = append(argv, "--no-server")
+		}
+
+		argv = append(argv, "empty $OPTS")
+		execStart := strings.Join(argv, " ")
+
 		unit := &util.UnitData{
 			Description:   "Mgmt configuration management service",
 			Documentation: "https://github.com/purpleidea/mgmt/",
-			ExecStart:     fmt.Sprintf("%s run empty $OPTS", binaryPath),
+			ExecStart:     execStart,
 			RestartSec:    "5s",
 			Restart:       "always",
 			WantedBy:      []string{"multi-user.target"},

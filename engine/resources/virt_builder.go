@@ -626,7 +626,7 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 	}
 
 	if len(obj.SSHKeys) != len(res.SSHKeys) {
-		return fmt.Errorf("the number of Packages differs")
+		return fmt.Errorf("the number of SSHKeys differs")
 	}
 	for i, x := range obj.SSHKeys {
 		if err := res.SSHKeys[i].Cmp(x); err != nil {

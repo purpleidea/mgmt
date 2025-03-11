@@ -1,0 +1,24 @@
+import "os"
+import "deploy"
+
+class unattended_upgrades {
+  pkg "unattended-upgrades" {
+	state => "installed",
+	allowunsupported => os.is_family_debian() ?: true,
+  }
+  pkg "apt-listchanges" {
+	state => "installed",
+	allowunsupported => os.is_family_debian() ?: true,
+  }
+
+  file "/etc/apt/apt.conf.d/20auto-upgrades" {
+    state => $const.res.file.state.exists,
+	content => deploy.readfile("/files/20auto-upgrades"),
+  }
+  file "/etc/apt/apt.conf.d/50unattended-upgrades" {
+    state => $const.res.file.state.exists,
+	content => deploy.readfile("/files/50unattended-upgrades"),
+  }
+}
+
+include unattended_upgrades()

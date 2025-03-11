@@ -1,0 +1,47 @@
+# Module Description
+#
+# This module allows the user to define the package sources for the `apt` package manager used by debian.
+#
+# The format and possible contents of SourcesList files are best described in the Debian Wiki
+# https://wiki.debian.org/SourcesList
+#
+# The specific repositories (package sources) configured on your machine affect:
+#
+#   What software packages are available for download
+#   What versions of packages are available
+#   Who packages the software
+#
+# To define sources you can pass a list of structs with the following keys to the template:
+# { "distribution" => "bookworm", "url" => "https://site.example.com/debian", "components" => "component1 component2 component3", }
+#
+# The template will then render each struct into a line in the file:
+# deb https://site.example.com/debian bookworm component1 component2 component3
+
+import "os"
+import "fmt"
+import "deploy"
+import "golang"
+
+class lists {
+	if os.is_family_debian() {
+		$default_components = "main non-free-firmware"
+
+		# TODO: Somehow this encloses the shell output in quotation marks, messing up the template
+		# $distribution = os.system("lsb_release --short --codename")
+		$distribution = "bookworm"
+
+		$source_default = { "distribution" => $distribution, "url" => "https://deb.debian.org/debian", "components" => $default_components, }
+		$source_default_updates = { "distribution" => $distribution + "-updates", "url" => "https://deb.debian.org/debian", "components" => $default_components, }
+		$source_security = { "distribution" => $distribution + "-security", "url" => "https://security.debian.org/debian-security", "components" => $default_components, }
+
+		$data = struct{
+		  sources => [$source_default, $source_default_updates, $source_security,],
+		}
+		file "/etc/apt/sources.list" {
+		  state => $const.res.file.state.exists,
+		  content => golang.template(deploy.readfile("/files/sources.list.tmpl"), $data),
+		}
+	}
+}
+
+include lists()

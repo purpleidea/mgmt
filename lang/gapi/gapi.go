@@ -488,6 +488,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Name: Name,
 		Noop: info.Flags.Noop,
 		Sema: info.Flags.Sema,
+
+		NoAutoEdges: info.Flags.NoAutoEdges,
+
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			Data: &lang.Data{

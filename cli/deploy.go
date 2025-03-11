@@ -58,6 +58,8 @@ type DeployArgs struct {
 	NoGit bool     `arg:"--no-git" help:"don't look at git commit id for safe deploys"`
 	Force bool     `arg:"--force" help:"force a new deploy, even if the safety chain would break"`
 
+	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
+
 	DeployEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"deploy empty payload"`
 	DeployLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
 	DeployYaml       *cliUtil.YamlArgs       `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
@@ -250,6 +252,8 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	// redundant
 	deploy.Noop = obj.Noop
 	deploy.Sema = obj.Sema
+
+	deploy.NoAutoEdges = obj.NoAutoEdges
 
 	str, err := deploy.ToB64()
 	if err != nil {

@@ -141,6 +141,8 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 			Noop:     obj.Noop,
 			Sema:     obj.Sema,
 			//Update: obj.Update,
+
+			NoAutoEdges: obj.NoAutoEdges,
 		},
 
 		Fs:    standaloneFs,

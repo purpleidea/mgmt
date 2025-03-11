@@ -51,6 +51,9 @@ type Deploy struct {
 	//Sync bool // wait for everyone to close previous GAPI before switching
 	Noop bool
 	Sema int // sema override
+
+	NoAutoEdges bool
+
 	GAPI GAPI
 }
 

@@ -116,6 +116,9 @@ type Config struct {
 	// TODO: We should consider deprecating this feature.
 	NoDeployWatch bool `arg:"--no-deploy-watch" help:"do not change deploys after an initial deploy"`
 
+	// NoAutoEdges tells the engine to not try and build autoedges.
+	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
+
 	// Noop globally forces all resources into no-op mode.
 	Noop bool `arg:"--noop" help:"globally force all resources into no-op mode"`
 
@@ -834,13 +837,17 @@ func (obj *Main) Run() error {
 
 			// XXX: can we change this into a ge.Apply operation?
 			// add autoedges; modifies the graph only if no error
-			timing = time.Now()
-			if err := obj.ge.AutoEdge(); err != nil {
-				obj.ge.Abort() // delete graph
-				Logf("error running auto edges: %+v", err)
-				continue
+			if mainDeploy.NoAutoEdges {
+				Logf("skipping auto edges...")
+			} else {
+				timing = time.Now()
+				if err := obj.ge.AutoEdge(); err != nil {
+					obj.ge.Abort() // delete graph
+					Logf("error running auto edges: %+v", err)
+					continue
+				}
+				Logf("auto edges took: %s", time.Since(timing))
 			}
-			Logf("auto edges took: %s", time.Since(timing))
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run autogroup; modifies the graph

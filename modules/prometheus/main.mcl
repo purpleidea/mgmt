@@ -151,7 +151,7 @@ class postgresql_base() {
 	# systemd service template file to allow for multiple of these
 	file "/etc/systemd/system/prometheus-postgres-exporter@.service" {
 		state => $const.res.file.state.exists,
-		content => deploy.readfile("/files/prometheus-postgres-exporter.service.tmpl"),
+		content => deploy.readfile("/files/prometheus-postgres-exporter.service"),
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=r",

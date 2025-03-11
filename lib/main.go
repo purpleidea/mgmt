@@ -50,7 +50,9 @@ import (
 	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/chooser"
+	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/etcd/deployer"
+	etcdInterfaces "github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/gapi/empty"
 	"github.com/purpleidea/mgmt/pgp"
@@ -504,77 +506,97 @@ func (obj *Main) Run() error {
 	} else {
 		Logf("seeds(%d): %+v", len(obj.seeds), obj.seeds)
 	}
-	obj.embdEtcd = &etcd.EmbdEtcd{
-		Hostname: hostname,
-		Seeds:    obj.seeds,
+	var client etcdInterfaces.Client
+	if !obj.NoMagic {
+		obj.embdEtcd = &etcd.EmbdEtcd{
+			Hostname: hostname,
+			Seeds:    obj.seeds,
 
-		ClientURLs:  obj.clientURLs,
-		ServerURLs:  obj.serverURLs,
-		AClientURLs: obj.advertiseClientURLs,
-		AServerURLs: obj.advertiseServerURLs,
+			ClientURLs:  obj.clientURLs,
+			ServerURLs:  obj.serverURLs,
+			AClientURLs: obj.advertiseClientURLs,
+			AServerURLs: obj.advertiseServerURLs,
 
-		NoServer:  obj.NoServer,
-		NoNetwork: obj.NoNetwork,
-		NoMagic:   obj.NoMagic,
+			NoServer:  obj.NoServer,
+			NoNetwork: obj.NoNetwork,
+			NoMagic:   obj.NoMagic,
 
-		Chooser: &chooser.DynamicSize{
-			IdealClusterSize: obj.idealClusterSize,
-		},
+			Chooser: &chooser.DynamicSize{
+				IdealClusterSize: obj.idealClusterSize,
+			},
 
-		Converger: converger,
+			Converger: converger,
 
-		NS:     NS, // namespace
-		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "etcd")),
+			NS:     NS, // namespace
+			Prefix: fmt.Sprintf("%s/", path.Join(prefix, "etcd")),
 
-		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
-			obj.Logf("etcd: "+format, v...)
-		},
-	}
-	if err := obj.embdEtcd.Init(); err != nil {
-		return errwrap.Wrapf(err, "etcd init failed")
-	}
-	defer func() {
-		// cleanup etcd main loop last so it can process everything first
-		err := errwrap.Wrapf(obj.embdEtcd.Close(), "etcd close failed")
+			Debug: obj.Debug,
+			Logf: func(format string, v ...interface{}) {
+				obj.Logf("etcd: "+format, v...)
+			},
+		}
+		if err := obj.embdEtcd.Init(); err != nil {
+			return errwrap.Wrapf(err, "etcd init failed")
+		}
+		defer func() {
+			// cleanup etcd main loop last so it can process everything first
+			err := errwrap.Wrapf(obj.embdEtcd.Close(), "etcd close failed")
+			if err != nil {
+				// TODO: cause the final exit code to be non-zero
+				Logf("cleanup error: %+v", err)
+			}
+		}()
+
+		var etcdErr error
+		// don't add a wait group here, this is done in embdEtcd.Destroy()
+		go func() {
+			etcdErr = obj.embdEtcd.Run()                             // returns when it shuts down...
+			obj.exit.Done(errwrap.Wrapf(etcdErr, "etcd run failed")) // trigger exit
+		}()
+		// tell etcd to shutdown, blocks until done!
+		// TODO: handle/report error?
+		defer obj.embdEtcd.Destroy()
+
+		// wait for etcd to be ready before continuing...
+		// TODO: do we need to add a timeout here?
+		select {
+		case <-obj.embdEtcd.Ready():
+			Logf("etcd is ready!")
+			// pass
+
+		case <-obj.embdEtcd.Exited():
+			Logf("etcd was destroyed!")
+			err := fmt.Errorf("etcd was destroyed on startup")
+			if etcdErr != nil {
+				err = etcdErr
+			}
+			return err
+		}
+		// TODO: should getting a client from EmbdEtcd already come with the NS?
+		client, err = obj.embdEtcd.MakeClientFromNamespace(NS)
 		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("cleanup error: %+v", err)
+			return errwrap.Wrapf(err, "make Client failed")
 		}
-	}()
-
-	var etcdErr error
-	// don't add a wait group here, this is done in embdEtcd.Destroy()
-	go func() {
-		etcdErr = obj.embdEtcd.Run()                             // returns when it shuts down...
-		obj.exit.Done(errwrap.Wrapf(etcdErr, "etcd run failed")) // trigger exit
-	}()
-	// tell etcd to shutdown, blocks until done!
-	// TODO: handle/report error?
-	defer obj.embdEtcd.Destroy()
-
-	// wait for etcd to be ready before continuing...
-	// TODO: do we need to add a timeout here?
-	select {
-	case <-obj.embdEtcd.Ready():
-		Logf("etcd is ready!")
-		// pass
-
-	case <-obj.embdEtcd.Exited():
-		Logf("etcd was destroyed!")
-		err := fmt.Errorf("etcd was destroyed on startup")
-		if etcdErr != nil {
-			err = etcdErr
+	} else {
+		c := etcdClient.NewClientFromSeedsNamespace(
+			obj.Seeds, // endpoints
+			NS,
+		)
+		if err := c.Init(); err != nil {
+			return errwrap.Wrapf(err, "client Init failed")
 		}
-		return err
+		defer func() {
+			err := errwrap.Wrapf(c.Close(), "client Close failed")
+			if err != nil {
+				// TODO: cause the final exit code to be non-zero
+				Logf("client cleanup error: %+v", err)
+			}
+		}()
+		client = c
 	}
-	// TODO: should getting a client from EmbdEtcd already come with the NS?
-	etcdClient, err := obj.embdEtcd.MakeClientFromNamespace(NS)
-	if err != nil {
-		return errwrap.Wrapf(err, "make Client failed")
-	}
+
 	simpleDeploy := &deployer.SimpleDeploy{
-		Client: etcdClient,
+		Client: client,
 		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.Logf("deploy: "+format, v...)
@@ -608,7 +630,7 @@ func (obj *Main) Run() error {
 	// an etcd component from the etcd package added in.
 	world := &etcd.World{
 		Hostname:       hostname,
-		Client:         etcdClient,
+		Client:         client,
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys

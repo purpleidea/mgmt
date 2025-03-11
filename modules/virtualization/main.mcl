@@ -97,6 +97,7 @@ class vm($name, $config) {
 	} else { # other distros TODO: add a switch or else if?
 		[]
 	}
+	$seeds = $config->seeds || []
 
 	virt:builder "${filename}" {
 		hostname => $name,
@@ -115,6 +116,7 @@ class vm($name, $config) {
 			},
 		],
 		root_password_selector => $root_password_selector,
+		seeds => $seeds,
 
 		# make sure key exists so that's it's available for injection!
 		Depend => File["/root/.ssh/id_rsa"],

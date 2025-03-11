@@ -33,6 +33,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path"
@@ -146,8 +147,12 @@ type VirtBuilderRes struct {
 	// additional packages to install which are needed to bootstrap mgmt.
 	// This defaults to true.
 	// TODO: This does not yet support multi or cross arch.
-	// FIXME: This doesn't kick off mgmt runs yet.
 	Bootstrap bool `lang:"bootstrap" yaml:"bootstrap"`
+
+	// Seeds is a list of default etcd client endpoints to connect to. If
+	// you specify this, you must also set Bootstrap to true. These should
+	// likely be http URL's like: http://127.0.0.1:2379 or similar.
+	Seeds []string `lang:"seeds" yaml:"seeds"`
 
 	// LogOutput logs the output of running this command to a file in the
 	// special $vardir directory. It defaults to true. Keep in mind that if
@@ -301,6 +306,15 @@ func (obj *VirtBuilderRes) Validate() error {
 
 	for _, x := range obj.SSHKeys {
 		if err := x.Validate(); err != nil {
+			return err
+		}
+	}
+
+	for _, x := range obj.Seeds {
+		if x == "" {
+			return fmt.Errorf("empty seed")
+		}
+		if _, err := url.Parse(x); err != nil { // it's so rare this fails
 			return err
 		}
 	}
@@ -501,8 +515,24 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 
 		// TODO: bootstrap mgmt based on the deploy method this ran with
 		// TODO: --tmp-prefix ? --module-path ?
-		//args2 := []string{"--firstboot-command", VirtBuilderBinDir+"mgmt", "run", "lang", "?"}
-		//cmdArgs = append(cmdArgs, args2...)
+		// TODO: add an alternate handoff method to run a bolus of code?
+		if len(obj.Seeds) > 0 {
+			m := filepath.Join(VirtBuilderBinDir, filepath.Base(p)) // mgmt full path
+			setupSvc := []string{
+				m,       // mgmt
+				"setup", // setup command
+				"svc",   // TODO: pull from a const?
+				"--install",
+				//"--start", // we're in pre-boot env right now
+				"--enable", // start on first boot!
+				fmt.Sprintf("--binary-path=%s", m),
+				"--no-server", // TODO: hardcode this for now
+				fmt.Sprintf("--seeds=%s", strings.Join(obj.Seeds, ",")),
+			}
+			setupSvcCmd := strings.Join(setupSvc, " ")
+			args := []string{"--run-command", setupSvcCmd} // cmd must be a single string
+			cmdArgs = append(cmdArgs, args...)
+		}
 	}
 
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
@@ -642,6 +672,15 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 	}
 	if obj.Bootstrap != res.Bootstrap {
 		return fmt.Errorf("the Bootstrap value differs")
+	}
+
+	if len(obj.Seeds) != len(res.Seeds) {
+		return fmt.Errorf("the number of Seeds differs")
+	}
+	for i, x := range obj.Seeds {
+		if seed := res.Seeds[i]; x != seed {
+			return fmt.Errorf("the seed at index %d differs", i)
+		}
 	}
 
 	if obj.LogOutput != res.LogOutput {

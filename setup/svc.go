@@ -118,6 +118,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 
 		if obj.SetupSvcArgs.NoServer {
 			argv = append(argv, "--no-server")
+			argv = append(argv, "--no-magic") // XXX: fix this workaround
 		}
 
 		argv = append(argv, "empty $OPTS")

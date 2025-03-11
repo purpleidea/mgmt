@@ -179,6 +179,10 @@ type Config struct {
 	// clustering or opening tcp ports to the outside.
 	NoNetwork bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
 
+	// NoMagic turns off some things which aren't needed when used with a
+	// simple Seeds and NoServer option.
+	NoMagic bool `arg:"--no-magic" help:"do not do any etcd magic (for simple clients)"`
+
 	// NoPgp disables pgp functionality.
 	NoPgp bool `arg:"--no-pgp" help:"don't create pgp keys"`
 
@@ -511,6 +515,7 @@ func (obj *Main) Run() error {
 
 		NoServer:  obj.NoServer,
 		NoNetwork: obj.NoNetwork,
+		NoMagic:   obj.NoMagic,
 
 		Chooser: &chooser.DynamicSize{
 			IdealClusterSize: obj.idealClusterSize,

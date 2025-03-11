@@ -1,4 +1,5 @@
-/etc/systemd/system/prometheus-postgres-exporter@.service
+# /etc/systemd/system/prometheus-postgres-exporter@.service
+
 [Unit]
 Description=Prometheus exporter for PostgreSQL on port %i
 Documentation=https://github.com/prometheus-community/postgres_exporter

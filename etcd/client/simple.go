@@ -462,6 +462,9 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 					select { // send the error
 					case eventsChan <- data:
 					case <-ctx.Done():
+						if count > 0 { // XXX: hack
+							wg.Done()
+						}
 						return
 					}
 					continue // channel should close shortly
@@ -481,6 +484,9 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 			select { // send the event
 			case eventsChan <- data:
 			case <-ctx.Done():
+				if count > 0 { // XXX: hack
+					wg.Done()
+				}
 				return
 			}
 		}

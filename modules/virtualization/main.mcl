@@ -99,6 +99,11 @@ class vm($name, $config) {
 	}
 	$seeds = $config->seeds || []
 
+	$mkdir = $config->mkdir || []
+	$copy_in = $config->copy_in || []
+	$run_cmd = $config->run_cmd || []
+	$firstboot_cmd = $config->firstboot_cmd || []
+
 	virt:builder "${filename}" {
 		hostname => $name,
 		os_version => "${distro}-${version}",
@@ -117,6 +122,11 @@ class vm($name, $config) {
 		],
 		root_password_selector => $root_password_selector,
 		seeds => $seeds,
+
+		mkdir => $mkdir,
+		copy_in => $copy_in,
+		run_cmd => $run_cmd,
+		firstboot_cmd => $firstboot_cmd,
 
 		# make sure key exists so that's it's available for injection!
 		Depend => File["/root/.ssh/id_rsa"],

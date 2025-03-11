@@ -154,6 +154,32 @@ type VirtBuilderRes struct {
 	// likely be http URL's like: http://127.0.0.1:2379 or similar.
 	Seeds []string `lang:"seeds" yaml:"seeds"`
 
+	// Mkdir creates these directories in the guests. This happens before
+	// CopyIn runs. Directories must be absolute and end with a slash. Any
+	// intermediate directories are created, similar to how `mkdir -p`
+	// works.
+	Mkdir []string `lang:"mkdir" yaml:"mkdir"`
+
+	// CopyIn is a list of local paths to copy into the machine dest. The
+	// dest directory must exist for this to work. Use Mkdir if you need to
+	// make a directory, since that step happens earlier. All paths must be
+	// absolute, and directories must end with a slash. This happens before
+	// the RunCmd stage in case you want to create something to be used
+	// there.
+	CopyIn []*CopyIn `lang:"copy_in" yaml:"copy_in"`
+
+	// RunCmd is a sequence of commands + args (one set per list item) to
+	// run in the build environment. These happen after the CopyIn stage.
+	RunCmd []string `lang:"run_cmd" yaml:"run_cmd"`
+
+	// FirstbootCmd is a sequence of commands + args (one set per list item)
+	// to run once on first boot.
+	// TODO: Consider replacing this with the mgmt firstboot mechanism for
+	// consistency between this platform and other platforms that might not
+	// support the excellent libguestfs version of those scripts. (Make the
+	// logs look more homogeneous.)
+	FirstbootCmd []string `lang:"firstboot_cmd" yaml:"firstboot_cmd"`
+
 	// LogOutput logs the output of running this command to a file in the
 	// special $vardir directory. It defaults to true. Keep in mind that if
 	// you let virt-builder choose the password randomly, it will be output
@@ -316,6 +342,33 @@ func (obj *VirtBuilderRes) Validate() error {
 		}
 		if _, err := url.Parse(x); err != nil { // it's so rare this fails
 			return err
+		}
+	}
+
+	for _, x := range obj.Mkdir {
+		if x == "" {
+			return fmt.Errorf("empty Mkdir entry")
+		}
+		if !strings.HasPrefix(x, "/") {
+			return fmt.Errorf("the Mkdir entry must be absolute")
+		}
+		if !strings.HasSuffix(x, "/") {
+			return fmt.Errorf("the Mkdir entry must be a directory")
+		}
+	}
+	for _, x := range obj.CopyIn {
+		if err := x.Validate(); err != nil {
+			return err
+		}
+	}
+	for _, x := range obj.RunCmd {
+		if x == "" {
+			return fmt.Errorf("empty RunCmd entry")
+		}
+	}
+	for _, x := range obj.FirstbootCmd {
+		if x == "" {
+			return fmt.Errorf("empty FirstbootCmd entry")
 		}
 	}
 
@@ -535,6 +588,23 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		}
 	}
 
+	for _, x := range obj.Mkdir {
+		args := []string{"--mkdir", x}
+		cmdArgs = append(cmdArgs, args...)
+	}
+	for _, x := range obj.CopyIn {
+		args := []string{"--copy-in", x.Path + ":" + x.Dest} // LOCALPATH:REMOTEDIR
+		cmdArgs = append(cmdArgs, args...)
+	}
+	for _, x := range obj.RunCmd {
+		args := []string{"--run-command", x}
+		cmdArgs = append(cmdArgs, args...)
+	}
+	for _, x := range obj.FirstbootCmd {
+		args := []string{"--firstboot-command", x}
+		cmdArgs = append(cmdArgs, args...)
+	}
+
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 
 	// ignore signals sent to parent process (we're in our own group)
@@ -683,6 +753,39 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 		}
 	}
 
+	if len(obj.Mkdir) != len(res.Mkdir) {
+		return fmt.Errorf("the number of Mkdir entries differs")
+	}
+	for i, x := range obj.Mkdir {
+		if s := res.Mkdir[i]; x != s {
+			return fmt.Errorf("the Mkdir entry at index %d differs", i)
+		}
+	}
+	if len(obj.CopyIn) != len(res.CopyIn) {
+		return fmt.Errorf("the number of CopyIn structs differ")
+	}
+	for i, x := range obj.CopyIn {
+		if err := res.CopyIn[i].Cmp(x); err != nil {
+			return errwrap.Wrapf(err, "the copy in struct at index %d differs", i)
+		}
+	}
+	if len(obj.RunCmd) != len(res.RunCmd) {
+		return fmt.Errorf("the number of RunCmd entries differs")
+	}
+	for i, x := range obj.RunCmd {
+		if s := res.RunCmd[i]; x != s {
+			return fmt.Errorf("the RunCmd entry at index %d differs", i)
+		}
+	}
+	if len(obj.FirstbootCmd) != len(res.FirstbootCmd) {
+		return fmt.Errorf("the number of FirstbootCmd entries differs")
+	}
+	for i, x := range obj.FirstbootCmd {
+		if s := res.FirstbootCmd[i]; x != s {
+			return fmt.Errorf("the FirstbootCmd entry at index %d differs", i)
+		}
+	}
+
 	if obj.LogOutput != res.LogOutput {
 		return fmt.Errorf("the LogOutput value differs")
 	}
@@ -817,6 +920,61 @@ func (obj *SSHKeyInfo) Cmp(x *SSHKeyInfo) error {
 	}
 	if obj.Comment != x.Comment {
 		return fmt.Errorf("the Comment differs")
+	}
+
+	return nil
+}
+
+// CopyIn is a list of local paths to copy into the machine dest.
+type CopyIn struct {
+	// Path is the local file or directory that we want to copy in.
+	// TODO: Add autoedges
+	Path string `lang:"path" yaml:"path"`
+
+	// Dest is the destination dir that the path gets copied into. This
+	// directory must exist.
+	Dest string `lang:"dest" yaml:"dest"`
+}
+
+// Validate reports any problems with the struct definition.
+func (obj *CopyIn) Validate() error {
+	if obj == nil {
+		return fmt.Errorf("nil obj")
+	}
+	if obj.Path == "" {
+		return fmt.Errorf("empty Path")
+	}
+	if !strings.HasPrefix(obj.Path, "/") {
+		return fmt.Errorf("the Path must be absolute")
+	}
+	if obj.Dest == "" {
+		return fmt.Errorf("empty Dest")
+	}
+	if !strings.HasPrefix(obj.Dest, "/") {
+		return fmt.Errorf("the Dest must be absolute")
+	}
+	if !strings.HasSuffix(obj.Dest, "/") {
+		return fmt.Errorf("the dest must be a directory")
+	}
+
+	return nil
+}
+
+// Cmp compares two of these and returns an error if they are not equivalent.
+func (obj *CopyIn) Cmp(x *CopyIn) error {
+	//if (obj == nil) != (x == nil) { // xor
+	//	return fmt.Errorf("we differ") // redundant
+	//}
+	if obj == nil || x == nil {
+		// special case since we want to error if either is nil
+		return fmt.Errorf("can't cmp if nil")
+	}
+
+	if obj.Path != x.Path {
+		return fmt.Errorf("the Path differs")
+	}
+	if obj.Dest != x.Dest {
+		return fmt.Errorf("the Dest differs")
 	}
 
 	return nil

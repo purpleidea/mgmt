@@ -37,25 +37,15 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
+	dockerImage "github.com/docker/docker/api/types/image"
+	dockerClient "github.com/docker/docker/client"
 	errwrap "github.com/pkg/errors"
-)
-
-const (
-	// dockerImageInitCtxTimeout is the length of time, in seconds, before
-	// requests are cancelled in Init.
-	dockerImageInitCtxTimeout = 20
-	// dockerImageCheckApplyCtxTimeout is the length of time, in seconds,
-	// before requests are cancelled in CheckApply.
-	dockerImageCheckApplyCtxTimeout = 120
 )
 
 func init() {
@@ -74,9 +64,6 @@ type DockerImageRes struct {
 	// APIVersion allows you to override the host's default client API
 	// version.
 	APIVersion string `lang:"apiversion" yaml:"apiversion"`
-
-	image  string         // full image:tag format
-	client *client.Client // docker api client
 
 	init *engine.Init
 }
@@ -113,43 +100,27 @@ func (obj *DockerImageRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *DockerImageRes) Init(init *engine.Init) error {
-	var err error
 	obj.init = init // save for later
 
-	// Save the full image name and tag.
-	obj.image = dockerImageNameTag(obj.Name())
-
-	ctx, cancel := context.WithTimeout(context.Background(), dockerImageInitCtxTimeout*time.Second)
-	defer cancel()
-
-	// Initialize the docker client.
-	obj.client, err = client.NewClientWithOpts(client.WithVersion(obj.APIVersion))
-	if err != nil {
-		return errwrap.Wrapf(err, "error creating docker client")
-	}
-
-	// Validate the image.
-	resp, err := obj.client.ImageSearch(ctx, obj.image, types.ImageSearchOptions{Limit: 1})
-	if err != nil {
-		return errwrap.Wrapf(err, "error searching for image")
-	}
-	if len(resp) == 0 {
-		return fmt.Errorf("image: %s not found", obj.image)
-	}
 	return nil
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
 func (obj *DockerImageRes) Cleanup() error {
-	return obj.client.Close() // close the docker client
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *DockerImageRes) Watch(ctx context.Context) error {
-	innerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	eventChan, errChan := obj.client.Events(innerCtx, types.EventsOptions{})
+	// Initialize the docker client.
+	client, err := dockerClient.NewClientWithOpts(dockerClient.WithVersion(obj.APIVersion))
+	if err != nil {
+		return errwrap.Wrapf(err, "error creating docker client")
+	}
+	defer client.Close()
+
+	eventChan, errChan := client.Events(ctx, types.EventsOptions{})
 
 	// notify engine that we're running
 	obj.init.Running()
@@ -186,11 +157,28 @@ func (obj *DockerImageRes) Watch(ctx context.Context) error {
 
 // CheckApply method for Docker resource.
 func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK bool, err error) {
-	ctx, cancel := context.WithTimeout(ctx, dockerImageCheckApplyCtxTimeout*time.Second)
-	defer cancel()
 
-	s, err := obj.client.ImageList(ctx, image.ListOptions{
-		Filters: filters.NewArgs(filters.Arg("reference", obj.image)),
+	// Save the full image name and tag.
+	image := dockerImageNameTag(obj.Name())
+
+	// Initialize the docker client.
+	client, err := dockerClient.NewClientWithOpts(dockerClient.WithVersion(obj.APIVersion))
+	if err != nil {
+		return false, errwrap.Wrapf(err, "error creating docker client")
+	}
+	defer client.Close()
+
+	// Validate the image.
+	resp, err := client.ImageSearch(ctx, image, types.ImageSearchOptions{Limit: 1})
+	if err != nil {
+		return false, errwrap.Wrapf(err, "error searching for image")
+	}
+	if len(resp) == 0 {
+		return false, fmt.Errorf("image: %s not found", image)
+	}
+
+	s, err := client.ImageList(ctx, dockerImage.ListOptions{
+		Filters: filters.NewArgs(filters.Arg("reference", image)),
 	})
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error listing images")
@@ -211,15 +199,17 @@ func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK 
 	}
 
 	if obj.State == "absent" {
+		obj.init.Logf("removing...")
 		// TODO: force? prune children?
-		if _, err := obj.client.ImageRemove(ctx, obj.image, image.RemoveOptions{}); err != nil {
+		if _, err := client.ImageRemove(ctx, image, dockerImage.RemoveOptions{}); err != nil {
 			return false, errwrap.Wrapf(err, "error removing image")
 		}
 		return false, nil
 	}
 
 	// pull the image
-	p, err := obj.client.ImagePull(ctx, obj.image, image.PullOptions{})
+	obj.init.Logf("pulling...")
+	p, err := client.ImagePull(ctx, image, dockerImage.PullOptions{})
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error pulling image")
 	}

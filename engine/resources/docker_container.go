@@ -37,7 +37,6 @@ import (
 	"io"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -47,8 +46,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
+	dockerImage "github.com/docker/docker/api/types/image"
+	dockerClient "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -59,13 +58,6 @@ const (
 	ContainerStopped = "stopped"
 	// ContainerRemoved is the removed container state.
 	ContainerRemoved = "removed"
-
-	// initCtxTimeout is the length of time, in seconds, before requests are
-	// cancelled in Init.
-	initCtxTimeout = 20
-	// checkApplyCtxTimeout is the length of time, in seconds, before
-	// requests are cancelled in CheckApply.
-	checkApplyCtxTimeout = 120
 )
 
 func init() {
@@ -100,9 +92,9 @@ type DockerContainerRes struct {
 	// image is incorrect.
 	Force bool `lang:"force" yaml:"force"`
 
-	client *client.Client // docker api client
-
 	init *engine.Init
+
+	client *dockerClient.Client // docker api client
 }
 
 // Default returns some sensible defaults for this resource.
@@ -159,40 +151,27 @@ func (obj *DockerContainerRes) Validate() error {
 
 // Init runs some startup code for this resource.
 func (obj *DockerContainerRes) Init(init *engine.Init) error {
-	var err error
 	obj.init = init // save for later
 
-	ctx, cancel := context.WithTimeout(context.Background(), initCtxTimeout*time.Second)
-	defer cancel()
-
-	// Initialize the docker client.
-	obj.client, err = client.NewClientWithOpts(client.WithVersion(obj.APIVersion))
-	if err != nil {
-		return errwrap.Wrapf(err, "error creating docker client")
-	}
-
-	// Validate the image.
-	resp, err := obj.client.ImageSearch(ctx, obj.Image, types.ImageSearchOptions{Limit: 1})
-	if err != nil {
-		return errwrap.Wrapf(err, "error searching for image")
-	}
-	if len(resp) == 0 {
-		return fmt.Errorf("image: %s not found", obj.Image)
-	}
 	return nil
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
 func (obj *DockerContainerRes) Cleanup() error {
-	return obj.client.Close() // close the docker client
+	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *DockerContainerRes) Watch(ctx context.Context) error {
-	innerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	eventChan, errChan := obj.client.Events(innerCtx, types.EventsOptions{})
+	// Initialize the docker client.
+	client, err := dockerClient.NewClientWithOpts(dockerClient.WithVersion(obj.APIVersion))
+	if err != nil {
+		return errwrap.Wrapf(err, "error creating docker client")
+	}
+	defer client.Close()
+
+	eventChan, errChan := client.Events(ctx, types.EventsOptions{})
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -230,9 +209,23 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	var id string
 	var destroy bool
+	var err error
 
-	ctx, cancel := context.WithTimeout(ctx, checkApplyCtxTimeout*time.Second)
-	defer cancel()
+	// Initialize the docker client.
+	obj.client, err = dockerClient.NewClientWithOpts(dockerClient.WithVersion(obj.APIVersion))
+	if err != nil {
+		return false, errwrap.Wrapf(err, "error creating docker client")
+	}
+	defer obj.client.Close() // close the docker client
+
+	// Validate the image.
+	resp, err := obj.client.ImageSearch(ctx, obj.Image, types.ImageSearchOptions{Limit: 1})
+	if err != nil {
+		return false, errwrap.Wrapf(err, "error searching for image")
+	}
+	if len(resp) == 0 {
+		return false, fmt.Errorf("image: %s not found", obj.Image)
+	}
 
 	// List any container whose name matches this resource.
 	opts := container.ListOptions{
@@ -295,7 +288,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 
 	if len(containerList) == 0 { // no container was found
 		// Download the specified image if it doesn't exist locally.
-		p, err := obj.client.ImagePull(ctx, obj.Image, image.PullOptions{})
+		p, err := obj.client.ImagePull(ctx, obj.Image, dockerImage.PullOptions{})
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error pulling image")
 		}
@@ -340,6 +333,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 
 // containerStart starts the specified container, and waits for it to start.
 func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, opts container.StartOptions) error {
+	obj.init.Logf("starting...")
 	// Get an events channel for the container we're about to start.
 	eventOpts := types.EventsOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "container", Value: id}),
@@ -350,6 +344,7 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 		return errwrap.Wrapf(err, "error starting container")
 	}
 	// Wait for a message on eventChan that says the container has started.
+	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case event := <-eventCh:
 		if event.Status != "start" {
@@ -363,11 +358,13 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 
 // containerStop stops the specified container and waits for it to stop.
 func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, timeout *int) error {
+	obj.init.Logf("stopping...")
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionNotRunning)
 	stopOpts := container.StopOptions{
 		Timeout: timeout,
 	}
 	obj.client.ContainerStop(ctx, id, stopOpts)
+	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:
 	case err := <-errCh:
@@ -379,8 +376,10 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 // containerRemove removes the specified container and waits for it to be
 // removed.
 func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
+	obj.init.Logf("removing...")
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 	obj.client.ContainerRemove(ctx, id, opts)
+	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:
 	case err := <-errCh:

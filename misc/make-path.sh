@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # setup a few environment path values
 
 if ! env | grep -q '^GOPATH='; then

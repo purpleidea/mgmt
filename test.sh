@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash -e
 # runs all (or selected) test suite(s) in test/ and aggregates results
 # Usage:
 #	./test.sh

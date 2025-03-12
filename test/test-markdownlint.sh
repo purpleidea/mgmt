@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check for any markdown files that aren't in an ideal format
 
 echo running "$0 $*"

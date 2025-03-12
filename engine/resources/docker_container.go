@@ -81,7 +81,9 @@ type DockerContainerRes struct {
 	// Env is a list of environment variables. E.g. ["VAR=val",].
 	Env []string `lang:"env" yaml:"env"`
 
-	// Ports is a map of port bindings. E.g. {"tcp" => {80 => 8080},}.
+	// Ports is a map of port bindings. E.g. {"tcp" => {8080 => 80},}. The
+	// key is the host port, and the val is the inner service port to
+	// forward to.
 	Ports map[string]map[int64]int64 `lang:"ports" yaml:"ports"`
 
 	// APIVersion allows you to override the host's default client API
@@ -261,6 +263,8 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 		}
 	}
 
+	// XXX: Check if defined ports matches what we expect.
+
 	if !apply {
 		return false, nil
 	}
@@ -309,15 +313,25 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 			PortBindings: make(map[nat.Port][]nat.PortBinding),
 		}
 
-		for k, v := range obj.Ports {
+		for proto, v := range obj.Ports {
+			// On the outside, on the host, we'd see 8080 which is p
+			// and on the inside, the container would have something
+			// running on 80, which is q.
 			for p, q := range v {
-				containerConfig.ExposedPorts[nat.Port(k)] = struct{}{}
-				hostConfig.PortBindings[nat.Port(fmt.Sprintf("%d/%s", p, k))] = []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: fmt.Sprintf("%d", q),
-					},
+				// Port is a string containing port number and
+				// protocol in the format "80/tcp".
+				port := fmt.Sprintf("%d/%s", q, proto)
+				n := nat.Port(port)
+				containerConfig.ExposedPorts[n] = struct{}{} // PortSet
+
+				pb := nat.PortBinding{
+					HostIP:   "0.0.0.0",
+					HostPort: fmt.Sprintf("%d", p), // eg: 8080
 				}
+				if _, exists := hostConfig.PortBindings[n]; !exists {
+					hostConfig.PortBindings[n] = []nat.PortBinding{}
+				}
+				hostConfig.PortBindings[n] = append(hostConfig.PortBindings[n], pb)
 			}
 		}
 

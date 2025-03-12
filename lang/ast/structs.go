@@ -9768,7 +9768,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				if obj.data.Debug || true { // TODO: leave this on permanently?
 					lambdaScopeFeedback(obj.scope, obj.data.Logf)
 				}
-				return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
+				return fmt.Errorf("lambda `$%s` does not exist in this scope", prefixedName)
 			}
 			target = f
 		}
@@ -10462,7 +10462,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 		if obj.data.Debug || true { // TODO: leave this on permanently?
 			variableScopeFeedback(obj.scope, obj.data.Logf)
 		}
-		return fmt.Errorf("variable %s not in scope", obj.Name)
+		return fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
 	}
 
 	obj.scope.Variables[obj.Name] = target

@@ -16,7 +16,8 @@ panic($i0.x != "goodbye")
 panic($i1.y != "hello")
 
 # the really tricky case
-# XXX: works atm, but not supported for now: could not set scope: variable i0.y not in scope
+# XXX: works atm, but not supported for now, error is:
+# could not set scope: var `$i0.y` does not exist in this scope
 # We currently re-export anything in the parent scope as available from our
 # current child scope, which makes this variable visible. Unfortunately, it does
 # not have the correct dependency (edge) present in the Ordering system, so it

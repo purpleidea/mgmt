@@ -329,6 +329,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	}
 
 	// get the list of needed files (this is available after SetScope)
+	logf("collecting files...")
 	fileList, err := ast.CollectFiles(iast)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not collect files")

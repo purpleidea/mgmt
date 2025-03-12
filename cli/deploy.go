@@ -260,6 +260,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		return false, errwrap.Wrapf(err, "encoding error")
 	}
 
+	Logf("pushing...")
 	// this nominally checks the previous git hash matches our expectation
 	if err := simpleDeploy.AddDeploy(ctx, id, hash, pHash, &str); err != nil {
 		return false, errwrap.Wrapf(err, "could not create deploy id `%d`", id)

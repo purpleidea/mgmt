@@ -66,11 +66,8 @@ type VUMeterFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	symbol     string
-	multiplier int64
-	peak       float64
-
-	result *string // last calculated output
+	args   []types.Value
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -172,9 +169,12 @@ func (obj *VUMeterFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			obj.symbol = input.Struct()[vuMeterArgNameSymbol].Str()
-			obj.multiplier = input.Struct()[vuMeterArgNameMultiplier].Int()
-			obj.peak = input.Struct()[vuMeterArgNamePeak].Float()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
 			once.Do(onceFunc)
 			continue // we must wrap around and go in through goChan
 
@@ -185,64 +185,81 @@ func (obj *VUMeterFunc) Stream(ctx context.Context) error {
 				continue // still waiting for input values
 			}
 
-			// record for one second to a shared memory file
-			// rec /dev/shm/mgmt_rec.wav trim 0 1 2>/dev/null
-			args1 := []string{"/dev/shm/mgmt_rec.wav", "trim", "0", "1"}
-			cmd1 := exec.Command("/usr/bin/rec", args1...)
-			// XXX: arecord stopped working on newer linux...
-			// arecord -d 1 /dev/shm/mgmt_rec.wav 2>/dev/null
-			//args1 := []string{"-d", "1", "/dev/shm/mgmt_rec.wav"}
-			//cmd1 := exec.Command("/usr/bin/arecord", args1...)
-			cmd1.SysProcAttr = &syscall.SysProcAttr{
-				Setpgid: true,
-				Pgid:    0,
-			}
-			// start the command
-			if _, err := cmd1.Output(); err != nil {
-				return errwrap.Wrapf(err, "cmd failed to run")
-			}
-
-			// sox -t .wav /dev/shm/mgmt_rec.wav -n stat 2>&1 | grep "Maximum amplitude" | cut -d ':' -f 2
-			args2 := []string{"-t", ".wav", "/dev/shm/mgmt_rec.wav", "-n", "stat"}
-			cmd2 := exec.Command("/usr/bin/sox", args2...)
-			cmd2.SysProcAttr = &syscall.SysProcAttr{
-				Setpgid: true,
-				Pgid:    0,
-			}
-
-			// start the command
-			out, err := cmd2.CombinedOutput() // data comes on stderr
+			result, err := obj.Call(ctx, obj.args)
 			if err != nil {
-				return errwrap.Wrapf(err, "cmd failed to run")
+				return err
 			}
 
-			ratio, err := extract(out)
-			if err != nil {
-				return errwrap.Wrapf(err, "failed to extract")
-			}
-
-			result, err := visual(obj.symbol, int(obj.multiplier), obj.peak, ratio)
-			if err != nil {
-				return errwrap.Wrapf(err, "could not generate visual")
-			}
-
-			if obj.result != nil && *obj.result == result {
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *VUMeterFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	symbol := args[0].Str()
+	multiplier := args[1].Int()
+	peak := args[2].Float()
+
+	// record for one second to a shared memory file
+	// rec /dev/shm/mgmt_rec.wav trim 0 1 2>/dev/null
+	args1 := []string{"/dev/shm/mgmt_rec.wav", "trim", "0", "1"}
+	cmd1 := exec.CommandContext(ctx, "/usr/bin/rec", args1...)
+	// XXX: arecord stopped working on newer linux...
+	// arecord -d 1 /dev/shm/mgmt_rec.wav 2>/dev/null
+	//args1 := []string{"-d", "1", "/dev/shm/mgmt_rec.wav"}
+	//cmd1 := exec.CommandContext(ctx, "/usr/bin/arecord", args1...)
+	cmd1.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+	// start the command
+	if _, err := cmd1.Output(); err != nil {
+		return nil, errwrap.Wrapf(err, "cmd failed to run")
+	}
+
+	// sox -t .wav /dev/shm/mgmt_rec.wav -n stat 2>&1 | grep "Maximum amplitude" | cut -d ':' -f 2
+	args2 := []string{"-t", ".wav", "/dev/shm/mgmt_rec.wav", "-n", "stat"}
+	cmd2 := exec.CommandContext(ctx, "/usr/bin/sox", args2...)
+	cmd2.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	// start the command
+	out, err := cmd2.CombinedOutput() // data comes on stderr
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "cmd failed to run")
+	}
+
+	ratio, err := extract(out)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "failed to extract")
+	}
+
+	result, err := visual(symbol, int(multiplier), peak, ratio)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not generate visual")
+	}
+
+	return &types.StrValue{
+		V: result,
+	}, nil
 }
 
 func newTicker() *time.Ticker {

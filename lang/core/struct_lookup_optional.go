@@ -342,3 +342,31 @@ func (obj *StructLookupOptionalFunc) Stream(ctx context.Context) error {
 		}
 	}
 }
+
+// Call returns the result of this function.
+func (obj *StructLookupOptionalFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	st := args[0].(*types.StructValue)
+	field := args[1].Str()
+	optional := args[2]
+
+	if field == "" {
+		return nil, fmt.Errorf("received empty field")
+	}
+	// TODO: Is it a hack to grab this first value?
+	if obj.field == "" {
+		// This can happen at compile time too. Bonus!
+		obj.field = field // store first field
+	}
+	if field != obj.field {
+		return nil, fmt.Errorf("input field changed from: `%s`, to: `%s`", obj.field, field)
+	}
+
+	// We know the result of this lookup statically at compile time, but for
+	// simplicity we check each time here anyways. Maybe one day there will
+	// be a fancy reason why this might vary over time.
+	val, exists := st.Lookup(obj.field)
+	if !exists {
+		return optional, nil
+	}
+	return val, nil
+}

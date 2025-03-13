@@ -31,6 +31,7 @@ package coreexample
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
@@ -52,6 +53,7 @@ func init() {
 // function which you could specify an interval for.
 type FlipFlopFact struct {
 	init  *facts.Init
+	mutex *sync.Mutex
 	value bool
 }
 
@@ -77,6 +79,7 @@ func (obj *FlipFlopFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *FlipFlopFact) Init(init *facts.Init) error {
 	obj.init = init
+	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
@@ -100,14 +103,30 @@ func (obj *FlipFlopFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
+		result, err := obj.Call(ctx)
+		if err != nil {
+			return err
+		}
+
+		obj.mutex.Lock()
+		obj.value = !obj.value // flip it
+		obj.mutex.Unlock()
+
 		select {
-		case obj.init.Output <- &types.BoolValue{ // flip
-			V: obj.value,
-		}:
+		case obj.init.Output <- result:
+
 		case <-ctx.Done():
 			return nil
 		}
-
-		obj.value = !obj.value // flip it
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *FlipFlopFact) Call(ctx context.Context) (types.Value, error) {
+	obj.mutex.Lock() // TODO: could be a read lock
+	value := obj.value
+	obj.mutex.Unlock()
+	return &types.BoolValue{
+		V: value,
+	}, nil
 }

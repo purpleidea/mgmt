@@ -115,12 +115,14 @@ func (obj *IfFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			var result types.Value
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
 
-			if input.Struct()["c"].Bool() {
-				result = input.Struct()["a"] // true branch
-			} else {
-				result = input.Struct()["b"] // false branch
+			result, err := obj.Call(ctx, args) // get the value...
+			if err != nil {
+				return err
 			}
 
 			// skip sending an update...
@@ -140,4 +142,14 @@ func (obj *IfFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+// XXX: Is is correct to implement this here for this particular function?
+func (obj *IfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if c := args[0].Bool(); c {
+		return args[1], nil // true branch
+	}
+	return args[2], nil
 }

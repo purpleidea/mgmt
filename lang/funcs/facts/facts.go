@@ -106,4 +106,7 @@ type Fact interface {
 	Info() *Info
 	Init(*Init) error
 	Stream(context.Context) error
+
+	// TODO: should we require this here? What about a CallableFact instead?
+	Call(context.Context) (types.Value, error)
 }

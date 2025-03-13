@@ -94,3 +94,8 @@ func (obj *FactFunc) Init(init *interfaces.Init) error {
 func (obj *FactFunc) Stream(ctx context.Context) error {
 	return obj.Fact.Stream(ctx)
 }
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *FactFunc) Call(ctx context.Context, _ []types.Value) (types.Value, error) {
+	return obj.Fact.Call(ctx)
+}

@@ -124,6 +124,12 @@ func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 		// programming error
 		return nil, err
 	}
+
+	if _, ok := f.(interfaces.CallableFunc); !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+
 	bf, ok := f.(interfaces.BuildableFunc)
 	if !ok {
 		// programming error
@@ -174,4 +180,14 @@ func (obj *LookupDefaultFunc) Stream(ctx context.Context) error {
 		return fmt.Errorf("function not built correctly")
 	}
 	return obj.fn.Stream(ctx)
+}
+
+// Call returns the result of this function.
+func (obj *LookupDefaultFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	cf, ok := obj.fn.(interfaces.CallableFunc)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+	return cf.Call(ctx, args)
 }

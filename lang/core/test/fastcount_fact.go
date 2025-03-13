@@ -31,6 +31,7 @@ package coretest
 
 import (
 	"context"
+	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs/facts"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -50,6 +51,9 @@ func init() {
 // FastCountFact is a fact that counts up as fast as possible from zero forever.
 type FastCountFact struct {
 	init *facts.Init
+
+	mutex *sync.Mutex
+	count int
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -74,6 +78,7 @@ func (obj *FastCountFact) Info() *facts.Info {
 // Init runs some startup code for this fact.
 func (obj *FastCountFact) Init(init *facts.Init) error {
 	obj.init = init
+	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
@@ -81,16 +86,32 @@ func (obj *FastCountFact) Init(init *facts.Init) error {
 func (obj *FastCountFact) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 
-	count := int64(0)
-
 	// streams must generate an initial event on startup
 	for {
+		result, err := obj.Call(ctx)
+		if err != nil {
+			return err
+		}
+
+		obj.mutex.Lock()
+		obj.count++
+		obj.mutex.Unlock()
+
 		select {
-		case obj.init.Output <- &types.IntValue{V: count}:
-			count++
+		case obj.init.Output <- result:
 
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *FastCountFact) Call(ctx context.Context) (types.Value, error) {
+	obj.mutex.Lock() // TODO: could be a read lock
+	count := obj.count
+	obj.mutex.Unlock()
+	return &types.IntValue{
+		V: int64(count),
+	}, nil
 }

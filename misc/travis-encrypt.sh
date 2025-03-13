@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # modified slightly, originally from:
 # https://raw.githubusercontent.com/dlenski/travis-encrypt-sh/master/travis-encrypt
 

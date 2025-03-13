@@ -1,0 +1,8 @@
+import "os"
+import "fmt"
+
+$s = fmt.printf("%v", os.is_virtual())
+
+print "is_virtual" {
+	msg => $s,
+}

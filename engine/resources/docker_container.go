@@ -296,7 +296,9 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 	if len(containerList) > 1 {
 		return false, fmt.Errorf("more than one container named %s", obj.Name())
 	}
-	if len(containerList) == 0 && obj.State == ContainerRemoved {
+	// NOTE: If container doesn't exist, we might as well accept "stopped"
+	// as valid for now, at least until we rewrite this horrible code.
+	if len(containerList) == 0 && (obj.State == ContainerRemoved || obj.State == ContainerStopped) {
 		return true, nil
 	}
 	if len(containerList) == 1 {

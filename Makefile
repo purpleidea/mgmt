@@ -36,8 +36,8 @@ SHELL = /usr/bin/env bash
 .SILENT: clean
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
-GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
-MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
+GO_FILES := $(shell git ls-files -co --exclude-standard '*.go')
+MCL_FILES := $(shell git ls-files -co --exclude-standard '*.mcl')
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -268,7 +268,7 @@ gofmt:
 	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec goimports -w {} \;
 
 yamlfmt:
-	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
+	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
 format: gofmt yamlfmt ## format yaml and golang code
 

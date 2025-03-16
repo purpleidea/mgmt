@@ -14,7 +14,7 @@ failures=''
 # Test examples/lang/ directory to see if the .mcl files compile correctly.
 
 find_mcl_examples() {
-	git ls-files | grep '\.mcl$' | grep '^examples/lang/' | grep -v 'modules/'
+	git ls-files -co --exclude-standard '*.mcl' | grep '^examples/lang/' | grep -v 'modules/'
 }
 
 for file in $(find_mcl_examples); do
@@ -31,7 +31,7 @@ ln -s "$linkto"	# symlink outside of dir
 cd `basename "$linkto"`
 
 # loop through individual *.go files in working dir
-for file in `find . -maxdepth 9 -type f -name '*.go'`; do
+for file in `git ls-files -co --exclude-standard '*.go'`; do
 	#echo "running test on: $file"
 	run-test go build -o "$buildout" "$file" || fail_test "could not build: $file"
 done

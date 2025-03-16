@@ -5,6 +5,7 @@
 .envrc
 old/
 tmp/
+vendor/
 *WIP
 *_stringer.go
 mgmt

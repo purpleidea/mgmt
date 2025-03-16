@@ -35,9 +35,9 @@ SHELL = /usr/bin/env bash
 .PHONY: funcgen
 .SILENT: clean
 
-# a large amount of output from this `find`, can cause `make` to be much slower!
-GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
-MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
+# a large amount of output from this `find`, can cause `make` to be much slower! TODO: does this comment still apply? E.g. is the cause the slow find command or the longer tests due to more files?
+GO_FILES := $(shell git ls-files -co --exclude-standard '*.go')
+MCL_FILES := $(shell git ls-files -co --exclude-standard '*.mcl')
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -252,23 +252,26 @@ test: build ## run tests
 	./test.sh
 
 # create all test targets for make tab completion (eg: make test-gofmt)
-test_suites=$(shell find test/ -maxdepth 1 -name test-* -exec basename {} .sh \;)
+test_suites=$(shell git ls-files -co --exclude-standard ':(glob)test/test-*' | sed -E 's|^test/||; s|\.sh$$||')
 # allow to run only one test suite at a time
 ${test_suites}: test-%: build
 	./test.sh $*
 
 # targets to run individual shell tests (eg: make test-shell-load0)
-test_shell=$(shell find test/shell/ -maxdepth 1 -name "*.sh" -exec basename {} .sh \;)
+test_shell=$(shell git ls-files -co --exclude-standard ':(glob)test/shell/*.sh' | sed -E 's|^test/shell/||; s|\.sh$$||')
 $(addprefix test-shell-,${test_shell}): test-shell-%: build
 	./test/test-shell.sh "$*.sh"
 
 gofmt:
 	# TODO: remove gofmt once goimports has a -s option
-	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec gofmt -s -w {} \;
-	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec goimports -w {} \;
+	git ls-files -co --exclude-standard '*.go' | xargs gofmt -s -w
+	git ls-files -co --exclude-standard '*.go' | xargs goimports -w
 
 yamlfmt:
-	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
+	git ls-files -co --exclude-standard '*.yaml' \
+			| awk -F'/' 'NF<=4' \
+			| grep -Ev '^(omv.yaml)$$' \
+			| xargs -I {} ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x"
 
 format: gofmt yamlfmt ## format yaml and golang code
 
@@ -639,7 +642,7 @@ funcgen: lang/core/generated_funcs.go
 
 lang/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
 	@echo "Generating: funcs..."
-	@go run `find lang/funcs/funcgen/ -maxdepth 1 -type f -name '*.go' -not -name '*_test.go'` -templates=lang/funcs/funcgen/templates/generated_funcs.go.tpl >/dev/null
+	@go run $(shell git ls-files -co --exclude-standard ':(glob)lang/funcs/funcgen/*.go' | grep -v '_test.go') -templates=lang/funcs/funcgen/templates/generated_funcs.go.tpl >/dev/null
 	@gofmt -s -w $@
 
 # vim: ts=8

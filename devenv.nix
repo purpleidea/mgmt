@@ -25,4 +25,16 @@ in
     enable = true;
     package = pkgs-unstable.go;
   };
+
+  shell = lib.mkForce (pkgs.buildFHSUserEnv {
+    name = "devenv-shell";
+    targetPkgs = _: config.packages;
+    runScript = "bash";
+    profile = ''
+      ${lib.optionalString config.devenv.debug "set -x"}
+      ${config.enterShell}
+    '' + lib.concatStringsSep "\n" (lib.mapAttrsToList (name: value: ''
+      export ${name}=${value}
+    '') config.env);
+  }).env;
 }

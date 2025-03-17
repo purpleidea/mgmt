@@ -97,5 +97,12 @@ func (obj *FactFunc) Stream(ctx context.Context) error {
 
 // Call this fact and return the value if it is possible to do so at this time.
 func (obj *FactFunc) Call(ctx context.Context, _ []types.Value) (types.Value, error) {
-	return obj.Fact.Call(ctx)
+	//return obj.Fact.Call(ctx)
+
+	callableFact, ok := obj.Fact.(CallableFact)
+	if !ok {
+		return nil, fmt.Errorf("fact is not a CallableFact")
+	}
+
+	return callableFact.Call(ctx)
 }

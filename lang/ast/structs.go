@@ -3410,6 +3410,21 @@ func (obj *StmtFor) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtFor) TimeCheck() error {
+
+	panic("TODO")
+
+	//if err := obj.Expr.TimeCheck(); err != nil {
+	//	return err
+	//}
+
+	if err := obj.Body.TimeCheck(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -3914,6 +3929,21 @@ func (obj *StmtForKV) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtForKV) TimeCheck() error {
+
+	panic("TODO")
+
+	//if err := obj.Expr.TimeCheck(); err != nil {
+	//	return err
+	//}
+
+	if err := obj.Body.TimeCheck(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11224,6 +11254,10 @@ func (obj *ExprIterated) Check(typ *types.Type) ([]*interfaces.UnificationInvari
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprIterated) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprIterated.TimeCheck(): XXX TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -11540,6 +11574,10 @@ func (obj *ExprTopLevel) Check(typ *types.Type) ([]*interfaces.UnificationInvari
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprTopLevel) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprTopLevel.TimeCheck(): XXX TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -11737,6 +11775,10 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 // generic for all expressions.
 func (obj *ExprSingleton) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprSingleton) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprSingleton.TimeCheck(): XXX TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It

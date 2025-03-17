@@ -74,6 +74,7 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 			}
 			return wrappedFunc, nil
 		},
+		F: nil, // unused
 		T: fv.T,
 	}
 }
@@ -83,4 +84,43 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 // SimpleFnToFuncValue.
 func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
+}
+
+// FuncToFullFuncValue creates a *full.FuncValue which adds the given
+// interfaces.Func to the graph. Note that this means the *full.FuncValue can
+// only be called once.
+func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type) *full.FuncValue {
+
+	v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		valueTransformingFunc := makeFunc() // do this once here
+		buildableFunc, ok := valueTransformingFunc.(interfaces.BuildableFunc)
+		if ok {
+			// Set the type in case it's not already done.
+			if _, err := buildableFunc.Build(typ); err != nil {
+				// programming error?
+				return nil, err
+			}
+		}
+		for i, arg := range args {
+			argName := typ.Ord[i]
+			txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+				Args: []string{argName},
+			})
+		}
+		return valueTransformingFunc, nil
+	}
+
+	var f interfaces.FuncSig
+	callableFunc, ok := makeFunc().(interfaces.CallableFunc)
+	if ok {
+		f = callableFunc.Call
+	}
+
+	// This has the "V" implementation and the simpler "F" implementation
+	// which can occasionally be used if the interfaces.Func supports that!
+	return &full.FuncValue{
+		V: v,
+		F: f,
+		T: typ,
+	}
 }

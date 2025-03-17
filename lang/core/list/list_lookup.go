@@ -202,6 +202,13 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 
 	obj.Func = &wrapped.Func{
 		Name: obj.String(),
+		FuncInfo: &wrapped.Info{
+			// TODO: dedup with below Info data
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		Type: typ, // .Copy(),
 	}
 
@@ -230,6 +237,10 @@ func (obj *ListLookupFunc) Copy() interfaces.Func {
 // Call is the actual implementation here. This is used in lieu of the Stream
 // function which we'd have these contents within.
 func (obj *ListLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	// TODO: Could speculation pass in a non-list here and cause a panic?
 	l := (args[0]).(*types.ListValue)
 	index := args[1].Int()
 	//zero := l.Type().Val.New() // the zero value
@@ -273,7 +284,9 @@ func (obj *ListLookupFunc) Validate() error {
 func (obj *ListLookupFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

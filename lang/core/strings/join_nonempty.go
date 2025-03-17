@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "join_nonempty", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s []str, sep str) str"),
 		F: JoinNonempty,
 	})

@@ -206,6 +206,8 @@ func (obj *GetFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -310,6 +312,9 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 // to do so at this time. This was previously getValue which gets the value
 // we're looking for.
 func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	key := args[0].Str()
 
 	typ, exists := obj.Info().Sig.Out.Map[getFieldNameValue] // type of value field
@@ -326,6 +331,9 @@ func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	// step that might be needed if the value started out empty...
 	// TODO: We could even add a stored: bool field in the returned struct!
 	isReady := true // assume true
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	val, err := obj.init.Local.ValueGet(ctx, key)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", key)

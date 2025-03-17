@@ -158,6 +158,13 @@ func (obj *ListConcatFunc) Build(typ *types.Type) (*types.Type, error) {
 
 	obj.Func = &wrapped.Func{
 		Name: obj.String(),
+		FuncInfo: &wrapped.Info{
+			// TODO: dedup with below Info data
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		Type: typ, // .Copy(),
 	}
 
@@ -188,6 +195,7 @@ func (obj *ListConcatFunc) Copy() interfaces.Func {
 func (obj *ListConcatFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	values := []types.Value{}
 
+	// TODO: Could speculation pass in non-lists here and cause a panic?
 	for _, x := range args {
 		values = append(values, x.List()...)
 	}
@@ -217,7 +225,9 @@ func (obj *ListConcatFunc) Validate() error {
 func (obj *ListConcatFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

@@ -4,12 +4,14 @@ test "t" {
 	int64ptr => 42 + 13 - 99,
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: call
-Vertex: call
+Edge: _operator -> _operator # a
+Edge: const: int(13) -> _operator # b
+Edge: const: int(42) -> _operator # a
+Edge: const: int(99) -> _operator # b
+Edge: const: str("+") -> _operator # op
+Edge: const: str("-") -> _operator # op
+Vertex: _operator
+Vertex: _operator
 Vertex: const: int(13)
 Vertex: const: int(42)
 Vertex: const: int(99)

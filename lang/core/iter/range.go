@@ -161,7 +161,9 @@ func (obj *RangeFunc) Validate() error {
 func (obj *RangeFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.Type,
 		Err:  obj.Validate(),
 	}

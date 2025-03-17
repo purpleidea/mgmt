@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "split", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str, b str) []str"),
 		F: Split,
 	})

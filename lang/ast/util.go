@@ -321,11 +321,134 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 		return expr.scope, nil
 	case *ExprVar:
 		return expr.scope, nil
+	//case *ExprParam:
+	//case *ExprIterated:
+	//case *ExprPoly:
+	//case *ExprTopLevel:
+	//case *ExprSingleton:
 	case *ExprIf:
 		return expr.scope, nil
 
 	default:
 		return nil, fmt.Errorf("unexpected: %+v", node)
+	}
+}
+
+// CheckParamScope ensures that only the specified ExprParams are free in the
+// expression. It is used for graph shape function speculation. This could have
+// been an addition to the interfaces.Expr interface, but since it's mostly
+// iteration, it felt cleaner like this.
+// TODO: Can we replace this with a call to Apply instead.
+func checkParamScope(node interfaces.Expr, freeVars map[interfaces.Expr]struct{}) error {
+	switch obj := node.(type) {
+
+	case *ExprBool:
+		return nil
+
+	case *ExprStr:
+		return nil
+
+	case *ExprInt:
+		return nil
+
+	case *ExprFloat:
+		return nil
+
+	case *ExprList:
+		for _, x := range obj.Elements {
+			if err := checkParamScope(x, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprMap:
+		for _, x := range obj.KVs {
+			if err := checkParamScope(x.Key, freeVars); err != nil {
+				return err
+			}
+			if err := checkParamScope(x.Val, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprStruct:
+		for _, x := range obj.Fields {
+			if err := checkParamScope(x.Value, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprFunc:
+		if obj.Body != nil {
+			newFreeVars := make(map[interfaces.Expr]struct{})
+			for k, v := range freeVars {
+				newFreeVars[k] = v
+			}
+			for _, param := range obj.params {
+				newFreeVars[param] = struct{}{}
+			}
+
+			if err := checkParamScope(obj.Body, newFreeVars); err != nil {
+				return err
+			}
+		}
+		// XXX: Do we need to do anything for obj.Function ?
+		// XXX: Do we need to do anything for obj.Values ?
+		return nil
+
+	case *ExprCall:
+		if obj.expr != nil {
+			if err := checkParamScope(obj.expr, freeVars); err != nil {
+				return err
+			}
+		}
+		for _, x := range obj.Args {
+			if err := checkParamScope(x, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprVar:
+		// XXX: is this still correct?
+		target := obj.scope.Variables[obj.Name]
+		return checkParamScope(target, freeVars)
+
+	case *ExprParam:
+		if _, exists := freeVars[obj]; !exists {
+			return fmt.Errorf("the body uses parameter $%s", obj.Name)
+		}
+		return nil
+
+	case *ExprIterated:
+		return checkParamScope(obj.Definition, freeVars) // XXX: is this what we want?
+
+	case *ExprPoly:
+		panic("checkParamScope(ExprPoly): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling checkParamScope")
+
+	case *ExprTopLevel:
+		return checkParamScope(obj.Definition, freeVars)
+
+	case *ExprSingleton:
+		return checkParamScope(obj.Definition, freeVars)
+
+	case *ExprIf:
+		if err := checkParamScope(obj.Condition, freeVars); err != nil {
+			return err
+		}
+		if err := checkParamScope(obj.ThenBranch, freeVars); err != nil {
+			return err
+		}
+		if err := checkParamScope(obj.ElseBranch, freeVars); err != nil {
+			return err
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("unexpected: %+v", node)
 	}
 }
 

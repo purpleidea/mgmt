@@ -122,6 +122,12 @@ func init() {
 	})
 
 	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceBMutex.Lock()
@@ -135,6 +141,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceDMutex.Lock()
@@ -148,6 +160,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceFMutex.Lock()
@@ -161,6 +179,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceHMutex.Lock()

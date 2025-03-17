@@ -44,6 +44,10 @@ import (
 // FuncSig is the simple signature that is used throughout our implementations.
 type FuncSig = func(context.Context, []types.Value) (types.Value, error)
 
+// GraphSig is the simple signature that is used throughout our implementations.
+// TODO: Rename this?
+type GraphSig = func(Txn, []Func) (Func, error)
+
 // Compile-time guarantee that *types.FuncValue accepts a func of type FuncSig.
 var _ = &types.FuncValue{V: FuncSig(nil)}
 
@@ -53,7 +57,8 @@ var _ = &types.FuncValue{V: FuncSig(nil)}
 type Info struct {
 	Pure bool        // is the function pure? (can it be memoized?)
 	Memo bool        // should the function be memoized? (false if too much output)
-	Slow bool        // is the function slow? (avoid speculative execution)
+	Fast bool        // is the function slow? (avoid speculative execution)
+	Spec bool        // can we speculatively execute it? (true for most)
 	Sig  *types.Type // the signature of the function, must be KindFunc
 	Err  error       // is this a valid function, or was it created improperly?
 }
@@ -116,6 +121,8 @@ type Func interface {
 	// It must close the Output chan if it's done sending new values out. It
 	// must send at least one value, or return an error. It may also return
 	// an error at anytime if it can't continue.
+	// XXX: Remove this from here, it should appear as StreamableFunc and
+	// funcs should implement StreamableFunc or CallableFunc or maybe both.
 	Stream(context.Context) error
 }
 
@@ -137,6 +144,7 @@ type Func interface {
 // the InferableFunc interface as well.
 type BuildableFunc interface {
 	Func // implement everything in Func but add the additional requirements
+	// XXX: Should this be CopyableFunc instead?
 
 	// Build takes the known or unified type signature for this function and
 	// finalizes this structure so that it is now determined, and ready to
@@ -273,7 +281,7 @@ type FuncData struct {
 // special functions that are useful in core.
 // TODO: This could be replaced if a func ever needs a SetScope method...
 type DataFunc interface {
-	Func // implement everything in Func but add the additional requirements
+	CopyableFunc // implement everything, but make it also have Copy
 
 	// SetData is used by the language to pass our function some code-level
 	// context.

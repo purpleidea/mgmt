@@ -62,8 +62,8 @@ func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, erro
 		return nil, fmt.Errorf("func is not pure")
 	}
 	// if function is expensive to run, we won't run it provisionally
-	if info.Slow {
-		return nil, fmt.Errorf("func is slow")
+	if !info.Fast {
+		return nil, fmt.Errorf("func is not fast")
 	}
 
 	sig := handle.Info().Sig

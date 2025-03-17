@@ -202,8 +202,10 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
-		Pure: true,
+		Pure: false, // contents of a template might not be pure
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -407,6 +409,9 @@ func (obj *TemplateFunc) Copy() interfaces.Func {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	tmpl := args[0].Str()
 
 	var vars types.Value // nil
@@ -414,6 +419,9 @@ func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Va
 		vars = args[1]
 	}
 
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	result, err := obj.run(ctx, tmpl, vars)
 	if err != nil {
 		return nil, err // no errwrap needed b/c helper func

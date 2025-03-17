@@ -41,6 +41,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "hostname_mapper", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false,
+		},
 		T: types.NewType("func(map{str:str}) str"),
 		F: HostnameMapper,
 	})

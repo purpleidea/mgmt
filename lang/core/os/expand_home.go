@@ -39,6 +39,13 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "expand_home", &simple.Scaffold{
+		// These might change depending on user database...
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(str) str"),
 		F: ExpandHome,
 	})

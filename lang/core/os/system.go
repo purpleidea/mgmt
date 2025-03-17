@@ -91,6 +91,8 @@ func (obj *SystemFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", systemArgNameCmd)),
 		Err:  obj.Validate(),
 	}

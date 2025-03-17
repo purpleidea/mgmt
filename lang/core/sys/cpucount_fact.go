@@ -76,6 +76,8 @@ func (obj *CPUCountFact) String() string {
 // Info returns static typing info about what the fact returns.
 func (obj *CPUCountFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType("int"),
 	}
 }

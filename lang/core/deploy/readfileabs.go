@@ -51,6 +51,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, ReadFileAbsFuncName, func() interfaces.Func { return &ReadFileAbsFunc{} }) // must register the func and name
 }
 
+var _ interfaces.DataFunc = &ReadFileAbsFunc{}
+
 // ReadFileAbsFunc is a function that reads the full contents from a file in our
 // deploy. The file contents can only change with a new deploy, so this is
 // static. In particular, this takes an absolute path relative to the root
@@ -97,6 +99,8 @@ func (obj *ReadFileAbsFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // maybe false because the file contents can change
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", readfileArgNameFilename)),
 	}
 }
@@ -168,11 +172,26 @@ func (obj *ReadFileAbsFunc) Stream(ctx context.Context) error {
 	}
 }
 
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *ReadFileAbsFunc) Copy() interfaces.Func {
+	return &ReadFileAbsFunc{
+		init: obj.init, // likely gets overwritten anyways
+		data: obj.data, // needed because we don't call SetData twice
+	}
+}
+
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *ReadFileAbsFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	filename := args[0].Str()
 
+	if obj.init == nil || obj.data == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't load code from file system `%s`", obj.data.FsURI)

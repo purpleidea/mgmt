@@ -62,6 +62,8 @@ func (obj *UptimeFact) String() string {
 // Info returns some static info about itself.
 func (obj *UptimeFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.TypeInt,
 	}
 }

@@ -18,13 +18,41 @@ test "greeting3" {
 	anotherstr => $fn(),
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: const: str(" ") -> _operator # b
+Edge: const: str(" ") -> _operator # b
+Edge: const: str(" ") -> _operator # b
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("world") -> _operator # b
+Edge: const: str("world") -> _operator # b
+Edge: const: str("world") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str(" ")
+Vertex: const: str(" ")
+Vertex: const: str(" ")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
 Vertex: const: str("greeting1")
 Vertex: const: str("greeting2")
 Vertex: const: str("greeting3")
+Vertex: const: str("hello")
+Vertex: const: str("world")

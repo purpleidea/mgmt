@@ -255,9 +255,10 @@ stmt:
 		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: &ast.ExprFunc{
-				Args: $4.args,
-				//Return: nil,
-				Body: $7.expr,
+				Title:  $2.str,
+				Args:   $4.args,
+				Return: nil,
+				Body:   $7.expr,
 			},
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
@@ -266,6 +267,7 @@ stmt:
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
 		fn := &ast.ExprFunc{
+			Title:  $2.str,
 			Args:   $4.args,
 			Return: $6.typ, // return type is known
 			Body:   $8.expr,

@@ -40,6 +40,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "bootstrap_packages", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(str) []str"),
 		F: BootstrapPackages,
 	})

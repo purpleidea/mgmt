@@ -44,22 +44,52 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "cidr_to_ip", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToIP,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_prefix", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToPrefix,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_mask", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToMask,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_first", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToFirst,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_last", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToLast,
 	})

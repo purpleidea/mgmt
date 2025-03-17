@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "keys", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		// TODO: Maybe saying ?0 could mean we don't care about that type?
 		T: types.NewType("func(x map{?1: ?2}) []?1"),
 		F: MapKeys,

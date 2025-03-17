@@ -91,6 +91,8 @@ func (obj *ExchangeFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// TODO: do we want to allow this to be statically polymorphic,
 		// and have value be any type we might want?
 		// output is map of: hostname => value

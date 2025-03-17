@@ -269,7 +269,9 @@ func (obj *StructLookupFunc) Info() *interfaces.Info {
 	}
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -339,6 +341,9 @@ func (obj *StructLookupFunc) Stream(ctx context.Context) error {
 
 // Call returns the result of this function.
 func (obj *StructLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	st := args[0].(*types.StructValue)
 	field := args[1].Str()
 

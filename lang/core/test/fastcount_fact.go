@@ -71,6 +71,8 @@ func (obj *FastCountFact) String() string {
 // Info returns some static info about itself.
 func (obj *FastCountFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType("int"),
 	}
 }
@@ -108,6 +110,9 @@ func (obj *FastCountFact) Stream(ctx context.Context) error {
 
 // Call this fact and return the value if it is possible to do so at this time.
 func (obj *FastCountFact) Call(ctx context.Context) (types.Value, error) {
+	if obj.mutex == nil {
+		return nil, facts.ErrCantSpeculate
+	}
 	obj.mutex.Lock() // TODO: could be a read lock
 	count := obj.count
 	obj.mutex.Unlock()

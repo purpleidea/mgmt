@@ -40,6 +40,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "mod", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(?1, ?1) ?1"), // all int or float
 		C: simple.TypeMatch([]string{
 			"func(int, int) int",

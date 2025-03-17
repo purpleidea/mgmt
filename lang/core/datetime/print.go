@@ -41,6 +41,12 @@ import (
 func init() {
 	// FIXME: consider renaming this to printf, and add in a format string?
 	simple.ModuleRegister(ModuleName, "print", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a int) str"),
 		F: Print,
 	})

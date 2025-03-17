@@ -41,6 +41,12 @@ const Answer = 42
 
 func init() {
 	simple.ModuleRegister(ModuleName, "answer", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func() int"),
 		F: TheAnswerToLifeTheUniverseAndEverything,
 	})

@@ -42,6 +42,12 @@ func init() {
 	typInt := types.NewType("func() int")
 	typFloat := types.NewType("func() float")
 	multi.ModuleRegister(ModuleName, "fortytwo", &multi.Scaffold{
+		I: &multi.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func() ?1"),
 		M: multi.TypeMatch(map[string]interfaces.FuncSig{
 			"func() int":   fortyTwo(typInt),

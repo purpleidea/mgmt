@@ -98,7 +98,10 @@ type PrintfFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *PrintfFunc) String() string {
-	return fmt.Sprintf("%s@%p", PrintfFuncName, obj) // be more unique!
+	if obj.Type != nil {
+		return fmt.Sprintf("%s: %s", PrintfFuncName, obj.Type)
+	}
+	return PrintfFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -295,7 +298,9 @@ func (obj *PrintfFunc) Info() *interfaces.Info {
 	// getting them from FuncInfer, and not from here. (During unification!)
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.Type,
 		Err:  obj.Validate(),
 	}
@@ -367,6 +372,9 @@ func (obj *PrintfFunc) Copy() interfaces.Func {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *PrintfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	format := args[0].Str()
 
 	values := []types.Value{}

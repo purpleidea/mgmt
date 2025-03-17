@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "binary_path", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() str"),
 		F: BinaryPath,
 	})

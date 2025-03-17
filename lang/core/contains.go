@@ -44,6 +44,12 @@ const (
 
 func init() {
 	simple.Register(ContainsFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(needle ?1, haystack []?1) bool"),
 		F: Contains,
 	})

@@ -40,6 +40,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "match", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: false, // TODO: should we consider this fast?
+			Spec: true,
+		},
 		T: types.NewType("func(pattern str, s str) bool"),
 		F: Match,
 	})

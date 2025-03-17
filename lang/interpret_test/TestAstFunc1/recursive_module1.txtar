@@ -60,27 +60,29 @@ $ex1 = $example1.name
 
 $name = "i am github.com/purpleidea/mgmt-example2/ and i contain: " + $ex1
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
+Edge: _operator -> printf: func(format str, a int) str # a
+Edge: _operator -> printf: func(format str, a str) str # a
+Edge: _operator -> printf: func(format str, a str, b str) str # a
+Edge: _operator -> printf: func(format str, a str, b str) str # b
+Edge: const: int(3) -> _operator # b
+Edge: const: int(42) -> _operator # a
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ") -> _operator # a
+Edge: const: str("i am github.com/purpleidea/mgmt-example1/ and i contain: ") -> _operator # a
+Edge: const: str("i imported local: %s") -> printf: func(format str, a str) str # format
+Edge: const: str("i imported remote: %s and %s") -> printf: func(format str, a str, b str) str # format
+Edge: const: str("the answer is: %d") -> printf: func(format str, a int) str # format
+Edge: const: str("this is module mod1 which contains: ") -> _operator # a
+Edge: const: str("this is the nested git module mod1") -> _operator # b
+Edge: const: str("this is the nested git module mod1") -> _operator # b
+Edge: const: str("this is the nested local module mod1") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
 Vertex: const: int(3)
 Vertex: const: int(42)
 Vertex: const: str("+")
@@ -99,3 +101,6 @@ Vertex: const: str("this is module mod1 which contains: ")
 Vertex: const: str("this is the nested git module mod1")
 Vertex: const: str("this is the nested git module mod1")
 Vertex: const: str("this is the nested local module mod1")
+Vertex: printf: func(format str, a int) str
+Vertex: printf: func(format str, a str) str
+Vertex: printf: func(format str, a str, b str) str

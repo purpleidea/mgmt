@@ -96,6 +96,9 @@ func (obj *Random1Func) Validate() error {
 func (obj *Random1Func) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
+		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s int) str", random1ArgNameLength)),
 		Err:  obj.Validate(),
 	}

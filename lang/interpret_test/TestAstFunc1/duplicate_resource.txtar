@@ -17,9 +17,7 @@ pkg "cowsay" {
 	state => "newest",
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
+Edge: const: str("hello world") -> printf: func(format str) str # format
 Vertex: const: str("/tmp/foo")
 Vertex: const: str("/tmp/foo")
 Vertex: const: str("cowsay")
@@ -28,3 +26,4 @@ Vertex: const: str("hello world")
 Vertex: const: str("hello world")
 Vertex: const: str("installed")
 Vertex: const: str("newest")
+Vertex: printf: func(format str) str

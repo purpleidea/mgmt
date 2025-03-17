@@ -38,6 +38,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "to_int", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a float) int"),
 		F: ToInt,
 	})

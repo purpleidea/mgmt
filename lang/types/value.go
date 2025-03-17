@@ -1321,6 +1321,9 @@ func (obj *FuncValue) Value() interface{} {
 // inappropriate input types, or if it returns an inappropriate output type.
 func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 	// cmp input args type to obj.T
+	if obj.T == nil {
+		return nil, fmt.Errorf("the type is nil")
+	}
 	length := len(obj.T.Ord)
 	if length != len(args) {
 		return nil, fmt.Errorf("arg length of %d does not match expected of %d", len(args), length)

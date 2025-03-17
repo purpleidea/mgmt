@@ -266,7 +266,9 @@ func (obj *StructLookupOptionalFunc) Info() *interfaces.Info {
 	}
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -345,6 +347,9 @@ func (obj *StructLookupOptionalFunc) Stream(ctx context.Context) error {
 
 // Call returns the result of this function.
 func (obj *StructLookupOptionalFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	st := args[0].(*types.StructValue)
 	field := args[1].Str()
 	optional := args[2]

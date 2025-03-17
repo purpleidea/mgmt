@@ -40,26 +40,68 @@ import (
 
 func init() {
 	simple.ModuleRegister("golang/testpkg", "all_kind", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(x int, y str) float"),
 		F: TestpkgAllKind,
 	})
 	simple.ModuleRegister("golang/testpkg", "to_upper", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s str) str"),
 		F: TestpkgToUpper,
 	})
 	simple.ModuleRegister("golang/testpkg", "max", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(x float, y float) float"),
 		F: TestpkgMax,
 	})
 	simple.ModuleRegister("golang/testpkg", "with_error", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s str) str"),
 		F: TestpkgWithError,
 	})
 	simple.ModuleRegister("golang/testpkg", "with_int", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s float, i int, x int, j int, k int, b bool, t str) str"),
 		F: TestpkgWithInt,
 	})
 	simple.ModuleRegister("golang/testpkg", "super_byte", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s str, t str) str"),
 		F: TestpkgSuperByte,
 	})

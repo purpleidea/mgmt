@@ -10,10 +10,17 @@ $out2 = $prefixer("b")
 test "${out1}" {} # helloa
 test "${out2}" {} # hellob
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
-Vertex: call
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("a") -> _operator # b
+Edge: const: str("b") -> _operator # b
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("hello") -> _operator # a
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str("+")
+Vertex: const: str("+")
 Vertex: const: str("a")
 Vertex: const: str("b")
+Vertex: const: str("hello")
+Vertex: const: str("hello")

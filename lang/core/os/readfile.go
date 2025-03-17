@@ -97,6 +97,8 @@ func (obj *ReadFileFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // maybe false because the file contents can change
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", readFileArgNameFilename)),
 	}
 }
@@ -249,6 +251,9 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	filename := args[0].Str()
 
 	// read file...

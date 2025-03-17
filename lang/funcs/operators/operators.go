@@ -56,7 +56,14 @@ const (
 )
 
 func init() {
+	info := &simple.Info{
+		Pure: true,
+		Memo: true,
+		Fast: true,
+		Spec: true,
+	}
 	RegisterOperator("+", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(str, str) str",       // concatenation
@@ -91,6 +98,7 @@ func init() {
 	})
 
 	RegisterOperator("-", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) int",       // subtraction
@@ -115,6 +123,7 @@ func init() {
 	})
 
 	RegisterOperator("*", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) int",       // multiplication
@@ -141,6 +150,7 @@ func init() {
 
 	// don't add: `func(int, float) float` or: `func(float, int) float`
 	RegisterOperator("/", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) float"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) float",     // division
@@ -173,6 +183,7 @@ func init() {
 	})
 
 	RegisterOperator("==", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: func(typ *types.Type) error {
 			//if typ == nil { // happens within iter
@@ -218,6 +229,7 @@ func init() {
 	})
 
 	RegisterOperator("!=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: func(typ *types.Type) error {
 			//if typ == nil { // happens within iter
@@ -263,6 +275,7 @@ func init() {
 	})
 
 	RegisterOperator("<", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // less-than
@@ -288,6 +301,7 @@ func init() {
 	})
 
 	RegisterOperator(">", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // greater-than
@@ -313,6 +327,7 @@ func init() {
 	})
 
 	RegisterOperator("<=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // less-than-equal
@@ -338,6 +353,7 @@ func init() {
 	})
 
 	RegisterOperator(">=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // greater-than-equal
@@ -366,6 +382,7 @@ func init() {
 	// TODO: is there a way for the engine to have
 	// short-circuit operators, and does it matter?
 	RegisterOperator("and", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -376,6 +393,7 @@ func init() {
 
 	// logical or
 	RegisterOperator("or", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -386,6 +404,7 @@ func init() {
 
 	// logical not (unary operator)
 	RegisterOperator("not", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -396,6 +415,7 @@ func init() {
 
 	// pi operator (this is an easter egg to demo a zero arg operator)
 	RegisterOperator("π", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func() float"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
@@ -645,8 +665,11 @@ func (obj *OperatorFunc) Info() *interfaces.Info {
 	// avoid an accidental return of unification variables when we should be
 	// getting them from FuncInfer, and not from here. (During unification!)
 	return &interfaces.Info{
+		// XXX: get these from the scaffold
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.Type, // func kind, which includes operator arg as input
 		Err:  obj.Validate(),
 	}

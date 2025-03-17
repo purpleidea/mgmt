@@ -38,6 +38,7 @@ import (
 
 	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
@@ -113,6 +114,15 @@ const (
 	// CollectFuncOutType is the expected return type, the data field is an
 	// encoded resource blob.
 	CollectFuncOutType = "[]" + CollectFuncOutStruct
+
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to Call a function. This often gets called by the Value()
+	// method of the Expr. This can be useful if we want to distinguish
+	// between "something is broken" and "I just can't produce a value at
+	// this time", which can be identified and skipped over. If it's the
+	// former, then it's okay to error early and shut everything down since
+	// we know this function is never going to work the way it's called.
+	ErrCantSpeculate = util.Error("can't speculate")
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You

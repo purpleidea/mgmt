@@ -12,9 +12,27 @@ $out2 = $prefixer($out1)
 test "${out1}" {}
 test "${out2}" {}
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
-Vertex: call
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # b
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str(":") -> _operator # b
+Edge: const: str(":") -> _operator # b
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("hello") -> _operator # a
+Edge: const: str("world") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str(":")
+Vertex: const: str(":")
+Vertex: const: str("hello")
 Vertex: const: str("world")

@@ -38,6 +38,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "plus", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(y str, z str) str"),
 		F: Plus,
 	})

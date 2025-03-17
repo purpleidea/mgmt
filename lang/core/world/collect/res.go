@@ -118,6 +118,8 @@ func (obj *ResFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  obj.sig(),
 		Err:  obj.Validate(),
 	}
@@ -225,6 +227,9 @@ func (obj *ResFunc) Stream(ctx context.Context) error {
 // to do so at this time. This was previously getValue which gets the value
 // we're looking for.
 func (obj *ResFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	kind := args[0].Str()
 	if kind == "" {
 		return nil, fmt.Errorf("resource kind is empty")
@@ -241,6 +246,9 @@ func (obj *ResFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	}
 	filters = append(filters, filter)
 
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	resOutput, err := obj.init.World.ResCollect(ctx, filters)
 	if err != nil {
 		return nil, err

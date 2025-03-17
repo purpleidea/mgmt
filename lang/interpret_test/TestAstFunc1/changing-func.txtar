@@ -21,15 +21,21 @@ $out2 = $fn2()
 test "${out1}" {}
 test "${out2}" {}
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: call -> call # fn
-Edge: call -> call # fn
+Edge: FuncValue -> if # a
+Edge: FuncValue -> if # a
+Edge: FuncValue -> if # b
+Edge: FuncValue -> if # b
+Edge: const: bool(false) -> if # c
+Edge: const: bool(true) -> if # c
+Edge: if -> call # fn
+Edge: if -> call # fn
 Vertex: FuncValue
 Vertex: FuncValue
-Vertex: call
-Vertex: call
+Vertex: FuncValue
+Vertex: FuncValue
 Vertex: call
 Vertex: call
 Vertex: const: bool(false)
 Vertex: const: bool(true)
+Vertex: if
+Vertex: if

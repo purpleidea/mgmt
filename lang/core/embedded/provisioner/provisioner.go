@@ -524,6 +524,12 @@ func (obj *provisioner) Register(moduleName string) error {
 
 	// Build a few separately...
 	simple.ModuleRegister(moduleName, "cli_password", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false,
+		},
 		T: types.NewType("func() str"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			if obj.localArgs == nil {

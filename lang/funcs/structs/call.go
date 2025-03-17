@@ -223,7 +223,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	// methods called on it. Nothing else. It will _not_ call Commit or
 	// Reverse. It adds to the graph, and our Commit and Reverse operations
 	// are the ones that actually make the change.
-	outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
+	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}

@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "errorbool", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false, // XXX: because it errors do we need to be be safer here?
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(a bool) str"),
 		F: ErrorBool,
 	})

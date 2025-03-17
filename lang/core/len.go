@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.Register("len", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(?1) int"),
 		// TODO: should we add support for struct or func lengths?
 		C: simple.TypeMatch([]string{

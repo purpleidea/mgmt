@@ -45,6 +45,12 @@ const (
 
 func init() {
 	simple.Register(ListLookupFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(list []?1, index int) ?1"),
 		F: ListLookup,
 	})

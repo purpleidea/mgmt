@@ -93,6 +93,8 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// output is map of: hostname => value
 		Sig: types.NewType(fmt.Sprintf("func(%s str) map{str: str}", kvLookupArgNameNamespace)),
 		Err: obj.Validate(),
@@ -211,7 +213,13 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 // to do so at this time. This was previously buildMap, which builds the result
 // map which we'll need. It uses struct variables.
 func (obj *KVLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	namespace := args[0].Str()
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	keyMap, err := obj.init.World.StrMapGet(ctx, namespace)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", namespace)

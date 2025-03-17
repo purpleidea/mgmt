@@ -97,6 +97,8 @@ func (obj *GetValFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// output is a struct with two fields:
 		// value is the zero value if not exists. A bool for that in other field.
 		Sig: types.NewType(fmt.Sprintf("func(%s str) struct{%s str; %s bool}", getValArgNameKey, getValFieldNameValue, getValFieldNameExists)),
@@ -206,8 +208,14 @@ func (obj *GetValFunc) Stream(ctx context.Context) error {
 // to do so at this time. This was previously getValue which gets the value
 // we're looking for.
 func (obj *GetValFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	key := args[0].Str()
 	exists := true // assume true
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	val, err := obj.init.World.StrGet(ctx, key)
 	if err != nil && obj.init.World.StrIsNotExist(err) {
 		exists = false // val doesn't exist

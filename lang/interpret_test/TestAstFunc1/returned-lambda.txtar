@@ -11,7 +11,5 @@ $out = $fn()
 test "${out}" {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
-Edge: call -> call # fn
 Vertex: FuncValue
-Vertex: call
 Vertex: call

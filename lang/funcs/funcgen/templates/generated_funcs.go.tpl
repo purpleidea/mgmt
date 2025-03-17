@@ -40,6 +40,13 @@ import (
 
 func init() {
 {{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MclName}}", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("{{$func.Signature}}"),
 		F: {{$func.InternalName}},
 	})

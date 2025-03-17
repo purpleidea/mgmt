@@ -77,6 +77,13 @@ var virtualizationVendorSlice = []string{
 
 func init() {
 	simple.ModuleRegister(ModuleName, "is_virtual", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: false, // network requests to API's?
+			Spec: false,
+		},
 		T: types.NewType("func() bool"),
 		F: IsVirtual,
 	})

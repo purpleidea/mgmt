@@ -38,6 +38,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "minus1", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(x int) int"),
 		F: Minus1,
 	})

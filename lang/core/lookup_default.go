@@ -93,6 +93,9 @@ func (obj *LookupDefaultFunc) ArgGen(index int) (string, error) {
 // runs.
 func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
+	if typ == nil {
+		return nil, fmt.Errorf("nil type") // happens b/c of Copy()
+	}
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
@@ -172,7 +175,9 @@ func (obj *LookupDefaultFunc) Info() *interfaces.Info {
 	if obj.fn == nil {
 		return &interfaces.Info{
 			Pure: true,
-			Memo: false,
+			Memo: true,
+			Fast: true,
+			Spec: true,
 			Sig:  types.NewType("func(?1, ?2, ?3) ?3"), // func kind
 			Err:  obj.Validate(),
 		}
@@ -199,6 +204,9 @@ func (obj *LookupDefaultFunc) Stream(ctx context.Context) error {
 
 // Call returns the result of this function.
 func (obj *LookupDefaultFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.fn == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	cf, ok := obj.fn.(interfaces.CallableFunc)
 	if !ok {
 		// programming error

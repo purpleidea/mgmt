@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(coreexample.ModuleName+"/"+ModuleName, "hello", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func() str"),
 		F: Hello,
 	})

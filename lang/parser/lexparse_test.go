@@ -1744,7 +1744,8 @@ func TestLexParse0(t *testing.T) {
 				&ast.StmtFunc{
 					Name: "f1",
 					Func: &ast.ExprFunc{
-						Args: []*interfaces.Arg{},
+						Title: "f1",
+						Args:  []*interfaces.Arg{},
 						Body: &ast.ExprInt{
 							V: 42,
 						},
@@ -1765,6 +1766,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title:  "f2",
 			Args:   []*interfaces.Arg{},
 			Return: types.TypeInt,
 			Body: &ast.ExprCall{
@@ -1809,6 +1811,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title: "f3",
 			Args: []*interfaces.Arg{
 				{
 					Name: "a",
@@ -1860,6 +1863,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title: "f4",
 			Args: []*interfaces.Arg{
 				{
 					Name: "x",
@@ -2048,7 +2052,8 @@ func TestLexParse0(t *testing.T) {
 					Name: "funcgen",
 					// This is the outer function...
 					Func: &ast.ExprFunc{
-						Args: []*interfaces.Arg{},
+						Title: "funcgen",
+						Args:  []*interfaces.Arg{},
 						// This is the inner function...
 						Body: &ast.ExprFunc{
 							Args: []*interfaces.Arg{},

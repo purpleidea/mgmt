@@ -40,6 +40,17 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
+const (
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to Call a function. This often gets called by the Value()
+	// method of the Expr. This can be useful if we want to distinguish
+	// between "something is broken" and "I just can't produce a value at
+	// this time", which can be identified and skipped over. If it's the
+	// former, then it's okay to error early and shut everything down since
+	// we know this function is never going to work the way it's called.
+	ErrCantSpeculate = funcs.ErrCantSpeculate
+)
+
 // RegisteredFacts is a global map of all possible facts which can be used. You
 // should never touch this map directly. Use methods like Register instead.
 var RegisteredFacts = make(map[string]func() Fact) // must initialize
@@ -79,6 +90,10 @@ func ModuleRegister(module, name string, fn func() Fact) {
 // used for static analysis and type checking. If you break this contract, you
 // might cause a panic.
 type Info struct {
+	Pure   bool        // is the function pure? (can it be memoized?)
+	Memo   bool        // should the function be memoized? (false if too much output)
+	Fast   bool        // is the function fast? (avoid speculative execution)
+	Spec   bool        // can we speculatively execute it? (true for most)
 	Output *types.Type // output value type (must not change over time!)
 	Err    error       // did this fact validate?
 }

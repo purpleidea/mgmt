@@ -131,8 +131,10 @@ func (obj *VUMeterFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *VUMeterFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: true,
+		Pure: false,
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str, %s int, %s float) str", vuMeterArgNameSymbol, vuMeterArgNameMultiplier, vuMeterArgNamePeak)),
 	}
 }
@@ -212,6 +214,9 @@ func (obj *VUMeterFunc) Stream(ctx context.Context) error {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *VUMeterFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	symbol := args[0].Str()
 	multiplier := args[1].Int()
 	peak := args[2].Float()

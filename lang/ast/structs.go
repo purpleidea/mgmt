@@ -33,6 +33,7 @@ package ast
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -45,7 +46,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/core"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -9474,7 +9477,6 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 
 // Ordering returns a graph of the scope ordering that represents the data flow.
 // This can be used in SetScope so that it knows the correct order to run it in.
-// XXX: do we need to add ordering around named args, eg: obj.Args Name strings?
 func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
@@ -9502,7 +9504,6 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	cons := make(map[interfaces.Node]string)
 
-	// XXX: do we need ordering for other aspects of ExprFunc ?
 	if obj.Body != nil {
 		g, c, err := obj.Body.Ordering(newProduces)
 		if err != nil {
@@ -9851,6 +9852,11 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 
 	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
+		f := func(ctx context.Context, args []types.Value) (types.Value, error) {
+			// XXX: Find a way to exercise this function if possible.
+			//return nil, funcs.ErrCantSpeculate
+			return nil, fmt.Errorf("not implemented")
+		}
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Extend the environment with the arguments.
@@ -9888,13 +9894,27 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 
 				return bodyFunc, nil
 			},
+			F: f,
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
+		// Build this "callable" version in case it's available and we
+		// can use that directly. We don't need to copy it because we
+		// expect anything that is Callable to be stateless, and so it
+		// can use the same function call for every instantiation of it.
+		var fn interfaces.FuncSig
+		callableFunc, ok := obj.function.(interfaces.CallableFunc)
+		if ok {
+			// XXX: this might be dead code, how do we exercise it?
+			// If the function is callable then the surrounding
+			// ExprCall will produce a graph containing this func
+			// instead of calling ExprFunc.Graph().
+			fn = callableFunc.Call
+		}
+
 		// obj.function is a node which transforms input values into
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
-
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 				// Copy obj.function so that the underlying ExprFunc.function gets
@@ -9919,6 +9939,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 				}
 				return valueTransformingFunc, nil
 			},
+			F: fn,
 			T: obj.typ,
 		})
 	} else /* len(obj.Values) > 0 */ {
@@ -9967,13 +9988,122 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
 	// Don't panic because we call Value speculatively for partial values!
-	// XXX: Not implemented
-	return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
-	//// TODO: implement speculative value lookup (if not already sufficient)
-	//return &full.FuncValue{
-	//	V: obj.V,
-	//	T: obj.typ,
-	//}, nil
+	//return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
+
+	if obj.Body != nil {
+		// We can only return a Value if we know the value of all the
+		// ExprParams. We don't have an environment, so this is only
+		// possible if there are no ExprParams at all.
+		// XXX: If we add in EnvValue as an arg, can we change this up?
+		if err := checkParamScope(obj, make(map[interfaces.Expr]struct{})); err != nil {
+			// return the sentinel value
+			return nil, funcs.ErrCantSpeculate
+		}
+
+		f := func(ctx context.Context, args []types.Value) (types.Value, error) {
+			// TODO: make TestAstFunc1/shape8.txtar better...
+			//extendedValueEnv := interfaces.EmptyValueEnv() // TODO: add me?
+			//for _, x := range obj.Args {
+			//	extendedValueEnv[???] = ???
+			//}
+
+			// XXX: Find a way to exercise this function if possible.
+			// chained-returned-funcs.txtar will error if we use:
+			//return nil, fmt.Errorf("not implemented")
+			return nil, funcs.ErrCantSpeculate
+		}
+
+		return &full.FuncValue{
+			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// There are no ExprParams, so we start with the empty environment.
+				// Extend that environment with the arguments.
+				extendedEnv := interfaces.EmptyEnv()
+				//extendedEnv := make(map[string]interfaces.Func)
+				for i := range obj.Args {
+					if args[i] == nil {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+					if len(obj.params) <= i {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+					param := obj.params[i]
+					if param == nil || param.envKey == nil {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+
+					extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+						MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+							f := args[i]
+							g, err := pgraph.NewGraph("g")
+							if err != nil {
+								return nil, nil, err
+							}
+							g.AddVertex(f)
+							return g, f, nil
+						},
+					}
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args and the other variables
+				// with the nodes in the captured environment.
+				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+				}
+
+				innerTxn.AddGraph(subgraph)
+
+				return bodyFunc, nil
+			},
+			F: f,
+			T: obj.typ,
+		}, nil
+
+	} else if obj.Function != nil {
+		copyFunc := func() interfaces.Func {
+			copyableFunc, isCopyableFunc := obj.function.(interfaces.CopyableFunc)
+			if obj.function == nil || !isCopyableFunc {
+				return obj.Function() // force re-build a new pointer here!
+			}
+
+			// is copyable!
+			return copyableFunc.Copy()
+		}
+
+		// Instead of passing in the obj.function, we instead pass in a
+		// builder function so that this can use that inside of the
+		// *full.FuncValue implementation to make new functions when it
+		// gets called. We'll need more than one so they're not the same
+		// pointer!
+		return structs.FuncToFullFuncValue(copyFunc, obj.typ), nil
+	}
+	// else if /* len(obj.Values) > 0 */
+
+	// XXX: It's unclear if the below code in this function is correct or
+	// even tested.
+
+	// polymorphic case: figure out which one has the correct type and wrap
+	// it in a full.FuncValue.
+
+	index, err := langUtil.FnMatch(obj.typ, obj.Values)
+	if err != nil {
+		// programming error
+		// since type checking succeeded at this point, there should only be one match
+		return nil, errwrap.Wrapf(err, "multiple matches found")
+	}
+
+	simpleFn := obj.Values[index] // *types.FuncValue
+	simpleFn.T = obj.typ          // ensure the precise type is set/known
+
+	return &full.FuncValue{
+		V: nil,        // XXX: do we need to implement this too?
+		F: simpleFn.V, // XXX: is this correct?
+		T: obj.typ,
+	}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the
@@ -10737,13 +10867,6 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
-	// Find the vertex which produces the FuncValue.
-	g, funcValueFunc, err := obj.funcValueFunc(env)
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddGraph(g)
-
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we
 	// create below) receives a FuncValue from the function node, it creates the
@@ -10757,6 +10880,50 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		graph.AddGraph(argGraph)
 		argFuncs = append(argFuncs, argFunc)
 	}
+
+	// Speculate early, in an attempt to get a simpler graph shape.
+	//exprFunc, ok := obj.expr.(*ExprFunc)
+	// XXX: Does this need to be .Pure for it to be allowed?
+	//canSpeculate := !ok || exprFunc.function == nil || (exprFunc.function.Info().Fast && exprFunc.function.Info().Spec)
+	canSpeculate := true // XXX: use the magic Info fields?
+	exprValue, err := obj.expr.Value()
+	exprFuncValue, ok := exprValue.(*full.FuncValue)
+	if err == nil && ok && canSpeculate {
+		txn := (&txn.GraphTxn{
+			GraphAPI: (&txn.Graph{
+				Debug: obj.data.Debug,
+				Logf: func(format string, v ...interface{}) {
+					obj.data.Logf(format, v...)
+				},
+			}).Init(),
+			Lock:     func() {},
+			Unlock:   func() {},
+			RefCount: (&ref.Count{}).Init(),
+		}).Init()
+		txn.AddGraph(graph) // add all of the graphs so far...
+
+		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs)
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
+		}
+		txn.AddVertex(outputFunc)
+
+		if err := txn.Commit(); err != nil { // Must Commit after txn.AddGraph(...)
+			return nil, nil, err
+		}
+
+		return txn.Graph(), outputFunc, nil
+	} else if err != nil && ok && canSpeculate && err != funcs.ErrCantSpeculate {
+		// This is a permanent error, not a temporary speculation error.
+		//return nil, nil, err // XXX: Consider adding this...
+	}
+
+	// Find the vertex which produces the FuncValue.
+	g, funcValueFunc, err := obj.funcValueFunc(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g)
 
 	// Add a vertex for the call itself.
 	edgeName := structs.CallFuncArgNameFunction
@@ -10867,7 +11034,7 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 	if err := obj.typ.Cmp(value.Type()); err != nil {
 		return err
 	}
-	obj.V = value
+	obj.V = value // XXX: is this useful or a good idea?
 	return nil
 }
 
@@ -10875,13 +11042,46 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 // It is often unlikely that this kind of speculative execution finds something.
-// This particular implementation of the function returns the previously stored
-// and cached value as received by SetValue.
+// This particular implementation will run a function if all of the needed
+// values are known. This is necessary for getting the efficient graph shape of
+// ExprCall.
 func (obj *ExprCall) Value() (types.Value, error) {
-	if obj.V == nil {
+	if obj.V != nil { // XXX: is this useful or a good idea?
+		return obj.V, nil
+	}
+
+	if obj.expr == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
 	}
-	return obj.V, nil
+
+	// Speculatively call Value() on obj.expr and each arg.
+	// XXX: Should we check obj.expr.(*ExprFunc).Info.Pure here ?
+	value, err := obj.expr.Value() // speculative
+	if err != nil {
+		return nil, err
+	}
+
+	funcValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("not a func value")
+	}
+
+	args := []types.Value{}
+	for _, arg := range obj.Args { // []interfaces.Expr
+		a, err := arg.Value() // speculative
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, a)
+	}
+
+	// We now have a *full.FuncValue and a []types.Value. We can't call the
+	// existing:
+	//	Call(..., []interfaces.Func) interfaces.Func` method on the
+	// FuncValue, we need a speculative:
+	//	Call(..., []types.Value) types.Value
+	// method.
+	return funcValue.CallWithValues(context.TODO(), args)
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression
@@ -11370,6 +11570,11 @@ func (obj *ExprParam) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprParam) Value() (types.Value, error) {
+	// XXX: if value env is an arg in Expr.Value(...)
+	//value, exists := valueEnv[obj]
+	//if exists {
+	//	return value, nil
+	//}
 	return nil, fmt.Errorf("no value for ExprParam")
 }
 

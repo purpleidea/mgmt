@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "macs", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false, // might be different at real runtime
+		},
 		T: types.NewType("func() []str"),
 		F: Macs,
 	})

@@ -70,6 +70,8 @@ func (obj *LoadFact) String() string {
 // Info returns some static info about itself.
 func (obj *LoadFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType(loadSignature),
 	}
 }

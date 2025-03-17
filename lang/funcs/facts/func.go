@@ -64,8 +64,10 @@ func (obj *FactFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *FactFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false,
-		Memo: false,
+		Pure: obj.Fact.Info().Pure,
+		Memo: obj.Fact.Info().Memo,
+		Fast: obj.Fact.Info().Fast,
+		Spec: obj.Fact.Info().Spec,
 		Sig: &types.Type{
 			Kind: types.KindFunc,
 			// if Ord or Map are nil, this will panic things!

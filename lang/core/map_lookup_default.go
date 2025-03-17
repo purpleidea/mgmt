@@ -43,6 +43,12 @@ const (
 
 func init() {
 	simple.Register(MapLookupDefaultFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(map map{?1: ?2}, key ?1, default ?2) ?2"),
 		F: MapLookupDefault,
 	})

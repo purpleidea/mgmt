@@ -123,6 +123,9 @@ func (obj *FlipFlopFact) Stream(ctx context.Context) error {
 
 // Call this fact and return the value if it is possible to do so at this time.
 func (obj *FlipFlopFact) Call(ctx context.Context) (types.Value, error) {
+	if obj.mutex == nil {
+		return nil, facts.ErrCantSpeculate
+	}
 	obj.mutex.Lock() // TODO: could be a read lock
 	value := obj.value
 	obj.mutex.Unlock()

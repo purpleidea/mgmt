@@ -44,6 +44,12 @@ var typeParseDistroUID = types.NewType(fmt.Sprintf("func(str) %s", structDistroU
 
 func init() {
 	simple.ModuleRegister(ModuleName, "parse_distro_uid", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: typeParseDistroUID,
 		F: ParseDistroUID,
 	})

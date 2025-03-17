@@ -67,6 +67,8 @@ func (obj *DateTimeFact) String() string {
 // Info returns some static info about itself.
 func (obj *DateTimeFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType("int"),
 	}
 }

@@ -283,6 +283,8 @@ func (obj *ScheduleFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// output is list of hostnames chosen
 		Sig: sig, // func kind
 		Err: obj.Validate(),

@@ -158,6 +158,8 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

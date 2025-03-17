@@ -56,6 +56,12 @@ var urlParserReturnType = fmt.Sprintf(
 
 func init() {
 	simple.ModuleRegister(ModuleName, "url_parser", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType(fmt.Sprintf("func(str) %s", urlParserReturnType)),
 		F: URLParser,
 	})

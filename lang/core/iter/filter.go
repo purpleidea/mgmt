@@ -142,8 +142,10 @@ func (obj *FilterFunc) Validate() error {
 // will return correct data.
 func (obj *FilterFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // TODO: what if the input function isn't pure?
+		Pure: false, // XXX: what if the input function isn't pure?
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}
@@ -412,9 +414,9 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
-		outputElemFunc, err := obj.lastFuncValue.Call(obj.init.Txn, []interfaces.Func{inputElemFunc})
+		outputElemFunc, err := obj.lastFuncValue.CallWithFuncs(obj.init.Txn, []interfaces.Func{inputElemFunc})
 		if err != nil {
-			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.Call()")
+			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.CallWithFuncs()")
 		}
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{

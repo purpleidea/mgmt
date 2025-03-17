@@ -39,10 +39,22 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "left_pad", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s str, pad str, len int) str"),
 		F: LeftPad,
 	})
 	simple.ModuleRegister(ModuleName, "right_pad", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(s str, pad str, len int) str"),
 		F: RightPad,
 	})

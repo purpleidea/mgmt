@@ -204,6 +204,13 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 
 	obj.Func = &wrapped.Func{
 		Name: obj.String(),
+		FuncInfo: &wrapped.Info{
+			// TODO: dedup with below Info data
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		Type: typ, // .Copy(),
 	}
 
@@ -232,6 +239,9 @@ func (obj *MapLookupFunc) Copy() interfaces.Func {
 // Call is the actual implementation here. This is used in lieu of the Stream
 // function which we'd have these contents within.
 func (obj *MapLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	m := (args[0]).(*types.MapValue)
 	key := args[1]
 	//zero := m.Type().Val.New() // the zero value
@@ -266,7 +276,9 @@ func (obj *MapLookupFunc) Validate() error {
 func (obj *MapLookupFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

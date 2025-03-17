@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # original version of this script from kubernetes project, under ALv2 license
 
 echo running "$0"

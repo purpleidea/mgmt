@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # port tests to txtar
 for f in */main.mcl; do
 	echo $f == $(dirname $f)

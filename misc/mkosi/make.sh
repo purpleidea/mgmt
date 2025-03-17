@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 
 echo running "$0"
 set -o errexit

@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # vim: noet:ts=8:sts=8:sw=8
 
 . "$(dirname "$0")/../util.sh"

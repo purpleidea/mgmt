@@ -5,6 +5,7 @@
 .envrc
 old/
 tmp/
+vendor/
 *WIP
 *_stringer.go
 mgmt
@@ -20,3 +21,18 @@ sites/
 .*.sw[op]
 # prevent `echo foo 2>1` typo errors by making this file read-only
 1
+# Test result
+examples/lib/test-examples.out
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+result
+graphs

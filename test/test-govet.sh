@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that go vet passes
 
 echo running "$0"

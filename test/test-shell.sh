@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # simple test harness for testing mgmt
 # NOTE: this will rm -rf /tmp/mgmt/
 

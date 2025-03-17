@@ -626,6 +626,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicInterpolate = "errInterpolate: "
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
+	const magicErrorTimeCheck = "errTimeCheck: "
 	const magicErrorGraph = "errGraph: "
 	const magicErrorStream = "errStream: "
 	const magicErrorInterpret = "errInterpret: "
@@ -784,6 +785,7 @@ func TestAstFunc2(t *testing.T) {
 			failInterpolate := false
 			failSetScope := false
 			failUnify := false
+			failTimeCheck := false
 			failGraph := false
 			failStream := false
 			failInterpret := false
@@ -829,6 +831,11 @@ func TestAstFunc2(t *testing.T) {
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
+				}
+				if strings.HasPrefix(expstr, magicErrorTimeCheck) {
+					errStr = strings.TrimPrefix(expstr, magicErrorTimeCheck)
+					expstr = errStr
+					failTimeCheck = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
 					errMagic = magicErrorGraph
@@ -1177,6 +1184,30 @@ func TestAstFunc2(t *testing.T) {
 			//		Expr: closure.Expr, // XXX: Ask Sam
 			//	}
 			//}
+
+			// time-check the AST: validate that no resource can ever receive a
+			// timeful function
+			err = iast.TimeCheck()
+			if (!fail || !failTimeCheck) && err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: could not time check: %+v", index, err)
+				return
+			}
+			if failTimeCheck && err != nil {
+				s := err.Error() // convert to string
+				if !foundErr(s) {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return // fail happened during time-checking, don't run Graph!
+			}
+			if failTimeCheck && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: time-check passed, expected fail", index)
+				return
+			}
 
 			// build the function graph
 			fgraph, err := iast.Graph(env) // XXX: Ask Sam

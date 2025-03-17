@@ -106,7 +106,14 @@ type Fact interface {
 	Info() *Info
 	Init(*Init) error
 	Stream(context.Context) error
+}
 
-	// TODO: should we require this here? What about a CallableFact instead?
-	Call(context.Context) (types.Value, error)
+// CallableFact is a function that takes no args, and that can be called
+// statically if we want to do it speculatively or from a resource.
+type CallableFact interface {
+	Fact // implement everything in Fact but add the additional requirements
+
+	// Call this fact and return the value if it is possible to do so at
+	// this time.
+	Call(ctx context.Context) (types.Value, error)
 }

@@ -33,6 +33,7 @@ package ast
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -45,7 +46,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/core"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -161,6 +164,16 @@ const (
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = util.Error("scope is not stored in this node")
+
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to run the Value() method of Expr. This can be useful if
+	// we want to distinguish between "something is broken" and "I can't
+	// produce a value at this time" which can be identified and we can
+	// continue. If we don't get this error, then it's okay to shut
+	// everything down.
+	// XXX: SAM HERE IS A SENTINEL ERROR IN CASE YOU WANT TO USE IT. I THINK
+	// IT MIGHT ACTUALLY NOT BE NECESSARY, BUT LET'S SEE IF IT'S USEFUL...
+	ErrCantSpeculate = util.Error("can't speculate for value")
 
 	// ErrFuncPointerNil is an error that explains the function pointer for
 	// table lookup is missing. If this happens, it's most likely a
@@ -6783,6 +6796,10 @@ func (obj *ExprBool) SetScope(scope *interfaces.Scope, sctx map[string]interface
 	return nil
 }
 
+func (obj *ExprBool) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return nil
+}
+
 // SetType will make no changes if called here. It will error if anything other
 // than a Bool is passed in, and doesn't need to be called for this expr to
 // work.
@@ -6986,6 +7003,10 @@ func (obj *ExprStr) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 	return nil
 }
 
+func (obj *ExprStr) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return nil
+}
+
 // SetType will make no changes if called here. It will error if anything other
 // than an Str is passed in, and doesn't need to be called for this expr to
 // work.
@@ -7135,6 +7156,10 @@ func (obj *ExprInt) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
+	return nil
+}
+
+func (obj *ExprInt) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
 	return nil
 }
 
@@ -7289,6 +7314,10 @@ func (obj *ExprFloat) SetScope(scope *interfaces.Scope, sctx map[string]interfac
 		scope = interfaces.EmptyScope()
 	}
 	obj.scope = scope
+	return nil
+}
+
+func (obj *ExprFloat) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
 	return nil
 }
 
@@ -7522,6 +7551,15 @@ func (obj *ExprList) SetScope(scope *interfaces.Scope, sctx map[string]interface
 
 	for _, x := range obj.Elements {
 		if err := x.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprList) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.Elements {
+		if err := x.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -7946,6 +7984,18 @@ func (obj *ExprMap) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 			return err
 		}
 		if err := x.Val.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprMap) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.KVs {
+		if err := x.Key.CheckParamScope(freeVars); err != nil {
+			return err
+		}
+		if err := x.Val.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -8399,6 +8449,15 @@ func (obj *ExprStruct) SetScope(scope *interfaces.Scope, sctx map[string]interfa
 
 	for _, x := range obj.Fields {
 		if err := x.Value.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *ExprStruct) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	for _, x := range obj.Fields {
+		if err := x.Value.CheckParamScope(freeVars); err != nil {
 			return err
 		}
 	}
@@ -8929,7 +8988,6 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 
 // Ordering returns a graph of the scope ordering that represents the data flow.
 // This can be used in SetScope so that it knows the correct order to run it in.
-// XXX: do we need to add ordering around named args, eg: obj.Args Name strings?
 func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
@@ -8957,7 +9015,6 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	cons := make(map[interfaces.Node]string)
 
-	// XXX: do we need ordering for other aspects of ExprFunc ?
 	if obj.Body != nil {
 		g, c, err := obj.Body.Ordering(newProduces)
 		if err != nil {
@@ -9022,6 +9079,26 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 	if len(obj.Values) > 0 {
 		// TODO: if *types.FuncValue grows a SetScope method do it here
 	}
+
+	return nil
+}
+
+func (obj *ExprFunc) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if obj.Body != nil {
+		newFreeVars := make(map[interfaces.Expr]struct{})
+		for k, v := range freeVars {
+			newFreeVars[k] = v
+		}
+		for _, param := range obj.params {
+			newFreeVars[param] = struct{}{}
+		}
+
+		if err := obj.Body.CheckParamScope(newFreeVars); err != nil {
+			return err
+		}
+	}
+
+	// XXX: Do we need to do anything for obj.Function ?
 
 	return nil
 }
@@ -9422,13 +9499,78 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
 	// Don't panic because we call Value speculatively for partial values!
-	// XXX: Not implemented
-	return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
-	//// TODO: implement speculative value lookup (if not already sufficient)
-	//return &full.FuncValue{
-	//	V: obj.V,
-	//	T: obj.typ,
-	//}, nil
+	//return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
+
+	if obj.Body != nil {
+		// We can only return a Value if we know the value of all the ExprParams.
+		// We don't have an environment, so this is only possible if there are no
+		// ExprParams at all.
+		if err := obj.CheckParamScope(make(map[interfaces.Expr]struct{})); err != nil {
+			// return the sentinel value
+			return nil, ErrCantSpeculate
+		}
+
+		return &full.FuncValue{
+			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+				// There are no ExprParams, so we start with the empty environment.
+				// Extend that environment with the arguments.
+				extendedEnv := interfaces.EmptyEnv()
+				//extendedEnv := make(map[string]interfaces.Func)
+				for i := range obj.Args {
+					if args[i] == nil {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+					if len(obj.params) <= i {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+					param := obj.params[i]
+					if param == nil || param.envKey == nil {
+						// XXX: speculation error?
+						return nil, fmt.Errorf("programming error?")
+					}
+
+					extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+						MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+							f := args[i]
+							g, err := pgraph.NewGraph("g")
+							if err != nil {
+								return nil, nil, err
+							}
+							g.AddVertex(f)
+							return g, f, nil
+						},
+					}
+				}
+
+				// Create a subgraph from the lambda's body, instantiating the
+				// lambda's parameters with the args and the other variables
+				// with the nodes in the captured environment.
+				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+				if err != nil {
+					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+				}
+
+				innerTxn.AddGraph(subgraph)
+
+				return bodyFunc, nil
+			},
+			T: obj.typ,
+		}, nil
+
+	} else if obj.Function != nil {
+		return structs.FuncToFullFuncValue(obj.function, obj.typ), nil
+	}
+	// else if /* len(obj.Values) > 0 */
+	panic("XXX: what to do here")
+	// polymorphic case: figure out which one has the correct type and wrap
+	// it in a full.FuncValue.
+
+	return &full.FuncValue{
+		//V: obj.V, // XXX ???
+		T: obj.typ,
+	}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the
@@ -9826,6 +9968,22 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 	return nil
 }
 
+func (obj *ExprCall) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if obj.expr != nil {
+		if err := obj.expr.CheckParamScope(freeVars); err != nil {
+			return err
+		}
+	}
+
+	for _, x := range obj.Args {
+		if err := x.CheckParamScope(freeVars); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
 // parsing if a type is specified explicitly. Since types are static and don't
@@ -10192,13 +10350,6 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
-	// Find the vertex which produces the FuncValue.
-	g, funcValueFunc, err := obj.funcValueFunc(env)
-	if err != nil {
-		return nil, nil, err
-	}
-	graph.AddGraph(g)
-
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we
 	// create below) receives a FuncValue from the function node, it creates the
@@ -10212,6 +10363,39 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		graph.AddGraph(argGraph)
 		argFuncs = append(argFuncs, argFunc)
 	}
+
+	// XXX: is this what we want?
+	exprValue, err := obj.expr.Value()
+	if err == nil {
+		exprFuncValue, ok := exprValue.(*full.FuncValue)
+		if ok {
+			txn := (&txn.GraphTxn{
+				GraphAPI: (&txn.Graph{
+					Debug: obj.data.Debug,
+					Logf: func(format string, v ...interface{}) {
+						obj.data.Logf(format, v...)
+					},
+				}).Init(),
+				Lock:     func() {},
+				Unlock:   func() {},
+				RefCount: (&ref.Count{}).Init(),
+			}).Init()
+			txn.AddGraph(graph) // add all of the graphs so far...
+			outputFunc, err := exprFuncValue.Call(txn, argFuncs)
+			if err != nil {
+				return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
+			}
+
+			return txn.Graph(), outputFunc, nil
+		}
+	}
+
+	// Find the vertex which produces the FuncValue.
+	g, funcValueFunc, err := obj.funcValueFunc(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g)
 
 	// Add a vertex for the call itself.
 	edgeName := structs.CallFuncArgNameFunction
@@ -10333,10 +10517,74 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 // This particular implementation of the function returns the previously stored
 // and cached value as received by SetValue.
 func (obj *ExprCall) Value() (types.Value, error) {
-	if obj.V == nil {
+	//if obj.V == nil {} // XXX
+	//return obj.V, nil // XXX
+	if obj.expr == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
 	}
-	return obj.V, nil
+
+	// speculatively call Value() on obj.expr and each arg.
+	value, err := obj.expr.Value() // speculative
+	if err != nil {
+		return nil, err
+	}
+
+	funcValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("not a func value")
+	}
+
+	funcList := []interfaces.Func{}
+
+	args := []types.Value{}
+	for _, arg := range obj.Args { // []interfaces.Expr
+		a, err := arg.Value() // speculative
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, a)
+
+		// XXX COMPLETELY GUESSING:
+		_, argFunc, err := arg.Graph(nil) // env XXX ???
+		if err != nil {
+			return nil, err
+		}
+		funcList = append(funcList, argFunc)
+	}
+
+	// we now have a full.FuncValue and a []Value. We can't call the existing
+	//   Call([]Func) Func
+	// method on the FuncValue, we need a speculative
+	//   Call([]Value) Value
+	// method. so the next step is to implement that method.
+	//
+	// XXX: we do have 	`Call(args []types.Value) (types.Value, error)`
+	// XXX: which is a `CallableFunc` interface, but that's based off of Func...
+	// XXX: this is based off of full.FuncValue ...
+	// XXX: this is just a dimensional analysis attempt, probably wrong:
+	// XXX COMPLETELY GUESSING:
+	txn := (&txn.GraphTxn{
+		GraphAPI: (&txn.Graph{
+			Debug: obj.data.Debug,
+			Logf: func(format string, v ...interface{}) {
+				obj.data.Logf(format, v...)
+			},
+		}).Init(),
+		Lock:     func() {},
+		Unlock:   func() {},
+		RefCount: (&ref.Count{}).Init(),
+	}).Init()
+	//txn := ??? // interfaces.Txn
+	//funcList := ??? // []interfaces.Func
+	f, err := funcValue.Call(txn, funcList) // (interfaces.Func, error)
+	if err != nil {
+		return nil, err
+	}
+	callableFunc, ok := f.(interfaces.CallableFunc)
+	if !ok {
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+	return callableFunc.Call(context.TODO(), args) // XXX CTX!
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression
@@ -10469,6 +10717,15 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 
 	// This ExprVar refers to a top-level definition which has already been
 	// scope-checked, so we don't need to scope-check it again.
+	return nil
+}
+
+func (obj *ExprVar) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	// XXX: is this still correct?
+	target := obj.scope.Variables[obj.Name]
+	if err := target.CheckParamScope(freeVars); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -10711,6 +10968,14 @@ func (obj *ExprParam) SetScope(scope *interfaces.Scope, sctx map[string]interfac
 	return nil
 }
 
+func (obj *ExprParam) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if _, exists := freeVars[obj]; !exists {
+		return fmt.Errorf("the body uses parameter $%s", obj.Name)
+	}
+
+	return nil
+}
+
 // SetType is used to set the type of this expression once it is known. This
 // usually happens during type unification, but it can also happen during
 // parsing if a type is specified explicitly. Since types are static and don't
@@ -10931,6 +11196,10 @@ func (obj *ExprIterated) Ordering(produces map[string]interfaces.Node) (*pgraph.
 	//return graph, cons, nil
 }
 
+func (obj *ExprIterated) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	panic("ExprIterated.CheckParamScope(): XXX what should we do here?")
+}
+
 // SetScope stores the scope for use in this resource.
 func (obj *ExprIterated) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	// When we copy, the pointer of the obj changes, so we save it here now,
@@ -11080,6 +11349,10 @@ func (obj *ExprPoly) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 // SetScope stores the scope for use in this resource.
 func (obj *ExprPoly) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	panic("ExprPoly.SetScope(): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling SetScope")
+}
+
+func (obj *ExprPoly) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	panic("ExprPoly.CheckParamScope(): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling SetScope")
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -11249,6 +11522,10 @@ func (obj *ExprTopLevel) SetScope(scope *interfaces.Scope, sctx map[string]inter
 	// functions enclosing the use site are not visible at the top-level either,
 	// so we must clear sctx.
 	return obj.Definition.SetScope(obj.CapturedScope, make(map[string]interfaces.Expr))
+}
+
+func (obj *ExprTopLevel) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return obj.Definition.CheckParamScope(freeVars)
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -11437,6 +11714,10 @@ func (obj *ExprSingleton) Ordering(produces map[string]interfaces.Node) (*pgraph
 // SetScope stores the scope for use in this resource.
 func (obj *ExprSingleton) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	return obj.Definition.SetScope(scope, sctx)
+}
+
+func (obj *ExprSingleton) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	return obj.Definition.CheckParamScope(freeVars)
 }
 
 // SetType is used to set the type of this expression once it is known. This
@@ -11749,6 +12030,19 @@ func (obj *ExprIf) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.
 		return err
 	}
 	return obj.Condition.SetScope(scope, sctx)
+}
+
+func (obj *ExprIf) CheckParamScope(freeVars map[interfaces.Expr]struct{}) error {
+	if err := obj.Condition.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	if err := obj.ThenBranch.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	if err := obj.ElseBranch.CheckParamScope(freeVars); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetType is used to set the type of this expression once it is known. This

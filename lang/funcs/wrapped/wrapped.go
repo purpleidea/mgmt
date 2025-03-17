@@ -141,16 +141,15 @@ func (obj *Func) Stream(ctx context.Context) error {
 				obj.last = input // store for next
 			}
 
-			values := []types.Value{}
-			for _, name := range obj.Fn.Type().Ord {
-				x := input.Struct()[name]
-				values = append(values, x)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
 			}
 
 			if obj.init.Debug {
-				obj.init.Logf("Calling function with: %+v", values)
+				obj.init.Logf("Calling function with: %+v", args)
 			}
-			result, err := obj.Call(ctx, values) // (Value, error)
+			result, err := obj.Call(ctx, args) // (Value, error)
 			if err != nil {
 				if obj.init.Debug {
 					obj.init.Logf("Function returned error: %+v", err)

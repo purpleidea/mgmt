@@ -60,8 +60,9 @@ type AbsPathFunc struct {
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	path   *string // the active path
-	result *string // last calculated output
+	args   []types.Value
+	path   *string     // the active path
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -128,43 +129,64 @@ func (obj *AbsPathFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			path := input.Struct()[absPathArgNamePath].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			path := args[0].Str()
 			// TODO: add validation for absolute path?
 			if obj.path != nil && *obj.path == path {
 				continue // nothing changed
 			}
 			obj.path = &path
 
-			p := strings.TrimSuffix(obj.data.Base, "/")
-			if p == obj.data.Base { // didn't trim, so we fail
-				// programming error
-				return fmt.Errorf("no trailing slash on Base, got: `%s`", p)
+			result, err := obj.Call(ctx, obj.args)
+			if err != nil {
+				return err
 			}
-			result := p
 
-			if *obj.path == "" {
-				result += "/" // add the above trailing slash back
-			} else if !strings.HasPrefix(*obj.path, "/") {
-				return fmt.Errorf("path was not absolute, got: `%s`", *obj.path)
-				//result += "/" // be forgiving ?
-			}
-			result += *obj.path
-
-			if obj.result != nil && *obj.result == result {
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *AbsPathFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	path := args[0].Str()
+
+	p := strings.TrimSuffix(obj.data.Base, "/")
+	if p == obj.data.Base { // didn't trim, so we fail
+		// programming error
+		return nil, fmt.Errorf("no trailing slash on Base, got: `%s`", p)
+	}
+	result := p
+
+	if path == "" {
+		result += "/" // add the above trailing slash back
+	} else if !strings.HasPrefix(path, "/") {
+		return nil, fmt.Errorf("path was not absolute, got: `%s`", path)
+		//result += "/" // be forgiving ?
+	}
+	result += path
+
+	return &types.StrValue{
+		V: result,
+	}, nil
 }

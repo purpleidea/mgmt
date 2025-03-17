@@ -90,16 +90,27 @@ func (obj *UptimeFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		uptime, err := uptime()
+		result, err := obj.Call(ctx)
 		if err != nil {
-			return errwrap.Wrapf(err, "could not read uptime value")
+			return err
 		}
 
 		select {
-		case obj.init.Output <- &types.IntValue{V: uptime}:
-			// send
+		case obj.init.Output <- result:
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *UptimeFact) Call(ctx context.Context) (types.Value, error) {
+	uptime, err := uptime() // TODO: add ctx?
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not read uptime value")
+	}
+
+	return &types.IntValue{
+		V: uptime,
+	}, nil
 }

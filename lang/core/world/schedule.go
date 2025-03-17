@@ -88,6 +88,8 @@ type ScheduleFunc struct {
 
 	init *interfaces.Init
 
+	args []types.Value
+
 	namespace string
 	scheduler *scheduler.Result
 
@@ -303,7 +305,15 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()[scheduleArgNameNamespace].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			namespace := args[0].Str()
+
+			//namespace := input.Struct()[scheduleArgNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}

@@ -150,7 +150,7 @@ func (obj *Func) Stream(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("Calling function with: %+v", values)
 			}
-			result, err := obj.Fn.Call(ctx, values) // (Value, error)
+			result, err := obj.Call(ctx, values) // (Value, error)
 			if err != nil {
 				if obj.init.Debug {
 					obj.init.Logf("Function returned error: %+v", err)
@@ -180,4 +180,10 @@ func (obj *Func) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *Func) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	return obj.Fn.Call(ctx, args) // (Value, error)
 }

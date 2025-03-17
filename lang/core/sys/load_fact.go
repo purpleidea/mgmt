@@ -103,23 +103,32 @@ func (obj *LoadFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		x1, x5, x15, err := load()
+		result, err := obj.Call(ctx)
 		if err != nil {
-			return errwrap.Wrapf(err, "could not read load values")
-		}
-
-		st := types.NewStruct(types.NewType(loadSignature))
-		for k, v := range map[string]float64{"x1": x1, "x5": x5, "x15": x15} {
-			if err := st.Set(k, &types.FloatValue{V: v}); err != nil {
-				return errwrap.Wrapf(err, "struct could not set key: `%s`", k)
-			}
+			return err
 		}
 
 		select {
-		case obj.init.Output <- st:
-			// send
+		case obj.init.Output <- result:
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *LoadFact) Call(ctx context.Context) (types.Value, error) {
+	x1, x5, x15, err := load()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not read load values")
+	}
+
+	st := types.NewStruct(types.NewType(loadSignature))
+	for k, v := range map[string]float64{"x1": x1, "x5": x5, "x15": x15} {
+		if err := st.Set(k, &types.FloatValue{V: v}); err != nil {
+			return nil, errwrap.Wrapf(err, "struct could not set key: `%s`", k)
+		}
+	}
+
+	return st, nil
 }

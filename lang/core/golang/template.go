@@ -86,7 +86,7 @@ type TemplateFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	result *string // last calculated output
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -364,36 +364,52 @@ func (obj *TemplateFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			st := input.Struct()
-
-			tmpl := st[templateArgNameTemplate].Str()
-			vars, exists := st[templateArgNameVars]
-			if !exists {
-				vars = nil
-			}
-
-			result, err := obj.run(ctx, tmpl, vars)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
 			if err != nil {
-				return err // no errwrap needed b/c helper func
+				return err
 			}
 
-			if obj.result != nil && *obj.result == result {
+			result, err := obj.Call(ctx, args)
+			if err != nil {
+				return err
+			}
+
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	tmpl := args[0].Str()
+
+	var vars types.Value // nil
+	if len(args) == 2 {
+		vars = args[1]
+	}
+
+	result, err := obj.run(ctx, tmpl, vars)
+	if err != nil {
+		return nil, err // no errwrap needed b/c helper func
+	}
+	return &types.StrValue{
+		V: result,
+	}, nil
 }
 
 // safename renames the functions so they're valid inside the template. This is

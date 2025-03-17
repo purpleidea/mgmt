@@ -243,13 +243,24 @@ func (obj *OneInstanceFact) Init(init *facts.Init) error {
 func (obj *OneInstanceFact) Stream(ctx context.Context) error {
 	obj.init.Logf("Stream of `%s` @ %p", obj.Name, obj)
 	defer close(obj.init.Output) // always signal when we're done
+
+	result, err := obj.Call(ctx)
+	if err != nil {
+		return err
+	}
+
 	select {
-	case obj.init.Output <- &types.StrValue{
-		V: msg,
-	}:
+	case obj.init.Output <- result:
 	case <-ctx.Done():
 		return nil
 	}
 
 	return nil
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *OneInstanceFact) Call(ctx context.Context) (types.Value, error) {
+	return &types.StrValue{
+		V: msg,
+	}, nil
 }

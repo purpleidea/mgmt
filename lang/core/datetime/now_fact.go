@@ -102,12 +102,22 @@ func (obj *DateTimeFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
+		result, err := obj.Call(ctx)
+		if err != nil {
+			return err
+		}
+
 		select {
-		case obj.init.Output <- &types.IntValue{ // seconds since 1970...
-			V: time.Now().Unix(), // .UTC() not necessary
-		}:
+		case obj.init.Output <- result:
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *DateTimeFact) Call(ctx context.Context) (types.Value, error) {
+	return &types.IntValue{ // seconds since 1970...
+		V: time.Now().Unix(), // .UTC() not necessary
+	}, nil
 }

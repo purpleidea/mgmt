@@ -62,12 +62,13 @@ type ReadFileFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	filename   *string // the active filename
 	recWatcher *recwatch.RecWatcher
 	events     chan error // internal events
 	wg         *sync.WaitGroup
 
-	result *string // last calculated output
+	args     []types.Value
+	filename *string     // the active filename
+	result   types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -214,28 +215,49 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 				continue // still waiting for input values
 			}
 
-			// read file...
-			content, err := os.ReadFile(*obj.filename)
+			args, err := interfaces.StructToCallableArgs(obj.last) // []types.Value, error)
 			if err != nil {
-				return errwrap.Wrapf(err, "error reading file")
+				return err
 			}
-			result := string(content) // convert to string
+			obj.args = args
 
-			if obj.result != nil && *obj.result == result {
+			result, err := obj.Call(ctx, obj.args)
+			if err != nil {
+				return err
+			}
+
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
+
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	filename := args[0].Str()
+
+	// read file...
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error reading file")
+	}
+
+	return &types.StrValue{
+		V: string(content), // convert to string
+	}, nil
 }

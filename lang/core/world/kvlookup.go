@@ -51,12 +51,15 @@ func init() {
 	funcs.ModuleRegister(ModuleName, KVLookupFuncName, func() interfaces.Func { return &KVLookupFunc{} })
 }
 
+var _ interfaces.CallableFunc = &KVLookupFunc{}
+
 // KVLookupFunc is special function which returns all the values of a given key
 // in the exposed world. It is similar to exchange, but it does not set a key.
 type KVLookupFunc struct {
 	init *interfaces.Init
 
 	namespace string
+	args      []types.Value
 
 	last   types.Value
 	result types.Value // last calculated output
@@ -127,7 +130,13 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()[kvLookupArgNameNamespace].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			namespace := args[0].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}
@@ -145,7 +154,7 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 					return err
 				}
 
-				result, err := obj.buildMap(ctx) // build the map...
+				result, err := obj.Call(ctx, obj.args) // build the map...
 				if err != nil {
 					return err
 				}
@@ -174,7 +183,7 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.namespace)
 			}
 
-			result, err := obj.buildMap(ctx) // build the map...
+			result, err := obj.Call(ctx, obj.args) // build the map...
 			if err != nil {
 				return err
 			}
@@ -198,11 +207,14 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 	}
 }
 
-// buildMap builds the result map which we'll need. It uses struct variables.
-func (obj *KVLookupFunc) buildMap(ctx context.Context) (types.Value, error) {
-	keyMap, err := obj.init.World.StrMapGet(ctx, obj.namespace)
+// Call this function with the input args and return the value if it is possible
+// to do so at this time. This was previously buildMap, which builds the result
+// map which we'll need. It uses struct variables.
+func (obj *KVLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	namespace := args[0].Str()
+	keyMap, err := obj.init.World.StrMapGet(ctx, namespace)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", obj.namespace)
+		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", namespace)
 	}
 
 	d := types.NewMap(obj.Info().Sig.Out)

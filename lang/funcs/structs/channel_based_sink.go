@@ -108,15 +108,20 @@ func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 				return nil // can't output any more
 			}
 
-			value, exists := input.Struct()[obj.EdgeName]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
 			}
 
-			if obj.last != nil && value.Cmp(obj.last) == nil {
+			result, err := obj.Call(ctx, args) // get the value...
+			if err != nil {
+				return err
+			}
+
+			if obj.last != nil && result.Cmp(obj.last) == nil {
 				continue // value didn't change, skip it
 			}
-			obj.last = value // store so we can send after this select
+			obj.last = result // store so we can send after this select
 
 		case <-ctx.Done():
 			return nil
@@ -138,4 +143,14 @@ func (obj *ChannelBasedSinkFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+// XXX: Is is correct to implement this here for this particular function?
+func (obj *ChannelBasedSinkFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("programming error, can't find edge")
+	}
+	return args[0], nil
 }

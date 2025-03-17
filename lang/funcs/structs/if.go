@@ -148,6 +148,16 @@ func (obj *IfFunc) Stream(ctx context.Context) error {
 // to do so at this time.
 // XXX: Is is correct to implement this here for this particular function?
 func (obj *IfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.Info() == nil {
+		return nil, fmt.Errorf("info is empty")
+	}
+	if obj.Info().Sig == nil {
+		return nil, fmt.Errorf("sig is empty")
+	}
+	if i, j := len(args), len(obj.Info().Sig.Ord); i != j {
+		return nil, fmt.Errorf("arg length doesn't match, got %d, exp: %d", i, j)
+	}
+
 	if c := args[0].Bool(); c {
 		return args[1], nil // true branch
 	}

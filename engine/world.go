@@ -45,10 +45,6 @@ type World interface { // TODO: is there a better name for this interface?
 	// FIXME: should this method take a "filter" data struct instead of many args?
 	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
 
-	IdealClusterSizeWatch(context.Context) (chan error, error)
-	IdealClusterSizeGet(context.Context) (uint16, error)
-	IdealClusterSizeSet(context.Context, uint16) (bool, error)
-
 	StrWatch(ctx context.Context, namespace string) (chan error, error)
 	StrIsNotExist(error) bool
 	StrGet(ctx context.Context, namespace string) (string, error)
@@ -74,4 +70,14 @@ type World interface { // TODO: is there a better name for this interface?
 
 	// WatchMembers returns a channel of changing members in the cluster.
 	WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error)
+}
+
+// EtcdWorld is a world interface that should be implemented if the world
+// backend is implementing etcd, and if it supports dynamically resizing things.
+// TODO: In theory we could generalize this to support other backends, but lets
+// assume it's specific to etcd only for now.
+type EtcdWorld interface {
+	IdealClusterSizeWatch(context.Context) (chan error, error)
+	IdealClusterSizeGet(context.Context) (uint16, error)
+	IdealClusterSizeSet(context.Context, uint16) (bool, error)
 }

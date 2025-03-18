@@ -51,7 +51,6 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/chooser"
 	etcdClient "github.com/purpleidea/mgmt/etcd/client"
-	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdInterfaces "github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/gapi/empty"
@@ -595,24 +594,6 @@ func (obj *Main) Run() error {
 		client = c
 	}
 
-	simpleDeploy := &deployer.SimpleDeploy{
-		Client: client,
-		Debug:  obj.Debug,
-		Logf: func(format string, v ...interface{}) {
-			obj.Logf("deploy: "+format, v...)
-		},
-	}
-	if err := simpleDeploy.Init(); err != nil {
-		return errwrap.Wrapf(err, "deploy Init failed")
-	}
-	defer func() {
-		err := errwrap.Wrapf(simpleDeploy.Close(), "deploy Close failed")
-		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("cleanup error: %+v", err)
-		}
-	}()
-
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
@@ -628,7 +609,8 @@ func (obj *Main) Run() error {
 	// XXX: The "implementation of the World API" should have more than just
 	// etcd in it, so this could live elsewhere package wise and just have
 	// an etcd component from the etcd package added in.
-	world := &etcd.World{
+	var world engine.World
+	world = &etcd.World{
 		Hostname:       hostname,
 		Client:         client,
 		MetadataPrefix: MetadataPrefix,
@@ -645,6 +627,16 @@ func (obj *Main) Run() error {
 			return gapiInfoResult.URI
 		},
 	}
+	if err := world.Init(); err != nil {
+		return errwrap.Wrapf(err, "world Init failed")
+	}
+	defer func() {
+		err := errwrap.Wrapf(world.Close(), "world Close failed")
+		if err != nil {
+			// TODO: cause the final exit code to be non-zero?
+			Logf("close error: %+v", err)
+		}
+	}()
 
 	obj.ge = &graph.Engine{
 		Program:   obj.Program,
@@ -1046,7 +1038,7 @@ func (obj *Main) Run() error {
 	// get max id (from all the previous deploys)
 	// this is what the existing cluster is already running
 	// TODO: add a timeout to context?
-	max, err := simpleDeploy.GetMaxDeployID(exitCtx)
+	max, err := world.GetMaxDeployID(exitCtx)
 	if err != nil {
 		close(deployChan) // because we won't close it downstream...
 		return errwrap.Wrapf(err, "error getting max deploy id")
@@ -1085,7 +1077,7 @@ func (obj *Main) Run() error {
 		// now we can wait for future deploys, but if we already had an
 		// initial deploy from run, don't switch to this unless it's new
 		ctx, cancel := context.WithCancel(context.Background())
-		watchChan, err := simpleDeploy.WatchDeploy(ctx)
+		watchChan, err := world.WatchDeploy(ctx)
 		if err != nil {
 			cancel()
 			Logf("error starting deploy: %+v", err)
@@ -1140,7 +1132,7 @@ func (obj *Main) Run() error {
 				//	return // exit via channel close instead
 			}
 
-			latest, err := simpleDeploy.GetMaxDeployID(ctx) // or zero
+			latest, err := world.GetMaxDeployID(ctx) // or zero
 			if err != nil {
 				Logf("error getting max deploy id: %+v", err)
 				continue
@@ -1167,7 +1159,7 @@ func (obj *Main) Run() error {
 
 			// 0 passes through an empty deploy without an error...
 			// (unless there is some sort of etcd error that occurs)
-			str, err := simpleDeploy.GetDeploy(ctx, latest)
+			str, err := world.GetDeploy(ctx, latest)
 			if err != nil {
 				Logf("deploy: error getting deploy: %+v", err)
 				continue

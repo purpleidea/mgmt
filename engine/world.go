@@ -40,7 +40,15 @@ import (
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
+	// Init sets things up and is called once before any other methods.
+	Init() error
+
+	// Close does some cleanup and is the last method that is ever called.
+	Close() error
+
 	FsWorld
+
+	DeployWorld
 
 	StrWorld
 
@@ -58,6 +66,21 @@ type FsWorld interface {
 	// This is a way to turn a unique string handle into an appropriate
 	// filesystem object that we can interact with.
 	Fs(uri string) (Fs, error)
+}
+
+// DeployWorld is a world interface with all of the deploy functions.
+type DeployWorld interface {
+	WatchDeploy(context.Context) (chan error, error)
+
+	// TODO: currently unused, but already implemented
+	//GetDeploys(ctx context.Context) (map[uint64]string, error)
+
+	GetDeploy(ctx context.Context, id uint64) (string, error)
+
+	GetMaxDeployID(ctx context.Context) (uint64, error)
+
+	// TODO: This could be split out to a sub-interface?
+	AddDeploy(ctx context.Context, id uint64, hash, pHash string, data *string) error
 }
 
 // StrWorld is a world interface which is useful for reading, writing, and

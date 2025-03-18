@@ -36,8 +36,9 @@ import (
 	"os/signal"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/client"
-	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lib"
@@ -186,26 +187,33 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		}
 	}()
 
-	simpleDeploy := &deployer.SimpleDeploy{
+	var world engine.World
+	world = &etcd.World{ // XXX: What should some of these fields be?
+		//Hostname:       hostname,
 		Client: etcdClient,
-		Debug:  data.Flags.Debug,
+		//MetadataPrefix: lib.MetadataPrefix,
+		//StoragePrefix:  lib.StoragePrefix,
+		//StandaloneFs: ???.DeployFs, // used for static deploys
+		Debug: data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
-			Logf("deploy: "+format, v...)
+			Logf("world: "+format, v...)
 		},
+		//GetURI: func() string {
+		//},
 	}
-	if err := simpleDeploy.Init(); err != nil {
-		return false, errwrap.Wrapf(err, "deploy Init failed")
+	if err := world.Init(); err != nil {
+		return false, errwrap.Wrapf(err, "world Init failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(simpleDeploy.Close(), "deploy Close failed")
+		err := errwrap.Wrapf(world.Close(), "world Close failed")
 		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("deploy cleanup error: %+v", err)
+			// TODO: cause the final exit code to be non-zero?
+			Logf("close error: %+v", err)
 		}
 	}()
 
 	// get max id (from all the previous deploys)
-	max, err := simpleDeploy.GetMaxDeployID(ctx)
+	max, err := world.GetMaxDeployID(ctx)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error getting max deploy id")
 	}
@@ -213,6 +221,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	var id = max + 1 // next id
 	Logf("previous max deploy id: %d", max)
 
+	// XXX: Get this from the World API? (Which might need improving!)
 	etcdFs := &etcdfs.Fs{
 		Client: etcdClient,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
@@ -262,7 +271,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	Logf("pushing...")
 	// this nominally checks the previous git hash matches our expectation
-	if err := simpleDeploy.AddDeploy(ctx, id, hash, pHash, &str); err != nil {
+	if err := world.AddDeploy(ctx, id, hash, pHash, &str); err != nil {
 		return false, errwrap.Wrapf(err, "could not create deploy id `%d`", id)
 	}
 	Logf("success, id: %d", id)

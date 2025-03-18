@@ -52,6 +52,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/etcd"
+	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs/dage"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -889,9 +890,10 @@ func TestAstFunc2(t *testing.T) {
 			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
-			world := &etcd.World{
-				//Hostname:       hostname,
-				//Client:         etcdClient,
+			var world engine.World
+			world = &etcd.World{
+				//Hostname: hostname,
+				Client: etcdClient.NewClientFromClient(nil), // stub
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
@@ -901,6 +903,16 @@ func TestAstFunc2(t *testing.T) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
+			if err := world.Init(); err != nil {
+				t.Errorf("world Init failed: %+v", err)
+				return
+			}
+			defer func() {
+				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				if err != nil {
+					t.Errorf("close error: %+v", err)
+				}
+			}()
 
 			variables := map[string]interfaces.Expr{
 				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
@@ -1769,9 +1781,10 @@ func TestAstFunc3(t *testing.T) {
 			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
-			world := &etcd.World{
-				//Hostname:       hostname,
-				//Client:         etcdClient,
+			var world engine.World
+			world = &etcd.World{
+				//Hostname: hostname,
+				Client: etcdClient.NewClientFromClient(nil), // stub
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
@@ -1781,6 +1794,16 @@ func TestAstFunc3(t *testing.T) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
+			if err := world.Init(); err != nil {
+				t.Errorf("world Init failed: %+v", err)
+				return
+			}
+			defer func() {
+				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				if err != nil {
+					t.Errorf("close error: %+v", err)
+				}
+			}()
 
 			variables := map[string]interfaces.Expr{
 				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi

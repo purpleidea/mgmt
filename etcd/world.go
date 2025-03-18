@@ -41,11 +41,13 @@ import (
 	"github.com/purpleidea/mgmt/etcd/client/resources"
 	"github.com/purpleidea/mgmt/etcd/client/str"
 	"github.com/purpleidea/mgmt/etcd/client/strmap"
+	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // World is an etcd backed implementation of the World interface.
@@ -58,6 +60,60 @@ type World struct {
 	GetURI         func() string
 	Debug          bool
 	Logf           func(format string, v ...interface{})
+
+	simpleDeploy *deployer.SimpleDeploy
+}
+
+// Init runs first.
+func (obj *World) Init() error {
+	obj.simpleDeploy = &deployer.SimpleDeploy{
+		Client: obj.Client,
+		Debug:  obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			obj.Logf("deploy: "+format, v...)
+		},
+	}
+	if err := obj.simpleDeploy.Init(); err != nil {
+		return errwrap.Wrapf(err, "deploy Init failed")
+	}
+
+	return nil
+}
+
+// Close runs last.
+func (obj *World) Close() error {
+	var errs error
+	if obj.simpleDeploy != nil {
+		err := obj.simpleDeploy.Close()
+		err = errwrap.Wrapf(err, "deploy Close failed")
+		errs = errwrap.Append(errs, err)
+	}
+	return errs
+}
+
+// WatchDeploy returns a channel which spits out events on new deploy activity.
+func (obj *World) WatchDeploy(ctx context.Context) (chan error, error) {
+	return obj.simpleDeploy.WatchDeploy(ctx)
+}
+
+// GetDeploys gets all the available deploys.
+func (obj *World) GetDeploys(ctx context.Context) (map[uint64]string, error) {
+	return obj.simpleDeploy.GetDeploys(ctx)
+}
+
+// GetDeploy returns the deploy with the specified id if it exists.
+func (obj *World) GetDeploy(ctx context.Context, id uint64) (string, error) {
+	return obj.simpleDeploy.GetDeploy(ctx, id)
+}
+
+// GetMaxDeployID returns the maximum deploy id.
+func (obj *World) GetMaxDeployID(ctx context.Context) (uint64, error) {
+	return obj.simpleDeploy.GetMaxDeployID(ctx)
+}
+
+// AddDeploy adds a new deploy.
+func (obj *World) AddDeploy(ctx context.Context, id uint64, hash, pHash string, data *string) error {
+	return obj.simpleDeploy.AddDeploy(ctx, id, hash, pHash, data)
 }
 
 // ResWatch returns a channel which spits out events on possible exported

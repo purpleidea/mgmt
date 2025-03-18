@@ -58,19 +58,20 @@ type World struct {
 	StoragePrefix  string    // storage prefix for etcdfs storage
 	StandaloneFs   engine.Fs // store an fs here for local usage
 	GetURI         func() string
-	Debug          bool
-	Logf           func(format string, v ...interface{})
 
+	init         *engine.WorldInit
 	simpleDeploy *deployer.SimpleDeploy
 }
 
 // Init runs first.
-func (obj *World) Init() error {
+func (obj *World) Init(init *engine.WorldInit) error {
+	obj.init = init
+
 	obj.simpleDeploy = &deployer.SimpleDeploy{
 		Client: obj.Client,
-		Debug:  obj.Debug,
+		Debug:  obj.init.Debug,
 		Logf: func(format string, v ...interface{}) {
-			obj.Logf("deploy: "+format, v...)
+			obj.init.Logf("deploy: "+format, v...)
 		},
 	}
 	if err := obj.simpleDeploy.Init(); err != nil {
@@ -239,8 +240,8 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 		modifiedOpts = append(modifiedOpts, o) // copy in
 	}
 
-	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.Debug))
-	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.Logf))
+	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.init.Debug))
+	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.init.Logf))
 
 	path := fmt.Sprintf(schedulerPathFmt, namespace)
 	return scheduler.Schedule(obj.Client.GetClient(), path, obj.Hostname, modifiedOpts...)
@@ -287,9 +288,9 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 		Metadata:   u.Path,
 		DataPrefix: obj.StoragePrefix,
 
-		Debug: obj.Debug,
+		Debug: obj.init.Debug,
 		Logf: func(format string, v ...interface{}) {
-			obj.Logf("fs: "+format, v...)
+			obj.init.Logf("fs: "+format, v...)
 		},
 	}
 	return etcdFs, nil

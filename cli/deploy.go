@@ -194,14 +194,16 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		//MetadataPrefix: lib.MetadataPrefix,
 		//StoragePrefix:  lib.StoragePrefix,
 		//StandaloneFs: ???.DeployFs, // used for static deploys
-		Debug: data.Flags.Debug,
-		Logf: func(format string, v ...interface{}) {
-			Logf("world: "+format, v...)
-		},
 		//GetURI: func() string {
 		//},
 	}
-	if err := world.Init(); err != nil {
+	worldInit := &engine.WorldInit{
+		Debug: data.Flags.Debug,
+		Logf: func(format string, v ...interface{}) {
+			Logf("world: etcd: "+format, v...)
+		},
+	}
+	if err := world.Init(worldInit); err != nil {
 		return false, errwrap.Wrapf(err, "world Init failed")
 	}
 	defer func() {

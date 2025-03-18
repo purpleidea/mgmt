@@ -616,10 +616,6 @@ func (obj *Main) Run() error {
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys
-		Debug:          obj.Debug,
-		Logf: func(format string, v ...interface{}) {
-			obj.Logf("world: etcd: "+format, v...)
-		},
 		GetURI: func() string {
 			if gapiInfoResult == nil {
 				return ""
@@ -627,7 +623,13 @@ func (obj *Main) Run() error {
 			return gapiInfoResult.URI
 		},
 	}
-	if err := world.Init(); err != nil {
+	worldInit := &engine.WorldInit{
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			obj.Logf("world: etcd: "+format, v...)
+		},
+	}
+	if err := world.Init(worldInit); err != nil {
 		return errwrap.Wrapf(err, "world Init failed")
 	}
 	defer func() {

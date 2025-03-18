@@ -36,12 +36,22 @@ import (
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 )
 
+// WorldInit is some data passed in when starting the World interface.
+// TODO: This is a lousy struct name, feel free to change it.
+type WorldInit struct {
+	// Debug represents if we're running in debug mode or not.
+	Debug bool
+
+	// Logf is a logger which should be used.
+	Logf func(format string, v ...interface{})
+}
+
 // World is an interface to the rest of the different graph state. It allows the
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
 	// Init sets things up and is called once before any other methods.
-	Init() error
+	Init(*WorldInit) error
 
 	// Close does some cleanup and is the last method that is ever called.
 	Close() error

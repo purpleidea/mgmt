@@ -897,13 +897,15 @@ func TestAstFunc2(t *testing.T) {
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
-				StandaloneFs: fs,                // used for static deploys
-				Debug:        testing.Verbose(), // set via the -test.v flag to `go test`
+				StandaloneFs: fs, // used for static deploys
+			}
+			worldInit := &engine.WorldInit{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
-			if err := world.Init(); err != nil {
+			if err := world.Init(worldInit); err != nil {
 				t.Errorf("world Init failed: %+v", err)
 				return
 			}
@@ -1788,13 +1790,15 @@ func TestAstFunc3(t *testing.T) {
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
-				StandaloneFs: fs,                // used for static deploys
-				Debug:        testing.Verbose(), // set via the -test.v flag to `go test`
+				StandaloneFs: fs, // used for static deploys
+			}
+			worldInit := &engine.WorldInit{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
-			if err := world.Init(); err != nil {
+			if err := world.Init(worldInit); err != nil {
 				t.Errorf("world Init failed: %+v", err)
 				return
 			}

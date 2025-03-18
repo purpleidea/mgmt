@@ -32,6 +32,7 @@ import "fmt"
 import "golang"
 import "local"
 import "golang/strings"
+import "os"
 
 class server($st) {
 	$authoritative = $st->authoritative || true
@@ -44,7 +45,14 @@ class server($st) {
 		authoritative => $authoritative,
 	}
 
-	pkg "dhcp-server" {
+	# TODO: add other os families and versions
+	$pkgs = {
+		"redhat" => "dhcp-server", # fedora
+		"debian" => "isc-dhcp-server", # debian
+	}
+	$pkg = $pkgs[os.family()] || ""
+	panic("${pkg}" == "") # not specified
+	pkg "${pkg}" {
 		state => "installed",
 
 		Before => File["/etc/dhcp/"],

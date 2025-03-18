@@ -46,7 +46,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/purpleidea/mgmt/etcd/scheduler" // TODO: is it okay to import this without abstraction?
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -89,6 +90,8 @@ type ScheduleFunc struct {
 	init *interfaces.Init
 
 	args []types.Value
+
+	world engine.SchedulerWorld
 
 	namespace string
 	scheduler *scheduler.Result
@@ -278,6 +281,13 @@ func (obj *ScheduleFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ScheduleFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+
+	world, ok := obj.init.World.(engine.SchedulerWorld)
+	if !ok {
+		return fmt.Errorf("world backend does not support the SchedulerWorld interface")
+	}
+	obj.world = world
+
 	obj.watchChan = make(chan *schedulerResult)
 	//obj.init.Debug = true // use this for local debugging
 	return nil
@@ -378,7 +388,7 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 					obj.init.Logf("starting scheduler...")
 				}
 				var err error
-				obj.scheduler, err = obj.init.World.Scheduler(obj.namespace, schedulerOpts...)
+				obj.scheduler, err = obj.world.Scheduler(obj.namespace, schedulerOpts...)
 				if err != nil {
 					return errwrap.Wrapf(err, "can't create scheduler")
 				}

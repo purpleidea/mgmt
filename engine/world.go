@@ -44,8 +44,6 @@ type World interface { // TODO: is there a better name for this interface?
 
 	ResWorld
 
-	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
-
 	// URI returns the current FS URI.
 	// TODO: Can we improve this API or deprecate it entirely?
 	URI() string
@@ -82,6 +80,13 @@ type ResWorld interface {
 	ResExport(context.Context, []Res) error
 	// FIXME: should this method take a "filter" data struct instead of many args?
 	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
+}
+
+// SchedulerWorld is an interface that has to do with distributed scheduling.
+// XXX: This should be abstracted to remove the etcd specific types if possible.
+type SchedulerWorld interface {
+	// Scheduler runs a distributed scheduler.
+	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 }
 
 // EtcdWorld is a world interface that should be implemented if the world

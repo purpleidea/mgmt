@@ -40,10 +40,16 @@ import (
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
+	FsWorld
+
 	StrWorld
 
 	ResWorld
+}
 
+// FsWorld is a world interface for dealing with the core deploy filesystem
+// stuff.
+type FsWorld interface {
 	// URI returns the current FS URI.
 	// TODO: Can we improve this API or deprecate it entirely?
 	URI() string

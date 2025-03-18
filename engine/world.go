@@ -40,10 +40,7 @@ import (
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
-	ResWatch(context.Context) (chan error, error)
-	ResExport(context.Context, []Res) error
-	// FIXME: should this method take a "filter" data struct instead of many args?
-	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
+	ResWorld
 
 	StrWatch(ctx context.Context, namespace string) (chan error, error)
 	StrIsNotExist(error) bool
@@ -67,6 +64,16 @@ type World interface { // TODO: is there a better name for this interface?
 	// This is a way to turn a unique string handle into an appropriate
 	// filesystem object that we can interact with.
 	Fs(uri string) (Fs, error)
+}
+
+// ResWorld is a world interface that lets us store, pull and watch resources in
+// a distributed database.
+// XXX: These API's are likely to change.
+type ResWorld interface {
+	ResWatch(context.Context) (chan error, error)
+	ResExport(context.Context, []Res) error
+	// FIXME: should this method take a "filter" data struct instead of many args?
+	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
 }
 
 // EtcdWorld is a world interface that should be implemented if the world

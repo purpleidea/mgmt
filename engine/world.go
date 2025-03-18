@@ -67,9 +67,6 @@ type World interface { // TODO: is there a better name for this interface?
 	// This is a way to turn a unique string handle into an appropriate
 	// filesystem object that we can interact with.
 	Fs(uri string) (Fs, error)
-
-	// WatchMembers returns a channel of changing members in the cluster.
-	WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error)
 }
 
 // EtcdWorld is a world interface that should be implemented if the world
@@ -80,4 +77,7 @@ type EtcdWorld interface {
 	IdealClusterSizeWatch(context.Context) (chan error, error)
 	IdealClusterSizeGet(context.Context) (uint16, error)
 	IdealClusterSizeSet(context.Context, uint16) (bool, error)
+
+	// WatchMembers returns a channel of changing members in the cluster.
+	WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error)
 }

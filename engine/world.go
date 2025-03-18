@@ -40,19 +40,9 @@ import (
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
+	StrWorld
+
 	ResWorld
-
-	StrWatch(ctx context.Context, namespace string) (chan error, error)
-	StrIsNotExist(error) bool
-	StrGet(ctx context.Context, namespace string) (string, error)
-	StrSet(ctx context.Context, namespace, value string) error
-	StrDel(ctx context.Context, namespace string) error
-
-	// XXX: add the exchange primitives in here directly?
-	StrMapWatch(ctx context.Context, namespace string) (chan error, error)
-	StrMapGet(ctx context.Context, namespace string) (map[string]string, error)
-	StrMapSet(ctx context.Context, namespace, value string) error
-	StrMapDel(ctx context.Context, namespace string) error
 
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
 
@@ -64,6 +54,24 @@ type World interface { // TODO: is there a better name for this interface?
 	// This is a way to turn a unique string handle into an appropriate
 	// filesystem object that we can interact with.
 	Fs(uri string) (Fs, error)
+}
+
+// StrWorld is a world interface which is useful for reading, writing, and
+// watching strings in a shared, distributed database. It is likely that much of
+// the functionality is built upon these primitives.
+// XXX: We should consider improving this API if possible.
+type StrWorld interface {
+	StrWatch(ctx context.Context, namespace string) (chan error, error)
+	StrIsNotExist(error) bool
+	StrGet(ctx context.Context, namespace string) (string, error)
+	StrSet(ctx context.Context, namespace, value string) error
+	StrDel(ctx context.Context, namespace string) error
+
+	// XXX: add the exchange primitives in here directly?
+	StrMapWatch(ctx context.Context, namespace string) (chan error, error)
+	StrMapGet(ctx context.Context, namespace string) (map[string]string, error)
+	StrMapSet(ctx context.Context, namespace, value string) error
+	StrMapDel(ctx context.Context, namespace string) error
 }
 
 // ResWorld is a world interface that lets us store, pull and watch resources in

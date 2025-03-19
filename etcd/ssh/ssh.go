@@ -81,7 +81,6 @@ type World struct {
 	// NS is the etcd namespace to use.
 	NS string
 
-	Hostname       string    // uuid for the consumer of these
 	MetadataPrefix string    // expected metadata prefix
 	StoragePrefix  string    // storage prefix for etcdfs storage
 	StandaloneFs   engine.Fs // store an fs here for local usage
@@ -305,7 +304,6 @@ func (obj *World) Init(init *engine.WorldInit) error {
 
 	obj.World = &etcd.World{
 		// TODO: Pass through more data if the struct for etcd changes.
-		Hostname:       obj.Hostname,
 		Client:         c,
 		MetadataPrefix: obj.MetadataPrefix,
 		StoragePrefix:  obj.StoragePrefix,

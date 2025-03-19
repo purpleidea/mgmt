@@ -199,7 +199,6 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	var world engine.World
 	world = &etcd.World{ // XXX: What should some of these fields be?
-		//Hostname:       hostname,
 		Client: etcdClient,
 		//MetadataPrefix: lib.MetadataPrefix,
 		//StoragePrefix:  lib.StoragePrefix,
@@ -210,7 +209,6 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	if obj.SshUrl != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
 			URL: obj.SshUrl,
-			//Hostname:       hostname,
 			//Client:         client,
 			NS: lib.NS,
 			//MetadataPrefix: lib.MetadataPrefix,
@@ -224,7 +222,8 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		return false, fmt.Errorf("--ssh-url is not implemented yet")
 	}
 	worldInit := &engine.WorldInit{
-		Debug: data.Flags.Debug,
+		Hostname: "", // XXX: Should we set this?
+		Debug:    data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			Logf("world: etcd: "+format, v...)
 		},

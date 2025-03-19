@@ -53,7 +53,6 @@ import (
 // World is an etcd backed implementation of the World interface.
 type World struct {
 	// NOTE: Update the etcd/ssh/ World struct if this one changes.
-	Hostname string // uuid for the consumer of these
 	// XXX: build your own etcd client...
 	Client         interfaces.Client
 	MetadataPrefix string    // expected metadata prefix
@@ -128,7 +127,7 @@ func (obj *World) ResWatch(ctx context.Context) (chan error, error) {
 // ResExport exports a list of resources under our hostname namespace.
 // Subsequent calls replace the previously set collection atomically.
 func (obj *World) ResExport(ctx context.Context, resourceList []engine.Res) error {
-	return resources.SetResources(ctx, obj.Client, obj.Hostname, resourceList)
+	return resources.SetResources(ctx, obj.Client, obj.init.Hostname, resourceList)
 }
 
 // ResCollect gets the collection of exported resources which match the filter.
@@ -226,12 +225,12 @@ func (obj *World) StrMapGet(ctx context.Context, namespace string) (map[string]s
 // StrMapSet sets the namespace value to a particular string under the identity
 // of its own hostname.
 func (obj *World) StrMapSet(ctx context.Context, namespace, value string) error {
-	return strmap.SetStrMap(ctx, obj.Client, obj.Hostname, namespace, &value)
+	return strmap.SetStrMap(ctx, obj.Client, obj.init.Hostname, namespace, &value)
 }
 
 // StrMapDel deletes the value in a particular namespace.
 func (obj *World) StrMapDel(ctx context.Context, namespace string) error {
-	return strmap.SetStrMap(ctx, obj.Client, obj.Hostname, namespace, nil)
+	return strmap.SetStrMap(ctx, obj.Client, obj.init.Hostname, namespace, nil)
 }
 
 // Scheduler returns a scheduling result of hosts in a particular namespace.
@@ -246,7 +245,7 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.init.Logf))
 
 	path := fmt.Sprintf(schedulerPathFmt, namespace)
-	return scheduler.Schedule(obj.Client.GetClient(), path, obj.Hostname, modifiedOpts...)
+	return scheduler.Schedule(obj.Client.GetClient(), path, obj.init.Hostname, modifiedOpts...)
 }
 
 // URI returns the current FS URI.

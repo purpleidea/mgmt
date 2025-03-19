@@ -39,6 +39,9 @@ import (
 // WorldInit is some data passed in when starting the World interface.
 // TODO: This is a lousy struct name, feel free to change it.
 type WorldInit struct {
+	// Hostname is the UUID we use to represent ourselves to everyone else.
+	Hostname string
+
 	// Debug represents if we're running in debug mode or not.
 	Debug bool
 

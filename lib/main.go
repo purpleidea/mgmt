@@ -621,8 +621,7 @@ func (obj *Main) Run() error {
 	// an etcd component from the etcd package added in.
 	var world engine.World
 	world = &etcd.World{
-		Hostname: hostname,
-		Client:   client,
+		Client: client,
 		//NS: NS,
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
@@ -638,7 +637,6 @@ func (obj *Main) Run() error {
 		world = &etcdSSH.World{
 			URL:            obj.SshUrl,
 			Seeds:          obj.Seeds,
-			Hostname:       hostname,
 			NS:             NS,
 			MetadataPrefix: MetadataPrefix,
 			StoragePrefix:  StoragePrefix,
@@ -652,7 +650,8 @@ func (obj *Main) Run() error {
 		}
 	}
 	worldInit := &engine.WorldInit{
-		Debug: obj.Debug,
+		Hostname: hostname,
+		Debug:    obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			obj.Logf("world: etcd: "+format, v...)
 		},

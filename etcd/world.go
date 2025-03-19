@@ -52,7 +52,9 @@ import (
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
-	Hostname       string // uuid for the consumer of these
+	// NOTE: Update the etcd/ssh/ World struct if this one changes.
+	Hostname string // uuid for the consumer of these
+	// XXX: build your own etcd client...
 	Client         interfaces.Client
 	MetadataPrefix string    // expected metadata prefix
 	StoragePrefix  string    // storage prefix for etcdfs storage

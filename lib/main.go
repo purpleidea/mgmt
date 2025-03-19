@@ -52,6 +52,7 @@ import (
 	"github.com/purpleidea/mgmt/etcd/chooser"
 	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	etcdInterfaces "github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/gapi/empty"
 	"github.com/purpleidea/mgmt/pgp"
@@ -147,6 +148,15 @@ type Config struct {
 	// MaxRuntime tells the engine to exit after a maximum of approximately
 	// this many seconds. Use 0 to disable this.
 	MaxRuntime uint `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
+
+	// SshUrl can be specified if we want to transport the SSH client
+	// connection over SSH. If this is specified, the second hop is made
+	// with the Seeds values, but they connect from this destination. You
+	// can specify this in the standard james@server:22 format. This will
+	// use your ~/.ssh/ directory for public key authentication and
+	// verifying the host key in the known_hosts file. This must already be
+	// setup for things to work.
+	SshUrl string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 
 	// Seeds are the list of default etcd client endpoints. If empty, it
 	// will startup a new server.
@@ -611,8 +621,9 @@ func (obj *Main) Run() error {
 	// an etcd component from the etcd package added in.
 	var world engine.World
 	world = &etcd.World{
-		Hostname:       hostname,
-		Client:         client,
+		Hostname: hostname,
+		Client:   client,
+		//NS: NS,
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys
@@ -622,6 +633,23 @@ func (obj *Main) Run() error {
 			}
 			return gapiInfoResult.URI
 		},
+	}
+	if obj.SshUrl != "" { // alternate world implementation over SSH
+		world = &etcdSSH.World{
+			URL:            obj.SshUrl,
+			Seeds:          obj.Seeds,
+			Hostname:       hostname,
+			NS:             NS,
+			MetadataPrefix: MetadataPrefix,
+			StoragePrefix:  StoragePrefix,
+			StandaloneFs:   obj.DeployFs, // used for static deploys
+			GetURI: func() string {
+				if gapiInfoResult == nil {
+					return ""
+				}
+				return gapiInfoResult.URI
+			},
+		}
 	}
 	worldInit := &engine.WorldInit{
 		Debug: obj.Debug,

@@ -40,6 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/client"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
+	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
@@ -53,6 +54,15 @@ import (
 // particular one contains all the common flags for the `deploy` subcommand
 // which all frontends can use.
 type DeployArgs struct {
+	// SshUrl can be specified if we want to transport the SSH client
+	// connection over SSH. If this is specified, the second hop is made
+	// with the Seeds values, but they connect from this destination. You
+	// can specify this in the standard james@server:22 format. This will
+	// use your ~/.ssh/ directory for public key authentication and
+	// verifying the host key in the known_hosts file. This must already be
+	// setup for things to work.
+	SshUrl string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
+
 	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	Noop  bool     `arg:"--noop" help:"globally force all resources into no-op mode"`
 	Sema  int      `arg:"--sema" default:"-1" help:"globally add a semaphore to all resources with this lock count"`
@@ -196,6 +206,22 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		//StandaloneFs: ???.DeployFs, // used for static deploys
 		//GetURI: func() string {
 		//},
+	}
+	if obj.SshUrl != "" { // alternate world implementation over SSH
+		world = &etcdSSH.World{
+			URL: obj.SshUrl,
+			//Hostname:       hostname,
+			//Client:         client,
+			NS: lib.NS,
+			//MetadataPrefix: lib.MetadataPrefix,
+			//StoragePrefix:  lib.StoragePrefix,
+			//StandaloneFs: ???.DeployFs, // used for static deploys
+			//GetURI: func() string {
+			//},
+		}
+		// XXX: We need to first get rid of the standalone etcd client,
+		// and then pull the etcdfs stuff in so it uses that client.
+		return false, fmt.Errorf("--ssh-url is not implemented yet")
 	}
 	worldInit := &engine.WorldInit{
 		Debug: data.Flags.Debug,

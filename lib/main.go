@@ -50,7 +50,6 @@ import (
 	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/chooser"
-	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	etcdInterfaces "github.com/purpleidea/mgmt/etcd/interfaces"
 	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
@@ -586,22 +585,6 @@ func (obj *Main) Run() error {
 		if err != nil {
 			return errwrap.Wrapf(err, "make Client failed")
 		}
-	} else {
-		c := etcdClient.NewClientFromSeedsNamespace(
-			obj.Seeds, // endpoints
-			NS,
-		)
-		if err := c.Init(); err != nil {
-			return errwrap.Wrapf(err, "client Init failed")
-		}
-		defer func() {
-			err := errwrap.Wrapf(c.Close(), "client Close failed")
-			if err != nil {
-				// TODO: cause the final exit code to be non-zero
-				Logf("client cleanup error: %+v", err)
-			}
-		}()
-		client = c
 	}
 
 	// implementation of the Local API (we only expect just this single one)
@@ -621,8 +604,9 @@ func (obj *Main) Run() error {
 	// an etcd component from the etcd package added in.
 	var world engine.World
 	world = &etcd.World{
-		Client: client,
-		//NS: NS,
+		Client:         client, // XXX: remove me when embdEtcd is inside world
+		Seeds:          obj.Seeds,
+		NS:             NS,
 		MetadataPrefix: MetadataPrefix,
 		StoragePrefix:  StoragePrefix,
 		StandaloneFs:   obj.DeployFs, // used for static deploys

@@ -199,7 +199,9 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	var world engine.World
 	world = &etcd.World{ // XXX: What should some of these fields be?
-		Client: etcdClient,
+		Client: etcdClient, // XXX: remove me when etcdfs below is done
+		Seeds:  obj.Seeds,
+		NS:     lib.NS,
 		//MetadataPrefix: lib.MetadataPrefix,
 		//StoragePrefix:  lib.StoragePrefix,
 		//StandaloneFs: ???.DeployFs, // used for static deploys
@@ -208,9 +210,9 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 	if obj.SshUrl != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
-			URL: obj.SshUrl,
-			//Client:         client,
-			NS: lib.NS,
+			URL:   obj.SshUrl,
+			Seeds: obj.Seeds,
+			NS:    lib.NS,
 			//MetadataPrefix: lib.MetadataPrefix,
 			//StoragePrefix:  lib.StoragePrefix,
 			//StandaloneFs: ???.DeployFs, // used for static deploys

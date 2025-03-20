@@ -95,6 +95,12 @@ func RegisteredResourcesNames() []string {
 	return kinds
 }
 
+// IsKind returns true if this is a valid resource kind.
+func IsKind(kind string) bool {
+	_, ok := registeredResources[kind]
+	return ok
+}
+
 // NewResource returns an empty resource object from a registered kind. It
 // errors if the resource kind doesn't exist.
 func NewResource(kind string) (Res, error) {

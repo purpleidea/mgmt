@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that go lint passes or doesn't get worse by some threshold
 
 echo running "$0"

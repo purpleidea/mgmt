@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # shitty cpu count control, useful for live demos
 
 minimum=1	# don't decrease below this number of cpus

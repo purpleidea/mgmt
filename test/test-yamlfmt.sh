@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check for any yaml files that aren't properly formatted
 
 exit 0	# i give up, we're skipping this entirely, help wanted to fix this

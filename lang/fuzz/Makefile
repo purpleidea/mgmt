@@ -34,6 +34,6 @@ all: fuzz
 
 fuzz:
 	mkdir -p corpus/
-	find ../.. -name \*.mcl -exec cp {} corpus/ \;
+	find ../.. -type f -name '*.mcl' -exec cp -t corpus/ {} +
 	go-fuzz-build
 	go-fuzz -bin=./fuzz-fuzz.zip -workdir=.

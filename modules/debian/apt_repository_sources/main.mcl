@@ -1,3 +1,22 @@
+# Module Description
+#
+# This module allows the user to define the package sources for the `apt` package manager used by debian.
+#
+# The format and possible contents of SourcesList files are best described in the Debian Wiki
+# https://wiki.debian.org/SourcesList
+#
+# The specific repositories (package sources) configured on your machine affect:
+#
+#   What software packages are available for download
+#   What versions of packages are available
+#   Who packages the software
+#
+# To define sources you can pass a list of structs with the following keys to the template:
+# { "distribution" => "bookworm", "url" => "https://site.example.com/debian", "components" => "component1 component2 component3", }
+#
+# The template will then render each struct into a line in the file:
+# deb https://site.example.com/debian bookworm component1 component2 component3
+
 import "os"
 import "fmt"
 import "deploy"

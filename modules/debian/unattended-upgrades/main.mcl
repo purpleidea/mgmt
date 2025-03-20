@@ -1,3 +1,13 @@
+# Module Description
+#
+# This module installs, enables and configures the unattended upgrades functionality on debian systems.
+# The format and possible contents of UnattendedUpgrades files are best described in the Debian Wiki
+# https://wiki.debian.org/UnattendedUpgrades
+#
+# This module (currently) takes no input and enables UnattendedUpgrades with the debian default configuration.
+# For this the files `20auto-upgrades` and `50unattended-upgrades` are provided in the module deployment files.
+
+
 import "os"
 import "deploy"
 

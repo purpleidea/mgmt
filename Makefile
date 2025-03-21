@@ -27,7 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
-SHELL = /usr/bin/env bash
+SHELL = bash
 .PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
 .PHONY: mkosi mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux

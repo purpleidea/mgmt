@@ -1,4 +1,4 @@
-#!/bin/bash -xe
+#!/usr/bin/env -S bash -xe
 
 . "$(dirname "$0")/../util.sh"
 

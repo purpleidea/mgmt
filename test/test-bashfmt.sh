@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check for any bash files that aren't properly formatted
 # TODO: this is hardly exhaustive
 

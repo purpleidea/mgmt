@@ -1,4 +1,4 @@
-#!/bin/bash -i
+#!/usr/bin/env -S bash -i
 # simple test harness for testing mgmt via omv
 echo running "$0"
 CWD=`pwd`

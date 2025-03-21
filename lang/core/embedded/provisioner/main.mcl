@@ -794,7 +794,7 @@ class base:host($name, $config) {
 		# passed into the provisioner. It's just now in a deploy subdir.
 		# If it's a dir, then this becomes the empty strings.
 		# XXX: The deploy could instead happen over the network to etcd.
-		"echo '#!/bin/bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
+		"echo '#!/usr/bin/env bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
 	}
 
 	# TODO: Do we want to signal an http:flag if we're a "default" host?

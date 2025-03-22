@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Make a new "baddev" branch, start on whatever branch you want to base it on.
 git checkout -B baddev # scary -B reset the branch
 make

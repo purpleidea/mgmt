@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it as
 # out-of-tree build dir. Otherwise, let's make up our own builddir.

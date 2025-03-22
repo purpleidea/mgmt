@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # vim: noet:ts=8:sts=8:sw=8
 
 exit 0	# XXX: disable for now

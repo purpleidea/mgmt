@@ -27,7 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
-SHELL = /usr/bin/env bash
+SHELL = bash
 .PHONY: all clean
 
 default: all

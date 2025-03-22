@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # simple way to kick off runs of the project, since 'go run' sucks!
 make build || exit 1

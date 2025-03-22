@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # tests if commit message conforms to convention
 
 # library of utility functions

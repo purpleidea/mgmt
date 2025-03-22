@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # simple tests that don't deserve their own testfile
 
 # library of utility functions

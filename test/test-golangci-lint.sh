@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check a bunch of linters with the golangci_lint
 # TODO: run this from the test-golint.sh file instead to check for deltas
 

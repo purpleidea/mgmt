@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 _cli_bash_autocomplete_mgmt() {
 	local cur prev opts base

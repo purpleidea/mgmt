@@ -15,6 +15,8 @@ test "test" {
 		rewatch => false,
 		realize => true,
 		dollar => false,
+		hidden => false,
+		export => ["hostname",],
 		reverse => true,
 		autoedge => true,
 		autogroup => true,

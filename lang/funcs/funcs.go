@@ -90,6 +90,33 @@ const (
 	// as. This starts with an underscore so that it cannot be used from the
 	// lexer.
 	StructLookupOptionalFuncName = "_struct_lookup_optional"
+
+	// CollectFuncName is the name this function is registered as. This
+	// starts with an underscore so that it cannot be used from the lexer.
+	CollectFuncName = "_collect"
+
+	// CollectFuncInFieldName is the name of the name field in the struct.
+	CollectFuncInFieldName = "name"
+	// CollectFuncInFieldHost is the name of the host field in the struct.
+	CollectFuncInFieldHost = "host"
+
+	// CollectFuncInType is the most complex of the three possible input
+	// types. The other two possible ones are str or []str.
+	CollectFuncInType = "[]struct{" + CollectFuncInFieldName + " str; " + CollectFuncInFieldHost + " str}"
+
+	// CollectFuncOutFieldName is the name of the name field in the struct.
+	CollectFuncOutFieldName = "name"
+	// CollectFuncOutFieldHost is the name of the host field in the struct.
+	CollectFuncOutFieldHost = "host"
+	// CollectFuncOutFieldData is the name of the data field in the struct.
+	CollectFuncOutFieldData = "data"
+
+	// CollectFuncOutStruct is the struct type that we return a list of.
+	CollectFuncOutStruct = "struct{" + CollectFuncOutFieldName + " str; " + CollectFuncOutFieldHost + " str; " + CollectFuncOutFieldData + " str}"
+
+	// CollectFuncOutType is the expected return type, the data field is an
+	// encoded resource blob.
+	CollectFuncOutType = "[]" + CollectFuncOutStruct
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You

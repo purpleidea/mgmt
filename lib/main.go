@@ -1014,6 +1014,22 @@ func (obj *Main) Run() error {
 				continue // stay paused
 			}
 
+			// XXX: Should we do this right before Commit?
+			// Don't obj.ge.Apply(...), that works on the old graph!
+			timing = time.Now()
+			//if !obj.ge.IsClosing() { // XXX: do we need to do this?
+			// skip prune when we're closing
+			//}
+			// FIXME: is this the right ctx?
+			if err := obj.ge.Exporter.Prune(exitCtx, obj.ge.Graph()); err != nil {
+				// XXX: This should just cause a permanent error
+				// here which turns into a shutdown. Refactor!
+				obj.ge.Abort() // delete graph
+				Logf("error running the exporter Prune: %+v", err)
+				continue
+			}
+			Logf("export cleanup took: %s", time.Since(timing))
+
 			// Start needs to be synchronous because we don't want
 			// to loop around and cause a pause before we unpaused.
 			// Commit already starts things, but we still need to

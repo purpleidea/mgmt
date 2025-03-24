@@ -59,9 +59,12 @@ type Engine struct {
 	Version  string
 	Hostname string
 
+	// Break off separate logical pieces into chunks where possible.
 	Converger *converger.Coordinator
-	Local     *local.API
-	World     engine.World
+	Exporter  *Exporter
+
+	Local *local.API
+	World engine.World
 
 	// Prefix is a unique directory prefix which can be used. It should be
 	// created if needed.
@@ -85,6 +88,7 @@ type Engine struct {
 
 	paused    bool // are we paused?
 	fastPause bool
+	isClosing bool // are we shutting down?
 }
 
 // Init initializes the internal structures and starts this the graph running.
@@ -116,7 +120,7 @@ func (obj *Engine) Init() error {
 	obj.wlock = &sync.Mutex{}
 
 	obj.mlock = &sync.Mutex{}
-	obj.metas = make(map[engine.ResPtrUID]*engine.MetaState)
+	obj.metas = make(map[engine.ResPtrUID]*engine.MetaState) // don't include .Hidden res
 
 	obj.slock = &sync.Mutex{}
 	obj.semas = make(map[string]*semaphore.Semaphore)
@@ -124,6 +128,18 @@ func (obj *Engine) Init() error {
 	obj.wg = &sync.WaitGroup{}
 
 	obj.paused = true // start off true, so we can Resume after first Commit
+
+	obj.Exporter = &Exporter{
+		World: obj.World,
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			obj.Logf("export: "+format, v...)
+		},
+	}
+	if err := obj.Exporter.Init(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -188,6 +204,12 @@ func (obj *Engine) Commit() error {
 		if !ok { // should not happen, previously validated
 			return fmt.Errorf("not a Res")
 		}
+		// Skip this if Hidden since we can have a hidden res that has
+		// the same kind+name as a regular res, and this would conflict.
+		if res.MetaParams().Hidden {
+			continue
+		}
+
 		activeMetas[engine.PtrUID(res)] = struct{}{} // add
 	}
 
@@ -208,7 +230,11 @@ func (obj *Engine) Commit() error {
 			return fmt.Errorf("the Res state already exists")
 		}
 
-		activeMetas[engine.PtrUID(res)] = struct{}{} // add
+		// Skip this if Hidden since we can have a hidden res that has
+		// the same kind+name as a regular res, and this would conflict.
+		if !res.MetaParams().Hidden {
+			activeMetas[engine.PtrUID(res)] = struct{}{} // add
+		}
 
 		if obj.Debug {
 			obj.Logf("Validate(%s)", res)
@@ -299,7 +325,12 @@ func (obj *Engine) Commit() error {
 		if !ok { // should not happen, previously validated
 			return fmt.Errorf("not a Res")
 		}
-		delete(activeMetas, engine.PtrUID(res))
+
+		// Skip this if Hidden since we can have a hidden res that has
+		// the same kind+name as a regular res, and this would conflict.
+		if !res.MetaParams().Hidden {
+			delete(activeMetas, engine.PtrUID(res))
+		}
 
 		// wait for exit before starting new graph!
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
@@ -501,6 +532,7 @@ func (obj *Engine) Pause(fastPause bool) error {
 // actually just a Load of an empty graph and a Commit. It waits for all the
 // resources to exit before returning.
 func (obj *Engine) Shutdown() error {
+	obj.isClosing = true
 	emptyGraph, reterr := pgraph.NewGraph("empty")
 
 	// this is a graph switch (graph sync) that switches to an empty graph!
@@ -515,6 +547,15 @@ func (obj *Engine) Shutdown() error {
 
 	obj.wg.Wait() // for now, this doesn't need to be a separate Wait() method
 	return reterr
+}
+
+// IsClosing tells the caller if a Shutdown() was run. This is helpful so that
+// the graph can behave slightly differently when receiving the final empty
+// graph. This is because it's empty because we passed one to unload everything,
+// not because the user actually removed all resources. We may want to preserve
+// the exported state for example, and not purge it.
+func (obj *Engine) IsClosing() bool {
+	return obj.isClosing
 }
 
 // Graph returns the running graph.

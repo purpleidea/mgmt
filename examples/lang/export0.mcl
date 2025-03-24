@@ -1,0 +1,27 @@
+file "/tmp/hello" {
+	content => "hello world from @purpleidea\n",
+	state => $const.res.file.state.exists,
+
+	Meta:hidden => true,
+
+	#Meta:export => ["*",],		# export to all
+	#Meta:export => ["hostname1",],	# export to just this one
+	Meta:export => [		# export to everyone in this list
+		"${hostname}",
+		"hostname2",
+		"hostname3",
+	],
+}
+
+collect file "/tmp/hello" {
+	#content => "i was collected\n",	# override
+
+	Meta:hidden => false,
+}
+
+# collect a more complex way (use helper functions here instead!)
+collect file [
+	struct{name => "/tmp/hello", host => "${hostname}",},
+] {
+	Meta:hidden => false,
+}

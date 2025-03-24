@@ -167,23 +167,32 @@ func (obj *World) AddDeploy(ctx context.Context, id uint64, hash, pHash string, 
 
 // ResWatch returns a channel which spits out events on possible exported
 // resource changes.
-func (obj *World) ResWatch(ctx context.Context) (chan error, error) {
-	return resources.WatchResources(ctx, obj.client)
+func (obj *World) ResWatch(ctx context.Context, kind string) (chan error, error) {
+	return resources.WatchResources(ctx, obj.client, obj.init.Hostname, kind)
 }
 
-// ResExport exports a list of resources under our hostname namespace.
-// Subsequent calls replace the previously set collection atomically.
-func (obj *World) ResExport(ctx context.Context, resourceList []engine.Res) error {
-	return resources.SetResources(ctx, obj.client, obj.init.Hostname, resourceList)
-}
-
-// ResCollect gets the collection of exported resources which match the filter.
+// ResCollect gets the collection of exported resources which match the filters.
 // It does this atomically so that a call always returns a complete collection.
-func (obj *World) ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]engine.Res, error) {
-	// XXX: should we be restricted to retrieving resources that were
-	// exported with a tag that allows or restricts our hostname? We could
-	// enforce that here if the underlying API supported it... Add this?
-	return resources.GetResources(ctx, obj.client, hostnameFilter, kindFilter)
+func (obj *World) ResCollect(ctx context.Context, filters []*engine.ResFilter) ([]*engine.ResOutput, error) {
+	return resources.GetResources(ctx, obj.client, obj.init.Hostname, filters)
+}
+
+// ResExport stores a number of resources in the world storage system. The
+// individual records should not be updated if they are identical to what is
+// already present. (This is to prevent unnecessary events.) If this makes no
+// changes, it returns (true, nil). If it makes a change, then it returns
+// (false, nil). On any error we return (false, err). It stores the exports
+// under our hostname namespace. Subsequent calls do NOT replace the previously
+// set collection.
+func (obj *World) ResExport(ctx context.Context, resourceExports []*engine.ResExport) (bool, error) {
+	return resources.SetResources(ctx, obj.client, obj.init.Hostname, resourceExports)
+}
+
+// ResDelete deletes a number of resources in the world storage system. If this
+// doesn't delete, it returns (true, nil). If it makes a delete, then it returns
+// (false, nil). On any error we return (false, err).
+func (obj *World) ResDelete(ctx context.Context, resourceDeletes []*engine.ResDelete) (bool, error) {
+	return resources.DelResources(ctx, obj.client, obj.init.Hostname, resourceDeletes)
 }
 
 // IdealClusterSizeWatch returns a stream of errors anytime the cluster-wide

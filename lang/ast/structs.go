@@ -382,6 +382,10 @@ type StmtRes struct {
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
+
+	// Collect specifies that we are "collecting" exported resources. The
+	// names come from other hosts (or from ourselves during a self-export).
+	Collect bool
 }
 
 // String returns a short representation of this statement.
@@ -426,6 +430,7 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 	}
 	fieldNames := make(map[string]struct{})
 	metaNames := make(map[string]struct{})
+	foundCollect := false
 	for _, x := range obj.Contents {
 
 		// Duplicate checking for identical field names.
@@ -444,10 +449,25 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 			// Ignore the generic MetaField struct field for now.
 			// You're allowed to have more than one Meta field, but
 			// they can't contain the same field twice.
+			// FIXME: Allow duplicates in certain fields, such as
+			// ones that are lists... In this case, they merge...
 			if _, exists := metaNames[line.Property]; exists && line.Property != MetaField {
 				return fmt.Errorf("resource has duplicate meta entry of: %s", line.Property)
 			}
 			metaNames[line.Property] = struct{}{}
+		}
+
+		// Duplicate checking for more than one StmtResCollect entry.
+		if stmt, ok := x.(*StmtResCollect); ok && foundCollect {
+			// programming error
+			return fmt.Errorf("duplicate collect body in res")
+
+		} else if ok {
+			if stmt.Kind != obj.Kind {
+				// programming error
+				return fmt.Errorf("unexpected kind mismatch")
+			}
+			foundCollect = true // found one
 		}
 
 		if err := x.Init(data); err != nil {
@@ -481,6 +501,7 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
+		Collect:  obj.Collect,
 	}, nil
 }
 
@@ -522,6 +543,7 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
+		Collect:  obj.Collect,
 	}, nil
 }
 
@@ -630,6 +652,10 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	// TODO: Check other cases, like if it's a function call, and we know it
 	// can only return a single string. (Eg: fmt.printf for example.)
 	isString := false
+	isListString := false
+	isCollectType := false
+	typCollectFuncInType := types.NewType(funcs.CollectFuncInType)
+
 	if _, ok := obj.Name.(*ExprStr); ok {
 		// It's a string! (A plain string was specified.)
 		isString = true
@@ -639,13 +665,40 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 		if typ.Cmp(types.TypeStr) == nil {
 			isString = true
 		}
+		if typ.Cmp(types.TypeListStr) == nil {
+			isListString = true
+		}
+		if typ.Cmp(typCollectFuncInType) == nil {
+			isCollectType = true
+		}
 	}
 
-	typExpr := types.TypeListStr // default
+	var typExpr *types.Type // nil
 
 	// If we pass here, we only allow []str, no need for exclusives!
 	if isString {
 		typExpr = types.TypeStr
+	}
+	if isListString {
+		typExpr = types.TypeListStr // default for regular resources
+	}
+	if isCollectType && obj.Collect {
+		typExpr = typCollectFuncInType
+	}
+
+	if !obj.Collect && typExpr == nil {
+		typExpr = types.TypeListStr // default for regular resources
+	}
+	if obj.Collect && typExpr == nil {
+		// TODO: do we want a default for collect ?
+		typExpr = typCollectFuncInType // default for collect resources
+	}
+
+	if typExpr == nil { // If we don't know for sure, then we unify it all.
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
 	}
 
 	invar := &interfaces.UnificationInvariant{
@@ -747,16 +800,87 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
-	names := []string{} // list of names to build
+	// the host in this output is who the data is from
+	mapping, err := obj.collect(table) // gives us (name, host, data)
+	if err != nil {
+		return nil, err
+	}
+	if mapping == nil { // for when we're not collecting
+		mapping = make(map[string]map[string]string)
+	}
+
+	typCollectFuncInType := types.NewType(funcs.CollectFuncInType)
+
+	names := []string{} // list of names to build (TODO: map instead?)
 	switch {
 	case types.TypeStr.Cmp(nameValue.Type()) == nil:
 		name := nameValue.Str() // must not panic
 		names = append(names, name)
+		for n := range mapping { // delete everything else
+			if n == name {
+				continue
+			}
+			delete(mapping, n)
+		}
+		if !obj.Collect { // mapping is empty, add a stub
+			mapping[name] = map[string]string{
+				"*": "", // empty data
+			}
+		}
 
 	case types.TypeListStr.Cmp(nameValue.Type()) == nil:
 		for _, x := range nameValue.List() { // must not panic
 			name := x.Str() // must not panic
 			names = append(names, name)
+			if !obj.Collect { // mapping is empty, add a stub
+				mapping[name] = map[string]string{
+					"*": "", // empty data
+				}
+			}
+		}
+		for n := range mapping { // delete everything else
+			if util.StrInList(n, names) {
+				continue
+			}
+			delete(mapping, n)
+		}
+
+	case obj.Collect && typCollectFuncInType.Cmp(nameValue.Type()) == nil:
+		hosts := make(map[string]string)
+		for _, x := range nameValue.List() { // must not panic
+			st, ok := x.(*types.StructValue)
+			if !ok {
+				// programming error
+				return nil, fmt.Errorf("value is not a struct")
+			}
+			name, exists := st.Lookup(funcs.CollectFuncInFieldName)
+			if !exists {
+				// programming error?
+				return nil, fmt.Errorf("name field is missing")
+			}
+			host, exists := st.Lookup(funcs.CollectFuncInFieldHost)
+			if !exists {
+				// programming error?
+				return nil, fmt.Errorf("host field is missing")
+			}
+
+			s := name.Str() // must not panic
+			names = append(names, s)
+			// host is the input telling us who we want to pull from
+			hosts[s] = host.Str() // correspondence map
+		}
+		for n, m := range mapping { // delete everything else
+			if !util.StrInList(n, names) {
+				delete(mapping, n)
+				continue
+			}
+			host := hosts[n] // the matching host for the name
+			for h := range m {
+				if h == host {
+					continue
+				}
+				delete(mapping[n], h)
+			}
 		}
 
 	default:
@@ -766,22 +890,32 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
-	for _, name := range names {
-		res, err := obj.resource(table, name)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error building resource")
-		}
 
-		edgeList, err := obj.edges(table, name)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error building edges")
-		}
-		edges = append(edges, edgeList...)
+	apply, err := obj.metaparams(table)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error generating metaparams")
+	}
 
-		if err := obj.metaparams(table, res); err != nil { // set metaparams
-			return nil, errwrap.Wrapf(err, "error building meta params")
+	// TODO: sort?
+	for name, m := range mapping {
+		for host, data := range m {
+			// host may be * if not collecting
+			// data may be empty if not collecting
+			_ = host                                    // unused atm
+			res, err := obj.resource(table, name, data) // one at a time
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error building resource")
+			}
+			apply(res) // apply metaparams, does not return anything
+
+			resources = append(resources, res)
+
+			edgeList, err := obj.edges(table, name)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error building edges")
+			}
+			edges = append(edges, edgeList...)
 		}
-		resources = append(resources, res)
 	}
 
 	return &interfaces.Output{
@@ -790,12 +924,113 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 	}, nil
 }
 
+// collect is a helper function to pull out the collected resource data.
+func (obj *StmtRes) collect(table map[interfaces.Func]types.Value) (map[string]map[string]string, error) {
+	if !obj.Collect {
+		return nil, nil // nothing to do
+	}
+
+	var val types.Value // = nil
+	typCollectFuncOutType := types.NewType(funcs.CollectFuncOutType)
+
+	for _, line := range obj.Contents {
+		x, ok := line.(*StmtResCollect)
+		if !ok {
+			continue
+		}
+		if x.Kind != obj.Kind { // should have been caught in Init
+			// programming error
+			return nil, fmt.Errorf("unexpected kind mismatch")
+		}
+		if x.valuePtr == nil {
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+		}
+
+		fv, exists := table[x.valuePtr]
+		if !exists {
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+		}
+
+		if err := fv.Type().Cmp(typCollectFuncOutType); err != nil { // "[]struct{name str; host str; data str}"
+			// programming error
+			return nil, fmt.Errorf("resource collect has invalid type: `%+v`", err)
+		}
+
+		val = fv // found
+		break
+	}
+
+	if val == nil {
+		// programming error?
+		return nil, nil // nothing found
+	}
+
+	m := make(map[string]map[string]string) // name, host, data
+
+	// TODO: Store/cache this in an efficient form to avoid loops...
+	// TODO: Eventually collect func should, for efficiency, return:
+	// map{struct{name str; host str}: str} // key => $data
+	for _, x := range val.List() { // must not panic
+		st, ok := x.(*types.StructValue)
+		if !ok {
+			// programming error
+			return nil, fmt.Errorf("value is not a struct")
+		}
+		name, exists := st.Lookup(funcs.CollectFuncOutFieldName)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("name field is missing")
+		}
+		host, exists := st.Lookup(funcs.CollectFuncOutFieldHost)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("host field is missing")
+		}
+		data, exists := st.Lookup(funcs.CollectFuncOutFieldData)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("data field is missing")
+		}
+
+		// found!
+		n := name.Str() // must not panic
+		h := host.Str() // must not panic
+
+		if _, exists := m[n]; !exists {
+			m[n] = make(map[string]string)
+		}
+		m[n][h] = data.Str() // must not panic
+	}
+
+	return m, nil
+}
+
 // resource is a helper function to generate the res that comes from this.
 // TODO: it could memoize some of the work to avoid re-computation when looped
-func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName string) (engine.Res, error) {
+func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName, data string) (engine.Res, error) {
 	res, err := engine.NewNamedResource(obj.Kind, resName)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
+	}
+
+	// Here we start off by using the collected resource as the base params.
+	// Then we overwrite over it below using the normal param setup methods.
+	if obj.Collect && data != "" {
+		// TODO: Do we want to have an alternate implementation of this
+		// to go along with the ExportableRes encoding variant?
+		if res, err = engineUtil.B64ToRes(data); err != nil {
+			return nil, fmt.Errorf("can't convert from B64: %v", err)
+		}
+		if res.Kind() != obj.Kind { // should have been caught somewhere
+			// programming error
+			return nil, fmt.Errorf("unexpected kind mismatch")
+		}
+		obj.data.Logf("collect: %s", res)
+
+		// XXX: Do we want to change any metaparams when we collect?
+		// XXX: Do we want to change any metaparams when we export?
+		//res.MetaParams().Hidden = false // unlikely, but I considered
+		res.MetaParams().Export = []string{} // don't re-export
 	}
 
 	sv := reflect.ValueOf(res).Elem() // pointer to struct, then struct
@@ -1015,23 +1250,10 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 	return edges, nil
 }
 
-// metaparams is a helper function to set the metaparams that come from the
-// resource on to the individual resource we're working on.
-func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine.Res) error {
-	meta := engine.DefaultMetaParams.Copy() // defaults
-
-	var rm *engine.ReversibleMeta
-	if r, ok := res.(engine.ReversibleRes); ok {
-		rm = r.ReversibleMeta() // get a struct with the defaults
-	}
-	var aem *engine.AutoEdgeMeta
-	if r, ok := res.(engine.EdgeableRes); ok {
-		aem = r.AutoEdgeMeta() // get a struct with the defaults
-	}
-	var agm *engine.AutoGroupMeta
-	if r, ok := res.(engine.GroupableRes); ok {
-		agm = r.AutoGroupMeta() // get a struct with the defaults
-	}
+// metaparams is a helper function to get the metaparams that come from the
+// resource AST so we can eventually set them on the individual resource.
+func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value) (func(engine.Res), error) {
+	apply := []func(engine.Res){}
 
 	for _, line := range obj.Contents {
 		x, ok := line.(*StmtResMeta)
@@ -1041,11 +1263,11 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1054,47 +1276,63 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 		}
 
 		if x.metaExprPtr == nil {
-			return fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		v, exists := table[x.metaExprPtr]
 		if !exists {
-			return fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		switch p := strings.ToLower(x.Property); p {
 		// TODO: we could add these fields dynamically if we were fancy!
 		case "noop":
-			meta.Noop = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Noop = v.Bool() // must not panic
+			})
 
 		case "retry":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow
-			meta.Retry = int16(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Retry = int16(x)
+			})
 
 		case "retryreset":
-			meta.RetryReset = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().RetryReset = v.Bool() // must not panic
+			})
 
 		case "delay":
 			x := v.Int() // must not panic
 			// TODO: check that it isn't signed
-			meta.Delay = uint64(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Delay = uint64(x)
+			})
 
 		case "poll":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow and isn't signed
-			meta.Poll = uint32(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Poll = uint32(x)
+			})
 
 		case "limit": // rate.Limit
 			x := v.Float() // must not panic
-			meta.Limit = rate.Limit(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Limit = rate.Limit(x)
+			})
 
 		case "burst":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow
-			meta.Burst = int(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Burst = int(x)
+			})
 
 		case "reset":
-			meta.Reset = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Reset = v.Bool() // must not panic
+			})
 
 		case "sema": // []string
 			values := []string{}
@@ -1102,65 +1340,126 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 				s := x.Str() // must not panic
 				values = append(values, s)
 			}
-			meta.Sema = values
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Sema = values
+			})
 
 		case "rewatch":
-			meta.Rewatch = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Rewatch = v.Bool() // must not panic
+			})
 
 		case "realize":
-			meta.Realize = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Realize = v.Bool() // must not panic
+			})
 
 		case "dollar":
-			meta.Dollar = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Dollar = v.Bool() // must not panic
+			})
+
+		case "hidden":
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Hidden = v.Bool() // must not panic
+			})
+
+		case "export": // []string
+			values := []string{}
+			for _, x := range v.List() { // must not panic
+				s := x.Str() // must not panic
+				values = append(values, s)
+			}
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Export = values
+			})
 
 		case "reverse":
-			if rm != nil {
-				rm.Disabled = !v.Bool() // must not panic
-			}
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.ReversibleRes)
+				if !ok {
+					return
+				}
+				// *engine.ReversibleMeta
+				rm := r.ReversibleMeta() // get current values
+				rm.Disabled = !v.Bool()  // must not panic
+				r.SetReversibleMeta(rm)  // set
+			})
 
 		case "autoedge":
-			if aem != nil {
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.EdgeableRes)
+				if !ok {
+					return
+				}
+				// *engine.AutoEdgeMeta
+				aem := r.AutoEdgeMeta()  // get current values
 				aem.Disabled = !v.Bool() // must not panic
-			}
+				r.SetAutoEdgeMeta(aem)   // set
+			})
 
 		case "autogroup":
-			if agm != nil {
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.GroupableRes)
+				if !ok {
+					return
+				}
+				// *engine.AutoGroupMeta
+				agm := r.AutoGroupMeta() // get current values
 				agm.Disabled = !v.Bool() // must not panic
-			}
+				r.SetAutoGroupMeta(agm)  // set
+
+			})
 
 		case MetaField:
 			if val, exists := v.Struct()["noop"]; exists {
-				meta.Noop = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Noop = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["retry"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
-				meta.Retry = int16(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Retry = int16(x)
+				})
 			}
 			if val, exists := v.Struct()["retryreset"]; exists {
-				meta.RetryReset = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().RetryReset = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["delay"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it isn't signed
-				meta.Delay = uint64(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Delay = uint64(x)
+				})
 			}
 			if val, exists := v.Struct()["poll"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow and isn't signed
-				meta.Poll = uint32(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Poll = uint32(x)
+				})
 			}
 			if val, exists := v.Struct()["limit"]; exists {
 				x := val.Float() // must not panic
-				meta.Limit = rate.Limit(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Limit = rate.Limit(x)
+				})
 			}
 			if val, exists := v.Struct()["burst"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
-				meta.Burst = int(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Burst = int(x)
+				})
 			}
 			if val, exists := v.Struct()["reset"]; exists {
-				meta.Reset = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Reset = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["sema"]; exists {
 				values := []string{}
@@ -1168,44 +1467,90 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 					s := x.Str() // must not panic
 					values = append(values, s)
 				}
-				meta.Sema = values
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Sema = values
+				})
 			}
 			if val, exists := v.Struct()["rewatch"]; exists {
-				meta.Rewatch = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Rewatch = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["realize"]; exists {
-				meta.Realize = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Realize = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["dollar"]; exists {
-				meta.Dollar = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Dollar = val.Bool() // must not panic
+				})
 			}
-			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
-				rm.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["hidden"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Hidden = val.Bool() // must not panic
+				})
 			}
-			if val, exists := v.Struct()["autoedge"]; exists && aem != nil {
-				aem.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["export"]; exists {
+				values := []string{}
+				for _, x := range val.List() { // must not panic
+					s := x.Str() // must not panic
+					values = append(values, s)
+				}
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Export = values
+				})
 			}
-			if val, exists := v.Struct()["autogroup"]; exists && agm != nil {
-				agm.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["reverse"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.ReversibleRes)
+					if !ok {
+						return
+					}
+					// *engine.ReversibleMeta
+					rm := r.ReversibleMeta()  // get current values
+					rm.Disabled = !val.Bool() // must not panic
+					r.SetReversibleMeta(rm)   // set
+				})
+			}
+			if val, exists := v.Struct()["autoedge"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.EdgeableRes)
+					if !ok {
+						return
+					}
+					// *engine.AutoEdgeMeta
+					aem := r.AutoEdgeMeta()    // get current values
+					aem.Disabled = !val.Bool() // must not panic
+					r.SetAutoEdgeMeta(aem)     // set
+				})
+			}
+			if val, exists := v.Struct()["autogroup"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.GroupableRes)
+					if !ok {
+						return
+					}
+					// *engine.AutoGroupMeta
+					agm := r.AutoGroupMeta()   // get current values
+					agm.Disabled = !val.Bool() // must not panic
+					r.SetAutoGroupMeta(agm)    // set
+
+				})
 			}
 
 		default:
-			return fmt.Errorf("unknown property: %s", p)
+			return nil, fmt.Errorf("unknown property: %s", p)
 		}
 	}
 
-	res.SetMetaParams(meta) // set it!
-	if r, ok := res.(engine.ReversibleRes); ok {
-		r.SetReversibleMeta(rm) // set
-	}
-	if r, ok := res.(engine.EdgeableRes); ok {
-		r.SetAutoEdgeMeta(aem) // set
-	}
-	if r, ok := res.(engine.GroupableRes); ok {
-		r.SetAutoGroupMeta(agm) // set
+	fn := func(res engine.Res) {
+		for _, f := range apply {
+			f(res)
+		}
 	}
 
-	return nil
+	return fn, nil
 }
 
 // StmtResContents is the interface that is met by the resource contents. Look
@@ -1816,6 +2161,8 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "rewatch":
 	case "realize":
 	case "dollar":
+	case "hidden":
+	case "export":
 	case "reverse":
 	case "autoedge":
 	case "autogroup":
@@ -2033,6 +2380,12 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	case "dollar":
 		typExpr = types.TypeBool
 
+	case "hidden":
+		typExpr = types.TypeBool
+
+	case "export":
+		typExpr = types.TypeListStr
+
 	case "reverse":
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = types.TypeBool
@@ -2049,7 +2402,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = wrap(types.TypeBool)
@@ -2100,6 +2453,198 @@ func (obj *StmtResMeta) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		obj.conditionPtr = f
 
 	}
+
+	return graph, nil
+}
+
+// StmtResCollect represents hidden resource collection data in the resource.
+// This does not satisfy the Stmt interface.
+type StmtResCollect struct {
+	//Textarea
+	data *interfaces.Data
+
+	Kind     string
+	Value    interfaces.Expr
+	valuePtr interfaces.Func // ptr for table lookup
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtResCollect) String() string {
+	// TODO: add .String() for Condition and Value
+	return fmt.Sprintf("rescollect(%s)", obj.Kind)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtResCollect) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Value.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtResCollect) Init(data *interfaces.Data) error {
+	obj.data = data
+	//obj.Textarea.Setup(data)
+
+	if obj.Kind == "" {
+		return fmt.Errorf("res kind is empty")
+	}
+
+	return obj.Value.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtResCollect) Interpolate() (StmtResContents, error) {
+	interpolated, err := obj.Value.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+	return &StmtResCollect{
+		//Textarea: obj.Textarea,
+		data:  obj.data,
+		Kind:  obj.Kind,
+		Value: interpolated,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtResCollect) Copy() (StmtResContents, error) {
+	copied := false
+	value, err := obj.Value.Copy()
+	if err != nil {
+		return nil, err
+	}
+	if value != obj.Value { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtResCollect{
+		//Textarea: obj.Textarea,
+		data:  obj.data,
+		Kind:  obj.Kind,
+		Value: value,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtResCollect) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// additional constraint...
+	edge := &pgraph.SimpleEdge{Name: "stmtrescollectvalue"}
+	graph.AddEdge(obj.Value, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+	nodes := []interfaces.Expr{obj.Value}
+
+	for _, node := range nodes {
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtrescollect"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtResCollect) SetScope(scope *interfaces.Scope) error {
+	if err := obj.Value.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions. It is different from the TypeCheck method
+// found in the Stmt interface because it adds an input parameter.
+func (obj *StmtResCollect) TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Value.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	//invars, err := obj.Value.Check(typ) // don't call this here!
+
+	if !engine.IsKind(kind) {
+		return nil, fmt.Errorf("invalid resource kind: %s", kind)
+	}
+
+	typExpr := types.NewType(funcs.CollectFuncOutType)
+	if typExpr == nil {
+		return nil, fmt.Errorf("unexpected nil type")
+	}
+
+	// regular scenario
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.Value,
+		Expect: typExpr,
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtResCollect) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("rescollect")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Value.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.valuePtr = f
 
 	return graph, nil
 }

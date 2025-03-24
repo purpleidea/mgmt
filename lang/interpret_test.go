@@ -1415,7 +1415,14 @@ func TestAstFunc2(t *testing.T) {
 			// run interpret!
 			table := funcs.Table() // map[interfaces.Func]types.Value
 
-			ograph, err := interpret.Interpret(iast, table)
+			interpreter := &interpret.Interpreter{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("interpret: "+format, v...)
+				},
+			}
+
+			ograph, err := interpreter.Interpret(iast, table)
 			if (!fail || !failInterpret) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
@@ -2267,7 +2274,14 @@ func TestAstFunc3(t *testing.T) {
 			// run interpret!
 			table := funcs.Table() // map[interfaces.Func]types.Value
 
-			ograph, err := interpret.Interpret(iast, table)
+			interpreter := &interpret.Interpreter{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("interpret: "+format, v...)
+				},
+			}
+
+			ograph, err := interpreter.Interpret(iast, table)
 			if (!fail || !failInterpret) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)

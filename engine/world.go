@@ -31,6 +31,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
@@ -117,11 +118,103 @@ type StrWorld interface {
 // ResWorld is a world interface that lets us store, pull and watch resources in
 // a distributed database.
 // XXX: These API's are likely to change.
+// XXX: Add optional TTL's to these API's, maybe use WithTTL(...) type options.
 type ResWorld interface {
-	ResWatch(context.Context) (chan error, error)
-	ResExport(context.Context, []Res) error
-	// FIXME: should this method take a "filter" data struct instead of many args?
-	ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]Res, error)
+	// ResWatch returns a channel which produces a new value once on startup
+	// as soon as it is successfully connected, and once for every time it
+	// sees that a resource that has been exported for this hostname is
+	// added, deleted, or modified. If kind is specified, the watch will
+	// attempt to only send events relating to that resource kind. We always
+	// intended to only show events for resources which the watching host is
+	// allowed to see.
+	ResWatch(ctx context.Context, kind string) (chan error, error)
+
+	// ResCollect does a lookup for resource entries that have previously
+	// been stored for us. It returns a subset of these based on the input
+	// filter. It does not return a Res, since while that would be useful,
+	// and logical, it turns out we usually want to transport the Res data
+	// onwards through the function graph, and using a native string is what
+	// is already supported. (A native res type would just be encoded as a
+	// string anyways.) While it might be more "correct" to do the work to
+	// decode the string into a Res, the user of this function would just
+	// encode it back to a string anyways, and this is not very efficient.
+	ResCollect(ctx context.Context, filters []*ResFilter) ([]*ResOutput, error)
+
+	// ResExport stores a number of resources in the world storage system.
+	// The individual records should not be updated if they are identical to
+	// what is already present. (This is to prevent unnecessary events.) If
+	// this makes no changes, it returns (true, nil). If it makes a change,
+	// then it returns (false, nil). On any error we return (false, err).
+	ResExport(ctx context.Context, resourceExports []*ResExport) (bool, error)
+
+	// ResDelete deletes a number of resources in the world storage system.
+	// If this doesn't delete, it returns (true, nil). If it makes a delete,
+	// then it returns (false, nil). On any error we return (false, err).
+	ResDelete(ctx context.Context, resourceDeletes []*ResDelete) (bool, error)
+}
+
+// ResFilter specifies that we want to match an item with this three tuple. If
+// any of these are empty, then it means to match an item with any value for
+// that field.
+// TODO: Future secure implementations must verify that the exported made a
+// value available to that hostname. It's not enough for a host to request it.
+// We can enforce this with public key encryption eventually.
+type ResFilter struct {
+	Kind string
+	Name string
+	Host string // from this host
+}
+
+// Match returns nil on a successful match.
+func (obj *ResFilter) Match(kind, name, host string) error {
+	if obj.Kind != "" && obj.Kind != kind {
+		return fmt.Errorf("kind did not match")
+	}
+	if obj.Name != "" && obj.Name != name {
+		return fmt.Errorf("name did not match")
+	}
+	if obj.Host != "" && obj.Host != host {
+		return fmt.Errorf("host did not match")
+	}
+
+	return nil // match!
+}
+
+// ResOutput represents a record of exported resource data which we have read
+// out from the world storage system. The Data field contains an encoded version
+// of the resource, and even though decoding it will get you a Kind and Name, we
+// still store those values here in duplicate for them to be available before
+// decoding.
+type ResOutput struct {
+	Kind string
+	Name string
+	Host string // from this host
+	Data string // encoded res data
+}
+
+// ResExport represents a record of exported resource data which we want to save
+// to the world storage system. The Data field contains an encoded version of
+// the resource, and even though decoding it will get you a Kind and Name, we
+// still store those values here in duplicate for them to be available before
+// decoding. If Host is specified, then only the node with that hostname may
+// access this resource. If it's empty than it may be collected by anyone. If we
+// want to export to only three hosts, then we duplicate this entry three times.
+// It's true that this is not an efficient use of storage space, but it maps
+// logically to a future data structure where data is encrypted to the public
+// key of that specific host where we wouldn't be able to de-duplicate anyways.
+type ResExport struct {
+	Kind string
+	Name string
+	Host string // to/for this host
+	Data string // encoded res data
+}
+
+// ResDelete represents the uniqueness key for stored resources. As a result,
+// this triple is a useful map key in various locations.
+type ResDelete struct {
+	Kind string
+	Name string
+	Host string // to/for this host
 }
 
 // SchedulerWorld is an interface that has to do with distributed scheduling.

@@ -430,3 +430,13 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
+
+// hidden is a replacement for Watch when the Hidden metaparameter is used.
+func (obj *State) hidden(ctx context.Context) error {
+	obj.init.Running() // when started, notify engine that we're running
+
+	select {
+	case <-ctx.Done(): // signal for shutdown request
+		return nil
+	}
+}

@@ -244,6 +244,7 @@ func (g *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	g.AddVertex(v1, v2) // supports adding N vertices now
 	// TODO: check if an edge exists to avoid overwriting it!
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
+	// NOTE: Interpret() depends on overwriting it at the moment...
 	g.adjacency[v1][v2] = e
 }
 

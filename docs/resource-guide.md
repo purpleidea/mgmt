@@ -523,9 +523,10 @@ graph edges from another resource. These values are consumed during the
 any resource that has an appropriate value and that has the `Sendable` trait.
 You can read more about this in the Send/Recv section below.
 
-### Collectable
+### Exportable
 
-This is currently a stub and will be updated once the DSL is further along.
+Exportable allows a resource to tell the exporter what subset of its data it
+wishes to export when that occurs. It is rare that you will need to use this.
 
 ## Resource Initialization
 

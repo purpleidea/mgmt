@@ -261,6 +261,11 @@
 			lval.str = yylex.Text()
 			return PANIC_IDENTIFIER
 		}
+/collect/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return COLLECT_IDENTIFIER
+		}
 /"(\\.|[^"])*"/
 		{	// This matches any number of the bracketed patterns
 			// that are surrounded by the two quotes on each side.

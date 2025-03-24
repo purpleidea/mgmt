@@ -438,8 +438,16 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	obj.Logf("running interpret...")
 	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
 
+	interpreter := &interpret.Interpreter{
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			obj.Logf("interpret: "+format, v...)
+		},
+	}
+
 	// this call returns the graph
-	graph, err := interpret.Interpret(obj.ast, table)
+	graph, err := interpreter.Interpret(obj.ast, table)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpret")
 	}

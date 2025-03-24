@@ -104,6 +104,7 @@ func init() {
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token IMPORT_IDENTIFIER AS_IDENTIFIER
 %token COMMENT ERROR
+%token COLLECT_IDENTIFIER
 %token PANIC_IDENTIFIER
 
 // precedence table
@@ -184,6 +185,11 @@ stmt:
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	panic
+	{
+		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+|	collect
 	{
 		$$.stmt = $1.stmt
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
@@ -1023,6 +1029,46 @@ panic:
 			ThenBranch: res,
 			//ElseBranch: nil,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+;
+collect:
+	// `collect file "/tmp/hello" { ... }`
+	// `collect file ["/tmp/hello", ...,] { ... }`
+	// `collect file [struct{name => "/tmp/hello", host => "foo",}, ...,] { ... }`
+	COLLECT_IDENTIFIER resource
+	{
+		// A "collect" stmt is exactly a regular "res" statement, except
+		// it has the boolean "Collect" field set to true, and it also
+		// has a special "resource body" entry which accepts the special
+		// collected data from the function graph.
+		$$.stmt = $2.stmt // it's us now
+		kind := $2.stmt.(*ast.StmtRes).Kind
+		res := $$.stmt.(*ast.StmtRes)
+		res.Collect = true
+		// We are secretly adding a special field to the res contents,
+		// which receives all of the exported data so that we have it
+		// arrive in our function graph in the standard way. We'd need
+		// to have this data to be able to build the resources we want!
+		call := &ast.ExprCall{
+			// function name to lookup special values from that kind
+			Name: funcs.CollectFuncName,
+			Args: []interfaces.Expr{
+				&ast.ExprStr{      // magic operator first
+					V: kind,   // tell it what we're reading
+				},
+				// names to collect
+				// XXX: Can we copy the same AST nodes to here?
+				// XXX: Do I need to run .Copy() on them ?
+				// str, []str, or []struct{name str; host str}
+				res.Name, // expr (hopefully one of those types)
+			},
+		}
+		collect := &ast.StmtResCollect{ // special field
+			Kind:  kind, // might as well tell it directly
+			Value: call,
+		}
+		res.Contents = append(res.Contents, collect)
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;

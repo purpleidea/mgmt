@@ -376,6 +376,22 @@ type CompatibleRes interface {
 	Merge(CompatibleRes) (CompatibleRes, error)
 }
 
+// ExportableRes allows the resource to have its own implementation of resource
+// encoding, so that it can send data over the wire differently. It's unlikely
+// that you will want to implement this interface for most scenarios. It may be
+// useful to limit private data exposure, large data sizes, and to add more info
+// to what would normally be shared.
+type ExportableRes interface {
+	Res
+
+	// ToB64 lets the resource provide an alternative implementation of the
+	// usual ResToB64 method. This lets the resource omit, add, or modify
+	// the parameter data before it goes out over the wire.
+	ToB64() (string, error)
+
+	// TODO: Do we want to add a FromB64 method for decoding the Resource?
+}
+
 // YAMLRes is a resource that supports creation by unmarshalling.
 type YAMLRes interface {
 	Res

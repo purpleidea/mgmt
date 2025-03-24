@@ -376,14 +376,6 @@ type CompatibleRes interface {
 	Merge(CompatibleRes) (CompatibleRes, error)
 }
 
-// CollectableRes is an interface for resources that support collection. It is
-// currently temporary until a proper API for all resources is invented.
-type CollectableRes interface {
-	Res
-
-	CollectPattern(string) // XXX: temporary until Res collection is more advanced
-}
-
 // YAMLRes is a resource that supports creation by unmarshalling.
 type YAMLRes interface {
 	Res

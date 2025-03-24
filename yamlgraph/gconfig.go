@@ -32,7 +32,6 @@
 package yamlgraph
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -239,12 +238,13 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 	}
 
 	// store in backend (usually etcd)
-	if err := world.ResExport(context.TODO(), resourceList); err != nil {
-		return nil, fmt.Errorf("config: could not export resources: %v", err)
-	}
+	// XXX: disabled for now until someone ports to new API.
+	//if err := world.ResExport(context.TODO(), resourceList); err != nil {
+	//	return nil, fmt.Errorf("config: could not export resources: %v", err)
+	//}
 
 	// lookup from backend (usually etcd)
-	var hostnameFilter []string // empty to get from everyone
+	//var hostnameFilter []string // empty to get from everyone
 	kindFilter := []string{}
 	for _, t := range obj.Collector {
 		kind := strings.ToLower(t.Kind)
@@ -253,11 +253,12 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 	// do all the graph look ups in one single step, so that if the backend
 	// database changes, we don't have a partial state of affairs...
 	if len(kindFilter) > 0 { // if kindFilter is empty, don't need to do lookups!
-		var err error
-		resourceList, err = world.ResCollect(context.TODO(), hostnameFilter, kindFilter)
-		if err != nil {
-			return nil, fmt.Errorf("config: could not collect resources: %v", err)
-		}
+		// XXX: disabled for now until someone ports to new API.
+		//var err error
+		//resourceList, err = world.ResCollect(context.TODO(), hostnameFilter, kindFilter)
+		//if err != nil {
+		//	return nil, fmt.Errorf("config: could not collect resources: %v", err)
+		//}
 	}
 	for _, res := range resourceList {
 		matched := false
@@ -283,11 +284,12 @@ func (obj *GraphConfig) NewGraphFromConfig(hostname string, world engine.World, 
 			//	res.MetaParams().Noop = noop
 			//}
 
-			if t.Pattern != "" { // XXX: simplistic for now
-				if xres, ok := res.(engine.CollectableRes); ok {
-					xres.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
-				}
-			}
+			// XXX: disabled for now until someone ports to new API.
+			//if t.Pattern != "" { // XXX: simplistic for now
+			//	if xres, ok := res.(engine.CollectableRes); ok {
+			//		xres.CollectPattern(t.Pattern) // res.Dirname = t.Pattern
+			//	}
+			//}
 
 			obj.Logf("collected: %s", res)
 

@@ -1501,12 +1501,6 @@ func (obj *FileRes) UIDs() []engine.ResUID {
 //	return fmt.Errorf("not possible at the moment")
 //}
 
-// CollectPattern applies the pattern for collection resources.
-func (obj *FileRes) CollectPattern(pattern string) {
-	// XXX: currently the pattern for files can only override the Dirname variable :P
-	obj.Dirname = pattern // XXX: simplistic for now
-}
-
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
 func (obj *FileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {

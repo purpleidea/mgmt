@@ -112,8 +112,7 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 func (obj *function) MakeGolangArgs() (string, error) {
 	var args []string
 	for i, a := range obj.Args {
-		input := fmt.Sprintf("input[%d]", i)
-		gol, err := a.ToGolang(input)
+		gol, err := a.ToGolang(fmt.Sprintf("args[%d]", i))
 		if err != nil {
 			return "", err
 		}

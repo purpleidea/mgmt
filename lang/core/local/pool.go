@@ -155,12 +155,12 @@ func (obj *PoolFunc) Stream(ctx context.Context) error {
 
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
-func (obj *PoolFunc) Call(ctx context.Context, input []types.Value) (types.Value, error) {
+func (obj *PoolFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	// Validation of these inputs happens in the Local API which does it.
-	namespace := input[0].Str()
-	uid := input[1].Str()
+	namespace := args[0].Str()
+	uid := args[1].Str()
 	// TODO: pass in config
-	//config := input[2].???()
+	//config := args[2].???()
 
 	result, err := obj.init.Local.Pool(ctx, namespace, uid, nil)
 	if err != nil {

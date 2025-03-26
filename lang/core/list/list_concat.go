@@ -164,7 +164,7 @@ func (obj *ListConcatFunc) Build(typ *types.Type) (*types.Type, error) {
 	obj.Type = tList // list type
 	fn := &types.FuncValue{
 		T: typ,
-		V: obj.Function, // implementation
+		V: obj.Call, // implementation
 	}
 	obj.Fn = fn // inside wrapper.Func
 	//return obj.Fn.T, nil
@@ -183,12 +183,12 @@ func (obj *ListConcatFunc) Copy() interfaces.Func {
 	}
 }
 
-// Function is the actual implementation here. This is used in lieu of the
-// Stream function which we'd have these contents within.
-func (obj *ListConcatFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ListConcatFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	values := []types.Value{}
 
-	for _, x := range input {
+	for _, x := range args {
 		values = append(values, x.List()...)
 	}
 

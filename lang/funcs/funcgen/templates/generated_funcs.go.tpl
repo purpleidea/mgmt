@@ -46,7 +46,7 @@ func init() {
 {{ end }}
 }
 {{ range $i, $func := .Functions }}
-{{$func.Help}}func {{$func.InternalName}}(ctx context.Context, input []types.Value) (types.Value, error) {
+{{$func.Help}}func {{$func.InternalName}}(ctx context.Context, args []types.Value) (types.Value, error) {
 {{- if $func.Errorful }}
 	v, err := {{ if not (eq $func.GolangPackage.Alias "") }}{{$func.GolangPackage.Alias}}{{else}}{{$func.GolangPackage.Name}}{{end}}.{{$func.GolangFunc}}({{$func.MakeGolangArgs}})
 	if err != nil {

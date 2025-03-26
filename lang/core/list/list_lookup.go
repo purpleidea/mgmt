@@ -208,7 +208,7 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 	obj.Type = tList // list type
 	fn := &types.FuncValue{
 		T: typ,
-		V: obj.Function, // implementation
+		V: obj.Call, // implementation
 	}
 	obj.Fn = fn // inside wrapper.Func
 	//return obj.Fn.T, nil
@@ -227,11 +227,11 @@ func (obj *ListLookupFunc) Copy() interfaces.Func {
 	}
 }
 
-// Function is the actual implementation here. This is used in lieu of the
-// Stream function which we'd have these contents within.
-func (obj *ListLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
-	l := (input[0]).(*types.ListValue)
-	index := input[1].Int()
+// Call is the actual implementation here. This is used in lieu of the Stream
+// function which we'd have these contents within.
+func (obj *ListLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	l := (args[0]).(*types.ListValue)
+	index := args[1].Int()
 	//zero := l.Type().Val.New() // the zero value
 
 	// TODO: should we handle overflow by returning zero?
@@ -247,8 +247,8 @@ func (obj *ListLookupFunc) Function(ctx context.Context, input []types.Value) (t
 	if exists {
 		return val, nil
 	}
-	if len(input) == 3 { // default value since lookup is missing
-		return input[2], nil
+	if len(args) == 3 { // default value since lookup is missing
+		return args[2], nil
 	}
 
 	return nil, fmt.Errorf("list index not present, got: %d, len is: %d", index, len(l.List()))

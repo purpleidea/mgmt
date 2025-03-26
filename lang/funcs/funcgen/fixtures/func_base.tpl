@@ -66,26 +66,26 @@ func init() {
 
 }
 
-func TestpkgAllKind(ctx context.Context, input []types.Value) (types.Value, error) {
+func TestpkgAllKind(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.FloatValue{
-		V: testpkg.AllKind(input[0].Int(), input[1].Str()),
+		V: testpkg.AllKind(args[0].Int(), args[1].Str()),
 	}, nil
 }
 
-func TestpkgToUpper(ctx context.Context, input []types.Value) (types.Value, error) {
+func TestpkgToUpper(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
-		V: testpkg.ToUpper(input[0].Str()),
+		V: testpkg.ToUpper(args[0].Str()),
 	}, nil
 }
 
-func TestpkgMax(ctx context.Context, input []types.Value) (types.Value, error) {
+func TestpkgMax(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.FloatValue{
-		V: testpkg.Max(input[0].Float(), input[1].Float()),
+		V: testpkg.Max(args[0].Float(), args[1].Float()),
 	}, nil
 }
 
-func TestpkgWithError(ctx context.Context, input []types.Value) (types.Value, error) {
-	v, err := testpkg.WithError(input[0].Str())
+func TestpkgWithError(ctx context.Context, args []types.Value) (types.Value, error) {
+	v, err := testpkg.WithError(args[0].Str())
 	if err != nil {
 		return nil, err
 	}
@@ -94,14 +94,14 @@ func TestpkgWithError(ctx context.Context, input []types.Value) (types.Value, er
 	}, nil
 }
 
-func TestpkgWithInt(ctx context.Context, input []types.Value) (types.Value, error) {
+func TestpkgWithInt(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
-		V: testpkg.WithInt(input[0].Float(), int(input[1].Int()), input[2].Int(), int(input[3].Int()), int(input[4].Int()), input[5].Bool(), input[6].Str()),
+		V: testpkg.WithInt(args[0].Float(), int(args[1].Int()), args[2].Int(), int(args[3].Int()), int(args[4].Int()), args[5].Bool(), args[6].Str()),
 	}, nil
 }
 
-func TestpkgSuperByte(ctx context.Context, input []types.Value) (types.Value, error) {
+func TestpkgSuperByte(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
-		V: string(testpkg.SuperByte([]byte(input[0].Str()), input[1].Str())),
+		V: string(testpkg.SuperByte([]byte(args[0].Str()), args[1].Str())),
 	}, nil
 }

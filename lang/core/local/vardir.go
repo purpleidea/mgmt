@@ -162,8 +162,8 @@ func (obj *VarDirFunc) Stream(ctx context.Context) error {
 
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
-func (obj *VarDirFunc) Call(ctx context.Context, input []types.Value) (types.Value, error) {
-	reldir := input[0].Str()
+func (obj *VarDirFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	reldir := args[0].Str()
 	if strings.HasPrefix(reldir, "/") {
 		return nil, fmt.Errorf("path must be relative")
 	}

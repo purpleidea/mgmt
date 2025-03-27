@@ -721,10 +721,10 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 	// the path exists and is not a directory
 	// delete the file if force is given
 	if err == nil && !fileInfo.IsDir() {
-		obj.init.Logf("removing (force): %s", obj.getPath())
 		if err := os.Remove(obj.getPath()); err != nil {
 			return false, err
 		}
+		obj.init.Logf("force remove")
 	}
 
 	// create the empty directory
@@ -737,11 +737,19 @@ func (obj *FileRes) dirCheckApply(ctx context.Context, apply bool) (bool, error)
 
 	if obj.Recurse {
 		// TODO: add recurse limit here
+		if err := os.MkdirAll(obj.getPath(), mode); err != nil {
+			return false, err
+		}
 		obj.init.Logf("mkdir -p -m %s", mode)
-		return false, os.MkdirAll(obj.getPath(), mode)
+		return false, nil
 	}
 
-	return false, os.Mkdir(obj.getPath(), mode)
+	if err := os.Mkdir(obj.getPath(), mode); err != nil {
+		return false, err
+	}
+	obj.init.Logf("mkdir -m %s", mode)
+
+	return false, nil
 }
 
 // syncCheckApply is the CheckApply operation for a source and destination dir.

@@ -1002,6 +1002,7 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 	if err := f.Close(); err != nil {
 		return false, errwrap.Wrapf(err, "problem closing empty file")
 	}
+	obj.init.Logf("created")
 
 	return false, nil // defer the Content != nil work to later...
 }

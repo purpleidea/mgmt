@@ -972,6 +972,7 @@ func (obj *Main) Run() error {
 			Logf("send/recv building took: %s", time.Since(timing))
 
 			// Double check before we commit.
+			timing = time.Now()
 			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {
 				_, e := graph.TopologicalSort() // am i a dag or not?
 				return e
@@ -980,6 +981,7 @@ func (obj *Main) Run() error {
 				Logf("error running the TopologicalSort: %+v", err)
 				continue
 			}
+			Logf("resource topological sort took: %s", time.Since(timing))
 
 			// TODO: do we want to do a transitive reduction?
 			// FIXME: run a type checker that verifies all the send->recv relationships

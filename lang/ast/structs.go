@@ -339,6 +339,10 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtBind) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -657,6 +661,19 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+func (obj *StmtRes) TimeCheck() error {
+	// no need to check obj.Name because that Expr is always a string, never a
+	// function
+
+	for _, x := range obj.Contents {
+		if err := x.TimeCheck(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -1218,6 +1235,7 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
+	TimeCheck() error
 	Graph(env *interfaces.Env) (*pgraph.Graph, error)
 }
 
@@ -1472,6 +1490,32 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 	return invariants, nil
 }
 
+func (obj *StmtResField) TimeCheck() error {
+	timelessFn, err := obj.Value.TimeCheck(map[string]*types.Timeless{})
+	if err != nil {
+		return err
+	}
+	typeFn, err := obj.Value.Type()
+	if err != nil {
+		return err
+	}
+	if typeFn.Kind != types.KindFunc {
+		// We only care about timelessness for functions
+		return nil
+	}
+
+	isCompletelyTimeless, err := types.IsCompletelyTimeless(timelessFn, typeFn)
+	if err != nil {
+		return err
+	}
+
+	if !isCompletelyTimeless {
+		return fmt.Errorf("resource field `%s` is not timeless", obj.Field)
+	}
+
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -1717,6 +1761,10 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtResEdge) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2069,6 +2117,10 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	return invariants, nil
 }
 
+func (obj *StmtResMeta) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2341,6 +2393,10 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtEdge) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -2606,6 +2662,10 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 	invariants = append(invariants, invar)
 
 	return invariants, nil
+}
+
+func (obj *StmtEdgeHalf) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -2917,6 +2977,10 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtIf) TimeCheck() error {
+	panic("TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -3344,6 +3408,21 @@ func (obj *StmtFor) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtFor) TimeCheck() error {
+
+	panic("TODO")
+
+	//if err := obj.Expr.TimeCheck(); err != nil {
+	//	return err
+	//}
+
+	if err := obj.Body.TimeCheck(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -3850,6 +3929,21 @@ func (obj *StmtForKV) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtForKV) TimeCheck() error {
+
+	panic("TODO")
+
+	//if err := obj.Expr.TimeCheck(); err != nil {
+	//	return err
+	//}
+
+	if err := obj.Body.TimeCheck(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -5404,6 +5498,10 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtProg) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -5798,6 +5896,10 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return invariants, nil
 }
 
+func (obj *StmtFunc) TimeCheck() error {
+	return nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6006,6 +6108,10 @@ func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	return invariants, nil
+}
+
+func (obj *StmtClass) TimeCheck() error {
+	panic("TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -6419,6 +6525,10 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 	return invariants, nil
 }
 
+func (obj *StmtInclude) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6608,6 +6718,10 @@ func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
 }
 
+func (obj *StmtImport) TimeCheck() error {
+	panic("TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -6697,6 +6811,10 @@ func (obj *StmtComment) SetScope(*interfaces.Scope) error { return nil }
 // Infer/Check for child expressions.
 func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	return []*interfaces.UnificationInvariant{}, nil
+}
+
+func (obj *StmtComment) TimeCheck() error {
+	return nil
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -6817,6 +6935,10 @@ func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprBool) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprBool) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7022,6 +7144,10 @@ func (obj *ExprStr) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprStr) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	return types.AlwaysTimeless, nil
+}
+
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprStr) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
@@ -7172,6 +7298,10 @@ func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 // generic for all expressions.
 func (obj *ExprInt) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprInt) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7326,6 +7456,10 @@ func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 // generic for all expressions.
 func (obj *ExprFloat) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprFloat) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	return types.AlwaysTimeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -7630,6 +7764,24 @@ func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprList) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprList) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	// We want to return whether the elements are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, expr := range obj.Elements {
+		t, err := expr.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+
+		timeless, err = types.CombineTimeless(timeless, t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -8083,6 +8235,32 @@ func (obj *ExprMap) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprMap) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	// We want to return whether the keys and values are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, x := range obj.KVs {
+		timeK, err := x.Key.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		timeless, err = types.CombineTimeless(timeless, timeK)
+		if err != nil {
+			return nil, err
+		}
+
+		timeV, err := x.Val.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		timeless, err = types.CombineTimeless(timeless, timeV)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
+}
+
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprMap) Func() (interfaces.Func, error) {
 	typ, err := obj.Type()
@@ -8517,6 +8695,24 @@ func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant,
 // generic for all expressions.
 func (obj *ExprStruct) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprStruct) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	// We want to return whether the elements are all timeless.
+	timeless := types.AlwaysTimeless
+	for _, x := range obj.Fields {
+		t, err := x.Value.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+
+		timeless, err = types.CombineTimeless(timeless, t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return timeless, nil
 }
 
 // Func returns the reactive stream of values that this expression produces.
@@ -9273,6 +9469,36 @@ func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprFunc) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprFunc) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	if obj.Body != nil {
+		propagatesTimeless := func(inputs []*types.Timeless) (*types.Timeless, error) {
+			extendedEnv := make(map[string]*types.Timeless)
+			for k, v := range env {
+				extendedEnv[k] = v
+			}
+			for i, arg := range obj.Args {
+				extendedEnv[arg.Name] = inputs[i]
+			}
+
+			return obj.Body.TimeCheck(extendedEnv)
+		}
+		return &types.Timeless{
+			IsTimeless:         nil,
+			PropagatesTimeless: &propagatesTimeless,
+		}, nil
+	}
+
+	if obj.Function != nil {
+		panic("TODO: check the info field")
+	}
+
+	if len(obj.Values) > 0 {
+		panic("TODO")
+	}
+
+	return nil, fmt.Errorf("TimeCheck: invalid ExprFunc")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -10169,6 +10395,29 @@ func (obj *ExprCall) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprCall) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	if obj.expr == nil {
+		// possible programming error
+		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
+	}
+
+	timeF, err := obj.expr.TimeCheck(map[string]*types.Timeless{})
+	if err != nil {
+		return nil, err
+	}
+
+	inputs := []*types.Timeless{}
+	for _, arg := range obj.Args {
+		input, err := arg.TimeCheck(env)
+		if err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input)
+	}
+
+	return types.ApplyTimeless(timeF, inputs)
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -10553,6 +10802,16 @@ func (obj *ExprVar) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprVar) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	// Delegate to the target.
+	expr, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+	}
+
+	return expr.TimeCheck(map[string]*types.Timeless{})
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -10797,6 +11056,15 @@ func (obj *ExprParam) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprParam) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	time, exists := env[obj.Name]
+	if !exists {
+		return nil, fmt.Errorf("param `%s` does not exist in the environment", obj.Name)
+	}
+
+	return time, nil
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -10986,6 +11254,10 @@ func (obj *ExprIterated) Check(typ *types.Type) ([]*interfaces.UnificationInvari
 	return interfaces.GenericCheck(obj, typ)
 }
 
+func (obj *ExprIterated) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprIterated.TimeCheck(): XXX TODO")
+}
+
 // Graph returns the reactive function graph which is expressed by this node. It
 // includes any vertices produced by this node, and the appropriate edges to any
 // vertices that are produced by its children. Nodes which fulfill the Expr
@@ -11113,6 +11385,10 @@ func (obj *ExprPoly) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 // generic for all expressions.
 func (obj *ExprPoly) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprPoly) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprPoly.TimeCheck(): should not happen, all ExprPoly expressions should be gone by the time time-checking starts")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11296,6 +11572,10 @@ func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvarian
 // generic for all expressions.
 func (obj *ExprTopLevel) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprTopLevel) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprTopLevel.TimeCheck(): XXX TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11495,6 +11775,10 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 // generic for all expressions.
 func (obj *ExprSingleton) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprSingleton) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	panic("ExprSingleton.TimeCheck(): XXX TODO")
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
@@ -11868,6 +12152,28 @@ func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, err
 // generic for all expressions.
 func (obj *ExprIf) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
 	return interfaces.GenericCheck(obj, typ)
+}
+
+func (obj *ExprIf) TimeCheck(env map[string]*types.Timeless) (*types.Timeless, error) {
+	v, err := obj.Condition.Value()
+	if err == nil {
+		// optimization: we know which branch will be taken
+		if v.Bool() {
+			return obj.ThenBranch.TimeCheck(env)
+		}
+		return obj.ElseBranch.TimeCheck(env)
+	}
+
+	// we don't know whether the then or else branch will be taken
+	time1, err1 := obj.ThenBranch.TimeCheck(env)
+	if err1 != nil {
+		return nil, err1
+	}
+	time2, err2 := obj.ElseBranch.TimeCheck(env)
+	if err2 != nil {
+		return nil, err2
+	}
+	return types.CombineTimeless(time1, time2)
 }
 
 // Func returns a function which returns the correct branch based on the ever

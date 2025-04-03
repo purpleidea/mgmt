@@ -45,6 +45,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -1776,4 +1777,48 @@ func TestResPtrUID1(t *testing.T) {
 	if uid1, uid2 := engine.PtrUID(t1), engine.PtrUID(t2); uid1 != uid2 {
 		t.Errorf("uid's don't match")
 	}
+}
+
+func TestResToB64(t *testing.T) {
+	res, err := engine.NewNamedResource("noop", "n1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+
+	s, err := engineUtil.ResToB64(res)
+	if err != nil {
+		t.Errorf("error trying to encode res: %s", err.Error())
+		return
+	}
+	t.Logf("out: %s", s)
+}
+
+func TestResToB64Meta(t *testing.T) {
+	hidden := true // must be true, since false is a default
+
+	res, err := engine.NewNamedResource("noop", "n1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+	res.MetaParams().Hidden = hidden
+
+	s, err := engineUtil.ResToB64(res)
+	if err != nil {
+		t.Errorf("error trying to encode res: %s", err.Error())
+		return
+	}
+	t.Logf("out: %s", s)
+
+	r, err := engineUtil.B64ToRes(s)
+	if err != nil {
+		t.Errorf("error trying to decode res: %s", err.Error())
+		return
+	}
+	if r.MetaParams().Hidden != hidden {
+		t.Errorf("metaparam did not get preserved")
+		return
+	}
+	t.Logf("meta: %v", r.MetaParams().Hidden)
 }

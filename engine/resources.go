@@ -280,8 +280,8 @@ func Stringer(res Res) string {
 // the resource only. This was formerly a string, but a struct is more precise.
 // The result is suitable as a unique map key.
 type ResPtrUID struct {
-	kind string
-	name string
+	Kind string
+	Name string
 }
 
 // PtrUID generates a ResPtrUID from a resource. The result is suitable as a
@@ -289,7 +289,7 @@ type ResPtrUID struct {
 func PtrUID(res Res) ResPtrUID {
 	// the use of "repr" is kind of arbitrary as long as it's unique
 	//return ResPtrUID(Repr(res.Kind(), res.Name()))
-	return ResPtrUID{kind: res.Kind(), name: res.Name()}
+	return ResPtrUID{Kind: res.Kind(), Name: res.Name()}
 }
 
 // Validate validates a resource by checking multiple aspects. This is the main

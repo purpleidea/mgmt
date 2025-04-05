@@ -119,6 +119,7 @@ type StrWorld interface {
 // a distributed database.
 // XXX: These API's are likely to change.
 // XXX: Add optional TTL's to these API's, maybe use WithTTL(...) type options.
+// XXX: Add a WithStar(true) option to add in the * hostname matching.
 type ResWorld interface {
 	// ResWatch returns a channel which produces a new value once on startup
 	// as soon as it is successfully connected, and once for every time it

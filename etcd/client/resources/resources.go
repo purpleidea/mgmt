@@ -53,11 +53,58 @@ const (
 // collection prefixes and filters that we care about...
 // XXX: filter based on kind as well, we don't do that currently... See:
 // https://github.com/etcd-io/etcd/issues/19667
+// TODO: do the star (*) hostname matching catch-all if we have WithStar option.
 func WatchResources(ctx context.Context, client interfaces.Client, hostname, kind string) (chan error, error) {
 	// key structure is $NS/exported/$hostname:to/$hostname:from/$kind/$name = $data
-	// TODO: support the star (*) hostname matching catch-all?
+	ctx, cancel := context.WithCancel(ctx) // wrap
+
 	path := fmt.Sprintf("%s/exported/%s/", ns, hostname)
-	return client.Watcher(ctx, path, etcd.WithPrefix())
+	ch1, err := client.Watcher(ctx, path, etcd.WithPrefix())
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	star := fmt.Sprintf("%s/exported/%s/", ns, "*")
+	ch2, err := client.Watcher(ctx, star, etcd.WithPrefix())
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	// multiplex the two together
+	ch := make(chan error)
+	go func() {
+		defer cancel()
+		var e error
+		var ok bool
+		for {
+			select {
+			case e, ok = <-ch1:
+				if !ok {
+					ch1 = nil
+					if ch2 == nil {
+						return
+					}
+				}
+			case e, ok = <-ch2:
+				if !ok {
+					ch2 = nil
+					if ch1 == nil {
+						return
+					}
+				}
+			}
+
+			select {
+			case ch <- e:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // GetResources reads the resources sent to the input hostname, and also applies

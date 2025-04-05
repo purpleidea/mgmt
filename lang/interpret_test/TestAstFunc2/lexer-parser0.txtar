@@ -13,4 +13,4 @@ func fn($in) { # in is a special keyword
 test fmt.printf("%d", $fn(0)) {}
 test fmt.printf("%d", fn(0)) {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected IN, expecting MAP_IDENTIFIER or IDENTIFIER` @5:2
+# err: errLexParse: parser: `syntax error: unexpected IN, expecting MAP_IDENTIFIER or IDENTIFIER or COLLECT_IDENTIFIER` @5:2

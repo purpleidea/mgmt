@@ -1,0 +1,52 @@
+import "fmt"
+import "golang/strings" as golang_strings
+import "iter"
+import "world/collect"
+
+file "/tmp/foo" {
+	state => $const.res.file.state.exists,
+	content => "i am foo\n",
+
+	Meta:export => ["*",],
+	#Meta:export => ["${hostname}",], # alternatively
+}
+file "/tmp/fah" {
+	state => $const.res.file.state.exists,
+	content => "i am fah\n",
+
+	#Meta:export => ["*",],
+	Meta:export => ["${hostname}",],
+}
+
+$all = collect.res("file") # []struct{name str; host str;}
+
+# any kind of filter code that you want!
+$fn = func($st) {
+	golang_strings.has_prefix($st->name, "/tmp/fo")
+}
+
+$filtered = iter.filter($all, $fn)
+
+print "all" {
+	msg => fmt.printf("%v", $all),
+
+	Meta:autogroup => false,
+}
+print "filtered" {
+	msg => fmt.printf("%v", $filtered),
+
+	Meta:autogroup => false,
+}
+
+collect file $filtered {
+	Meta:hidden => true, # let's not apply these for now
+}
+
+# you can do it manually like this
+#$collected = [
+#	struct{name => "/tmp/foo", host => "${hostname}",},
+#]
+#
+#collect file $collected {
+#	Meta:hidden => false,
+#}

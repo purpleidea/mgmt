@@ -1491,6 +1491,12 @@ undotted_identifier:
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str
 	}
+	// a function could be named collect.res()!
+|	COLLECT_IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
 ;
 var_identifier:
 	// eg: $ foo (dollar prefix + identifier)

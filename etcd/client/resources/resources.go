@@ -148,7 +148,7 @@ func SetResources(ctx context.Context, client interfaces.Client, hostname string
 			return false, err
 		}
 
-		b = b && out.Succeeded // collect the true/false responses...
+		b = b && !out.Succeeded // collect the true/false responses...
 	}
 
 	// false means something changed

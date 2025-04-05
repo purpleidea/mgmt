@@ -236,7 +236,14 @@ func (obj *Exporter) Prune(ctx context.Context, graph *pgraph.Graph) error {
 			// If we do this erroneously, it causes extra traffic.
 			obj.state[k] = false // do this only if the Res is NEW
 			continue             // skip it, it's staying
+
+		} else if exists {
+			// If it exists and it's the same as it was, do nothing.
+			// This is important to prevent thrashing/flapping...
+			continue
 		}
+
+		// These don't exist anymore, we have to get rid of them...
 		delete(obj.state, k) // it's gone!
 		resourceDeletes = append(resourceDeletes, &k)
 	}

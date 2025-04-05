@@ -385,6 +385,19 @@ func valueToString(value types.Value) string {
 		// TODO: use formatting flags ?
 		// FIXME: Our String() method in FloatValue doesn't print nicely
 		return value.String()
+
+	case types.KindList:
+		fallthrough
+	case types.KindMap:
+		fallthrough
+	case types.KindStruct:
+		// XXX: Attempting to run value.Value() on a struct, which will
+		// surely have a lowercase (unexported) name will panic. This
+		// will also happen on any container types like list or map that
+		// may have a struct inside. It's expected that we have
+		// lowercase field names since we're using mcl, but workaround
+		// this panic for now with this cheap representation.
+		return value.String()
 	}
 
 	// FIXME: this is just an "easy-out" implementation for now...

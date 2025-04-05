@@ -54,14 +54,14 @@ import (
 // particular one contains all the common flags for the `deploy` subcommand
 // which all frontends can use.
 type DeployArgs struct {
-	// SshUrl can be specified if we want to transport the SSH client
+	// SSHURL can be specified if we want to transport the SSH client
 	// connection over SSH. If this is specified, the second hop is made
 	// with the Seeds values, but they connect from this destination. You
 	// can specify this in the standard james@server:22 format. This will
 	// use your ~/.ssh/ directory for public key authentication and
 	// verifying the host key in the known_hosts file. This must already be
 	// setup for things to work.
-	SshUrl string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
+	SSHURL string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 
 	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	Noop  bool     `arg:"--noop" help:"globally force all resources into no-op mode"`
@@ -208,9 +208,9 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		//GetURI: func() string {
 		//},
 	}
-	if obj.SshUrl != "" { // alternate world implementation over SSH
+	if obj.SSHURL != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
-			URL:   obj.SshUrl,
+			URL:   obj.SSHURL,
 			Seeds: obj.Seeds,
 			NS:    lib.NS,
 			//MetadataPrefix: lib.MetadataPrefix,

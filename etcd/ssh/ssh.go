@@ -54,7 +54,7 @@ import (
 
 const (
 	defaultUser                  = "root"
-	defaultSshPort        uint16 = 22
+	defaultSSHPort        uint16 = 22
 	defaultEtcdPort       uint16 = 2379 // TODO: get this from etcd pkg
 	defaultIDRsaPath             = "~/.ssh/id_rsa"
 	defaultIDEd25519Path         = "~/.ssh/id_ed25519"
@@ -68,12 +68,12 @@ type World struct {
 	// ip's should be relative to this server.
 	URL string
 
-	// SshID is the path to the ~/.ssh/id_rsa or ~/.ssh/id_ed25519 to use
+	// SSHID is the path to the ~/.ssh/id_rsa or ~/.ssh/id_ed25519 to use
 	// for auth. If you omit this then this will look for your private key
 	// in both of those default paths. If you specific a specific path, then
 	// that will only be used. This will expand the ~/ and ~user/ style path
 	// expansions.
-	SshID string
+	SSHID string
 
 	// Seeds are the list of etcd endpoints to connect to.
 	Seeds []string
@@ -161,7 +161,7 @@ func (obj *World) Init(init *engine.WorldInit) error {
 		if hostname == "" {
 			return fmt.Errorf("empty hostname")
 		}
-		port := strconv.Itoa(int(defaultSshPort)) // default
+		port := strconv.Itoa(int(defaultSSHPort)) // default
 		if s := u.Port(); s != "" {
 			port = s
 		}
@@ -193,7 +193,7 @@ func (obj *World) Init(init *engine.WorldInit) error {
 	if hostname == "" {
 		return fmt.Errorf("empty hostname")
 	}
-	port := strconv.Itoa(int(defaultSshPort)) // default
+	port := strconv.Itoa(int(defaultSSHPort)) // default
 	if s := u.Port(); s != "" {
 		port = s
 	}
@@ -203,13 +203,13 @@ func (obj *World) Init(init *engine.WorldInit) error {
 	auths := []ssh.AuthMethod{}
 	//auths = append(auths, ssh.Password("password")) // testing
 	choices := []string{
-		//obj.SshID,
+		//obj.SSHID,
 		defaultIDEd25519Path,
 		defaultIDRsaPath, // "~/.ssh/id_rsa"
 	}
-	if obj.SshID != "" {
+	if obj.SSHID != "" {
 		choices = []string{
-			obj.SshID,
+			obj.SSHID,
 		}
 	}
 	for _, p := range choices {

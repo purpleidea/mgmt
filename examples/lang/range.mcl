@@ -1,0 +1,23 @@
+import "iter"
+import "fmt"
+
+print "range" {
+	msg => fmt.printf("%v", iter.range(1, 200, 3)),
+}
+
+#range (1 2 3) 
+#
+#range(1, 2, 3, 4)
+#
+#range("one string to rule them all")
+#
+#$x = 4
+#range($x)
+#
+#$y = getint()
+#range($y)
+#
+#1) write some mcl
+#2) run it even if func is not implemente (use panic())
+#3) learn types.NewType method
+

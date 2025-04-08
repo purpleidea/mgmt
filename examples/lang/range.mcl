@@ -1,0 +1,19 @@
+import "iter"
+import "fmt"
+
+print "range" {
+	msg => fmt.printf("%v", iter.range(5)),
+}
+
+for $i, $v in iter.range(34, 50) {
+	print [fmt.printf("index is: %d, value is: %d", $i, $v),] {
+		Meta:autogroup => false,
+	}
+}
+
+for $i, $v in iter.range(10) {
+	print [fmt.printf("index is: %d", $i),] {
+		msg => fmt.printf("value is: %d", $v),
+		Meta:autogroup => false,
+	}
+}

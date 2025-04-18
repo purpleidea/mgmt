@@ -1,0 +1,28 @@
+-- main.mcl --
+import "iter"
+import "fmt"
+
+$range1 = iter.range(10)
+$range2 = iter.range(1, 11)
+$range3 = iter.range(0, 30, 5)
+$range4 = iter.range(0, 10, 3)
+$range5 = iter.range(0, -10, -1)
+$range6 = iter.range(0)
+$range7 = iter.range(1, 0)
+
+test [fmt.printf("%v", $range1),] {}
+test [fmt.printf("%v", $range2),] {}
+test [fmt.printf("%v", $range3),] {}
+test [fmt.printf("%v", $range4),] {}
+test [fmt.printf("%v", $range5),] {}
+test [fmt.printf("%v", $range6),] {}
+test [fmt.printf("%v", $range7),] {}
+
+-- OUTPUT --
+
+Vertex: test[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]]
+Vertex: test[[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]]
+Vertex: test[[0, 5, 10, 15, 20, 25]]
+Vertex: test[[0, 3, 6, 9]]
+Vertex: test[[0, -1, -2, -3, -4, -5, -6, -7, -8, -9]]
+Vertex: test[[]]

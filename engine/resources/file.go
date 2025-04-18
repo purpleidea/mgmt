@@ -1439,7 +1439,7 @@ func (obj *FileUID) IFF(uid engine.ResUID) bool {
 	if !ok {
 		return false
 	}
-	return obj.path == res.path
+	return obj.path == res.path || obj.path == res.path+"/" || obj.path+"/" == res.path
 }
 
 // FileResAutoEdges holds the state of the auto edge generator.
@@ -1527,23 +1527,14 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 		if !path.IsAbs(source) {
 			source = path.Join(path.Dir(obj.getPath()), source)
 		}
-		var reversed1 = true
-		var reversed2 = true
+		var reversed = true
 		frags = append(frags, &FileUID{
 			BaseUID: engine.BaseUID{
 				Name:     obj.Name(),
 				Kind:     obj.Kind(),
-				Reversed: &reversed1,
+				Reversed: &reversed,
 			},
 			path: source,
-		})
-		frags = append(frags, &FileUID{
-			BaseUID: engine.BaseUID{
-				Name:     obj.Name(),
-				Kind:     obj.Kind(),
-				Reversed: &reversed2,
-			},
-			path: source + "/",
 		})
 	}
 

@@ -60,7 +60,17 @@ func TestFileAutoEdge1(t *testing.T) {
 	r3 := &FileRes{
 		Path: "/tmp/a/b/c", // some child file
 	}
-	g.AddVertex(r1, r2, r3)
+	r4 := &FileRes{
+		Path:    "/tmp/b", // some symbolic link
+		Symlink: true,
+		Source:  "/tmp/a",
+	}
+	r5 := &FileRes{
+		Path:    "/tmp/c", // some relative symbolic link
+		Symlink: true,
+		Source:  "a",
+	}
+	g.AddVertex(r1, r2, r3, r4, r5)
 
 	if i := g.NumEdges(); i != 0 {
 		t.Errorf("should have 0 edges instead of: %d", i)
@@ -76,8 +86,8 @@ func TestFileAutoEdge1(t *testing.T) {
 	}
 
 	// two edges should have been added
-	if i := g.NumEdges(); i != 2 {
-		t.Errorf("should have 2 edges instead of: %d", i)
+	if i := g.NumEdges(); i != 4 {
+		t.Errorf("should have 4 edges instead of: %d", i)
 	}
 }
 

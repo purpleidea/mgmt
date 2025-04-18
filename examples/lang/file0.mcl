@@ -5,3 +5,15 @@ file "/tmp/file1" {
 file "/tmp/dir1/" {
 	state => $const.res.file.state.exists,
 }
+
+file "/tmp/symlink1" {
+	state => $const.res.file.state.exists,
+	source => "file1",
+	symlink => true,
+}
+
+file "/tmp/symlink2" {
+	state => $const.res.file.state.exists,
+	source => "dir1/",
+	symlink => true,
+}

@@ -144,9 +144,10 @@ type FileRes struct {
 
 	// Source specifies the source contents for the file resource. It cannot
 	// be combined with the Content or Fragments parameters. It must be an
-	// absolute path, and it can point to a file or a directory. If it
-	// points to a file, then that will will be copied through directly. If
-	// it points to a directory, then it will copy the directory "rsync
+	// absolute path unless the file is a symbolic link,
+	// and it can point to a file or a directory. If it points to a file,
+	// then that will will be copied through directly.
+	// If it points to a directory, then it will copy the directory "rsync
 	// style" onto the file destination. As a result, if this is a file,
 	// then the main file res must be a file, and if it is a directory, then
 	// this must be a directory. To meaningfully copy a full directory, you
@@ -202,6 +203,9 @@ type FileRes struct {
 	// directory. This isn't particularly meaningful if you don't also set
 	// Recurse to true. This doesn't work with Content or Fragments.
 	Purge bool `lang:"purge" yaml:"purge"`
+
+	// Symlink specifies that the file should be a symbolic link to the source file.
+	Symlink bool `lang:"symlink" yaml:"symlink"`
 
 	sha256sum string
 }
@@ -299,27 +303,42 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("can't specify file Content, Source, or Fragments when State is %s", FileStateAbsent)
 	}
 
-	// The path and Source must either both be dirs or both not be.
-	srcIsDir := strings.HasSuffix(obj.Source, "/")
-	if isSrc && (obj.isDir() != srcIsDir) {
-		return fmt.Errorf("the path and Source must either both be dirs or both not be")
-	}
+	if !obj.Symlink {
+		// The path and Source must either both be dirs or both not be.
+		srcIsDir := strings.HasSuffix(obj.Source, "/")
+		if isSrc && (obj.isDir() != srcIsDir) {
+			return fmt.Errorf("the path and Source must either both be dirs or both not be")
+		}
 
-	if obj.isDir() && (isContent || isFrag) { // makes no sense
-		return fmt.Errorf("can't specify Content or Fragments when creating a Dir")
-	}
+		if obj.isDir() && (isContent || isFrag) { // makes no sense
+			return fmt.Errorf("can't specify Content or Fragments when creating a Dir")
+		}
 
-	// TODO: is this really a requirement that we want to enforce?
-	if isSrc && obj.isDir() && srcIsDir && !obj.Recurse {
-		return fmt.Errorf("you'll want to Recurse when you have a Source dir to copy")
-	}
-	// TODO: do we want to enforce this sort of thing?
-	if obj.Purge && !obj.Recurse {
-		return fmt.Errorf("you'll want to Recurse when you have a Purge to do")
-	}
+		// TODO: is this really a requirement that we want to enforce?
+		if isSrc && obj.isDir() && srcIsDir && !obj.Recurse {
+			return fmt.Errorf("you'll want to Recurse when you have a Source dir to copy")
+		}
+		// TODO: do we want to enforce this sort of thing?
+		if obj.Purge && !obj.Recurse {
+			return fmt.Errorf("you'll want to Recurse when you have a Purge to do")
+		}
 
-	if isSrc && !obj.isDir() && !srcIsDir && obj.Recurse {
-		return fmt.Errorf("you can't recurse when copying a single file")
+		if isSrc && !obj.isDir() && !srcIsDir && obj.Recurse {
+			return fmt.Errorf("you can't recurse when copying a single file")
+		}
+	} else {
+		if isContent || isFrag {
+			return fmt.Errorf("can't specify Content or Fragments when creating a symbolic link")
+		}
+		if !isSrc {
+			return fmt.Errorf("must specify Source when creating a symbolic link")
+		}
+		if obj.isDir() {
+			return fmt.Errorf("symbolic links must not be a Dir")
+		}
+		if obj.Recurse || obj.Purge {
+			return fmt.Errorf("can't specify Recurse or Purge when creating a symbolic link")
+		}
 	}
 
 	for _, frag := range obj.Fragments {
@@ -995,7 +1014,7 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 	// Optimization: we shouldn't even look at obj.Content here, but we can
 	// skip this empty file creation here since we know we're going to be
 	// making it there anyways. This way we save the extra fopen noise.
-	if obj.Content != nil || len(obj.Fragments) > 0 {
+	if obj.Content != nil || len(obj.Fragments) > 0 || obj.Symlink {
 		return false, nil // pretend we actually made it
 	}
 
@@ -1049,6 +1068,10 @@ func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, err
 	// source is not defined, leave it alone...
 	if obj.Source == "" && !obj.Purge {
 		return true, nil
+	}
+
+	if obj.Symlink {
+		return obj.symlinkCheckApply(ctx, apply)
 	}
 
 	excludes := []string{}
@@ -1255,6 +1278,36 @@ func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, erro
 
 	obj.init.Logf("chmod %s", obj.Mode)
 	return false, os.Chmod(obj.getPath(), mode)
+}
+
+// symlinkCheckApply performs a CheckApply for the file source of symlink links.
+func (obj *FileRes) symlinkCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if obj.init.Debug {
+		obj.init.Logf("symlinkCheckApply(%t)", apply)
+	}
+	if !obj.Symlink {
+		return true, nil
+	}
+
+	path := obj.getPath()
+	dest, err := os.Readlink(path)
+	if err != nil || dest != obj.Source {
+		if apply {
+			obj.init.Logf("symlink %s %s", obj.Source, path)
+			if !os.IsNotExist(err) {
+				err = os.RemoveAll(path)
+				if err != nil {
+					return false, err
+				}
+			}
+			err = os.Symlink(obj.Source, path)
+			if err != nil {
+				return false, err
+			}
+		}
+		return false, nil
+	}
+	return true, nil
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
@@ -1468,6 +1521,32 @@ func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
 
 	// Ensure any file or dir fragments come first.
 	frags := []engine.ResUID{}
+
+	if obj.Source != "" {
+		source := obj.Source
+		if !path.IsAbs(source) {
+			source = path.Join(path.Dir(obj.getPath()), source)
+		}
+		var reversed1 = true
+		var reversed2 = true
+		frags = append(frags, &FileUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed1,
+			},
+			path: source,
+		})
+		frags = append(frags, &FileUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed2,
+			},
+			path: source + "/",
+		})
+	}
+
 	for _, frag := range obj.Fragments {
 		var reversed = true // cheat by passing a pointer
 		frags = append(frags, &FileUID{

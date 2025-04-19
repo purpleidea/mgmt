@@ -86,7 +86,9 @@ type Stmt interface {
 	TypeCheck() ([]*UnificationInvariant, error)
 
 	// Graph returns the reactive function graph expressed by this node. It
-	// takes in the environment of any functions in scope.
+	// takes in the environment of any functions in scope. Intended to be
+	// called only once, creates and returns the graph and also stores it to
+	// be used in .Output if needed.
 	Graph(env *Env) (*pgraph.Graph, error)
 
 	// Output returns the output that this "program" produces. This output

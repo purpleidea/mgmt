@@ -300,7 +300,7 @@ type Scope struct {
 }
 
 // EmptyScope returns the zero, empty value for the scope, with all the internal
-// lists initialized appropriately.
+// maps and lists initialized appropriately.
 func EmptyScope() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
@@ -436,8 +436,8 @@ type Env struct {
 	Functions map[Expr]*Env
 }
 
-// EmptyEnv returns the zero, empty value for the scope, with all the internal
-// lists initialized appropriately.
+// EmptyEnv returns the zero, empty value for the env, with all the internal
+// maps initialized appropriately.
 func EmptyEnv() *Env {
 	return &Env{
 		Variables: make(map[Expr]*FuncSingleton),

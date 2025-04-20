@@ -265,17 +265,17 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 		return fmt.Errorf("missing func")
 	}
 	if f.Info() == nil {
-		return fmt.Errorf("missing func info")
+		return fmt.Errorf("missing func info for node: %s", f)
 	}
 	sig := f.Info().Sig
 	if sig == nil {
-		return fmt.Errorf("missing func sig")
+		return fmt.Errorf("missing func sig for node: %s", f)
 	}
 	if sig.Kind != types.KindFunc {
-		return fmt.Errorf("must be kind func")
+		return fmt.Errorf("kind is not func for node: %s", f)
 	}
 	if err := f.Validate(); err != nil {
-		return errwrap.Wrapf(err, "node did not Validate")
+		return errwrap.Wrapf(err, "did not Validate node: %s", f)
 	}
 
 	input := make(chan types.Value)

@@ -454,3 +454,14 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	return obj.init.Txn.Commit()
 }
+
+// Copy is implemented so that the type values are not lost if we copy this
+// function.
+func (obj *MapFunc) Copy() interfaces.Func {
+	return &MapFunc{
+		Type:  obj.Type,  // don't copy because we use this after unification
+		RType: obj.RType, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}

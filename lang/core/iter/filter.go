@@ -459,3 +459,13 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	return obj.init.Txn.Commit()
 }
+
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *FilterFunc) Copy() interfaces.Func {
+	return &FilterFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}

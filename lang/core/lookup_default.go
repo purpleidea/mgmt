@@ -140,6 +140,21 @@ func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.fn.Build(typ)
 }
 
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *LookupDefaultFunc) Copy() interfaces.Func {
+	fn := &LookupDefaultFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+		//fn: get this through Build()
+
+		//init: obj.init, // likely gets overwritten anyways
+	}
+	if _, err := fn.Build(obj.Type); err != nil {
+		// ignore, since we just didn't set the type
+	}
+	return fn
+}
+
 // Validate tells us if the input struct takes a valid form.
 func (obj *LookupDefaultFunc) Validate() error {
 	if obj.fn == nil { // build must be run first

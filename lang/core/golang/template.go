@@ -393,6 +393,17 @@ func (obj *TemplateFunc) Stream(ctx context.Context) error {
 	}
 }
 
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *TemplateFunc) Copy() interfaces.Func {
+	return &TemplateFunc{
+		Type:  obj.Type, // don't copy because we use this after unification
+		built: obj.built,
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {

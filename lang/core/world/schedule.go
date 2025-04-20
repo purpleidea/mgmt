@@ -247,6 +247,17 @@ func (obj *ScheduleFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *ScheduleFunc) Copy() interfaces.Func {
+	return &ScheduleFunc{
+		Type:  obj.Type, // don't copy because we use this after unification
+		built: obj.built,
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
 // Validate tells us if the input struct takes a valid form.
 func (obj *ScheduleFunc) Validate() error {
 	if !obj.built {

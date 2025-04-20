@@ -181,6 +181,16 @@ func (obj *GetFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *GetFunc) Copy() interfaces.Func {
+	return &GetFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *GetFunc) Validate() error {

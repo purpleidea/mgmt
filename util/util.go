@@ -296,6 +296,9 @@ loop:
 // SafePathClean does path.Clean, but it preserves any trailing slash if it was
 // present in the initial path.
 func SafePathClean(s string) string {
+	if s == "/" {
+		return "/"
+	}
 	hasSlash := strings.HasSuffix(s, "/")
 	clean := path.Clean(s) // removes trailing slashes
 	if hasSlash {          // add it back if it was taken off

@@ -51,18 +51,18 @@ const (
 	ErrCantSpeculate = funcs.ErrCantSpeculate
 )
 
-// RegisteredFacts is a global map of all possible facts which can be used. You
+// registeredFacts is a global map of all possible facts which can be used. You
 // should never touch this map directly. Use methods like Register instead.
-var RegisteredFacts = make(map[string]func() Fact) // must initialize
+var registeredFacts = make(map[string]struct{}) // must initialize
 
 // Register takes a fact and its name and makes it available for use. It is
 // commonly called in the init() method of the fact at program startup. There is
 // no matching Unregister function.
 func Register(name string, fn func() Fact) {
-	if _, ok := RegisteredFacts[name]; ok {
+	if _, ok := registeredFacts[name]; ok {
 		panic(fmt.Sprintf("a fact named %s is already registered", name))
 	}
-	f := fn()
+	f := fn() // don't wrap this more than once!
 
 	metadata, err := funcs.GetFunctionMetadata(f)
 	if err != nil {
@@ -72,12 +72,12 @@ func Register(name string, fn func() Fact) {
 	//gob.Register(fn())
 	funcs.Register(name, func() interfaces.Func { // implement in terms of func interface
 		return &FactFunc{
-			Fact: f,
+			Fact: fn(), // this MUST be a fresh/unique pointer!
 
 			Metadata: metadata,
 		}
 	})
-	RegisteredFacts[name] = fn
+	registeredFacts[name] = struct{}{}
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a

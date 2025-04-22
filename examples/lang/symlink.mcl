@@ -1,0 +1,17 @@
+file "/tmp/symlink1" {
+	state => "exists",
+	source => "foo",
+	symlink => true,
+}
+
+file "/tmp/symlink2" {
+	state => "exists",
+	source => "food/",
+	symlink => true,
+}
+
+file "/tmp/symlink3" {
+	state => "exists",
+	source => "/tmp/foo",
+	symlink => true,
+}

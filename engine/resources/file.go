@@ -134,7 +134,8 @@ type FileRes struct {
 	// `exists` or `absent`. If you do not specify this, we will not be able
 	// to create or remove a file if it might be logical for another
 	// param to require that. Instead it will error. This means that this
-	// field is not implied by specifying some content or a mode.
+	// field is not implied by specifying some content or a mode. This is
+	// also used when determining how we manage a symlink.
 	State string `lang:"state" yaml:"state"`
 
 	// Content specifies the file contents to use. If this is nil, they are
@@ -156,7 +157,8 @@ type FileRes struct {
 	// Force parameter. If source is undefined and the file path is a
 	// directory, then a directory will be created. If left undefined, and
 	// combined with the Purge option too, then any unmanaged file in this
-	// dir will be removed.
+	// dir will be removed. Lastly, if the Symlink parameter is true, then
+	// this specifies the source that the symbolic symlink points to.
 	Source string `lang:"source" yaml:"source"`
 
 	// Fragments specifies that the file is built from a list of individual
@@ -194,7 +196,8 @@ type FileRes struct {
 	Recurse bool `lang:"recurse" yaml:"recurse"`
 
 	// Force must be set if we want to perform an unusual operation, such as
-	// changing a file into a directory or vice-versa.
+	// changing a file into a directory or vice-versa. This is also required
+	// when changing a file or directory into a symlink or vice-versa.
 	Force bool `lang:"force" yaml:"force"`
 
 	// Purge specifies that when true, any unmanaged file in this file
@@ -202,6 +205,12 @@ type FileRes struct {
 	// directory. This isn't particularly meaningful if you don't also set
 	// Recurse to true. This doesn't work with Content or Fragments.
 	Purge bool `lang:"purge" yaml:"purge"`
+
+	// Symlink specifies that the file should be a symbolic link to the
+	// source contents. Those do not have to point to an actual file or
+	// directory. The source in that case can be either an absolute or
+	// relative path.
+	Symlink bool `lang:"symlink" yaml:"symlink"`
 
 	sha256sum string
 }
@@ -295,18 +304,22 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("can only specify one of Content, Source, and Fragments")
 	}
 
+	if obj.Symlink && !isSrc && obj.State == FileStateExists {
+		return fmt.Errorf("can't use Symlink with an empty Source")
+	}
+
 	if obj.State == FileStateAbsent && (isContent || isSrc || isFrag) {
 		return fmt.Errorf("can't specify file Content, Source, or Fragments when State is %s", FileStateAbsent)
 	}
 
 	// The path and Source must either both be dirs or both not be.
 	srcIsDir := strings.HasSuffix(obj.Source, "/")
-	if isSrc && (obj.isDir() != srcIsDir) {
+	if isSrc && (obj.isDir() != srcIsDir) && !obj.Symlink {
 		return fmt.Errorf("the path and Source must either both be dirs or both not be")
 	}
 
-	if obj.isDir() && (isContent || isFrag) { // makes no sense
-		return fmt.Errorf("can't specify Content or Fragments when creating a Dir")
+	if obj.isDir() && (isContent || isFrag || obj.Symlink) { // makes no sense
+		return fmt.Errorf("can't specify Content or Fragments or Symlink when creating a Dir")
 	}
 
 	// TODO: is this really a requirement that we want to enforce?
@@ -318,7 +331,7 @@ func (obj *FileRes) Validate() error {
 		return fmt.Errorf("you'll want to Recurse when you have a Purge to do")
 	}
 
-	if isSrc && !obj.isDir() && !srcIsDir && obj.Recurse {
+	if isSrc && !obj.isDir() && !srcIsDir && obj.Recurse && !obj.Symlink {
 		return fmt.Errorf("you can't recurse when copying a single file")
 	}
 
@@ -370,6 +383,13 @@ func (obj *FileRes) Validate() error {
 		if _, err := obj.mode(); err != nil {
 			return err
 		}
+	}
+
+	if obj.Symlink && (isContent || isFrag) {
+		return fmt.Errorf("can't specify Content or Fragments with Symlink")
+	}
+	if obj.Symlink && (obj.Recurse || obj.Purge) {
+		return fmt.Errorf("can't specify Recurse or Purge with Symlink")
 	}
 
 	return nil
@@ -946,6 +966,10 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 // stateCheckApply performs a CheckApply of the file state to create or remove
 // an empty file or directory.
 func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if obj.Symlink {
+		return true, nil // delegate all of this work to symlinkCheckApply
+	}
+
 	if obj.State == FileStateUndefined { // state is not specified
 		return true, nil
 	}
@@ -1042,6 +1066,10 @@ func (obj *FileRes) contentCheckApply(ctx context.Context, apply bool) (bool, er
 
 // sourceCheckApply performs a CheckApply for the file source.
 func (obj *FileRes) sourceCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if obj.Symlink { // delegate
+		return obj.symlinkCheckApply(ctx, apply)
+	}
+
 	if obj.init.Debug {
 		obj.init.Logf("sourceCheckApply(%t)", apply)
 	}
@@ -1170,7 +1198,12 @@ func (obj *FileRes) chownCheckApply(ctx context.Context, apply bool) (bool, erro
 		return true, nil
 	}
 
-	fileInfo, err := os.Stat(obj.getPath())
+	// XXX: Is this the correct usage of Stat for Symlinks and regular files?
+	stat := os.Stat
+	if obj.Symlink {
+		stat = os.Lstat
+	}
+	fileInfo, err := stat(obj.getPath())
 	// TODO: is this a sane behaviour that we want to preserve?
 	// If the file does not exist and we are in noop mode, do not throw an
 	// error.
@@ -1238,7 +1271,12 @@ func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, erro
 		return false, err
 	}
 
-	fileInfo, err := os.Stat(obj.getPath())
+	// XXX: Is this the correct usage of Stat for Symlinks and regular files?
+	stat := os.Stat
+	if obj.Symlink {
+		stat = os.Lstat
+	}
+	fileInfo, err := stat(obj.getPath())
 	if err != nil { // if the file does not exist, it's correct to error!
 		return false, err
 	}
@@ -1255,6 +1293,75 @@ func (obj *FileRes) chmodCheckApply(ctx context.Context, apply bool) (bool, erro
 
 	obj.init.Logf("chmod %s", obj.Mode)
 	return false, os.Chmod(obj.getPath(), mode)
+}
+
+// symlinkCheckApply performs a CheckApply for the symlink parameter.
+func (obj *FileRes) symlinkCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if !obj.Symlink {
+		return true, nil
+	}
+
+	if obj.init.Debug {
+		obj.init.Logf("symlinkCheckApply(%t)", apply)
+	}
+
+	if obj.State == FileStateUndefined { // state is not specified
+		return true, nil
+	}
+
+	p := obj.getPath()
+	dest, err := os.Readlink(p)
+	isNotExist := os.IsNotExist(err)
+	isInvalidSymlink := isInvalidSymlink(err)
+
+	if err != nil && !isNotExist && !isInvalidSymlink {
+		return false, err // some unknown error
+	}
+
+	if obj.State == FileStateAbsent && isNotExist {
+		return true, nil
+	}
+	if obj.State == FileStateExists && err == nil && dest == obj.Source {
+		return true, nil
+	}
+
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
+	}
+
+	if obj.State == FileStateAbsent && isInvalidSymlink && !obj.Force {
+		return false, fmt.Errorf("can't remove non-symlink without Force")
+	}
+
+	if obj.State == FileStateAbsent {
+		obj.init.Logf("removing: %s", p)
+		// TODO: not sure we ever want to recurse with symlinks
+		//if obj.Recurse {
+		//	return false, os.RemoveAll(p) // dangerous ;)
+		//}
+		return false, os.Remove(p)
+	}
+
+	//if obj.State == FileStateExists ...
+
+	// want to change to a symlink but can't
+	if isInvalidSymlink && !obj.Force {
+		return false, fmt.Errorf("can't mutate to symlink without Force")
+	}
+
+	// remove old file/dir or wrong symlink before making new symlink
+	if isInvalidSymlink || err == nil {
+		obj.init.Logf("removing: %s", p)
+		if err := os.Remove(p); err != nil {
+			return false, err
+		}
+		// now make the symlink...
+	}
+
+	// make the symlink
+	obj.init.Logf("symlink %s %s", obj.Source, p)
+	return false, os.Symlink(obj.Source, p)
 }
 
 // CheckApply checks the resource state and applies the resource if the bool
@@ -1286,6 +1393,7 @@ func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	} else if !c {
 		checkOK = false
 	}
+	// sourceCheckApply runs symlinkCheckApply
 	if c, err := obj.sourceCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
@@ -1369,6 +1477,9 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 	}
 	if obj.Purge != res.Purge {
 		return fmt.Errorf("the Purge option differs")
+	}
+	if obj.Symlink != res.Symlink {
+		return fmt.Errorf("the Symlink option differs")
 	}
 
 	return nil
@@ -1762,4 +1873,14 @@ func printFiles(fileInfos map[string]FileInfo) string {
 		}
 	}
 	return s
+}
+
+// isInvalidSymlink is a helper which returns true if the error from os.Readlink
+// is the "invalid argument" error which happens if we try and read a normal
+// file. The comparison against os.ErrInvalid and errors.Is checks don't work.
+func isInvalidSymlink(err error) bool {
+	if perr, ok := err.(*os.PathError); ok {
+		return perr.Err == syscall.EINVAL
+	}
+	return false
 }

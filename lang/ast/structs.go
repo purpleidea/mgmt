@@ -9857,43 +9857,44 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			//return nil, funcs.ErrCantSpeculate
 			return nil, fmt.Errorf("not implemented")
 		}
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// Extend the environment with the arguments.
+			extendedEnv := env.Copy() // TODO: Should we copy?
+			for i := range obj.Args {
+				if args[i] == nil {
+					return nil, fmt.Errorf("programming error")
+				}
+				param := obj.params[i]
+				//extendedEnv.Variables[arg.Name] = args[i]
+				//extendedEnv.Variables[param.envKey] = args[i]
+				extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+					MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+						f := args[i]
+						g, err := pgraph.NewGraph("g")
+						if err != nil {
+							return nil, nil, err
+						}
+						g.AddVertex(f)
+						return g, f, nil
+					},
+				}
+
+			}
+
+			// Create a subgraph from the lambda's body, instantiating the
+			// lambda's parameters with the args and the other variables
+			// with the nodes in the captured environment.
+			subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			}
+
+			innerTxn.AddGraph(subgraph)
+
+			return bodyFunc, nil
+		}
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Extend the environment with the arguments.
-				extendedEnv := env.Copy() // TODO: Should we copy?
-				for i := range obj.Args {
-					if args[i] == nil {
-						return nil, fmt.Errorf("programming error")
-					}
-					param := obj.params[i]
-					//extendedEnv.Variables[arg.Name] = args[i]
-					//extendedEnv.Variables[param.envKey] = args[i]
-					extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
-						MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
-							f := args[i]
-							g, err := pgraph.NewGraph("g")
-							if err != nil {
-								return nil, nil, err
-							}
-							g.AddVertex(f)
-							return g, f, nil
-						},
-					}
-
-				}
-
-				// Create a subgraph from the lambda's body, instantiating the
-				// lambda's parameters with the args and the other variables
-				// with the nodes in the captured environment.
-				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
-				}
-
-				innerTxn.AddGraph(subgraph)
-
-				return bodyFunc, nil
-			},
+			V: v,
 			F: f,
 			T: obj.typ,
 		})
@@ -9902,44 +9903,45 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		// can use that directly. We don't need to copy it because we
 		// expect anything that is Callable to be stateless, and so it
 		// can use the same function call for every instantiation of it.
-		var fn interfaces.FuncSig
+		var f interfaces.FuncSig
 		callableFunc, ok := obj.function.(interfaces.CallableFunc)
 		if ok {
 			// XXX: this might be dead code, how do we exercise it?
 			// If the function is callable then the surrounding
 			// ExprCall will produce a graph containing this func
 			// instead of calling ExprFunc.Graph().
-			fn = callableFunc.Call
+			f = callableFunc.Call
+		}
+		v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// Copy obj.function so that the underlying ExprFunc.function gets
+			// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
+			// calls to this function will share the same Func.
+			exprCopy, err := obj.Copy()
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not copy expression")
+			}
+			funcExprCopy, ok := exprCopy.(*ExprFunc)
+			if !ok {
+				// programming error
+				return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+			}
+			valueTransformingFunc := funcExprCopy.function
+			txn.AddVertex(valueTransformingFunc)
+			for i, arg := range args {
+				argName := obj.typ.Ord[i]
+				txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+					Args: []string{argName},
+				})
+			}
+			return valueTransformingFunc, nil
 		}
 
 		// obj.function is a node which transforms input values into
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Copy obj.function so that the underlying ExprFunc.function gets
-				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
-				// calls to this function will share the same Func.
-				exprCopy, err := obj.Copy()
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not copy expression")
-				}
-				funcExprCopy, ok := exprCopy.(*ExprFunc)
-				if !ok {
-					// programming error
-					return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
-				}
-				valueTransformingFunc := funcExprCopy.function
-				txn.AddVertex(valueTransformingFunc)
-				for i, arg := range args {
-					argName := obj.typ.Ord[i]
-					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
-						Args: []string{argName},
-					})
-				}
-				return valueTransformingFunc, nil
-			},
-			F: fn,
+			V: v,
+			F: f,
 			T: obj.typ,
 		})
 	} else /* len(obj.Values) > 0 */ {
@@ -10012,53 +10014,54 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			//return nil, fmt.Errorf("not implemented")
 			return nil, funcs.ErrCantSpeculate
 		}
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// There are no ExprParams, so we start with the empty environment.
+			// Extend that environment with the arguments.
+			extendedEnv := interfaces.EmptyEnv()
+			//extendedEnv := make(map[string]interfaces.Func)
+			for i := range obj.Args {
+				if args[i] == nil {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+				if len(obj.params) <= i {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+				param := obj.params[i]
+				if param == nil || param.envKey == nil {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+
+				extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+					MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+						f := args[i]
+						g, err := pgraph.NewGraph("g")
+						if err != nil {
+							return nil, nil, err
+						}
+						g.AddVertex(f)
+						return g, f, nil
+					},
+				}
+			}
+
+			// Create a subgraph from the lambda's body, instantiating the
+			// lambda's parameters with the args and the other variables
+			// with the nodes in the captured environment.
+			subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			}
+
+			innerTxn.AddGraph(subgraph)
+
+			return bodyFunc, nil
+		}
 
 		return &full.FuncValue{
-			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// There are no ExprParams, so we start with the empty environment.
-				// Extend that environment with the arguments.
-				extendedEnv := interfaces.EmptyEnv()
-				//extendedEnv := make(map[string]interfaces.Func)
-				for i := range obj.Args {
-					if args[i] == nil {
-						// XXX: speculation error?
-						return nil, fmt.Errorf("programming error?")
-					}
-					if len(obj.params) <= i {
-						// XXX: speculation error?
-						return nil, fmt.Errorf("programming error?")
-					}
-					param := obj.params[i]
-					if param == nil || param.envKey == nil {
-						// XXX: speculation error?
-						return nil, fmt.Errorf("programming error?")
-					}
-
-					extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
-						MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
-							f := args[i]
-							g, err := pgraph.NewGraph("g")
-							if err != nil {
-								return nil, nil, err
-							}
-							g.AddVertex(f)
-							return g, f, nil
-						},
-					}
-				}
-
-				// Create a subgraph from the lambda's body, instantiating the
-				// lambda's parameters with the args and the other variables
-				// with the nodes in the captured environment.
-				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
-				}
-
-				innerTxn.AddGraph(subgraph)
-
-				return bodyFunc, nil
-			},
+			V: v,
 			F: f,
 			T: obj.typ,
 		}, nil

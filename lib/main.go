@@ -811,7 +811,7 @@ func (obj *Main) Run() error {
 			}
 			var timing time.Time
 
-			// make the graph from yaml, lib, puppet->yaml, or dsl!
+			// make the graph from yaml, lib, puppet->yaml, or mcl!
 			timing = time.Now()
 			newGraph, err := gapiImpl.Graph() // generate graph!
 			if err != nil {

@@ -53,8 +53,13 @@ func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 // SimpleFnToDirectFunc transforms a name and *types.FuncValue into an
 // interfaces.Func which is implemented by &simple.WrappedFunc{}.
 func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
+	var typ *types.Type
+	if fv != nil { // TODO: is this necessary?
+		typ = fv.T
+	}
 	return &wrapped.Func{
 		Name: name,
+		Type: typ, // TODO: is this needed?
 		Fn:   fv,
 	}
 }

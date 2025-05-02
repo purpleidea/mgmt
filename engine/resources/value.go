@@ -115,6 +115,8 @@ func (obj *ValueRes) Cleanup() error {
 func (obj *ValueRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
+	// XXX: Should we be using obj.init.Local.ValueWatch ?
+
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}

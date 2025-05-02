@@ -72,7 +72,12 @@ type Recvable struct {
 	Bug5819 interface{} // XXX: workaround
 }
 
-// SetRecv is used to inject incoming values into the resource.
+// SetRecv is used to inject incoming values into the resource. More
+// specifically, it stores the mapping of what gets received from what, so that
+// later on, we know which resources should ask which other resources for the
+// values that they want to receive. Since this happens when we're building the
+// graph, and before the autogrouping step, we'll have pointers to the original,
+// ungrouped resources here, so that it will work even after they're grouped in!
 func (obj *Recvable) SetRecv(recv map[string]*engine.Send) {
 	//if obj.recv == nil {
 	//	obj.recv = make(map[string]*engine.Send)

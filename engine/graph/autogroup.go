@@ -95,11 +95,19 @@ func (obj *wrappedGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 		return fmt.Errorf("one of the autogroup flags is false")
 	}
 
-	if r1.IsGrouped() { // already grouped!
-		return fmt.Errorf("already grouped")
-	}
-	if len(r2.GetGroup()) > 0 { // already has children grouped!
-		return fmt.Errorf("already has groups")
+	// We don't want to bail on these two conditions if the kinds are the
+	// same. This prevents us from having a linear chain of pkg->pkg->pkg,
+	// instead of flattening all of them into one arbitrary choice. But if
+	// we are doing hierarchical grouping, then we want to allow this type
+	// of grouping, or we won't end up building any hierarchies! This change
+	// was added for http:ui stuff. Check this condition is really required.
+	if r1.Kind() == r2.Kind() { // XXX: needed or do we unwrap the contents?
+		if r1.IsGrouped() { // already grouped!
+			return fmt.Errorf("already grouped")
+		}
+		if len(r2.GetGroup()) > 0 { // already has children grouped!
+			return fmt.Errorf("already has groups")
+		}
 	}
 	if err := r1.GroupCmp(r2); err != nil { // resource groupcmp failed!
 		return errwrap.Wrapf(err, "the GroupCmp failed")

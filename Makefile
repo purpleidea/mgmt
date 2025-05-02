@@ -38,6 +38,7 @@ SHELL = bash
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
+MISC_FILES := $(shell find engine/resources/http_ui/)
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -198,11 +199,15 @@ lang: ## generates the lexer/parser for the language frontend
 	@# recursively run make in child dir named lang
 	@$(MAKE) --quiet -C lang
 
+resources: ## builds the resources dependencies required for the engine backend
+	@# recursively run make in child dir named engine/resources
+	@$(MAKE) --quiet -C engine/resources
+
 # build a `mgmt` binary for current host os/arch
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) go.mod go.sum
+$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build $(TRIMPATH) -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -221,7 +226,7 @@ baddev: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum | lang resources funcgen
 	@# If you need to run `go mod tidy` then this can trigger.
 	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."

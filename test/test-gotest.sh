@@ -49,6 +49,11 @@ if [[ "$@" = *"--integration"* ]]; then
 else
 	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
+
+		if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_ui" ]; then
+			continue # skip this special main package
+		fi
+
 		if [[ "$@" = *"--race"* ]]; then
 			# split up long tests to avoid CI timeouts
 			if [ "$pkg" = "${base}/lang" ]; then # pkg lang is big!

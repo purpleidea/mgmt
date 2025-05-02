@@ -129,6 +129,11 @@ function reflowed-comments() {
 # run go vet on a per-package basis
 base=$(go list .)
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
+
+	if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_ui" ]; then
+		continue # skip this special main package
+	fi
+
 	echo -e "\tgo vet: $pkg"
 	run-test go vet -source "$pkg" || fail_test "go vet -source did not pass pkg"
 

@@ -2,18 +2,13 @@ import "datetime"
 import "golang"
 import "sys"
 
-$secplusone = datetime.now() + $ayear
+$now = datetime.now()
 
-# note the order of the assignment (year can come later in the code)
-$ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
+$st = struct{now => $now, load => $load,}
 
-$tmplvalues = struct{year => $secplusone, load => $theload,}
+$load float = sys.load()->x1	# ambiguous so we specify the type!
 
-$theload float = sys.load()->x1	# ambiguous so we specify the type!
-
-if 5 > 3 {
-	file "/tmp/mgmt/datetime" {
-		state => $const.res.file.state.exists,
-		content => golang.template("Now + 1 year is: {{ .year }} seconds, aka: {{ datetime_print .year }}\n\nload average: {{ .load }}\n", $tmplvalues),
-	}
+file "/tmp/mgmt/datetime" {
+	state => $const.res.file.state.exists,
+	content => golang.template("Hello! It is now: {{ datetime_print .now }}\n\nload average: {{ .load }}\n", $st),
 }

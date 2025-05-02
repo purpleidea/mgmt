@@ -209,10 +209,8 @@ func (obj *KVRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
-		// NOTE: this part is very similar to the file resource code
 		case err, ok := <-ch:
 			if !ok { // channel shutdown
 				return nil
@@ -223,17 +221,12 @@ func (obj *KVRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("event!")
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

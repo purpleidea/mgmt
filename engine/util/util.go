@@ -353,7 +353,7 @@ func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
 	return ret, nil
 }
 
-// GetUID returns the UID of an user. It supports an UID or an username. Caller
+// GetUID returns the UID of a user. It supports a UID or a username. Caller
 // should first check user is not empty. It will return an error if it can't
 // lookup the UID or username.
 func GetUID(username string) (int, error) {

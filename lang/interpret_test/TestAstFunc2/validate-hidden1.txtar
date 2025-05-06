@@ -1,0 +1,11 @@
+-- main.mcl --
+line "whatever" {
+	#file => "", # specified on collect
+	#state => "", # specified on collect
+	content => "hello",
+
+	Meta:hidden => true, # should Validate even though fields are missing.
+	#Meta:export => ["*",],
+}
+-- OUTPUT --
+Vertex: line[whatever]

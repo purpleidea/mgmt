@@ -312,6 +312,12 @@ func Validate(res Res) error {
 		return fmt.Errorf("the Res name starts with a $")
 	}
 
+	// Don't need to validate normally if hidden.
+	// XXX: Check if it's also Exported too? len(res.MetaParams.Export) > 0
+	if res.MetaParams().Hidden {
+		return nil
+	}
+
 	return res.Validate()
 }
 

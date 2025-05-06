@@ -154,7 +154,8 @@ type MetaParams struct {
 	// named resources. It can even be used as part of an edge or via a
 	// send/recv receiver. It can NOT be a sending vertex. These properties
 	// differentiate the use of this instead of simply wrapping a resource
-	// in an "if" statement.
+	// in an "if" statement. If it is hidden, then it does not need to pass
+	// the resource Validate method step.
 	Hidden bool `yaml:"hidden"`
 
 	// Export is a list of hostnames (and/or the special "*" entry) which if

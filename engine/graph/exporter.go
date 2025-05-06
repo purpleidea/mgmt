@@ -184,6 +184,7 @@ func (obj *Exporter) Export(ctx context.Context, res engine.Res) (bool, error) {
 
 	// TODO: Do we want to log more information about where this exports to?
 	obj.Logf("%s", res)
+	//obj.Logf("%s\n", engineUtil.DebugStructFields(res)) // debug
 	// XXX: Add a TTL if requested
 	b, err := obj.World.ResExport(ctx, resourceExports) // do it!
 	if err != nil {

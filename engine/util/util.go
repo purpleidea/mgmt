@@ -485,3 +485,34 @@ func CleanError(err error) string {
 	}
 	return strings.ReplaceAll(err.Error(), "\n", " ")
 }
+
+// DebugStructFields returns a pretty string display of struct fields (like a
+// resource) for debugging. The output is not guaranteed to be stable.
+func DebugStructFields(st interface{}) string {
+	s := ""
+	v := reflect.ValueOf(st)
+	t := reflect.TypeOf(st)
+
+	// if it's a pointer, get the element it points to
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+		t = t.Elem()
+	}
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		// only print exported (public) fields
+		if field.PkgPath != "" {
+			continue
+		}
+		if value.IsZero() {
+			s += fmt.Sprintf("(%s): %v\n", field.Name, "<nil>")
+		} else {
+			s += fmt.Sprintf("(%s): %v\n", field.Name, value.Elem().Interface())
+		}
+	}
+
+	return s
+}

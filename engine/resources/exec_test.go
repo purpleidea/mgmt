@@ -35,6 +35,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path"
 	"strings"
 	"syscall"
 	"testing"
@@ -46,7 +47,8 @@ import (
 )
 
 func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
-	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
+	debug := testing.Verbose()                // set via the -test.v flag to `go test`
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
@@ -59,6 +61,9 @@ func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 			}
 			*execSends = *x // set
 			return nil
+		},
+		VarDir: func(p string) (string, error) {
+			return path.Join(tmpdir, p), nil
 		},
 		Debug: debug,
 		Logf:  logf,

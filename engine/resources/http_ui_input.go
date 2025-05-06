@@ -465,10 +465,20 @@ func (obj *HTTPUIInputRes) valueCheckApply(ctx context.Context, apply bool) (boo
 	obj.mutex.Unlock()
 
 	if obj.last != nil && *obj.last == value {
+		if err := obj.init.Send(&HTTPUIInputSends{
+			Value: &value,
+		}); err != nil {
+			return false, err
+		}
 		return true, nil // expected value has already been sent
 	}
 
-	if !apply { // XXX: does this break send/recv if we end early?
+	if !apply {
+		if err := obj.init.Send(&HTTPUIInputSends{
+			Value: &value, // XXX: arbitrary since we're in noop mode
+		}); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 
@@ -509,10 +519,20 @@ func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (boo
 	obj.mutex.Unlock()
 
 	if exists && v1 == v2 { // both sides are happy
+		if err := obj.init.Send(&HTTPUIInputSends{
+			Value: &v2,
+		}); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 
-	if !apply { // XXX: does this break send/recv if we end early?
+	if !apply {
+		if err := obj.init.Send(&HTTPUIInputSends{
+			Value: &v2, // XXX: arbitrary since we're in noop mode
+		}); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 

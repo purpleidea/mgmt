@@ -89,7 +89,6 @@ type HTTPProxyRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
 	traits.Groupable // can be grouped into HTTPServerRes
-	traits.Sendable
 
 	init *engine.Init
 
@@ -518,20 +517,6 @@ func (obj *HTTPProxyRes) Cmp(r engine.Res) error {
 	}
 
 	return nil
-}
-
-// HTTPProxySends is the struct of data which is sent after a successful Apply.
-type HTTPProxySends struct {
-	// Data is the received value being sent.
-	// TODO: should this be []byte or *[]byte instead?
-	Data *string `lang:"data"`
-}
-
-// Sends represents the default struct of values we can send using Send/Recv.
-func (obj *HTTPProxyRes) Sends() interface{} {
-	return &HTTPProxySends{
-		Data: nil,
-	}
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

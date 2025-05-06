@@ -134,6 +134,7 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// might not have a new value to copy, and therefore we won't see this
 	// notification of change. Therefore, it is important to process these
 	// promptly, if they must not be lost, such as for cache invalidation.
+	// NOTE: Modern send/recv doesn't really have this limitation anymore.
 	if !obj.isSet {
 		obj.cachedAny = obj.Any // store anything we have if any
 	}
@@ -173,7 +174,12 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		checkOK = true
 	}
 
-	if !apply { // XXX: does this break send/recv if we end early?
+	if !apply {
+		if err := obj.init.Send(&ValueSends{
+			Any: obj.cachedAny,
+		}); err != nil {
+			return false, err
+		}
 		return checkOK, nil
 	}
 
@@ -191,7 +197,7 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// send
-	//if obj.cachedAny != nil { // TODO: okay to send if value got removed too?
+	//if obj.cachedAny != nil { // XXX: okay to send if value got removed too?
 	if err := obj.init.Send(&ValueSends{
 		Any: obj.cachedAny,
 	}); err != nil {

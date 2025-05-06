@@ -38,6 +38,7 @@ import (
 // the Sends method, and call the Send method in CheckApply via the Init API.
 type Sendable struct {
 	send interface{}
+	//sendIsActive bool // TODO: public?
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -62,6 +63,24 @@ func (obj *Sendable) Send(st interface{}) error {
 func (obj *Sendable) Sent() interface{} {
 	return obj.send
 }
+
+// SendActive let's the resource know if it must send a value. This is usually
+// called during CheckApply, but it's probably safe to check it during Init as
+// well. This is the implementation of this function.
+// XXX: Not doing this for now, see the interface for more information.
+//func (obj *Sendable) SendActive() bool {
+//	return obj.sendIsActive
+//}
+
+// SendSetActive is used by the compiler to store the "SendActive" bool so that
+// it will later know if it will need to send or not. Only the engine should
+// call this function. This is the implementation of this function.
+// TODO: We could instead pass in the various edges we will be sending, and
+// store a map of those for the resource to know more precisely.
+// XXX: Not doing this for now, see the interface for more information.
+//func (obj *Sendable) SendSetActive(b bool) {
+//	obj.sendIsActive = b
+//}
 
 // Recvable contains a general implementation with some of the properties and
 // methods needed to implement receiving from resources.

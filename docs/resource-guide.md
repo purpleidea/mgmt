@@ -688,8 +688,41 @@ if val, exists := obj.init.Recv()["some_key"]; exists {
 }
 ```
 
-The specifics of resource sending are not currently documented. Please send a
-patch here!
+A resource can send a value during CheckApply by running the `obj.init.Send()`
+method. It must always send a value if (1) it's not erroring in CheckApply, and
+(2) if the `obj.SendActive()` method inside of CheckApply returns true. It is
+not harmful to run the Send method if CheckApply is going to error, or if
+`obj.SendActive()` returns false, just unnecessary. In the `!apply` case where
+we're running in "noop" mode, and where the state is not correct, then you
+should still attempt to send a value, but it is a bit ambiguous which value to
+send. This behaviour may be specified in the future, but at the moment it's
+mostly inconsequential. At the moment, `obj.SendActive()` is disabled at compile
+time, but can be enabled if you have a legitimate use-case for it.
+
+```golang
+// inside CheckApply, somewhere near the end usually
+if err := obj.init.Send(&ExecSends{ // send the special data structure
+	Output: obj.output,
+	Stdout: obj.stdout,
+	Stderr: obj.stderr,
+}); err != nil {
+	return false, err
+}
+```
+
+You must also implement the `Sends()` method which should return the above
+sending struct with all of the fields containing their default or values. Please
+note, that those fields must have their struct tags set appropriately.
+
+### Safety
+
+Lastly, please note that in order for a resource to send a useful value, even
+when its state is already correct (it may have run earlier for example) then it
+may require the implementation of CheckApply to cache a return value for later
+use. Keep in mind that you should store this securely should there be a chance
+that sensitive info is contained within, and that an untrusted user could put
+malicious data in the cache if you are not careful. It's best to make sure the
+users of your resource are aware of its implementation details here.
 
 ## Composite resources
 

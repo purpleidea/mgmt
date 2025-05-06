@@ -128,6 +128,21 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		}
 
 		if st == nil {
+			// This can happen if there is a send->recv between two
+			// resources where the producer does not send a value.
+			// This can happen for a few reasons. (1) If the
+			// programmer made a mistake and has a non-erroring
+			// CheckApply without a return. Note that it should send
+			// a value for the (true, nil) CheckApply cases too.
+			// (2) If the resource that's sending started off in the
+			// "good" state right at first run, and never produced a
+			// value to send. This may be a programming error since
+			// the implementation must always either produce a value
+			// or be okay that there's an error. It could be a valid
+			// error if the resource was intended to not be run in a
+			// way where it wouldn't initially have a value to send,
+			// whether cached or otherwise, but this scenario should
+			// be rare.
 			e := fmt.Errorf("received nil value from: %s", v.Res)
 			err = errwrap.Append(err, e) // list of errors
 			continue

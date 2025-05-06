@@ -501,7 +501,8 @@ func TestResources1(t *testing.T) {
 			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 			defer doneCtxCancel()
 
-			debug := testing.Verbose() // set via the -test.v flag to `go test`
+			tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
+			debug := testing.Verbose()                // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
@@ -519,6 +520,10 @@ func TestResources1(t *testing.T) {
 					case eventChan <- struct{}{}:
 
 					}
+				},
+
+				VarDir: func(p string) (string, error) {
+					return path.Join(tmpdir, p), nil
 				},
 
 				// Watch listens on this for close/pause events.

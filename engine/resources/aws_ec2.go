@@ -159,7 +159,6 @@ var AwsRegions = []string{
 // http://docs.aws.amazon.com/cli/latest/userguide/cli-config-files.html
 type AwsEc2Res struct {
 	traits.Base // add the base methods without re-implementation
-	traits.Sendable
 
 	init *engine.Init
 

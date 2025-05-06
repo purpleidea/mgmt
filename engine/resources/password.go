@@ -41,6 +41,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -115,6 +116,8 @@ func (obj *PasswordRes) Cleanup() error {
 	return nil
 }
 
+// read is a helper to read the data from disk. This is similar to an engineUtil
+// function named ReadData but is kept separate for safety anyways.
 func (obj *PasswordRes) read() (string, error) {
 	file, err := os.Open(obj.path) // open a handle to read the file
 	if err != nil {
@@ -128,14 +131,28 @@ func (obj *PasswordRes) read() (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// write is a helper to store the data on disk. This is similar to an engineUtil
+// function named WriteData but is kept separate for safety anyways.
 func (obj *PasswordRes) write(password string) (int, error) {
-	file, err := os.Create(obj.path) // open a handle to create the file
+	uid, gid, err := engineUtil.GetUIDGID()
+	if err != nil {
+		return -1, err
+	}
+
+	// Chmod it before we write the secret data.
+	file, err := os.OpenFile(obj.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return -1, errwrap.Wrapf(err, "can't create file")
 	}
 	defer file.Close()
-	var c int
-	if c, err = file.Write([]byte(password + newline)); err != nil {
+
+	// Chown it before we write the secret data.
+	if err := file.Chown(uid, gid); err != nil {
+		return -1, err
+	}
+
+	c, err := file.Write([]byte(password + newline))
+	if err != nil {
 		return c, errwrap.Wrapf(err, "can't write file")
 	}
 	return c, file.Sync()
@@ -269,11 +286,21 @@ func (obj *PasswordRes) CheckApply(ctx context.Context, apply bool) (bool, error
 	//}
 
 	if !refresh && exists && !generate && !write { // nothing to do, done!
+		if err := obj.init.Send(&PasswordSends{
+			Password: &password,
+		}); err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	// a refresh was requested, the token doesn't exist, or the check failed
 
 	if !apply {
+		if err := obj.init.Send(&PasswordSends{
+			Password: &password, // XXX: arbitrary since we're in noop mode
+		}); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 

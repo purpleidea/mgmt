@@ -393,6 +393,10 @@ func (obj *Interpreter) makeSendRecv(v1, v2 pgraph.Vertex, edge *interfaces.Edge
 		return errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", engine.Stringer(res1), edge.Send, engine.Stringer(res2), edge.Recv)
 	}
 
+	// XXX: Not doing this for now, see the interface for more information.
+	// TODO: We could instead pass in edge.Send so it would know precisely!
+	//res1.SendSetActive(true) // tell it that it will be sending (optimization)
+
 	// store mapping for later
 	obj.receive[ruid][edge.Recv] = &engine.Send{Res: res1, Key: edge.Send}
 

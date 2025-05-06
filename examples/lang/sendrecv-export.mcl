@@ -1,0 +1,20 @@
+import "os"
+
+$f = "/tmp/export1"
+exec "a" {
+	shell => "/bin/bash",
+	cmd => "echo hello | tee ${f}",
+	creates => "${f}",
+	send_output => os.readfile("${f}"), # extra graph event but safer in debug
+
+	Before => File["${f}"],
+}
+
+file "${f}" {
+	state => $const.res.file.state.exists,
+	mode => "ug=rw,o=",
+
+	Meta:export => ["*",],
+}
+
+Exec["a"].output -> File["${f}"].content

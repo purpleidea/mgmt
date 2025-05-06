@@ -35,10 +35,8 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/pgraph"
-
-	//"github.com/purpleidea/mgmt/pgraph"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/pgraph"
 )
 
 // Exporter is the main engine mechanism that sends the exported resource data

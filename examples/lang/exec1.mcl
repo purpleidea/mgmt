@@ -1,0 +1,6 @@
+exec "exec1" {
+	cmd => "echo hello world > /tmp/whatever",
+	shell => "/bin/bash",
+	creates => "/tmp/whatever",
+	watchfiles => ["/tmp/whatever", "/tmp/adir/",],
+}

@@ -5,18 +5,18 @@
 .envrc
 old/
 tmp/
-vendor/
+/vendor/
 *WIP
 *_stringer.go
-mgmt
-mgmt.static
+/mgmt
+/mgmt.static
 # crossbuild artifacts
-build/mgmt-*
+/build/mgmt-*
 mgmt.iml
-rpmbuild/
-releases/
-pprof/
-sites/
+/rpmbuild/
+/releases/
+/pprof/
+/sites/
 # vim swap files
 .*.sw[op]
 # prevent `echo foo 2>1` typo errors by making this file read-only

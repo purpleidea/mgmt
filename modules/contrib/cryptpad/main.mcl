@@ -1,0 +1,51 @@
+import "fmt"
+
+class deploy() {
+
+	$pkgname = "cryptpad"
+	$installdir = "/opt/"
+	$gitbranch = "2025.3.1-rc"
+	$gitclonecommand = fmt.printf("git clone -b %s --depth 1 https://github.com/cryptpad/cryptpad.git %s", $gitbranch, $pkgname)
+	$shell = "/bin/bash"
+
+	exec "cryptpad-fetch" {
+		cwd => $installdir,
+
+		ifshell => $shell,
+		ifcmd => fmt.printf("test ! -d %s%s", $installdir, $pkgname),
+
+		shell => $shell,
+		cmd => $gitclonecommand,
+	}
+
+	exec "cryptpad-install" {
+		cwd => fmt.printf("%s%s", $installdir, $pkgname),
+
+		ifshell => $shell,
+		ifcmd => fmt.printf("test -d %s%s", $installdir, $pkgname),
+
+		shell => $shell,
+		cmd => "npm install && npm run install:components",
+
+		Depend => Exec["cryptpad-fetch"],
+	}
+
+	file "/opt/cryptpad/config/config.js" {
+		source => "/opt/cryptpad/config/config.example.js",
+		state => "exists",
+
+		Depend => Exec["cryptpad-install"],
+	}
+
+	exec "cryptpad-run" {
+		cwd => fmt.printf("%s%s", $installdir, $pkgname),
+
+		ifshell => $shell,
+		ifcmd => fmt.printf("test -d %s%s", $installdir, $pkgname),
+
+		shell => $shell,
+		cmd => "npm run dev",
+
+		Depend => File["/opt/cryptpad/config/config.js"],
+	}
+}

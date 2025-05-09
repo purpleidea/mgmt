@@ -1811,12 +1811,12 @@ type FileInfo struct {
 }
 
 // ReadDir reads a directory path, and returns a list of enhanced FileInfo's.
-func ReadDir(path string) ([]FileInfo, error) {
-	if !strings.HasSuffix(path, "/") { // dirs have trailing slashes
+func ReadDir(p string) ([]FileInfo, error) {
+	if !strings.HasSuffix(p, "/") { // dirs have trailing slashes
 		return nil, fmt.Errorf("path must be a directory")
 	}
 	output := []FileInfo{} // my file info
-	files, err := os.ReadDir(path)
+	files, err := os.ReadDir(p)
 	if os.IsNotExist(err) {
 		return output, err // return empty list
 	}
@@ -1824,9 +1824,9 @@ func ReadDir(path string) ([]FileInfo, error) {
 		return nil, err
 	}
 	for _, file := range files {
-		abs := path + smartPath(file)
-		rel, err := filepath.Rel(path, abs) // NOTE: calls Clean()
-		if err != nil {                     // shouldn't happen
+		abs := p + smartPath(file)
+		rel, err := filepath.Rel(p, abs) // NOTE: calls Clean()
+		if err != nil {                  // shouldn't happen
 			return nil, errwrap.Wrapf(err, "unhandled error in ReadDir")
 		}
 		if file.IsDir() {

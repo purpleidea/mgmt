@@ -29,8 +29,10 @@
 
 import "golang"
 import "golang/strings"
+import "iter"
 import "net"
 import "os"
+import "world/collect"
 
 # ssh_keygen creates an ssh key pair in the user's home directory if the private
 # key doesn't exist.
@@ -60,6 +62,34 @@ class ssh_keygen($user) {
 	file "${p}.ssh/id_rsa" {
 		mode => "u=rw,go=",
 		owner => $user,
+	}
+
+	line "${user}@${hostname}" {
+		#file => "", # specified on collect
+		#state => "exists", # specified on collect
+		content => os.readfilewait("${p}.ssh/id_rsa.pub"),
+
+		Meta:hidden => true,
+		Meta:export => ["*",],
+	}
+}
+
+# ssh_authorized_keys pulls down an export key for a $user, from a user@host.
+class ssh_authorized_keys($user, $from) {
+	panic($user == "") # panic if $user is empty
+	$p = os.expand_home("~${user}/") # eg: ~james/
+
+	$all = collect.res("line") # []struct{name str; host str;}
+	$fn = func($st) {
+		$st->name == "${from}" and $st->host != "${hostname}"
+	}
+	$filtered = iter.filter($all, $fn)
+
+	collect line $filtered { # pull down everyone's public keys
+		file => "${p}.ssh/authorized_keys",
+		state => $const.res.file.state.exists,
+
+		Meta:hidden => false,
 	}
 }
 

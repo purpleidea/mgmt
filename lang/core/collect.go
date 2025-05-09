@@ -456,12 +456,21 @@ func (obj *CollectFunc) Call(ctx context.Context, args []types.Value) (types.Val
 	if obj.init == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
+
+	list := types.NewList(obj.Info().Sig.Out) // collectFuncOutType
+
+	if len(filters) == 0 {
+		// If we have no filters, it means we're matching on nothing,
+		// which happens if we've pre-filtered away all the resources
+		// that we'd want to collect, so here we return absolutely zero!
+		return list, nil
+	}
+
 	resOutput, err := obj.init.World.ResCollect(ctx, filters)
 	if err != nil {
 		return nil, err
 	}
 
-	list := types.NewList(obj.Info().Sig.Out) // collectFuncOutType
 	for _, x := range resOutput {
 		// programming error if any of these error...
 		if x.Kind != kind {

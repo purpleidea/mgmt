@@ -146,10 +146,8 @@ func GetResources(ctx context.Context, client interfaces.Client, hostname string
 		}
 
 		// TODO: I'd love to avoid this O(N^2) matching if possible...
-		for _, filter := range filters {
-			if err := filter.Match(kind, name, hostnameFrom); err != nil {
-				continue // did not match
-			}
+		if err := engine.MatchFilters(filters, kind, name, hostnameFrom); err != nil {
+			continue // did not match any of these
 		}
 
 		ro := &engine.ResOutput{

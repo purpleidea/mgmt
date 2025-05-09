@@ -181,6 +181,19 @@ func (obj *ResFilter) Match(kind, name, host string) error {
 	return nil // match!
 }
 
+// MatchFilters is a simple helper function to avoid duplicating this loop here.
+// If any filter matches, it returns nil. Otherwise we error.
+func MatchFilters(filters []*ResFilter, kind, name, host string) error {
+	// TODO: I'd love to avoid this O(N^2) matching if possible...
+	for _, filter := range filters {
+		if err := filter.Match(kind, name, host); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("not matches found") // did not match
+}
+
 // ResOutput represents a record of exported resource data which we have read
 // out from the world storage system. The Data field contains an encoded version
 // of the resource, and even though decoding it will get you a Kind and Name, we

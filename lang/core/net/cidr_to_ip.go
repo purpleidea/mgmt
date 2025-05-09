@@ -73,6 +73,16 @@ func init() {
 		T: types.NewType("func(a str) str"),
 		F: CidrToMask,
 	})
+	simple.ModuleRegister(ModuleName, "cidr_to_network", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
+		T: types.NewType("func(a str) str"),
+		F: CidrToNetwork,
+	})
 	simple.ModuleRegister(ModuleName, "cidr_to_first", &simple.Scaffold{
 		I: &simple.Info{
 			Pure: true,
@@ -132,6 +142,22 @@ func CidrToMask(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 	return &types.StrValue{
 		V: net.IP(ipnet.Mask).String(),
+	}, nil
+}
+
+// CidrToNetwork returns the network CIDR from a CIDR address.
+func CidrToNetwork(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	ip, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
+	if err != nil {
+		return nil, err
+	}
+
+	networkAddr := ip.Mask(ipnet.Mask)
+	ones, _ := ipnet.Mask.Size()
+
+	return &types.StrValue{
+		V: networkAddr.String() + "/" + strconv.Itoa(ones),
 	}, nil
 }
 

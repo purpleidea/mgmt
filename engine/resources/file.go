@@ -1834,7 +1834,12 @@ func ReadDir(path string) ([]FileInfo, error) {
 		}
 
 		fileInfo, err := file.Info()
-		if err != nil {
+		if os.IsNotExist(err) {
+			// File vanished before we could run Info() on it. This
+			// can happen if someone deletes a file in a directory
+			// while we're in the middle of running this. So skip...
+			continue
+		} else if err != nil {
 			return nil, errwrap.Wrapf(err, "unhandled error in FileInfo")
 		}
 

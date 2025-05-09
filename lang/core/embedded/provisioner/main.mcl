@@ -34,8 +34,8 @@ import "convert"
 import "deploy"
 import "fmt"
 import "golang"
-import "golang/path/filepath"
-import "golang/strings"
+import "golang/path/filepath" as golang_path_filepath
+import "golang/strings" as golang_strings
 import "list"
 import "local"
 import "net"
@@ -67,7 +67,7 @@ class base($config) {
 
 	$prefix = $config->prefix || ""
 	panic($prefix == "") # panic if prefix is empty
-	panic(not strings.has_suffix($prefix, "/"))
+	panic(not golang_strings.has_suffix($prefix, "/"))
 
 	file "${prefix}" {	# dir
 		state => $const.res.file.state.exists,
@@ -327,7 +327,7 @@ class base:repo($config) {
 	# system, you must download the packages to a temporary install root.
 	# Installing them directly on a BIOS machine will attempt to configure
 	# the system for UEFI booting and cause problems.
-	$pkgs_uefi_string = strings.join($pkgs_uefi, " ")
+	$pkgs_uefi_string = golang_strings.join($pkgs_uefi, " ")
 	$repoidname = "local"
 	# eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/releases/39/Everything/x86_64/os/
 	$repo_url = "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/"
@@ -578,7 +578,7 @@ class base:host($name, $config) {
 	$handoff_type = $config->handoff || ""
 	$handoff_code = $config->handoff_code || ""
 	$handoff_module_path = $config->handoff_module_path || ""
-	panic($handoff_code != "" and not strings.has_prefix($handoff_code, "/"))
+	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"))
 	$handoff_hostname = $config->handoff_hostname || ""
 
 	# This is a giant driver://user:password@host:port/whatever URL...
@@ -704,10 +704,10 @@ class base:host($name, $config) {
 	}
 
 	# If it's a dir we don't need a suffix, otherwise return the last chunk.
-	$handoff_code_chunk = if strings.has_suffix($prefix, "/") {
+	$handoff_code_chunk = if golang_strings.has_suffix($prefix, "/") {
 		""
 	} else {
-		filepath.base($handoff_code)
+		golang_path_filepath.base($handoff_code)
 	}
 	if $handoff_code != "" { # it's a file path or dir!
 		$abs_tar = "${vardir}deploys/deploy-${provision_key}.tar"
@@ -731,7 +731,7 @@ class base:host($name, $config) {
 		tar "${abs_tar}" {
 			inputs => [
 				$handoff_code, # code comes in here!
-				strings.trim_suffix($handoff_module_path, "/"), # remove trailing slash to include the dir name
+				golang_strings.trim_suffix($handoff_module_path, "/"), # remove trailing slash to include the dir name
 			],
 
 			Before => Gzip["${abs_gz}"],
@@ -749,12 +749,12 @@ class base:host($name, $config) {
 	$firstboot_scripts_dir = "/var/lib/mgmt-firstboot/" # TODO: /usr/lib/ instead?
 	$firstboot_done_dir = "/var/lib/mgmt-firstboot/done/"
 	$deploy_dir = "/root/mgmt-deploy/" # deploy code dir
-	$modules_chunk = filepath.base(strings.trim_suffix($handoff_module_path, "/")) # "modules" typically
+	$modules_chunk = golang_path_filepath.base(golang_strings.trim_suffix($handoff_module_path, "/")) # "modules" typically
 	$deploy_dir_modules = "${deploy_dir}${modules_chunk}/"
 	# TODO: we can customize these more precisely based on $handoff_type
 	$handoff_packages = deploy.bootstrap_packages($distro) # TODO: catch errors here with || []
 	panic($handoff_type != "" and len($handoff_packages) == 0)
-	#$handoff_packages_string = strings.join($handoff_packages, " ")
+	#$handoff_packages_string = golang_strings.join($handoff_packages, " ")
 
 	$handoff_binary = if $handoff_type == "" {
 		""

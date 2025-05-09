@@ -482,6 +482,9 @@ func (obj *CollectFunc) Call(ctx context.Context, args []types.Value) (types.Val
 		if x.Host == "" {
 			return nil, fmt.Errorf("unexpected empty host")
 		}
+		if x.Host == "*" { // safety check
+			return nil, fmt.Errorf("unexpected star host")
+		}
 		if x.Data == "" {
 			return nil, fmt.Errorf("unexpected empty data")
 		}

@@ -868,9 +868,18 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 			}
 
 			s := name.Str() // must not panic
+			if s == "" {
+				return nil, fmt.Errorf("empty name")
+			}
 			names = append(names, s)
 			// host is the input telling us who we want to pull from
 			hosts[s] = host.Str() // correspondence map
+			if hosts[s] == "" {
+				return nil, fmt.Errorf("empty host")
+			}
+			if hosts[s] == "*" { // safety
+				return nil, fmt.Errorf("invalid star host")
+			}
 		}
 		for n, m := range mapping { // delete everything else
 			if !util.StrInList(n, names) {
@@ -998,6 +1007,19 @@ func (obj *StmtRes) collect(table map[interfaces.Func]types.Value) (map[string]m
 		// found!
 		n := name.Str() // must not panic
 		h := host.Str() // must not panic
+
+		if n == "" {
+			// programming error
+			return nil, fmt.Errorf("name field is empty")
+		}
+		if h == "" {
+			// programming error
+			return nil, fmt.Errorf("host field is empty")
+		}
+		if h == "*" {
+			// programming error
+			return nil, fmt.Errorf("host field is a start")
+		}
 
 		if _, exists := m[n]; !exists {
 			m[n] = make(map[string]string)

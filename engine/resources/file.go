@@ -1815,8 +1815,8 @@ func ReadDir(p string) ([]FileInfo, error) {
 	if !strings.HasSuffix(p, "/") { // dirs have trailing slashes
 		return nil, fmt.Errorf("path must be a directory")
 	}
-	output := []FileInfo{} // my file info
-	files, err := os.ReadDir(p)
+	output := []FileInfo{}                  // my file info
+	files, err := os.ReadDir(path.Clean(p)) // clean for prettier errors
 	if os.IsNotExist(err) {
 		return output, err // return empty list
 	}

@@ -1,0 +1,46 @@
+import "fmt"
+
+# This creates a set of test files with different configurations.
+file "/tmp/mgmt-test1.txt" {
+	content => "Hello from Test 1!",
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt-test2.txt" {
+	content => "Hello from Test 2!",
+	state => $const.res.file.state.exists,
+}
+
+# Create a test directory and its contents.
+file "/tmp/mgmt-test-dir/" {
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt-test-dir/index.txt" {
+	content => "Hello from Directory!",
+	state => $const.res.file.state.exists,
+}
+
+# Create an HTTP server to serve these files.
+http:server ":8080" {
+	address => ":8080",
+}
+
+# Serve multiple test files from the same server.
+http:file "/test1" {
+	path => "/tmp/mgmt-test1.txt",
+}
+
+http:file "/test2" {
+	path => "/tmp/mgmt-test2.txt",
+}
+
+# Configure directory serving.
+http:file "/dir/" {
+	path => "/tmp/mgmt-test-dir/",
+}
+
+# Serve a specific file from within the directory.
+http:file "/dir/index" {
+	path => "/tmp/mgmt-test-dir/index.txt",
+}

@@ -1036,6 +1036,98 @@ func (obj *HTTPFileRes) Cleanup() error {
 	return nil
 }
 
+// HTTPFileUID is a UID for referencing file resources from HTTP resources.
+type HTTPFileUID struct {
+	engine.BaseUID
+	path string
+}
+
+// IFF returns if this UID matches the provided UID.
+func (obj *HTTPFileUID) IFF(uid engine.ResUID) bool {
+	if httpFileUID, ok := uid.(*HTTPFileUID); ok {
+		return obj.path == httpFileUID.path
+	}
+	return strings.Contains(uid.String(), obj.path)
+}
+
+// HTTPFileResAutoEdges holds the state of the auto edge generator.
+type HTTPFileResAutoEdges struct {
+	data    []engine.ResUID
+	pointer int
+	found   bool
+}
+
+// Next returns the next automatic edge.
+func (obj *HTTPFileResAutoEdges) Next() []engine.ResUID {
+	if obj.found {
+		return nil
+	}
+	if len(obj.data) == 0 {
+		return nil
+	}
+	value := obj.data[obj.pointer]
+	obj.pointer++
+	return []engine.ResUID{value}
+}
+
+// Test gets results of the earlier Next() call & returns if we should continue.
+func (obj *HTTPFileResAutoEdges) Test(input []bool) bool {
+	if len(obj.data) <= obj.pointer {
+		return false
+	}
+	if obj.found {
+		return false
+	}
+	if len(input) != 1 {
+		panic("Expecting a single value!")
+	}
+	if input[0] {
+		obj.found = true
+		return false
+	}
+	return true
+}
+
+// AutoEdges generates automatic edges to file resources.
+func (obj *HTTPFileRes) AutoEdges() (engine.AutoEdge, error) {
+	var data []engine.ResUID
+
+	// No automatic edges when using the Data field directly.
+	if obj.Data != "" {
+		return &HTTPFileResAutoEdges{
+			data:    data,
+			pointer: 0,
+			found:   false,
+		}, nil
+	}
+
+	// Skip edge creation if no path specified.
+	if obj.Path == "" {
+		return &HTTPFileResAutoEdges{
+			data:    data,
+			pointer: 0,
+			found:   false,
+		}, nil
+	}
+
+	// The file must exist before we can serve it.
+	var reversed = true
+	data = append(data, &HTTPFileUID{
+		BaseUID: engine.BaseUID{
+			Name:     obj.Path,
+			Kind:     "file",
+			Reversed: &reversed,
+		},
+		path: obj.Path,
+	})
+
+	return &HTTPFileResAutoEdges{
+		data:    data,
+		pointer: 0,
+		found:   false,
+	}, nil
+}
+
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.

@@ -297,6 +297,10 @@ func (obj *HTTPUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	router.SetHTMLTemplate(templ)
 
+	router.GET(obj.routerPath("/"), func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, obj.routerPath("/index.html"))
+	})
+
 	router.GET(obj.routerPath("/index.html"), func(c *gin.Context) {
 		h := gin.H{}
 		h["program"] = obj.init.Program

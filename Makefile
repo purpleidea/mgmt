@@ -242,6 +242,7 @@ crossbuild: ${crossbuild_targets}
 clean: ## clean things up
 	$(MAKE) --quiet -C test clean
 	$(MAKE) --quiet -C lang clean
+	$(MAKE) --quiet -C engine/resources clean
 	$(MAKE) --quiet -C misc/mkosi clean
 	rm -f lang/core/generated_funcs.go || true
 	rm -f lang/core/generated_funcs_test.go || true

@@ -30,6 +30,7 @@
 import "golang"
 import "golang/strings"
 import "iter"
+import "local"
 import "net"
 import "os"
 import "world/collect"
@@ -188,5 +189,35 @@ mac-address={{ .mac }}
 	}
 
 	svc "NetworkManager" {
+	}
+}
+
+# systemd_daemon_reload creates an exec which runs a systemctl daemon-reload if
+# one is needed. The exec resource uses the input name, to make it easy to
+# attach an edge to it.
+# TODO: can we use: systemctl show foo.service --property=NeedDaemonReload
+class systemd_daemon_reload($name) {
+	$vardir = local.vardir("misc/")
+	$mtime_file = "${vardir}daemon-reload"
+
+	exec "${name}" {
+		cmd => "/usr/bin/systemctl",
+		args => [
+			"daemon-reload",
+		],
+
+		donecmd => "/usr/bin/date --utc > ${mtime_file}",
+		doneshell => "/usr/bin/bash",
+
+		watchfiles => [
+			"/lib/systemd/system/",
+			"/etc/systemd/system/",
+			"${mtime_file}",
+		],
+
+		# If we have any file that's newer than our mtime, the run.
+		# NOTE: We grep since find doesn't return a useful return code.
+		ifcmd => "/usr/bin/test ! -e '${mtime_file}' || /usr/bin/find /lib/systemd/system/ /etc/systemd/system/ -type f -name '*.service' -newer '${mtime_file}' | /usr/bin/grep -q .",
+		ifshell => "/usr/bin/bash",
 	}
 }

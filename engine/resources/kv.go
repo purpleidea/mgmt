@@ -94,7 +94,7 @@ type KVRes struct {
 	// functions like `getval`, require this to be false, since they're
 	// pulling values directly out of the same namespace that is shared by
 	// all nodes.
-	Mapped bool
+	Mapped bool `lang:"mapped" yaml:"mapped"`
 
 	// SkipLessThan causes the value to be updated as long as it is greater.
 	SkipLessThan bool `lang:"skiplessthan" yaml:"skiplessthan"`

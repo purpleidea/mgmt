@@ -169,6 +169,9 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not parse format string")
 		}
+		if a, l := len(typList)-1, len(formatList); a != l {
+			return nil, nil, fmt.Errorf("number of args (%d) doesn't match format string verb count (%d)", a, l)
+		}
 		for i, x := range typList {
 			if i == 0 { // format string
 				continue

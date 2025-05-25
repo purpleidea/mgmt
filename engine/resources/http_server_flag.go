@@ -38,6 +38,8 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -62,7 +64,7 @@ var _ HTTPServerGroupableRes = &HTTPServerFlagRes{} // compile time check
 type HTTPServerFlagRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
-	traits.Groupable // can be grouped into HTTPServerRes
+	traits.Groupable // can be grouped into HTTPServerRes or itself
 	traits.Sendable
 
 	init *engine.Init
@@ -83,10 +85,16 @@ type HTTPServerFlagRes struct {
 	// TODO: consider adding a method selection field
 	//Method string `lang:"method" yaml:"method"`
 
-	mutex         *sync.Mutex // guard the value
-	value         *string     // cached value
-	previousValue *string
-	eventStream   chan error
+	mutex       *sync.Mutex // guard the values
+	eventStream chan error
+
+	//value     *string // cached value
+	//prevValue *string // previous value
+
+	// TODO: do the values need to be pointers?
+	mapResKey   map[*HTTPServerFlagRes]string // flagRes not Res
+	mapResPrev  map[*HTTPServerFlagRes]*string
+	mapResValue map[*HTTPServerFlagRes]*string
 }
 
 // Default returns some sensible defaults for this resource.
@@ -113,6 +121,10 @@ func (obj *HTTPServerFlagRes) ParentName() string {
 // AcceptHTTP determines whether we will respond to this request. Return nil to
 // accept, or any error to pass.
 func (obj *HTTPServerFlagRes) AcceptHTTP(req *http.Request) error {
+	// NOTE: We don't need to look at anyone that might be autogrouped,
+	// because for them to autogroup, they must share the same path! The
+	// idea is that they're part of the same request of course...
+
 	requestPath := req.URL.Path // TODO: is this what we want here?
 	if requestPath != obj.getPath() {
 		return fmt.Errorf("unhandled path")
@@ -139,17 +151,23 @@ func (obj *HTTPServerFlagRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 	//	sendHTTPError(w, err)
 	//	return
 	//}
-	if obj.Key != "" {
-		val := req.PostFormValue(obj.Key) // string
-		if obj.init.Debug || true {       // XXX: maybe we should always do this?
-			obj.init.Logf("Got val: %s", val)
+	for res, key := range obj.mapResKey { // TODO: sort deterministically?
+		if key == "" {
+			continue
+		}
+		val := req.PostFormValue(key) // string
+		if obj.init.Debug || true {   // XXX: maybe we should always do this?
+			obj.init.Logf("got %s: %s", key, val)
 		}
 
 		obj.mutex.Lock()
 		if val == "" {
-			obj.value = nil // erase
+			//obj.value = nil // erase
+			//delete(obj.mapResValue, res)
+			obj.mapResValue[res] = nil
 		} else {
-			obj.value = &val // store
+			//obj.value = &val // store
+			obj.mapResValue[res] = &val // store
 		}
 		obj.mutex.Unlock()
 		// TODO: Should we diff the new value with the previous one to
@@ -186,6 +204,64 @@ func (obj *HTTPServerFlagRes) Init(init *engine.Init) error {
 
 	obj.mutex = &sync.Mutex{}
 	obj.eventStream = make(chan error, 1) // non-blocking
+
+	obj.mapResKey = make(map[*HTTPServerFlagRes]string)    // res to key
+	obj.mapResPrev = make(map[*HTTPServerFlagRes]*string)  // res to prev value
+	obj.mapResValue = make(map[*HTTPServerFlagRes]*string) // res to value
+	obj.mapResKey[obj] = obj.Key                           // add "self" res
+	obj.mapResPrev[obj] = nil
+	obj.mapResValue[obj] = nil
+
+	for _, res := range obj.GetGroup() { // this is a noop if there are none!
+		flagRes, ok := res.(*HTTPServerFlagRes) // convert from Res
+		if !ok {
+			panic(fmt.Sprintf("grouped member %v is not a %s", res, obj.Kind()))
+		}
+
+		r := res // bind the variable!
+
+		newInit := &engine.Init{
+			Program:  obj.init.Program,
+			Version:  obj.init.Version,
+			Hostname: obj.init.Hostname,
+
+			// Watch:
+			//Running: event,
+			//Event:   event,
+
+			// CheckApply:
+			//Refresh: func() bool {
+			//	innerRes, ok := r.(engine.RefreshableRes)
+			//	if !ok {
+			//		panic("res does not support the Refreshable trait")
+			//	}
+			//	return innerRes.Refresh()
+			//},
+			Send: engine.GenerateSendFunc(r),
+			Recv: engine.GenerateRecvFunc(r), // unused
+
+			FilteredGraph: func() (*pgraph.Graph, error) {
+				panic("FilteredGraph for HTTP:Server:Flag not implemented")
+			},
+
+			Local: obj.init.Local,
+			World: obj.init.World,
+			//VarDir: obj.init.VarDir, // TODO: wrap this
+
+			Debug: obj.init.Debug,
+			Logf: func(format string, v ...interface{}) {
+				obj.init.Logf(r.String()+": "+format, v...)
+			},
+		}
+
+		if err := res.Init(newInit); err != nil {
+			return errwrap.Wrapf(err, "autogrouped Init failed")
+		}
+
+		obj.mapResKey[flagRes] = flagRes.Key
+		obj.mapResPrev[flagRes] = nil // initialize as a bonus
+		obj.mapResValue[flagRes] = nil
+	}
 
 	return nil
 }
@@ -233,36 +309,64 @@ func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
 func (obj *HTTPServerFlagRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if obj.init.Debug || true { // XXX: maybe we should always do this?
-		obj.init.Logf("value: %+v", obj.value)
+
+	checkOK := true
+	// run CheckApply on any grouped elements, or just myself
+	// TODO: Should we loop in a deterministic order?
+	for flagRes, key := range obj.mapResKey { // includes the main parent Res
+		if obj.init.Debug {
+			obj.init.Logf("key: %+v", key)
+		}
+
+		c, err := flagRes.checkApply(ctx, apply, obj)
+		if err != nil {
+			return false, err
+		}
+		checkOK = checkOK && c
+	}
+
+	return checkOK, nil
+}
+
+// checkApply is the actual implementation, but it's used as a helper to make
+// the running of autogrouping easier.
+func (obj *HTTPServerFlagRes) checkApply(ctx context.Context, apply bool, parentObj *HTTPServerFlagRes) (bool, error) {
+
+	parentObj.mutex.Lock()
+	objValue := parentObj.mapResValue[obj] // nil if missing
+	objPrevValue := parentObj.mapResPrev[obj]
+
+	if obj.init.Debug {
+		obj.init.Logf("value: %+v", objValue)
 	}
 
 	// TODO: can we send an empty (nil) value to show it has been removed?
 
 	value := "" // not a ptr, because we don't/can't? send a nil value
-	obj.mutex.Lock()
 
 	// first compute if different...
 	different := false
-	if (obj.value == nil) != (obj.previousValue == nil) { // xor
+	if (objValue == nil) != (objPrevValue == nil) { // xor
 		different = true
-	} else if obj.value != nil && obj.previousValue != nil {
-		if *obj.value != *obj.previousValue {
+	} else if objValue != nil && objPrevValue != nil {
+		if *objValue != *objPrevValue {
 			different = true
 		}
 	}
 
 	// now store in previous
-	if obj.value == nil {
-		obj.previousValue = nil
+	if objValue == nil {
+		//obj.prevValue = nil
+		parentObj.mapResPrev[obj] = nil
 
 	} else { // a value has been set
-		v := *obj.value
-		obj.previousValue = &v // value to cache for future compare
+		v := *objValue
+		//obj.prevValue = &v // value to cache for future compare
+		parentObj.mapResPrev[obj] = &v
 
-		value = *obj.value // value for send/recv
+		value = *objValue // value for send/recv
 	}
-	obj.mutex.Unlock()
+	parentObj.mutex.Unlock()
 
 	// Previously, if we graph swapped, as is quite common, we'd loose
 	// obj.value because the swap would destroy and then re-create and then
@@ -314,6 +418,28 @@ func (obj *HTTPServerFlagRes) Sends() interface{} {
 	return &HTTPServerFlagSends{
 		Value: nil,
 	}
+}
+
+// GroupCmp returns whether two resources can be grouped together or not.
+func (obj *HTTPServerFlagRes) GroupCmp(r engine.GroupableRes) error {
+	res, ok := r.(*HTTPServerFlagRes)
+	if !ok {
+		return fmt.Errorf("resource is not the same kind")
+	}
+
+	if obj.Server != res.Server {
+		return fmt.Errorf("resource has a different Server field")
+	}
+
+	if obj.getPath() != res.getPath() {
+		return fmt.Errorf("resource has a different path")
+	}
+
+	//if obj.Method != res.Method {
+	//	return fmt.Errorf("resource has a different Method field")
+	//}
+
+	return nil
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

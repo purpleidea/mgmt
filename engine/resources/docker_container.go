@@ -222,7 +222,6 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 		obj.init.Running()
 	}
 
-	var send = false // send event?
 	for {
 		select {
 		case event, ok := <-eventChan:
@@ -232,7 +231,6 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("%+v", event)
 			}
-			send = true
 
 		case err, ok := <-errChan:
 			if !ok {
@@ -244,11 +242,7 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

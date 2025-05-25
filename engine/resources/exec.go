@@ -369,7 +369,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case data, ok := <-ioChan:
@@ -408,8 +407,8 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				obj.init.Logf("watch out:")
 				obj.init.Logf("%s", s)
 			}
-			if data.text != "" {
-				send = true
+			if data.text == "" { // TODO: do we want to skip event?
+				continue
 			}
 
 		case event, ok := <-rwChan:
@@ -419,7 +418,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
-			send = true
 
 		case files, ok := <-filesChan:
 			if !ok { // channel shutdown
@@ -428,17 +426,12 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			if err := files.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

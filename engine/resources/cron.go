@@ -296,7 +296,6 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case event := <-dbusChan:
@@ -304,7 +303,6 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("%+v", event)
 			}
-			send = true
 
 		case event, ok := <-obj.recWatcher.Events():
 			// process unit file recwatch events
@@ -317,16 +315,12 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

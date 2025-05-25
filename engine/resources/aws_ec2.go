@@ -447,8 +447,6 @@ func (obj *AwsEc2Res) Watch(ctx context.Context) error {
 // longpollWatch uses the ec2 api's built in methods to watch ec2 resource
 // state.
 func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
-	send := false
-
 	// We tell the engine that we're running right away. This is not correct,
 	// but the api doesn't have a way to signal when the waiters are ready.
 	obj.init.Running() // when started, notify engine that we're running
@@ -527,17 +525,13 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 				continue
 			default:
 				obj.init.Logf("State: %v", msg.state)
-				send = true
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 
@@ -547,7 +541,6 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 // it can publish to. snsWatch creates an http server which listens for messages
 // published to the topic and processes them accordingly.
 func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
-	send := false
 	defer obj.wg.Wait()
 	// create the sns listener
 	// closing is handled by http.Server.Shutdown in the defer func below
@@ -622,16 +615,12 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 				continue
 			}
 			obj.init.Logf("State: %v", msg.event)
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

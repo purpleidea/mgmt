@@ -150,7 +150,6 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("%s: Watching...", obj.fmtNames(obj.getNames()))
@@ -169,17 +168,11 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 				<-ch // discard
 			}
 
-			send = true
-
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

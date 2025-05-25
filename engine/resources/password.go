@@ -222,7 +222,6 @@ func (obj *PasswordRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		// NOTE: this part is very similar to the file resource code
@@ -233,17 +232,12 @@ func (obj *PasswordRes) Watch(ctx context.Context) error {
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

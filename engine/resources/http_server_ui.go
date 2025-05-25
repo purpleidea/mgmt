@@ -664,7 +664,6 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 	startupChan := make(chan struct{})
 	close(startupChan) // send one initial signal
 
-	var send = false // send event?
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("Looping...")
@@ -673,7 +672,6 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 		select {
 		case <-startupChan:
 			startupChan = nil
-			send = true
 
 		//case err, ok := <-obj.eventStream:
 		//	if !ok { // shouldn't happen
@@ -683,7 +681,6 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 		//	if err != nil {
 		//		return err
 		//	}
-		//	send = true
 
 		case err, ok := <-multiplexedChan:
 			if !ok { // shouldn't happen
@@ -693,17 +690,12 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 
 	//return nil // unreachable

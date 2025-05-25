@@ -361,14 +361,14 @@ func (obj *FooRes) Watch(ctx context.Context) error {
 	// notify engine that we're running
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		// the actual events!
 		case event := <-obj.foo.Events:
-			if is_an_event {
-				send = true
+			if !is_an_event {
+				continue // skip event
 			}
+			// send below...
 
 		// event errors
 		case err := <-obj.foo.Errors:
@@ -378,11 +378,7 @@ func (obj *FooRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event()
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 ```

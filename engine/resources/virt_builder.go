@@ -437,7 +437,6 @@ func (obj *VirtBuilderRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case event, ok := <-recWatcher.Events():
@@ -450,17 +449,12 @@ func (obj *VirtBuilderRes) Watch(ctx context.Context) error {
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
 				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

@@ -59,11 +59,15 @@ func AutoGroup(ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(for
 		if err := ag.VertexCmp(v, w); err != nil { // cmp ?
 			if debug {
 				logf("!GroupCmp for: %s into: %s", wStr, vStr)
+				logf("!GroupCmp err: %+v", err)
 			}
 
 			// remove grouped vertex and merge edges (res is safe)
 		} else if err := VertexMerge(g, v, w, ag.VertexMerge, ag.EdgeMerge); err != nil { // merge...
 			logf("!VertexMerge for: %s into: %s", wStr, vStr)
+			if debug {
+				logf("!VertexMerge err: %+v", err)
+			}
 
 		} else { // success!
 			logf("%s into %s", wStr, vStr)

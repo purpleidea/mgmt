@@ -38,7 +38,7 @@ SHELL = bash
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
-MISC_FILES := $(shell find engine/resources/http_ui/)
+MISC_FILES := $(shell find engine/resources/http_server_ui/)
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))

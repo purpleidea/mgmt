@@ -4,7 +4,7 @@ http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing 
 }
 
 # you can add a raw file like this...
-http:file "/file1" {
+http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",
 }
 
@@ -17,7 +17,7 @@ file "${distroarch_http_prefix}" {	# root http dir
 }
 
 # this one is backed by the (optional) rsync
-#http:file "/fedora/releases/${version}/Everything/${arch}/os/" {
+#http:server:file "/fedora/releases/${version}/Everything/${arch}/os/" {
 #	path => "${distroarch_http_prefix}",
 #}
 
@@ -25,7 +25,7 @@ file "${distroarch_http_prefix}" {	# root http dir
 # wget http://127.0.0.1:8080/fedora/releases/38/Everything/x86_64/os/Packages/c/cowsay-3.7.0-7.fc38.noarch.rpm
 # wget https://mirrors.xtom.de/fedora/releases/38/Everything/x86_64/os/Packages/c/cowsay-3.7.0-7.fc38.noarch.rpm
 
-http:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {	# same as the http:file path
+http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {	# same as the http:server:file path
 
 	cache => "${distroarch_http_prefix}", # /tmp/os/
 	#force => false, # if true, overwrite or change from dir->file if needed

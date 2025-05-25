@@ -28,28 +28,30 @@
 // additional permission.
 
 // Package common contains some code that is shared between the wasm and the
-// http:ui packages.
+// http:server:ui packages.
 package common
 
 const (
-	// HTTPUIInputType represents the field in the "Type" map that specifies
+	// HTTPServerUIInputType represents the field in the "Type" map that specifies
 	// which input type we're using.
-	HTTPUIInputType = "type"
+	HTTPServerUIInputType = "type"
 
-	// HTTPUIInputTypeText is the representation of the html "text" type.
-	HTTPUIInputTypeText = "text"
+	// HTTPServerUIInputTypeText is the representation of the html "text"
+	// type.
+	HTTPServerUIInputTypeText = "text"
 
-	// HTTPUIInputTypeRange is the representation of the html "range" type.
-	HTTPUIInputTypeRange = "range"
+	// HTTPServerUIInputTypeRange is the representation of the html "range"
+	// type.
+	HTTPServerUIInputTypeRange = "range"
 
-	// HTTPUIInputTypeRangeMin is the html input "range" min field.
-	HTTPUIInputTypeRangeMin = "min"
+	// HTTPServerUIInputTypeRangeMin is the html input "range" min field.
+	HTTPServerUIInputTypeRangeMin = "min"
 
-	// HTTPUIInputTypeRangeMax is the html input "range" max field.
-	HTTPUIInputTypeRangeMax = "max"
+	// HTTPServerUIInputTypeRangeMax is the html input "range" max field.
+	HTTPServerUIInputTypeRangeMax = "max"
 
-	// HTTPUIInputTypeRangeStep is the html input "range" step field.
-	HTTPUIInputTypeRangeStep = "step"
+	// HTTPServerUIInputTypeRangeStep is the html input "range" step field.
+	HTTPServerUIInputTypeRangeStep = "step"
 )
 
 // Form represents the entire form containing all the desired elements.

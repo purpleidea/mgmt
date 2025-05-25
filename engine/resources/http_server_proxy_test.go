@@ -36,7 +36,7 @@ import (
 	"testing"
 )
 
-func TestHttpProxyPathParser0(t *testing.T) {
+func TestHttpServerProxyPathParser0(t *testing.T) {
 
 	type test struct { // an individual test
 		fail        bool

@@ -172,7 +172,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	}
 
 	// If we contain grouped resources, maybe someone inside wants to recv?
-	// This code is similar to the above and was added for http:ui stuff.
+	// This code is similar to the above and was added for http:server:ui.
 	// XXX: Maybe this block isn't needed, as mentioned we need to check!
 	if res, ok := vertex.(engine.GroupableRes); ok {
 		process := res.GetGroup()          // look through these

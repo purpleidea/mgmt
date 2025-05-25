@@ -23,7 +23,7 @@ hi def link mclComment Comment
 
 syn keyword mclResources augeas aws:ec2 bmc:power config:etcd consul:kv cron deploy:tar dhcp:host
 syn keyword mclResources dhcp:range dhcp:server docker:container docker:image exec file
-syn keyword mclResources firewalld group gzip hetzner:vm hostname http:file http:flag http:proxy
+syn keyword mclResources firewalld group gzip hetzner:vm hostname http:server:file http:server:flag http:server:proxy
 syn keyword mclResources http:server kv mount msg net noop nspawn password pippet pkg print svc
 syn keyword mclResources sysctl tar test tftp:file tftp:server timer user value virt virt:builder
 

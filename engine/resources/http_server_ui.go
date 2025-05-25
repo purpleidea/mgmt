@@ -40,8 +40,8 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/resources/http_ui/common"
-	"github.com/purpleidea/mgmt/engine/resources/http_ui/static"
+	"github.com/purpleidea/mgmt/engine/resources/http_server_ui/common"
+	"github.com/purpleidea/mgmt/engine/resources/http_server_ui/static"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -50,30 +50,31 @@ import (
 )
 
 const (
-	httpUIKind = httpKind + ":ui"
+	httpServerUIKind = httpServerKind + ":ui"
 
-	httpUIIndexHTMLTmpl = "index.html.tmpl"
+	httpServerUIIndexHTMLTmpl = "index.html.tmpl"
 )
 
 var (
-	//go:embed http_ui/index.html.tmpl
-	httpUIIndexHTMLTmplData string
+	//go:embed http_server_ui/index.html.tmpl
+	httpServerUIIndexHTMLTmplData string
 
-	//go:embed http_ui/wasm_exec.js
-	httpUIWasmExecData []byte
+	//go:embed http_server_ui/wasm_exec.js
+	httpServerUIWasmExecData []byte
 
-	//go:embed http_ui/main.wasm
-	httpUIMainWasmData []byte
+	//go:embed http_server_ui/main.wasm
+	httpServerUIMainWasmData []byte
 )
 
 func init() {
-	engine.RegisterResource(httpUIKind, func() engine.Res { return &HTTPUIRes{} })
+	engine.RegisterResource(httpServerUIKind, func() engine.Res { return &HTTPServerUIRes{} })
 }
 
 // HTTPServerUIGroupableRes is the interface that you must implement if you want
 // to allow a resource the ability to be grouped into the http server ui
-// resource. As an added safety, the Kind must also begin with "http:ui:", and
-// not have more than one colon to avoid accidents of unwanted grouping.
+// resource. As an added safety, the Kind must also begin with
+// "http:server:ui:", and not have more than one colon to avoid accidents of
+// unwanted grouping.
 type HTTPServerUIGroupableRes interface {
 	engine.Res
 
@@ -109,8 +110,9 @@ type HTTPServerUIGroupableRes interface {
 	GetSort() string
 }
 
-// HTTPUIResData represents some additional data to attach to the resource.
-type HTTPUIResData struct {
+// HTTPServerUIResData represents some additional data to attach to the
+// resource.
+type HTTPServerUIResData struct {
 	// Title is the generated page title that is displayed to the user.
 	Title string `lang:"title" yaml:"title"`
 
@@ -121,12 +123,13 @@ type HTTPUIResData struct {
 	Head string `lang:"head" yaml:"head"`
 }
 
-// HTTPUIRes is a web UI resource that exists within an http server. The name is
-// used as the public path of the ui, unless the path field is specified, and in
-// that case it is used instead. The way this works is that it autogroups at
-// runtime with an existing http server resource, and in doing so makes the form
-// associated with this resource available for serving from that http server.
-type HTTPUIRes struct {
+// HTTPServerUIRes is a web UI resource that exists within an http server. The
+// name is used as the public path of the ui, unless the path field is
+// specified, and in that case it is used instead. The way this works is that it
+// autogroups at runtime with an existing http server resource, and in doing so
+// makes the form associated with this resource available for serving from that
+// http server.
+type HTTPServerUIRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
 	traits.Groupable // can be grouped into HTTPServerRes
@@ -146,7 +149,7 @@ type HTTPUIRes struct {
 	Path string `lang:"path" yaml:"path"`
 
 	// Data represents some additional data to attach to the resource.
-	Data *HTTPUIResData `lang:"data" yaml:"data"`
+	Data *HTTPServerUIResData `lang:"data" yaml:"data"`
 
 	//eventStream chan error
 	eventsChanMap map[engine.Res]chan error
@@ -162,15 +165,15 @@ type HTTPUIRes struct {
 }
 
 // Default returns some sensible defaults for this resource.
-func (obj *HTTPUIRes) Default() engine.Res {
-	return &HTTPUIRes{}
+func (obj *HTTPServerUIRes) Default() engine.Res {
+	return &HTTPServerUIRes{}
 }
 
 // getPath returns the actual path we respond to. When Path is not specified, we
 // use the Name. Note that this is the handler path that will be seen on the
 // root http server, and this ui application might use a querystring and/or POST
 // data as well.
-func (obj *HTTPUIRes) getPath() string {
+func (obj *HTTPServerUIRes) getPath() string {
 	if obj.Path != "" {
 		return obj.Path
 	}
@@ -179,7 +182,7 @@ func (obj *HTTPUIRes) getPath() string {
 
 // routerPath returns an appropriate path for our router based on what we want
 // to achieve using our parent prefix.
-func (obj *HTTPUIRes) routerPath(p string) string {
+func (obj *HTTPServerUIRes) routerPath(p string) string {
 	if strings.HasPrefix(p, "/") {
 		return obj.getPath() + p[1:]
 	}
@@ -190,13 +193,13 @@ func (obj *HTTPUIRes) routerPath(p string) string {
 // ParentName is used to limit which resources autogroup into this one. If it's
 // empty then it's ignored, otherwise it must match the Name of the parent to
 // get grouped.
-func (obj *HTTPUIRes) ParentName() string {
+func (obj *HTTPServerUIRes) ParentName() string {
 	return obj.Server
 }
 
 // AcceptHTTP determines whether we will respond to this request. Return nil to
 // accept, or any error to pass.
-func (obj *HTTPUIRes) AcceptHTTP(req *http.Request) error {
+func (obj *HTTPServerUIRes) AcceptHTTP(req *http.Request) error {
 	requestPath := req.URL.Path // TODO: is this what we want here?
 	//if requestPath != obj.getPath() {
 	//	return fmt.Errorf("unhandled path")
@@ -209,7 +212,7 @@ func (obj *HTTPUIRes) AcceptHTTP(req *http.Request) error {
 
 // getResByID returns the grouped resource with the id we're searching for if it
 // exists, otherwise nil and false.
-func (obj *HTTPUIRes) getResByID(id string) (HTTPServerUIGroupableRes, bool) {
+func (obj *HTTPServerUIRes) getResByID(id string) (HTTPServerUIGroupableRes, bool) {
 	for _, x := range obj.GetGroup() { // grouped elements
 		res, ok := x.(HTTPServerUIGroupableRes) // convert from Res
 		if !ok {
@@ -227,7 +230,7 @@ func (obj *HTTPUIRes) getResByID(id string) (HTTPServerUIGroupableRes, bool) {
 }
 
 // ginLogger is a helper to get structured logs out of gin.
-func (obj *HTTPUIRes) ginLogger() gin.HandlerFunc {
+func (obj *HTTPServerUIRes) ginLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//start := time.Now()
 		c.Next()
@@ -248,11 +251,11 @@ func (obj *HTTPUIRes) ginLogger() gin.HandlerFunc {
 
 // getTemplate builds the super template that contains the map of each file name
 // so that it can be used easily to send out named, templated documents.
-func (obj *HTTPUIRes) getTemplate() (*template.Template, error) {
+func (obj *HTTPServerUIRes) getTemplate() (*template.Template, error) {
 	// XXX: get this from somewhere
 	m := make(map[string]string)
 	//m["foo.tmpl"] = "hello from file1" // TODO: add more content?
-	m[httpUIIndexHTMLTmpl] = httpUIIndexHTMLTmplData // index.html.tmpl
+	m[httpServerUIIndexHTMLTmpl] = httpServerUIIndexHTMLTmplData // index.html.tmpl
 
 	filenames := []string{}
 	for filename := range m {
@@ -283,7 +286,7 @@ func (obj *HTTPUIRes) getTemplate() (*template.Template, error) {
 }
 
 // ServeHTTP is the standard HTTP handler that will be used here.
-func (obj *HTTPUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// XXX: do all the router bits in Init() if we can...
 	gin.SetMode(gin.ReleaseMode) // for production
@@ -306,32 +309,32 @@ func (obj *HTTPUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		h["program"] = obj.init.Program
 		h["version"] = obj.init.Version
 		h["hostname"] = obj.init.Hostname
-		h["embedded"] = static.HTTPUIStaticEmbedded // true or false
-		h["title"] = ""                             // key must be specified
+		h["embedded"] = static.HTTPServerUIStaticEmbedded // true or false
+		h["title"] = ""                                   // key must be specified
 		h["path"] = obj.getPath()
 		if obj.Data != nil {
 			h["title"] = obj.Data.Title // template var
 			h["head"] = template.HTML(obj.Data.Head)
 		}
-		c.HTML(http.StatusOK, httpUIIndexHTMLTmpl, h)
+		c.HTML(http.StatusOK, httpServerUIIndexHTMLTmpl, h)
 	})
 	router.GET(obj.routerPath("/main.wasm"), func(c *gin.Context) {
-		c.Data(http.StatusOK, "application/wasm", httpUIMainWasmData)
+		c.Data(http.StatusOK, "application/wasm", httpServerUIMainWasmData)
 	})
 	router.GET(obj.routerPath("/wasm_exec.js"), func(c *gin.Context) {
 		// the version of this file has to match compiler version
 		// the original came from: ~golang/lib/wasm/wasm_exec.js
 		// XXX: add a test to ensure this matches the compiler version
 		// the content-type matters or this won't work in the browser
-		c.Data(http.StatusOK, "text/javascript;charset=UTF-8", httpUIWasmExecData)
+		c.Data(http.StatusOK, "text/javascript;charset=UTF-8", httpServerUIWasmExecData)
 	})
 
-	if static.HTTPUIStaticEmbedded {
-		router.GET(obj.routerPath("/"+static.HTTPUIIndexBootstrapCSS), func(c *gin.Context) {
-			c.Data(http.StatusOK, "text/css;charset=UTF-8", static.HTTPUIIndexStaticBootstrapCSS)
+	if static.HTTPServerUIStaticEmbedded {
+		router.GET(obj.routerPath("/"+static.HTTPServerUIIndexBootstrapCSS), func(c *gin.Context) {
+			c.Data(http.StatusOK, "text/css;charset=UTF-8", static.HTTPServerUIIndexStaticBootstrapCSS)
 		})
-		router.GET(obj.routerPath("/"+static.HTTPUIIndexBootstrapJS), func(c *gin.Context) {
-			c.Data(http.StatusOK, "text/javascript;charset=UTF-8", static.HTTPUIIndexStaticBootstrapJS)
+		router.GET(obj.routerPath("/"+static.HTTPServerUIIndexBootstrapJS), func(c *gin.Context) {
+			c.Data(http.StatusOK, "text/javascript;charset=UTF-8", static.HTTPServerUIIndexStaticBootstrapJS)
 		})
 	}
 
@@ -492,7 +495,7 @@ func (obj *HTTPUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *HTTPUIRes) Validate() error {
+func (obj *HTTPServerUIRes) Validate() error {
 	if obj.getPath() == "" {
 		return fmt.Errorf("empty path")
 	}
@@ -510,7 +513,7 @@ func (obj *HTTPUIRes) Validate() error {
 }
 
 // Init runs some startup code for this resource.
-func (obj *HTTPUIRes) Init(init *engine.Init) error {
+func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	//obj.eventStream = make(chan error)
@@ -572,7 +575,7 @@ func (obj *HTTPUIRes) Init(init *engine.Init) error {
 			Recv: engine.GenerateRecvFunc(r), // unused
 
 			FilteredGraph: func() (*pgraph.Graph, error) {
-				panic("FilteredGraph for HTTP:UI not implemented")
+				panic("FilteredGraph for HTTP:Server:UI not implemented")
 			},
 
 			Local: obj.init.Local,
@@ -594,14 +597,14 @@ func (obj *HTTPUIRes) Init(init *engine.Init) error {
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
-func (obj *HTTPUIRes) Cleanup() error {
+func (obj *HTTPServerUIRes) Cleanup() error {
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *HTTPUIRes) Watch(ctx context.Context) error {
+func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 
 	multiplexedChan := make(chan error)
 	defer close(multiplexedChan) // closes after everyone below us is finished
@@ -708,7 +711,7 @@ func (obj *HTTPUIRes) Watch(ctx context.Context) error {
 
 // CheckApply is responsible for the Send/Recv aspects of the autogrouped
 // resources. It recursively calls any autogrouped children.
-func (obj *HTTPUIRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *HTTPServerUIRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -726,9 +729,9 @@ func (obj *HTTPUIRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *HTTPUIRes) Cmp(r engine.Res) error {
-	// we can only compare HTTPUIRes to others of the same resource kind
-	res, ok := r.(*HTTPUIRes)
+func (obj *HTTPServerUIRes) Cmp(r engine.Res) error {
+	// we can only compare HTTPServerUIRes to others of the same resource kind
+	res, ok := r.(*HTTPServerUIRes)
 	if !ok {
 		return fmt.Errorf("res is not the same kind")
 	}
@@ -745,13 +748,13 @@ func (obj *HTTPUIRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPUIRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes HTTPUIRes // indirection to avoid infinite recursion
+func (obj *HTTPServerUIRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes HTTPServerUIRes // indirection to avoid infinite recursion
 
-	def := obj.Default()        // get the default
-	res, ok := def.(*HTTPUIRes) // put in the right format
+	def := obj.Default()              // get the default
+	res, ok := def.(*HTTPServerUIRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to HTTPUIRes")
+		return fmt.Errorf("could not convert to HTTPServerUIRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -759,14 +762,14 @@ func (obj *HTTPUIRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	*obj = HTTPUIRes(raw) // restore from indirection with type conversion!
+	*obj = HTTPServerUIRes(raw) // restore from indirection with type conversion!
 	return nil
 }
 
 // GroupCmp returns whether two resources can be grouped together or not. Can
 // these two resources be merged, aka, does this resource support doing so? Will
 // resource allow itself to be grouped _into_ this obj?
-func (obj *HTTPUIRes) GroupCmp(r engine.GroupableRes) error {
+func (obj *HTTPServerUIRes) GroupCmp(r engine.GroupableRes) error {
 	res, ok := r.(HTTPServerUIGroupableRes) // different from what we usually do!
 	if !ok {
 		return fmt.Errorf("resource is not the right kind")
@@ -778,17 +781,17 @@ func (obj *HTTPUIRes) GroupCmp(r engine.GroupableRes) error {
 		return fmt.Errorf("resource groups with a different parent name")
 	}
 
-	p := httpUIKind + ":"
+	p := httpServerUIKind + ":"
 
-	// http:ui:foo is okay, but http:file is not
+	// http:server:ui:foo is okay, but http:server:file is not
 	if !strings.HasPrefix(r.Kind(), p) {
 		return fmt.Errorf("not one of our children")
 	}
 
-	// http:ui:foo is okay, but http:ui:foo:bar is not
+	// http:server:ui:foo is okay, but http:server:ui:foo:bar is not
 	s := strings.TrimPrefix(r.Kind(), p)
 	if len(s) != len(r.Kind()) && strings.Count(s, ":") > 0 { // has prefix
-		return fmt.Errorf("maximum one resource after `%s` prefix", httpUIKind)
+		return fmt.Errorf("maximum one resource after `%s` prefix", httpServerUIKind)
 	}
 
 	return nil

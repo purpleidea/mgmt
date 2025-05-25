@@ -49,43 +49,44 @@ import (
 )
 
 const (
-	httpProxyKind = httpKind + ":proxy"
+	httpServerProxyKind = httpServerKind + ":proxy"
 )
 
 var (
-	// httpProxyRWMutex synchronizes against reads and writes to the cache.
+	// httpServerProxyRWMutex synchronizes against reads and writes to the cache.
 	// TODO: we could instead have a per-cache path individual mutex, but to
 	// keep things simple for now, we just lumped them all together.
-	httpProxyRWMutex *sync.RWMutex
+	httpServerProxyRWMutex *sync.RWMutex
 )
 
 func init() {
-	httpProxyRWMutex = &sync.RWMutex{}
+	httpServerProxyRWMutex = &sync.RWMutex{}
 
-	engine.RegisterResource(httpProxyKind, func() engine.Res { return &HTTPProxyRes{} })
+	engine.RegisterResource(httpServerProxyKind, func() engine.Res { return &HTTPServerProxyRes{} })
 }
 
-// HTTPProxyRes is a resource representing a special path that exists within an
-// http server. The name is used as the public path of the endpoint, unless the
-// path field is specified, and in that case it is used instead. The way this
-// works is that it autogroups at runtime with an existing http resource, and in
-// doing so makes the path associated with this resource available when serving
-// files. When something under the path is accessed, this is pulled from the
-// backing http server, which makes an http client connection if needed to pull
-// the authoritative file down, saves it locally for future use, and then
-// returns it to the original http client caller. On a subsequent call, if the
-// cache was not invalidated, the file doesn't need to be fetched from the
-// network. In effect, this works as a caching http proxy. If you create this as
-// a resource which responds to the same type of request as an http:file
-// resource or any other kind of resource, it is undefined behaviour which will
-// answer the request. The most common clash will happen if both are present at
-// the same path. This particular implementation stores some file data in memory
-// as a convenience instead of streaming directly to clients. This makes locking
-// much easier, but is wasteful. If you plan on using this for huge files and on
-// systems with low amounts of memory, you might want to optimize this. The
-// resultant proxy path is determined by subtracting the `Sub` field from the
-// `Path` (and request path) and then appending the result to the `Head` field.
-type HTTPProxyRes struct {
+// HTTPServerProxyRes is a resource representing a special path that exists
+// within an http server. The name is used as the public path of the endpoint,
+// unless the path field is specified, and in that case it is used instead. The
+// way this works is that it autogroups at runtime with an existing http server
+// resource, and in doing so makes the path associated with this resource
+// available when serving files. When something under the path is accessed, this
+// is pulled from the backing http server, which makes an http client connection
+// if needed to pull the authoritative file down, saves it locally for future
+// use, and then returns it to the original http client caller. On a subsequent
+// call, if the cache was not invalidated, the file doesn't need to be fetched
+// from the network. In effect, this works as a caching http proxy. If you
+// create this as a resource which responds to the same type of request as an
+// http:server:file resource or any other kind of resource, it is undefined
+// behaviour which will answer the request. The most common clash will happen if
+// both are present at the same path. This particular implementation stores some
+// file data in memory as a convenience instead of streaming directly to
+// clients. This makes locking much easier, but is wasteful. If you plan on
+// using this for huge files and on systems with low amounts of memory, you
+// might want to optimize this. The resultant proxy path is determined by
+// subtracting the `Sub` field from the `Path` (and request path) and then
+// appending the result to the `Head` field.
+type HTTPServerProxyRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
 	traits.Groupable // can be grouped into HTTPServerRes
@@ -136,13 +137,13 @@ type HTTPProxyRes struct {
 }
 
 // Default returns some sensible defaults for this resource.
-func (obj *HTTPProxyRes) Default() engine.Res {
-	return &HTTPProxyRes{}
+func (obj *HTTPServerProxyRes) Default() engine.Res {
+	return &HTTPServerProxyRes{}
 }
 
 // getPath returns the actual path we respond to. When Path is not specified, we
 // use the Name.
-func (obj *HTTPProxyRes) getPath() string {
+func (obj *HTTPServerProxyRes) getPath() string {
 	if obj.Path != "" {
 		return obj.Path
 	}
@@ -151,7 +152,7 @@ func (obj *HTTPProxyRes) getPath() string {
 
 // serveHTTP is the real implementation of ServeHTTP, but with a more ergonomic
 // signature.
-func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (handlerFuncError, error) {
+func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string) (handlerFuncError, error) {
 	// TODO: switch requestPath to use safepath.AbsPath instead of a string
 
 	result, err := obj.pathParser.parse(requestPath)
@@ -237,8 +238,8 @@ func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (han
 		writers := []io.Writer{w} // out to the client
 
 		if obj.Cache != "" { // check in the cache...
-			httpProxyRWMutex.Lock()
-			defer httpProxyRWMutex.Unlock()
+			httpServerProxyRWMutex.Lock()
+			defer httpServerProxyRWMutex.Unlock()
 
 			// store in cachePath
 			if err := os.MkdirAll(filepath.Dir(cachePath), 0700); err != nil {
@@ -323,11 +324,11 @@ func (obj *HTTPProxyRes) serveHTTP(ctx context.Context, requestPath string) (han
 
 // getCachedFile pulls a file from our local cache if it exists. It returns the
 // correct http handler on success, which we can then run.
-func (obj *HTTPProxyRes) getCachedFile(ctx context.Context, absPath string) (handlerFuncError, error) {
+func (obj *HTTPServerProxyRes) getCachedFile(ctx context.Context, absPath string) (handlerFuncError, error) {
 	// TODO: if infinite reads keep coming in, do we indefinitely-postpone
 	// the locking so that a new file can be saved in the cache?
-	httpProxyRWMutex.RLock()
-	defer httpProxyRWMutex.RUnlock()
+	httpServerProxyRWMutex.RLock()
+	defer httpServerProxyRWMutex.RUnlock()
 
 	f, err := os.Open(absPath)
 	if err != nil {
@@ -361,13 +362,13 @@ func (obj *HTTPProxyRes) getCachedFile(ctx context.Context, absPath string) (han
 // ParentName is used to limit which resources autogroup into this one. If it's
 // empty then it's ignored, otherwise it must match the Name of the parent to
 // get grouped.
-func (obj *HTTPProxyRes) ParentName() string {
+func (obj *HTTPServerProxyRes) ParentName() string {
 	return obj.Server
 }
 
 // AcceptHTTP determines whether we will respond to this request. Return nil to
 // accept, or any error to pass.
-func (obj *HTTPProxyRes) AcceptHTTP(req *http.Request) error {
+func (obj *HTTPServerProxyRes) AcceptHTTP(req *http.Request) error {
 	requestPath := req.URL.Path // TODO: is this what we want here?
 
 	if p := obj.getPath(); strings.HasSuffix(p, "/") { // a dir!
@@ -384,7 +385,7 @@ func (obj *HTTPProxyRes) AcceptHTTP(req *http.Request) error {
 }
 
 // ServeHTTP is the standard HTTP handler that will be used here.
-func (obj *HTTPProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// We only allow GET at the moment.
 	if req.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -419,7 +420,7 @@ func (obj *HTTPProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *HTTPProxyRes) Validate() error {
+func (obj *HTTPServerProxyRes) Validate() error {
 	if obj.getPath() == "" {
 		return fmt.Errorf("empty filename")
 	}
@@ -449,7 +450,7 @@ func (obj *HTTPProxyRes) Validate() error {
 }
 
 // Init runs some startup code for this resource.
-func (obj *HTTPProxyRes) Init(init *engine.Init) error {
+func (obj *HTTPServerProxyRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	obj.pathParser = &pathParser{
@@ -463,14 +464,14 @@ func (obj *HTTPProxyRes) Init(init *engine.Init) error {
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
-func (obj *HTTPProxyRes) Cleanup() error {
+func (obj *HTTPServerProxyRes) Cleanup() error {
 	return nil
 }
 
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *HTTPProxyRes) Watch(ctx context.Context) error {
+func (obj *HTTPServerProxyRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
@@ -483,7 +484,7 @@ func (obj *HTTPProxyRes) Watch(ctx context.Context) error {
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
-func (obj *HTTPProxyRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *HTTPServerProxyRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
@@ -492,9 +493,9 @@ func (obj *HTTPProxyRes) CheckApply(ctx context.Context, apply bool) (bool, erro
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *HTTPProxyRes) Cmp(r engine.Res) error {
-	// we can only compare HTTPProxyRes to others of the same resource kind
-	res, ok := r.(*HTTPProxyRes)
+func (obj *HTTPServerProxyRes) Cmp(r engine.Res) error {
+	// we can only compare HTTPServerProxyRes to others of the same resource kind
+	res, ok := r.(*HTTPServerProxyRes)
 	if !ok {
 		return fmt.Errorf("res is not the same kind")
 	}
@@ -521,13 +522,13 @@ func (obj *HTTPProxyRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPProxyRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes HTTPProxyRes // indirection to avoid infinite recursion
+func (obj *HTTPServerProxyRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes HTTPServerProxyRes // indirection to avoid infinite recursion
 
-	def := obj.Default()           // get the default
-	res, ok := def.(*HTTPProxyRes) // put in the right format
+	def := obj.Default()                 // get the default
+	res, ok := def.(*HTTPServerProxyRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to HTTPProxyRes")
+		return fmt.Errorf("could not convert to HTTPServerProxyRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -535,7 +536,7 @@ func (obj *HTTPProxyRes) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		return err
 	}
 
-	*obj = HTTPProxyRes(raw) // restore from indirection with type conversion!
+	*obj = HTTPServerProxyRes(raw) // restore from indirection with type conversion!
 	return nil
 }
 

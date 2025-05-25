@@ -14,7 +14,7 @@ http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing 
 }
 
 # you can add a raw file like this...
-http:file "/file1" {
+http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",
 }
 
@@ -26,19 +26,19 @@ file $f2 {
 }
 
 # you can point to it directly...
-http:file "/file2" {
+http:server:file "/file2" {
 	path => $f2,
 
 	Depend => File[$f2],	# TODO: add autoedges
 }
 
 # here's a file in the middle of nowhere that still works...
-http:file "/i/am/some/deeply/nested/file" {
+http:server:file "/i/am/some/deeply/nested/file" {
 	data => "how did you find me!\n",
 }
 
 # and this file won't autogroup with the main http server
-http:file "/nope/noway" {
+http:server:file "/nope/noway" {
 	data => "i won't be seen!\n",
 	server => "someone else!",	# normally we don't use this this way
 }

@@ -39,7 +39,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/purpleidea/mgmt/engine/resources/http_ui/common"
+	"github.com/purpleidea/mgmt/engine/resources/http_server_ui/common"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -168,7 +168,7 @@ func (obj *Main) Run() error {
 		}
 		//fmt.Printf("%+v\n", element) // debug
 
-		inputType, exists := x.Type[common.HTTPUIInputType] // "text" or "range" ...
+		inputType, exists := x.Type[common.HTTPServerUIInputType] // "text" or "range" ...
 		if !exists {
 			fmt.Printf("Element has no input type: %+v\n", element)
 			continue
@@ -185,14 +185,14 @@ func (obj *Main) Run() error {
 		//el.Call("setAttribute", "name", id)
 		el.Set("type", inputType)
 
-		if inputType == common.HTTPUIInputTypeRange {
-			if val, exists := x.Type[common.HTTPUIInputTypeRangeMin]; exists {
+		if inputType == common.HTTPServerUIInputTypeRange {
+			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeMin]; exists {
 				el.Set("min", val)
 			}
-			if val, exists := x.Type[common.HTTPUIInputTypeRangeMax]; exists {
+			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeMax]; exists {
 				el.Set("max", val)
 			}
-			if val, exists := x.Type[common.HTTPUIInputTypeRangeStep]; exists {
+			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeStep]; exists {
 				el.Set("step", val)
 			}
 		}

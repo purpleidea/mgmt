@@ -181,7 +181,7 @@ func (obj RHVSlice) Less(i, j int) bool {
 	li := len(si)
 	lj := len(sj)
 
-	if li != lj { // eg: http:ui vs. http:ui:text
+	if li != lj { // eg: http:server:ui vs. http:server:ui:text
 		return li > lj // reverse
 	}
 

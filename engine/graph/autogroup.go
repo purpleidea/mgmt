@@ -99,8 +99,8 @@ func (obj *wrappedGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	// same. This prevents us from having a linear chain of pkg->pkg->pkg,
 	// instead of flattening all of them into one arbitrary choice. But if
 	// we are doing hierarchical grouping, then we want to allow this type
-	// of grouping, or we won't end up building any hierarchies! This change
-	// was added for http:ui stuff. Check this condition is really required.
+	// of grouping, or we won't end up building any hierarchies! This was
+	// added for http:server:ui. Check this condition is really required.
 	if r1.Kind() == r2.Kind() { // XXX: needed or do we unwrap the contents?
 		if r1.IsGrouped() { // already grouped!
 			return fmt.Errorf("already grouped")

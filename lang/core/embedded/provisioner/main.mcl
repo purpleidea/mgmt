@@ -211,7 +211,7 @@ class base($config) {
 	$vardir = local.vardir("provisioner/")
 	$binary_path = deploy.binary_path()
 
-	http:file "/mgmt/binary" { # TODO: support different architectures
+	http:server:file "/mgmt/binary" { # TODO: support different architectures
 		path => $binary_path, # TODO: As long as binary doesn't contain private data!
 
 		Before => Print["ready"],
@@ -251,7 +251,7 @@ class base($config) {
 	gzip "${abs_gz}" {
 		input => "${abs_tar}",
 	}
-	http:file "/mgmt/deploy.tar.gz" {
+	http:server:file "/mgmt/deploy.tar.gz" {
 		path => "${abs_gz}",
 	}
 
@@ -406,7 +406,7 @@ class base:repo($config) {
 
 		#Depend => Pkg[$pkgs],
 	}
-	http:file "/${uid}/vmlinuz" {		# when using ipxe
+	http:server:file "/${uid}/vmlinuz" {	# when using ipxe
 		path => $vmlinuz_file,		# TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
@@ -433,7 +433,7 @@ class base:repo($config) {
 
 		#Depend => Pkg[$pkgs],
 	}
-	http:file "/${uid}/initrd.img" {	# when using ipxe
+	http:server:file "/${uid}/initrd.img" {	# when using ipxe
 		path => $initrd_file,		# TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
@@ -441,15 +441,15 @@ class base:repo($config) {
 
 	# this file resource serves the entire rsync directory over http
 	if $mirror == "" { # and $rsync != ""
-		http:file "/fedora/releases/${version}/Everything/${arch}/os/" {
+		http:server:file "/fedora/releases/${version}/Everything/${arch}/os/" {
 			path => $distroarch_release_http_prefix,
 		}
-		http:file "/fedora/updates/${version}/Everything/${arch}/" {
+		http:server:file "/fedora/updates/${version}/Everything/${arch}/" {
 			path => $distroarch_updates_http_prefix,
 		}
 	} else {
-		# same as the above http:file path would have been
-		http:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {
+		# same as the above http:server:file path would have been
+		http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {
 			sub => "/fedora/", # we remove this from the name!
 			head => $mirror,
 
@@ -457,7 +457,7 @@ class base:repo($config) {
 		}
 
 		# XXX: if we had both of these in the same http_prefix, we could overlap them with an rsync :/ hmm...
-		http:proxy "/fedora/updates/${version}/Everything/${arch}/" { # no os/ dir at the end
+		http:server:proxy "/fedora/updates/${version}/Everything/${arch}/" { # no os/ dir at the end
 			sub => "/fedora/", # we remove this from the name!
 			head => $mirror,
 
@@ -486,10 +486,10 @@ class base:repo($config) {
 	#
 	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
 	#}
-	#http:file "/fedora/${uid}/fedora.repo" {
+	#http:server:file "/fedora/${uid}/fedora.repo" {
 	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $fedora_repo_template),
 	#}
-	#http:file "/fedora/${uid}/updates.repo" {
+	#http:server:file "/fedora/${uid}/updates.repo" {
 	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $updates_repo_template),
 	#}
 
@@ -699,7 +699,7 @@ class base:host($name, $config) {
 		}
 	}
 
-	http:file "/${ipxe_menu}" {	# for ipxe
+	http:server:file "/${ipxe_menu}" {	# for ipxe
 		data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
 	}
 
@@ -740,7 +740,7 @@ class base:host($name, $config) {
 		gzip "${abs_gz}" {
 			input => "${abs_tar}",
 		}
-		http:file "/mgmt/deploy-${provision_key}.tar.gz" {
+		http:server:file "/mgmt/deploy-${provision_key}.tar.gz" {
 			path => "${abs_gz}",
 		}
 	}
@@ -797,7 +797,7 @@ class base:host($name, $config) {
 		"echo '#!/usr/bin/env bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
 	}
 
-	# TODO: Do we want to signal an http:flag if we're a "default" host?
+	# TODO: Do we want to signal an http:server:flag if we're a "default" host?
 	$provisioning_done = if $provision_key == "default" {
 		""
 	} else {
@@ -851,7 +851,7 @@ class base:host($name, $config) {
 		content => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 	}
 
-	http:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
+	http:server:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
 		#data => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 		path => $kickstart_file,
 
@@ -871,7 +871,7 @@ class base:host($name, $config) {
 
 	##$str_true = convert.format_bool(true)
 	##$str_false = convert.format_bool(false)
-	#http:flag "${name}" {
+	#http:server:flag "${name}" {
 	#	key => "done",
 	#	path => "/action/done/mac=${provision_key}",
 	#	#mapped => {$str_true => $str_true, $str_false => $str_false,},

@@ -27,19 +27,22 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-//go:build !httpuistatic
+//go:build !httpserveruistatic
 
 package static
 
 const (
-	// HTTPUIStaticEmbedded specifies whether files have been embedded.
-	HTTPUIStaticEmbedded = false
+	// HTTPServerUIStaticEmbedded specifies whether files have been
+	// embedded.
+	HTTPServerUIStaticEmbedded = false
 )
 
 var (
-	// HTTPUIIndexStaticBootstrapCSS is the embedded data. It is empty here.
-	HTTPUIIndexStaticBootstrapCSS []byte
+	// HTTPServerUIIndexStaticBootstrapCSS is the embedded data. It is empty
+	// here.
+	HTTPServerUIIndexStaticBootstrapCSS []byte
 
-	// HTTPUIIndexStaticBootstrapJS is the embedded data. It is empty here.
-	HTTPUIIndexStaticBootstrapJS []byte
+	// HTTPServerUIIndexStaticBootstrapJS is the embedded data. It is empty
+	// here.
+	HTTPServerUIIndexStaticBootstrapJS []byte
 )

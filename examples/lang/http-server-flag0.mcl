@@ -6,12 +6,12 @@ http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing 
 }
 
 # you can add a raw file like this...
-http:file "/file1" {
+http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",
 }
 
 # wget --post-data 'key=hello&whatever=bye' -O - http://127.0.0.1:8080/flag1
-http:flag "/flag1" {
+http:server:flag "/flag1" {
 	#server => ":8080",
 	key => "key",
 }
@@ -22,8 +22,8 @@ print "print1" {
 	Meta:autogroup => false,
 }
 
-Http:Flag["/flag1"].value -> Print["print1"].msg
-Http:Flag["/flag1"].value -> Value["value1"].any
+Http:Server:Flag["/flag1"].value -> Print["print1"].msg
+Http:Server:Flag["/flag1"].value -> Value["value1"].any
 
 $ret = value.get_str("value1")	# name of value resource
 $val = $ret->value

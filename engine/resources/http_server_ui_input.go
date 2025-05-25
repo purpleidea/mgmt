@@ -37,37 +37,37 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/engine/resources/http_ui/common"
+	"github.com/purpleidea/mgmt/engine/resources/http_server_ui/common"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	httpUIInputKind = httpUIKind + ":input"
+	httpServerUIInputKind = httpServerUIKind + ":input"
 
-	httpUIInputStoreKey         = "key"
-	httpUIInputStoreSchemeLocal = "local"
-	httpUIInputStoreSchemeWorld = "world"
+	httpServerUIInputStoreKey         = "key"
+	httpServerUIInputStoreSchemeLocal = "local"
+	httpServerUIInputStoreSchemeWorld = "world"
 
-	httpUIInputTypeText  = common.HTTPUIInputTypeText  // "text"
-	httpUIInputTypeRange = common.HTTPUIInputTypeRange // "range"
+	httpServerUIInputTypeText  = common.HTTPServerUIInputTypeText  // "text"
+	httpServerUIInputTypeRange = common.HTTPServerUIInputTypeRange // "range"
 )
 
 func init() {
-	engine.RegisterResource(httpUIInputKind, func() engine.Res { return &HTTPUIInputRes{} })
+	engine.RegisterResource(httpServerUIInputKind, func() engine.Res { return &HTTPServerUIInputRes{} })
 }
 
-// HTTPUIInputRes is a form element that exists within a http:ui resource, which
-// exists within an http server. The name is used as the unique id of the field,
-// unless the id field is specified, and in that case it is used instead. The
-// way this works is that it autogroups at runtime with an existing http:ui
-// resource, and in doing so makes the form field associated with this resource
-// available as part of that ui which is itself grouped and served from the http
-// server resource.
-type HTTPUIInputRes struct {
+// HTTPServerUIInputRes is a form element that exists within a http:server:ui
+// resource, which exists within an http server. The name is used as the unique
+// id of the field, unless the id field is specified, and in that case it is
+// used instead. The way this works is that it autogroups at runtime with an
+// existing http:server:ui resource, and in doing so makes the form field
+// associated with this resource available as part of that ui which is itself
+// grouped and served from the http server resource.
+type HTTPServerUIInputRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
-	traits.Groupable // can be grouped into HTTPUIRes
+	traits.Groupable // can be grouped into HTTPServerUIRes
 	traits.Sendable
 
 	init *engine.Init
@@ -119,14 +119,14 @@ type HTTPUIInputRes struct {
 }
 
 // Default returns some sensible defaults for this resource.
-func (obj *HTTPUIInputRes) Default() engine.Res {
-	return &HTTPUIInputRes{
+func (obj *HTTPServerUIInputRes) Default() engine.Res {
+	return &HTTPServerUIInputRes{
 		Type: "text://",
 	}
 }
 
 // Validate checks if the resource data structure was populated correctly.
-func (obj *HTTPUIInputRes) Validate() error {
+func (obj *HTTPServerUIInputRes) Validate() error {
 	if obj.GetID() == "" {
 		return fmt.Errorf("empty id")
 	}
@@ -149,7 +149,7 @@ func (obj *HTTPUIInputRes) Validate() error {
 }
 
 // Init runs some startup code for this resource.
-func (obj *HTTPUIInputRes) Init(init *engine.Init) error {
+func (obj *HTTPServerUIInputRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	u, err := url.Parse(obj.Type)
@@ -159,7 +159,7 @@ func (obj *HTTPUIInputRes) Init(init *engine.Init) error {
 	if u == nil {
 		return fmt.Errorf("can't parse Type")
 	}
-	if u.Scheme != httpUIInputTypeText && u.Scheme != httpUIInputTypeRange {
+	if u.Scheme != httpServerUIInputTypeText && u.Scheme != httpServerUIInputTypeRange {
 		return fmt.Errorf("unknown scheme: %s", u.Scheme)
 	}
 	values, err := url.ParseQuery(u.RawQuery)
@@ -177,7 +177,7 @@ func (obj *HTTPUIInputRes) Init(init *engine.Init) error {
 		if u == nil {
 			return fmt.Errorf("can't parse Store")
 		}
-		if u.Scheme != httpUIInputStoreSchemeLocal && u.Scheme != httpUIInputStoreSchemeWorld {
+		if u.Scheme != httpServerUIInputStoreSchemeLocal && u.Scheme != httpServerUIInputStoreSchemeWorld {
 			return fmt.Errorf("unknown scheme: %s", u.Scheme)
 		}
 		values, err := url.ParseQuery(u.RawQuery)
@@ -188,7 +188,7 @@ func (obj *HTTPUIInputRes) Init(init *engine.Init) error {
 		obj.scheme = u.Scheme // cache for later
 		obj.key = obj.Name()  // default
 
-		x, exists := values[httpUIInputStoreKey]
+		x, exists := values[httpServerUIInputStoreKey]
 		if exists && len(x) > 0 && x[0] != "" { // ignore absent or broken keys
 			obj.key = x[0]
 		}
@@ -203,13 +203,13 @@ func (obj *HTTPUIInputRes) Init(init *engine.Init) error {
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
-func (obj *HTTPUIInputRes) Cleanup() error {
+func (obj *HTTPServerUIInputRes) Cleanup() error {
 	return nil
 }
 
 // getKey returns the key to be used for this resource. If the Store field is
 // specified, it will use that parsed part, otherwise it uses the Name.
-func (obj *HTTPUIInputRes) getKey() string {
+func (obj *HTTPServerUIInputRes) getKey() string {
 	if obj.Store != "" {
 		return obj.key
 	}
@@ -220,20 +220,20 @@ func (obj *HTTPUIInputRes) getKey() string {
 // ParentName is used to limit which resources autogroup into this one. If it's
 // empty then it's ignored, otherwise it must match the Name of the parent to
 // get grouped.
-func (obj *HTTPUIInputRes) ParentName() string {
+func (obj *HTTPServerUIInputRes) ParentName() string {
 	return obj.Path
 }
 
 // GetKind returns the kind of this resource.
-func (obj *HTTPUIInputRes) GetKind() string {
+func (obj *HTTPServerUIInputRes) GetKind() string {
 	// NOTE: We don't *need* to return such a specific string, and "input"
 	// would be enough, but we might as well use this because we have it.
-	return httpUIInputKind
+	return httpServerUIInputKind
 }
 
 // GetID returns the actual ID we respond to. When ID is not specified, we use
 // the Name.
-func (obj *HTTPUIInputRes) GetID() string {
+func (obj *HTTPServerUIInputRes) GetID() string {
 	if obj.ID != "" {
 		return obj.ID
 	}
@@ -242,7 +242,7 @@ func (obj *HTTPUIInputRes) GetID() string {
 
 // SetValue stores the new value field that was obtained from submitting the
 // form. This receives the raw, unsafe value that you must validate first.
-func (obj *HTTPUIInputRes) SetValue(ctx context.Context, vs []string) error {
+func (obj *HTTPServerUIInputRes) SetValue(ctx context.Context, vs []string) error {
 	if len(vs) != 1 {
 		return fmt.Errorf("unexpected length of %d", len(vs))
 	}
@@ -259,7 +259,7 @@ func (obj *HTTPUIInputRes) SetValue(ctx context.Context, vs []string) error {
 }
 
 // setValue is the helper version where the caller must provide the mutex.
-func (obj *HTTPUIInputRes) setValue(ctx context.Context, val string) error {
+func (obj *HTTPServerUIInputRes) setValue(ctx context.Context, val string) error {
 	obj.value = val
 
 	select {
@@ -270,7 +270,7 @@ func (obj *HTTPUIInputRes) setValue(ctx context.Context, val string) error {
 	return nil
 }
 
-func (obj *HTTPUIInputRes) checkValue(value string) error {
+func (obj *HTTPServerUIInputRes) checkValue(value string) error {
 	// XXX: validate based on obj.Type
 	// XXX: validate what kind of values are allowed, probably no \n, etc...
 	return nil
@@ -278,7 +278,7 @@ func (obj *HTTPUIInputRes) checkValue(value string) error {
 
 // GetValue gets a string representation for the form value, that we'll use in
 // our html form.
-func (obj *HTTPUIInputRes) GetValue(ctx context.Context) (string, error) {
+func (obj *HTTPServerUIInputRes) GetValue(ctx context.Context) (string, error) {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
@@ -297,36 +297,36 @@ func (obj *HTTPUIInputRes) GetValue(ctx context.Context) (string, error) {
 }
 
 // GetType returns a map that you can use to build the input field in the ui.
-func (obj *HTTPUIInputRes) GetType() map[string]string {
+func (obj *HTTPServerUIInputRes) GetType() map[string]string {
 	m := make(map[string]string)
 
-	if obj.typeURL.Scheme == httpUIInputTypeRange {
+	if obj.typeURL.Scheme == httpServerUIInputTypeRange {
 		m = obj.rangeGetType()
 	}
 
-	m[common.HTTPUIInputType] = obj.typeURL.Scheme
+	m[common.HTTPServerUIInputType] = obj.typeURL.Scheme
 
 	return m
 }
 
-func (obj *HTTPUIInputRes) rangeGetType() map[string]string {
+func (obj *HTTPServerUIInputRes) rangeGetType() map[string]string {
 	m := make(map[string]string)
 	base := 10
 	bits := 64
 
-	if sa, exists := obj.typeURLValues[common.HTTPUIInputTypeRangeMin]; exists && len(sa) > 0 {
+	if sa, exists := obj.typeURLValues[common.HTTPServerUIInputTypeRangeMin]; exists && len(sa) > 0 {
 		if x, err := strconv.ParseInt(sa[0], base, bits); err == nil {
-			m[common.HTTPUIInputTypeRangeMin] = strconv.FormatInt(x, base)
+			m[common.HTTPServerUIInputTypeRangeMin] = strconv.FormatInt(x, base)
 		}
 	}
-	if sa, exists := obj.typeURLValues[common.HTTPUIInputTypeRangeMax]; exists && len(sa) > 0 {
+	if sa, exists := obj.typeURLValues[common.HTTPServerUIInputTypeRangeMax]; exists && len(sa) > 0 {
 		if x, err := strconv.ParseInt(sa[0], base, bits); err == nil {
-			m[common.HTTPUIInputTypeRangeMax] = strconv.FormatInt(x, base)
+			m[common.HTTPServerUIInputTypeRangeMax] = strconv.FormatInt(x, base)
 		}
 	}
-	if sa, exists := obj.typeURLValues[common.HTTPUIInputTypeRangeStep]; exists && len(sa) > 0 {
+	if sa, exists := obj.typeURLValues[common.HTTPServerUIInputTypeRangeStep]; exists && len(sa) > 0 {
 		if x, err := strconv.ParseInt(sa[0], base, bits); err == nil {
-			m[common.HTTPUIInputTypeRangeStep] = strconv.FormatInt(x, base)
+			m[common.HTTPServerUIInputTypeRangeStep] = strconv.FormatInt(x, base)
 		}
 	}
 
@@ -335,18 +335,18 @@ func (obj *HTTPUIInputRes) rangeGetType() map[string]string {
 
 // GetSort returns a string that you can use to determine the global sorted
 // display order of all the elements in a ui.
-func (obj *HTTPUIInputRes) GetSort() string {
+func (obj *HTTPServerUIInputRes) GetSort() string {
 	return obj.Sort
 }
 
 // Watch is the primary listener for this resource and it outputs events. This
 // particular one does absolutely nothing but block until we've received a done
 // signal.
-func (obj *HTTPUIInputRes) Watch(ctx context.Context) error {
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeLocal {
+func (obj *HTTPServerUIInputRes) Watch(ctx context.Context) error {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeLocal {
 		return obj.localWatch(ctx)
 	}
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeWorld {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeWorld {
 		return obj.worldWatch(ctx)
 	}
 
@@ -363,7 +363,7 @@ func (obj *HTTPUIInputRes) Watch(ctx context.Context) error {
 	return nil
 }
 
-func (obj *HTTPUIInputRes) localWatch(ctx context.Context) error {
+func (obj *HTTPServerUIInputRes) localWatch(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -398,7 +398,7 @@ func (obj *HTTPUIInputRes) localWatch(ctx context.Context) error {
 
 }
 
-func (obj *HTTPUIInputRes) worldWatch(ctx context.Context) error {
+func (obj *HTTPServerUIInputRes) worldWatch(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -439,16 +439,16 @@ func (obj *HTTPUIInputRes) worldWatch(ctx context.Context) error {
 // CheckApply performs the send/recv portion of this autogrouped resources. That
 // can fail, but only if the send portion fails for some reason. If we're using
 // the Store feature, then it also reads and writes to and from that store.
-func (obj *HTTPUIInputRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *HTTPServerUIInputRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
 
 	// If we're in ".Value" mode, we want to look at the incoming value, and
 	// send it onwards. This function mostly exists as a stub in this case.
-	// The private value gets set by obj.SetValue from the http:ui parent.
-	// If we're in ".Store" mode, then we're reconciling between the "World"
-	// and the http:ui "Web".
+	// The private value gets set by obj.SetValue from the http:server:ui
+	// parent. If we're in ".Store" mode, then we're reconciling between the
+	// "World" and the http:server:ui "Web".
 
 	if obj.Store != "" {
 		return obj.storeCheckApply(ctx, apply)
@@ -458,14 +458,14 @@ func (obj *HTTPUIInputRes) CheckApply(ctx context.Context, apply bool) (bool, er
 
 }
 
-func (obj *HTTPUIInputRes) valueCheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *HTTPServerUIInputRes) valueCheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	obj.mutex.Lock()
 	value := obj.value // gets set by obj.SetValue
 	obj.mutex.Unlock()
 
 	if obj.last != nil && *obj.last == value {
-		if err := obj.init.Send(&HTTPUIInputSends{
+		if err := obj.init.Send(&HTTPServerUIInputSends{
 			Value: &value,
 		}); err != nil {
 			return false, err
@@ -474,7 +474,7 @@ func (obj *HTTPUIInputRes) valueCheckApply(ctx context.Context, apply bool) (boo
 	}
 
 	if !apply {
-		if err := obj.init.Send(&HTTPUIInputSends{
+		if err := obj.init.Send(&HTTPServerUIInputSends{
 			Value: &value, // XXX: arbitrary since we're in noop mode
 		}); err != nil {
 			return false, err
@@ -489,7 +489,7 @@ func (obj *HTTPUIInputRes) valueCheckApply(ctx context.Context, apply bool) (boo
 	obj.init.Logf("sending: %s", value)
 
 	// send
-	if err := obj.init.Send(&HTTPUIInputSends{
+	if err := obj.init.Send(&HTTPServerUIInputSends{
 		Value: &value,
 	}); err != nil {
 		return false, err
@@ -501,11 +501,11 @@ func (obj *HTTPUIInputRes) valueCheckApply(ctx context.Context, apply bool) (boo
 
 // storeCheckApply is a tricky function where we attempt to reconcile the state
 // between a third-party changing the value in the World database, and a recent
-// "http:ui" change by and end user. Basically whoever runs last is the "right"
-// value that we want to use. We know who sent the event from reading the
-// storeEvent variable, and if it was the World, we want to cache it locally,
-// and if it was the Web, then we want to push it up to the store.
-func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (bool, error) {
+// "http:server:ui" change by an end user. Basically whoever runs last is the
+// "right" value that we want to use. We know who sent the event from reading
+// the storeEvent variable, and if it was the World, we want to cache it
+// locally, and if it was the Web, then we want to push it up to the store.
+func (obj *HTTPServerUIInputRes) storeCheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	v1, exists, err := obj.storeGet(ctx, obj.getKey())
 	if err != nil {
@@ -519,7 +519,7 @@ func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (boo
 	obj.mutex.Unlock()
 
 	if exists && v1 == v2 { // both sides are happy
-		if err := obj.init.Send(&HTTPUIInputSends{
+		if err := obj.init.Send(&HTTPServerUIInputSends{
 			Value: &v2,
 		}); err != nil {
 			return false, err
@@ -528,7 +528,7 @@ func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (boo
 	}
 
 	if !apply {
-		if err := obj.init.Send(&HTTPUIInputSends{
+		if err := obj.init.Send(&HTTPServerUIInputSends{
 			Value: &v2, // XXX: arbitrary since we're in noop mode
 		}); err != nil {
 			return false, err
@@ -555,7 +555,7 @@ func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (boo
 	obj.init.Logf("sending: %s", value)
 
 	// send
-	if err := obj.init.Send(&HTTPUIInputSends{
+	if err := obj.init.Send(&HTTPServerUIInputSends{
 		Value: &value,
 	}); err != nil {
 		return false, err
@@ -564,8 +564,8 @@ func (obj *HTTPUIInputRes) storeCheckApply(ctx context.Context, apply bool) (boo
 	return false, nil
 }
 
-func (obj *HTTPUIInputRes) storeGet(ctx context.Context, key string) (string, bool, error) {
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeLocal {
+func (obj *HTTPServerUIInputRes) storeGet(ctx context.Context, key string) (string, bool, error) {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeLocal {
 		val, err := obj.init.Local.ValueGet(ctx, key)
 		if err != nil {
 			return "", false, err // real error
@@ -581,7 +581,7 @@ func (obj *HTTPUIInputRes) storeGet(ctx context.Context, key string) (string, bo
 		return s, true, nil
 	}
 
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeWorld {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeWorld {
 		val, err := obj.init.World.StrGet(ctx, key)
 		if err != nil && obj.init.World.StrIsNotExist(err) {
 			return "", false, nil // val doesn't exist
@@ -595,13 +595,13 @@ func (obj *HTTPUIInputRes) storeGet(ctx context.Context, key string) (string, bo
 	return "", false, nil // something else
 }
 
-func (obj *HTTPUIInputRes) storeSet(ctx context.Context, key, val string) error {
+func (obj *HTTPServerUIInputRes) storeSet(ctx context.Context, key, val string) error {
 
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeLocal {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeLocal {
 		return obj.init.Local.ValueSet(ctx, key, val)
 	}
 
-	if obj.Store != "" && obj.scheme == httpUIInputStoreSchemeWorld {
+	if obj.Store != "" && obj.scheme == httpServerUIInputStoreSchemeWorld {
 		return obj.init.World.StrSet(ctx, key, val)
 	}
 
@@ -609,9 +609,9 @@ func (obj *HTTPUIInputRes) storeSet(ctx context.Context, key, val string) error 
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *HTTPUIInputRes) Cmp(r engine.Res) error {
-	// we can only compare HTTPUIInputRes to others of the same resource kind
-	res, ok := r.(*HTTPUIInputRes)
+func (obj *HTTPServerUIInputRes) Cmp(r engine.Res) error {
+	// we can only compare HTTPServerUIInputRes to others of the same resource kind
+	res, ok := r.(*HTTPServerUIInputRes)
 	if !ok {
 		return fmt.Errorf("res is not the same kind")
 	}
@@ -640,13 +640,13 @@ func (obj *HTTPUIInputRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPUIInputRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes HTTPUIInputRes // indirection to avoid infinite recursion
+func (obj *HTTPServerUIInputRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes HTTPServerUIInputRes // indirection to avoid infinite recursion
 
-	def := obj.Default()             // get the default
-	res, ok := def.(*HTTPUIInputRes) // put in the right format
+	def := obj.Default()                   // get the default
+	res, ok := def.(*HTTPServerUIInputRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to HTTPUIInputRes")
+		return fmt.Errorf("could not convert to HTTPServerUIInputRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -654,20 +654,20 @@ func (obj *HTTPUIInputRes) UnmarshalYAML(unmarshal func(interface{}) error) erro
 		return err
 	}
 
-	*obj = HTTPUIInputRes(raw) // restore from indirection with type conversion!
+	*obj = HTTPServerUIInputRes(raw) // restore from indirection with type conversion!
 	return nil
 }
 
-// HTTPUIInputSends is the struct of data which is sent after a successful
+// HTTPServerUIInputSends is the struct of data which is sent after a successful
 // Apply.
-type HTTPUIInputSends struct {
+type HTTPServerUIInputSends struct {
 	// Value is the text element value being sent.
 	Value *string `lang:"value"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *HTTPUIInputRes) Sends() interface{} {
-	return &HTTPUIInputSends{
+func (obj *HTTPServerUIInputRes) Sends() interface{} {
+	return &HTTPServerUIInputSends{
 		Value: nil,
 	}
 }

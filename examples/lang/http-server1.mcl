@@ -34,12 +34,12 @@ http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing 
 }
 
 # you can add a raw file like this...
-http:file "/file1" {
+http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",
 }
 
 # this pulls in a whole folder, since path is a folder!
-http:file "/secret/folder/" {
+http:server:file "/secret/folder/" {
 	path => "${root}",
 
 	Depend => File["${root}"],	# TODO: add autoedges

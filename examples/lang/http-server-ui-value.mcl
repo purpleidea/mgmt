@@ -5,11 +5,11 @@ http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing 
 }
 
 # you can add a raw file like this...
-http:file "/file1" {
+http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",
 }
 
-http:ui "/ui/" {
+http:server:ui "/ui/" {
 	#path => "/ui/",	# we can override the name like this if needed
 
 	data => struct{
@@ -30,17 +30,17 @@ $range1_val = if $ret2->ready {
 } else {
 	"2" # some default
 }
-http:ui:input $text1_id {
+http:server:ui:input $text1_id {
 	value => $text1_val,	# it passes back into itself!
 }
 
-http:ui:input $range1_id {
+http:server:ui:input $range1_id {
 	value => $range1_val,
 	type => "range://?min=0&max=5&step=1",
 	sort => "b",
 }
 
-Http:Ui:Input[$text1_id].value -> Value[$text1_id].any
+Http:Server:Ui:Input[$text1_id].value -> Value[$text1_id].any
 
 value $text1_id {
 	any => "whatever",	# TODO: remove the temporary placeholder here

@@ -27,25 +27,16 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-//go:build httpuistatic
-
+// Package static contains some optional embedded data which can be useful if we
+// are running from an entirely offline, internet-absent scenario.
 package static
 
-import (
-	_ "embed" // embed data with go:embed
-)
-
 const (
-	// HTTPUIStaticEmbedded specifies whether files have been embedded.
-	HTTPUIStaticEmbedded = true
-)
+	// HTTPServerUIIndexBootstrapCSS is the path to the bootstrap css file
+	// when embedded, relative to the parent directory.
+	HTTPServerUIIndexBootstrapCSS = "static/bootstrap.min.css"
 
-var (
-	// HTTPUIIndexStaticBootstrapCSS is the embedded data. It is embedded.
-	//go:embed http_ui/static/bootstrap.min.css
-	HTTPUIIndexStaticBootstrapCSS []byte
-
-	// HTTPUIIndexStaticBootstrapJS is the embedded data. It is embedded.
-	//go:embed http_ui/static/bootstrap.bundle.min.js
-	HTTPUIIndexStaticBootstrapJS []byte
+	// HTTPServerUIIndexBootstrapJS is the path to the bootstrap js file
+	// when embedded, relative to the parent directory.
+	HTTPServerUIIndexBootstrapJS = "static/bootstrap.bundle.min.js"
 )

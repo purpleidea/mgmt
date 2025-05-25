@@ -50,7 +50,7 @@ else
 	for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/" | grep -v "^${base}/integration"`; do
 		echo -e "\ttesting: $pkg"
 
-		if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_ui" ]; then
+		if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_server_ui" ]; then
 			continue # skip this special main package
 		fi
 

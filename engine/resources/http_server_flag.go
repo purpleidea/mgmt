@@ -48,6 +48,8 @@ func init() {
 	engine.RegisterResource(httpServerFlagKind, func() engine.Res { return &HTTPServerFlagRes{} })
 }
 
+var _ HTTPServerGroupableRes = &HTTPServerFlagRes{} // compile time check
+
 // HTTPServerFlagRes is a special path that exists within an http server. The
 // name is used as the public path of the flag, unless the path field is
 // specified, and in that case it is used instead. The way this works is that it

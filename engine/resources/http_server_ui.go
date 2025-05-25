@@ -70,6 +70,8 @@ func init() {
 	engine.RegisterResource(httpServerUIKind, func() engine.Res { return &HTTPServerUIRes{} })
 }
 
+var _ HTTPServerGroupableRes = &HTTPServerUIRes{} // compile time check
+
 // HTTPServerUIGroupableRes is the interface that you must implement if you want
 // to allow a resource the ability to be grouped into the http server ui
 // resource. As an added safety, the Kind must also begin with

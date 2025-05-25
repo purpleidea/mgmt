@@ -65,6 +65,8 @@ func init() {
 	engine.RegisterResource(httpServerProxyKind, func() engine.Res { return &HTTPServerProxyRes{} })
 }
 
+var _ HTTPServerGroupableRes = &HTTPServerProxyRes{} // compile time check
+
 // HTTPServerProxyRes is a resource representing a special path that exists
 // within an http server. The name is used as the public path of the endpoint,
 // unless the path field is specified, and in that case it is used instead. The

@@ -52,6 +52,8 @@ func init() {
 	engine.RegisterResource(httpServerFileKind, func() engine.Res { return &HTTPServerFileRes{} })
 }
 
+var _ HTTPServerGroupableRes = &HTTPServerFileRes{} // compile time check
+
 // HTTPServerFileRes is a file that exists within an http server. The name is
 // used as the public path of the file, unless the filename field is specified,
 // and in that case it is used instead. The way this works is that it autogroups

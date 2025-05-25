@@ -57,6 +57,8 @@ func init() {
 	engine.RegisterResource(httpServerUIInputKind, func() engine.Res { return &HTTPServerUIInputRes{} })
 }
 
+var _ HTTPServerUIGroupableRes = &HTTPServerUIInputRes{} // compile time check
+
 // HTTPServerUIInputRes is a form element that exists within a http:server:ui
 // resource, which exists within an http server. The name is used as the unique
 // id of the field, unless the id field is specified, and in that case it is

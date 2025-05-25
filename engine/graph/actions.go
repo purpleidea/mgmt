@@ -129,12 +129,80 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// sendrecv!
 	// connect any senders to receivers and detect if values changed
 	// this actually checks and sends into resource trees recursively...
+
+	// XXX: This code is duplicated in the fancier autogrouping code below!
+	//if res, ok := vertex.(engine.RecvableRes); ok {
+	//	if obj.Debug {
+	//		obj.Logf("SendRecv: %s", res) // receiving here
+	//	}
+	//	if updated, err := SendRecv(res, nil); err != nil {
+	//		return errwrap.Wrapf(err, "could not SendRecv")
+	//	} else if len(updated) > 0 {
+	//		//for _, s := range graph.UpdatedStrings(updated) {
+	//		//	obj.Logf("SendRecv: %s", s)
+	//		//}
+	//		for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
+	//			v, ok := r.(pgraph.Vertex)
+	//			if !ok {
+	//				continue
+	//			}
+	//			_, stateExists := obj.state[v] // autogrouped children probably don't have a state
+	//			if !stateExists {
+	//				continue
+	//			}
+	//			for s, send := range m {
+	//				if !send.Changed {
+	//					continue
+	//				}
+	//				obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
+	//				// if send.Changed == true, at least one was updated
+	//				// invalidate cache, mark as dirty
+	//				obj.state[v].setDirty()
+	//				//break // we might have more vertices now
+	//			}
+	//
+	//			// re-validate after we change any values
+	//			if err := engine.Validate(r); err != nil {
+	//				return errwrap.Wrapf(err, "failed Validate after SendRecv")
+	//			}
+	//		}
+	//	}
+	//}
+
+	// Send/Recv *can* receive from someone that was grouped! The sender has
+	// to use *their* send/recv handle/implementation, which has to be setup
+	// properly by the parent resource during Init(). See: http:server:flag.
+	collectSendRecv := []engine.Res{} // found resources
+
 	if res, ok := vertex.(engine.RecvableRes); ok {
-		if obj.Debug {
-			obj.Logf("SendRecv: %s", res) // receiving here
+		collectSendRecv = append(collectSendRecv, res)
+	}
+
+	// If we contain grouped resources, maybe someone inside wants to recv?
+	// This code is similar to the above and was added for http:server:ui.
+	// XXX: Maybe this block isn't needed, as mentioned we need to check!
+	if res, ok := vertex.(engine.GroupableRes); ok {
+		process := res.GetGroup() // look through these
+		for len(process) > 0 {    // recurse through any nesting
+			var x engine.GroupableRes
+			x, process = process[0], process[1:] // pop from front!
+
+			for _, g := range x.GetGroup() {
+				collectSendRecv = append(collectSendRecv, g.(engine.Res))
+			}
 		}
-		if updated, err := SendRecv(res, nil); err != nil {
-			return errwrap.Wrapf(err, "could not SendRecv")
+	}
+
+	//for _, g := res.GetGroup() // non-recursive, one-layer method
+	for _, g := range collectSendRecv { // recursive method!
+		r, ok := g.(engine.RecvableRes)
+		if !ok {
+			continue
+		}
+
+		// This section looks almost identical to the above one!
+		if updated, err := SendRecv(r, nil); err != nil {
+			return errwrap.Wrapf(err, "could not grouped SendRecv")
 		} else if len(updated) > 0 {
 			//for _, s := range graph.UpdatedStrings(updated) {
 			//	obj.Logf("SendRecv: %s", s)
@@ -161,65 +229,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 				// re-validate after we change any values
 				if err := engine.Validate(r); err != nil {
-					return errwrap.Wrapf(err, "failed Validate after SendRecv")
-				}
-			}
-		}
-
-		// XXX: maybe we want to receive from someone that was grouped?
-		// XXX: can obj.SendRecv() do that or do we have to modify it?
-		// XXX: it might already *just work* -- test it to double check!
-	}
-
-	// If we contain grouped resources, maybe someone inside wants to recv?
-	// This code is similar to the above and was added for http:server:ui.
-	// XXX: Maybe this block isn't needed, as mentioned we need to check!
-	if res, ok := vertex.(engine.GroupableRes); ok {
-		process := res.GetGroup()          // look through these
-		grouped := []engine.GroupableRes{} // found resources
-		for len(process) > 0 {             // recurse through any nesting
-			var x engine.GroupableRes
-			x, process = process[0], process[1:] // pop from front!
-
-			g := x.GetGroup()
-			grouped = append(grouped, g...) // add to the end
-		}
-
-		//for _, g := res.GetGroup() // non-recursive, one-layer method
-		for _, g := range grouped { // recursive method!
-			r, ok := g.(engine.RecvableRes)
-			if !ok {
-				continue
-			}
-
-			// This section looks almost identical to the above one!
-			if updated, err := SendRecv(r, nil); err != nil {
-				return errwrap.Wrapf(err, "could not grouped SendRecv")
-			} else if len(updated) > 0 {
-				for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
-					v, ok := r.(pgraph.Vertex)
-					if !ok {
-						continue
-					}
-					_, stateExists := obj.state[v] // autogrouped children probably don't have a state
-					if !stateExists {
-						continue
-					}
-					for s, send := range m {
-						if !send.Changed {
-							continue
-						}
-						obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
-						// if send.Changed == true, at least one was updated
-						// invalidate cache, mark as dirty
-						obj.state[v].setDirty()
-						//break // we might have more vertices now
-					}
-
-					// re-validate after we change any values
-					if err := engine.Validate(r); err != nil {
-						return errwrap.Wrapf(err, "failed grouped Validate after SendRecv")
-					}
+					return errwrap.Wrapf(err, "failed grouped Validate after SendRecv")
 				}
 			}
 		}

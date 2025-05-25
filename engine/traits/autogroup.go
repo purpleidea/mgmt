@@ -89,7 +89,11 @@ func (obj *Groupable) GroupRes(res engine.GroupableRes) error {
 				ok = false // non-hierarchical grouping, error!
 			}
 		}
-		if !ok {
+		// XXX: Why is it not acceptable to allow hierarchical grouping,
+		// AND self-kind grouping together? For example, group
+		// http:server:flag with another flag, and then group that group
+		// inside http:server!
+		if !ok && false { // XXX: disabled this check for now...
 			return fmt.Errorf("the `%s` resource already contains %d grouped resources", res, l)
 		}
 	}

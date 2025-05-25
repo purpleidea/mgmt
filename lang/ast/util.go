@@ -674,7 +674,7 @@ func (obj *Textarea) HighlightText() string {
 		return ""
 	}
 
-	result.WriteString("\n--\n")
+	result.WriteString("\n\n")
 
 	if obj.startLine == obj.endLine {
 		line := lines[obj.startLine] + "\n"

@@ -76,8 +76,21 @@ type LineRes struct {
 	// empty, then it does nothing.
 	Content string `lang:"content" yaml:"content"`
 
+	// Trim specifies that we will trim any whitespace from the beginning
+	// and end of the content. This makes it easier to pass in data from a
+	// file that ends with a newline, and avoid adding an unnecessary blank.
+	Trim bool `lang:"trim" yaml:"trim"`
+
 	// TODO: consider adding top or bottom insertion preferences?
 	// TODO: consider adding duplicate removal preferences?
+}
+
+// getContent is a simple helper to apply the trim field to the content.
+func (obj *LineRes) getContent() string {
+	if !obj.Trim {
+		return obj.Content
+	}
+	return strings.TrimSpace(obj.Content)
 }
 
 // Default returns some sensible defaults for this resource.
@@ -151,7 +164,7 @@ func (obj *LineRes) Watch(ctx context.Context) error {
 
 // CheckApply method for Value resource. Does nothing, returns happy!
 func (obj *LineRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if obj.Content == "" { // special case
+	if obj.getContent() == "" { // special case
 		return true, nil // done early
 	}
 
@@ -186,7 +199,7 @@ func (obj *LineRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 // something went permanently wrong. If the file doesn't exist, this returns
 // false.
 func (obj *LineRes) check(ctx context.Context) (bool, error) {
-	matchLines := strings.Split(obj.Content, "\n")
+	matchLines := strings.Split(obj.getContent(), "\n")
 
 	file, err := os.Open(obj.File)
 	if os.IsNotExist(err) {
@@ -239,7 +252,7 @@ func (obj *LineRes) check(ctx context.Context) (bool, error) {
 // remove returns true if it did nothing. false if it removed a match. It errors
 // if something went permanently wrong.
 func (obj *LineRes) remove(ctx context.Context) (bool, error) {
-	matchLines := strings.Split(obj.Content, "\n")
+	matchLines := strings.Split(obj.getContent(), "\n")
 
 	file, err := os.Open(obj.File)
 	if err != nil {
@@ -322,7 +335,7 @@ func (obj *LineRes) add(ctx context.Context) (bool, error) {
 	}
 	defer file.Close()
 
-	if _, err := file.WriteString(obj.Content + "\n"); err != nil {
+	if _, err := file.WriteString(obj.getContent() + "\n"); err != nil {
 		return false, err
 	}
 
@@ -345,6 +358,10 @@ func (obj *LineRes) Cmp(r engine.Res) error {
 	}
 	if obj.Content != res.Content {
 		return fmt.Errorf("the Content field differs")
+	}
+	// TODO: We could technically compare obj.getContent() instead...
+	if obj.Trim != res.Trim {
+		return fmt.Errorf("the Trim field differs")
 	}
 
 	return nil

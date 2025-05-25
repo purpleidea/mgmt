@@ -296,7 +296,7 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	value, exists, err := obj.kvGet(ctx, obj.getKey())
 	if err != nil {
-		return false, errwrap.Wrapf(err, "error during get")
+		return false, errwrap.Wrapf(err, "error during kv get")
 	}
 	if exists && obj.Value != nil {
 		if value == *obj.Value {

@@ -164,6 +164,7 @@ type SetupPkgArgs struct {
 // parsed result.
 type SetupSvcArgs struct {
 	BinaryPath string   `arg:"--binary-path" help:"path to the binary"`
+	SSHURL     string   `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 	Seeds      []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	NoServer   bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
 

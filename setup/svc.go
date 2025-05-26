@@ -110,6 +110,11 @@ func (obj *Svc) Run(ctx context.Context) error {
 			"run", // run command
 		}
 
+		if s := obj.SetupSvcArgs.SSHURL; s != "" {
+			// TODO: validate ssh url? Should be user@server:port
+			argv = append(argv, fmt.Sprintf("--ssh-url=%s", s))
+		}
+
 		if seeds := obj.SetupSvcArgs.Seeds; len(seeds) > 0 {
 			// TODO: validate each seed?
 			s := fmt.Sprintf("--seeds=%s", strings.Join(seeds, ","))

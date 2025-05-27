@@ -1,0 +1,4 @@
+{{- range .sources }}
+deb {{ .url }} {{ .distribution }} {{ .components }}
+deb-src {{ .url }} {{ .distribution }} {{ .components }}
+{{- end }}

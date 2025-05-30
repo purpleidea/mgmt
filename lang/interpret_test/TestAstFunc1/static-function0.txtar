@@ -16,13 +16,9 @@ test "greeting3" {
 	anotherstr => $fn(),
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
 Vertex: const: str("greeting1")
 Vertex: const: str("greeting2")
 Vertex: const: str("greeting3")
+Vertex: const: str("hello world")
+Vertex: const: str("hello world")
+Vertex: const: str("hello world")

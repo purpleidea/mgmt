@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -61,6 +61,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, VarDirFuncName, func() interfaces.Func { return &VarDirFunc{} }) // must register the func and name
 }
 
+var _ interfaces.DataFunc = &VarDirFunc{}
+
 // VarDirFunc is a function that returns the absolute, full path in the deploy
 // from an input path that is relative to the calling file. If you pass it an
 // empty string, you'll just get the absolute deploy directory path that you're
@@ -102,8 +104,10 @@ func (obj *VarDirFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *VarDirFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: true,
+		Pure: false, // TODO: depends on runtime dir path
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", absPathArgNamePath)),
 	}
 }
@@ -160,10 +164,22 @@ func (obj *VarDirFunc) Stream(ctx context.Context) error {
 	}
 }
 
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *VarDirFunc) Copy() interfaces.Func {
+	return &VarDirFunc{
+		init: obj.init, // likely gets overwritten anyways
+		data: obj.data, // needed because we don't call SetData twice
+	}
+}
+
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
-func (obj *VarDirFunc) Call(ctx context.Context, input []types.Value) (types.Value, error) {
-	reldir := input[0].Str()
+func (obj *VarDirFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	reldir := args[0].Str()
 	if strings.HasPrefix(reldir, "/") {
 		return nil, fmt.Errorf("path must be relative")
 	}
@@ -174,6 +190,9 @@ func (obj *VarDirFunc) Call(ctx context.Context, input []types.Value) (types.Val
 
 	p := fmt.Sprintf("%s/", path.Join(VarDirFunctionsPrefix, reldir))
 
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	result, err := obj.init.Local.VarDir(ctx, p)
 	if err != nil {
 		return nil, err

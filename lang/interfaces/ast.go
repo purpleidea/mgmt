@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -85,8 +85,11 @@ type Stmt interface {
 	// child statements, and Infer/Check for child expressions.
 	TypeCheck() ([]*UnificationInvariant, error)
 
-	// Graph returns the reactive function graph expressed by this node.
-	Graph() (*pgraph.Graph, error)
+	// Graph returns the reactive function graph expressed by this node. It
+	// takes in the environment of any functions in scope. Intended to be
+	// called only once, creates and returns the graph and also stores it to
+	// be used in .Output if needed.
+	Graph(env *Env) (*pgraph.Graph, error)
 
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input
@@ -148,7 +151,7 @@ type Expr interface {
 	// Graph returns the reactive function graph expressed by this node. It
 	// takes in the environment of any functions in scope. It also returns
 	// the function for this node.
-	Graph(env map[string]Func) (*pgraph.Graph, Func, error)
+	Graph(env *Env) (*pgraph.Graph, Func, error)
 
 	// SetValue stores the result of the last computation of this expression
 	// node.
@@ -230,6 +233,15 @@ type Data struct {
 	// cycles.
 	StrInterpolater func(string, *Pos, *Data) (Expr, error)
 
+	// SourceFinder is a function that returns the contents of a source file
+	// when requested by filename. This data is used to annotate error
+	// messages with some context from the source, and as a result is
+	// optional. This function is passed in this way so that the different
+	// consumers of this can use different methods to find the source. The
+	// three main users are: (1) normal GAPI CLI, before the bundle is
+	// created, (2) the main bundled execution, and (3) the tests.
+	SourceFinder SourceFinderFunc
+
 	//World engine.World // TODO: do we need this?
 
 	// Prefix provides a unique path prefix that we can namespace in. It is
@@ -242,6 +254,16 @@ type Data struct {
 
 	// Logf is a logger which should be used.
 	Logf func(format string, v ...interface{})
+}
+
+// AbsFilename returns the absolute filename path to the code this Data struct
+// is running. This is used to pull out a filename for error messages.
+func (obj *Data) AbsFilename() string {
+	// TODO: is this correct? Do we want to check if Metadata is nil?
+	if obj == nil || obj.Metadata == nil { // for tests
+		return ""
+	}
+	return obj.Base + obj.Metadata.Main
 }
 
 // Scope represents a mapping between a variables identifier and the
@@ -258,20 +280,33 @@ type Data struct {
 // An interesting note about these is that they exist in a distinct namespace
 // from the variables, which could actually contain lambda functions.
 type Scope struct {
+	// Variables maps the scope of name to Expr.
 	Variables map[string]Expr
-	Functions map[string]Expr // the Expr will usually be an *ExprFunc (actually it's usually (or always) an *ExprSingleton, which wraps an *ExprFunc now)
-	Classes   map[string]Stmt
+
+	// Functions is the scope of functions.
+	//
+	// The Expr will usually be an *ExprFunc. (Actually it's usually or
+	// always an *ExprSingleton, which wraps an *ExprFunc now.)
+	Functions map[string]Expr
+
+	// Classes map the name of the class to the class.
+	Classes map[string]Stmt
+
+	// Iterated is a flag that is true if this scope is inside of a for
+	// loop.
+	Iterated bool
 
 	Chain []Node // chain of previously seen node's
 }
 
 // EmptyScope returns the zero, empty value for the scope, with all the internal
-// lists initialized appropriately.
+// maps and lists initialized appropriately.
 func EmptyScope() *Scope {
 	return &Scope{
 		Variables: make(map[string]Expr),
 		Functions: make(map[string]Expr),
 		Classes:   make(map[string]Stmt),
+		Iterated:  false,
 		Chain:     []Node{},
 	}
 }
@@ -288,6 +323,7 @@ func (obj *Scope) Copy() *Scope {
 	variables := make(map[string]Expr)
 	functions := make(map[string]Expr)
 	classes := make(map[string]Stmt)
+	iterated := obj.Iterated
 	chain := []Node{}
 
 	for k, v := range obj.Variables { // copy
@@ -307,6 +343,7 @@ func (obj *Scope) Copy() *Scope {
 		Variables: variables,
 		Functions: functions,
 		Classes:   classes,
+		Iterated:  iterated,
 		Chain:     chain,
 	}
 }
@@ -358,6 +395,10 @@ func (obj *Scope) Merge(scope *Scope) error {
 		obj.Classes[name] = scope.Classes[name]
 	}
 
+	if scope.Iterated { // XXX: how should we merge this?
+		obj.Iterated = scope.Iterated
+	}
+
 	return err
 }
 
@@ -377,6 +418,129 @@ func (obj *Scope) IsEmpty() bool {
 		return false
 	}
 	return true
+}
+
+// Env is an environment which contains the relevant mappings. This is used at
+// the Graph(...) stage of the compiler. It does not contain classes.
+type Env struct {
+	// Variables map and Expr to a *FuncSingleton which deduplicates the
+	// use of a function.
+	Variables map[Expr]*FuncSingleton
+
+	// Functions contains the captured environment, because when we're
+	// recursing into a StmtFunc which is defined inside a for loop, we can
+	// use that to get the right Env.Variables map. As for the function
+	// itself, it's the same in each loop iteration, therefore, we find it
+	// in obj.expr of ExprCall. (Functions map[string]*Env) But actually,
+	// our new version is now this:
+	Functions map[Expr]*Env
+}
+
+// EmptyEnv returns the zero, empty value for the env, with all the internal
+// maps initialized appropriately.
+func EmptyEnv() *Env {
+	return &Env{
+		Variables: make(map[Expr]*FuncSingleton),
+		Functions: make(map[Expr]*Env),
+	}
+}
+
+// Copy makes a copy of the Env struct. This ensures that if the internal maps
+// are changed, it doesn't affect other copies of the Env. It does *not* copy or
+// change the pointers contained within, since these are references, and we need
+// those to be consistently pointing to the same things after copying.
+func (obj *Env) Copy() *Env {
+	if obj == nil { // allow copying nil envs
+		return EmptyEnv()
+	}
+
+	variables := make(map[Expr]*FuncSingleton)
+	functions := make(map[Expr]*Env)
+
+	for k, v := range obj.Variables { // copy
+		variables[k] = v // we don't copy the func's!
+	}
+	for k, v := range obj.Functions { // copy
+		functions[k] = v // we don't copy the generator func's
+	}
+
+	return &Env{
+		Variables: variables,
+		Functions: functions,
+	}
+}
+
+// FuncSingleton is a singleton system for storing a singleton func and its
+// corresponding graph. You must pass in a `MakeFunc` builder method to generate
+// these. The graph which is returned from this must contain that Func as a
+// node.
+type FuncSingleton struct {
+	// MakeFunc builds and returns a Func and a graph that it must be
+	// contained within.
+	// XXX: Add Txn as an input arg?
+	MakeFunc func() (*pgraph.Graph, Func, error)
+
+	g *pgraph.Graph
+	f Func
+}
+
+// GraphFunc returns the previously saved graph and func if they exist. If they
+// do not, then it calls the MakeFunc method to get them, and saves a copy for
+// next time.
+// XXX: Add Txn as an input arg?
+func (obj *FuncSingleton) GraphFunc() (*pgraph.Graph, Func, error) {
+	// If obj.f already exists, just use that.
+	if obj.f != nil { // && obj.g != nil
+		return obj.g, obj.f, nil
+	}
+
+	var err error
+	obj.g, obj.f, err = obj.MakeFunc() // XXX: Add Txn as an input arg?
+	if err != nil {
+		return nil, nil, err
+	}
+	if obj.g == nil {
+		return nil, nil, fmt.Errorf("unexpected nil graph")
+	}
+	if obj.f == nil {
+		return nil, nil, fmt.Errorf("unexpected nil function")
+	}
+	return obj.g, obj.f, nil
+}
+
+// ValueEnv is a future potential argument to the Value() method on Expr.
+// XXX: Consider using this if we want to improve graph shape even more.
+type ValueEnv struct {
+	Variables map[Expr]types.Value
+}
+
+// EmptyValueEnv returns the zero, empty value for the value env, with all the
+// internal maps initialized appropriately.
+func EmptyValueEnv() *ValueEnv {
+	return &ValueEnv{
+		Variables: make(map[Expr]types.Value),
+	}
+}
+
+// Copy makes a copy of the ValueEnv struct. This ensures that if the internal
+// maps are changed, it doesn't affect other copies of the ValueEnv. It does
+// *not* copy or change the pointers contained within, since these are
+// references, and we need those to be consistently pointing to the same things
+// after copying.
+func (obj *ValueEnv) Copy() *ValueEnv {
+	if obj == nil { // allow copying nil envs
+		return EmptyValueEnv()
+	}
+
+	variables := make(map[Expr]types.Value)
+
+	for k, v := range obj.Variables { // copy
+		variables[k] = v // we don't copy the values!
+	}
+
+	return &ValueEnv{
+		Variables: variables,
+	}
 }
 
 // Arg represents a name identifier for a func or class argument declaration and
@@ -424,3 +588,39 @@ func EmptyOutput() *Output {
 		Edges:     []*Edge{},
 	}
 }
+
+// PositionableNode is the interface implemented by AST nodes that store their
+// code position. It is implemented by node types that embed Textarea.
+type PositionableNode interface {
+	// IsSet returns if the position was already set with Locate already.
+	IsSet() bool
+
+	// Locate sets the position in zero-based (start line, start column, end
+	// line, end column) format.
+	Locate(int, int, int, int)
+
+	// Pos returns the zero-based start line and then start column position.
+	Pos() (int, int)
+
+	// End returns the zero-based end line and then end column position.
+	End() (int, int)
+
+	// String returns a friendly representation of the positions.
+	String() string
+}
+
+// TextDisplayer is a graph node that is aware of its position in the source
+// code, and can emit a textual representation of that part of the source.
+type TextDisplayer interface {
+	// Byline returns a simple version of the error location.
+	Byline() string
+
+	// HighlightText returns a textual representation of this definition
+	// for this node in source.
+	HighlightText() string
+}
+
+// SourceFinderFunc is the function signature used to return the contents of a
+// source file when requested by filename. This data is used to annotate error
+// messages with some context from the source, and as a result is optional.
+type SourceFinderFunc = func(string) ([]byte, error)

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -155,6 +155,7 @@ func HilInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (int
 		LexParser:       data.LexParser,
 		Downloader:      data.Downloader,
 		StrInterpolater: data.StrInterpolater,
+		SourceFinder:    data.SourceFinder,
 		//World: data.World, // TODO: do we need this?
 
 		Prefix: data.Prefix,

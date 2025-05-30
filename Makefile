@@ -1,5 +1,5 @@
 # Mgmt
-# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Copyright (C) James Shubin and the project contributors
 # Written by James Shubin <james@shubin.ca> and the project contributors
 #
 # This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
-SHELL = /usr/bin/env bash
+SHELL = bash
 .PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
 .PHONY: mkosi mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux
@@ -38,6 +38,7 @@ SHELL = /usr/bin/env bash
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
+MISC_FILES := $(shell find engine/resources/http_server_ui/)
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -191,13 +192,6 @@ path: ## create working paths
 deps: ## install system and golang dependencies
 	./misc/make-deps.sh
 
-run: ## run mgmt
-	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
-
-# include race flag
-race:
-	find . -maxdepth 1 -type f -name '*.go' -not -name '*_test.go' | xargs go run -race -ldflags "-X main.program=$(PROGRAM) -X main.version=$(SVERSION)"
-
 generate:
 	go generate
 
@@ -205,11 +199,15 @@ lang: ## generates the lexer/parser for the language frontend
 	@# recursively run make in child dir named lang
 	@$(MAKE) --quiet -C lang
 
+resources: ## builds the resources dependencies required for the engine backend
+	@# recursively run make in child dir named engine/resources
+	@$(MAKE) --quiet -C engine/resources
+
 # build a `mgmt` binary for current host os/arch
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) go.mod go.sum
+$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build $(TRIMPATH) -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -220,11 +218,15 @@ build: $(PROGRAM)
 build-debug: LDFLAGS=
 build-debug: $(PROGRAM)
 
+# if you're using the bad/dev branch, you might want this too!
+baddev: BUILD_FLAGS = -tags 'noaugeas novirt'
+baddev: $(PROGRAM)
+
 # pattern rule target for (cross)building, mgmt-OS-ARCH will be expanded to the correct build
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) go.mod go.sum | lang funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum | lang resources funcgen
 	@# If you need to run `go mod tidy` then this can trigger.
 	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
@@ -240,6 +242,7 @@ crossbuild: ${crossbuild_targets}
 clean: ## clean things up
 	$(MAKE) --quiet -C test clean
 	$(MAKE) --quiet -C lang clean
+	$(MAKE) --quiet -C engine/resources clean
 	$(MAKE) --quiet -C misc/mkosi clean
 	rm -f lang/core/generated_funcs.go || true
 	rm -f lang/core/generated_funcs_test.go || true
@@ -643,5 +646,6 @@ funcgen: lang/core/generated_funcs.go
 lang/core/generated_funcs.go: lang/funcs/funcgen/*.go lang/core/funcgen.yaml lang/funcs/funcgen/templates/generated_funcs.go.tpl
 	@echo "Generating: funcs..."
 	@go run `find lang/funcs/funcgen/ -maxdepth 1 -type f -name '*.go' -not -name '*_test.go'` -templates=lang/funcs/funcgen/templates/generated_funcs.go.tpl >/dev/null
+	@gofmt -s -w $@
 
 # vim: ts=8

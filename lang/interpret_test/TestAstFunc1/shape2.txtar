@@ -1,0 +1,16 @@
+-- main.mcl --
+$lambda = func($x) {
+	$x + "!"
+}
+
+test [$lambda("hello"),] {}
+-- OUTPUT --
+Edge: _operator -> composite: []str # 0
+Edge: const: str("!") -> _operator # b
+Edge: const: str("+") -> _operator # op
+Edge: const: str("hello") -> _operator # a
+Vertex: _operator
+Vertex: composite: []str
+Vertex: const: str("!")
+Vertex: const: str("+")
+Vertex: const: str("hello")

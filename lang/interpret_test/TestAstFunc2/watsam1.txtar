@@ -1,0 +1,14 @@
+-- main.mcl --
+$call = func($f, $arg) {
+	$f($arg)
+}
+
+$lambda = func($x) {
+	$call(func($z) { "hello" + $x }, "nope")
+}
+
+$s = $lambda("world")
+
+test [$s,] {}
+-- OUTPUT --
+Vertex: test[helloworld]

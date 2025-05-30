@@ -1,0 +1,22 @@
+-- main.mcl --
+import "fmt"
+import "math"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+	$newindex = if math.mod($index, 2) == 0 {
+		$index
+	} else {
+		42
+	}
+	$s = fmt.printf("%s is %d", $value, $newindex)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a is 0]
+Vertex: test[b is 42]
+Vertex: test[c is 2]

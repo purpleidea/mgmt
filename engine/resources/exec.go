@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -38,6 +38,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -56,6 +57,12 @@ func init() {
 }
 
 // ExecRes is an exec resource for running commands.
+//
+// This resource attempts to minimise the effects of the execution environment,
+// and, in particular, will start the new process with an empty environment (as
+// would `execve` with an empty `envp` array). If you want the environment to
+// inherit the mgmt process' environment, you can import it from "sys" and use
+// it with `env => sys.env()` in your exec resource.
 type ExecRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -90,7 +97,9 @@ type ExecRes struct {
 	Cwd string `lang:"cwd" yaml:"cwd"`
 
 	// Shell is the (optional) shell to use to run the cmd. If you specify
-	// this, then you can't use the Args parameter.
+	// this, then you can't use the Args parameter. Note that unless you
+	// use absolute paths, or set the PATH variable, the shell might not be
+	// able to find the program you're trying to run.
 	Shell string `lang:"shell" yaml:"shell"`
 
 	// Timeout is the number of seconds to wait before sending a Kill to the
@@ -99,7 +108,9 @@ type ExecRes struct {
 	Timeout uint64 `lang:"timeout" yaml:"timeout"`
 
 	// Env allows the user to specify environment variables for script
-	// execution. These are taken using a map of format of VAR_NAME -> value.
+	// execution. These are taken using a map of format of VAR_KEY -> value.
+	// Omitting this value or setting it to an empty array will cause the
+	// program to be run with an empty environment.
 	Env map[string]string `lang:"env" yaml:"env"`
 
 	// WatchCmd is the command to run to detect event changes. Each line of
@@ -108,6 +119,9 @@ type ExecRes struct {
 
 	// WatchCwd is the Cwd for the WatchCmd. See the docs for Cwd.
 	WatchCwd string `lang:"watchcwd" yaml:"watchcwd"`
+
+	// WatchFiles is a list of files that will be kept track of.
+	WatchFiles []string `lang:"watchfiles" yaml:"watchfiles"`
 
 	// WatchShell is the Shell for the WatchCmd. See the docs for Shell.
 	WatchShell string `lang:"watchshell" yaml:"watchshell"`
@@ -151,10 +165,28 @@ type ExecRes struct {
 	// used for any command being run.
 	Group string `lang:"group" yaml:"group"`
 
+	// SendOutput is a value which can be sent for the Send/Recv Output
+	// field if no value is available in the cache. This is used in very
+	// specialized scenarios (particularly prototyping and unclean
+	// environments) and should not be used routinely. It should be used
+	// only in situations where we didn't produce our own sending values,
+	// and there are none in the cache, and instead are relying on a runtime
+	// mechanism to help us out. This can commonly occur if you wish to make
+	// incremental progress when locally testing some code using Send/Recv,
+	// but you are combining it with --tmp-prefix for other reasons.
+	SendOutput *string `lang:"send_output" yaml:"send_output"`
+
+	// SendStdout is like SendOutput but for stdout alone. See those docs.
+	SendStdout *string `lang:"send_stdout" yaml:"send_stdout"`
+
+	// SendStderr is like SendOutput but for stderr alone. See those docs.
+	SendStderr *string `lang:"send_stderr" yaml:"send_stderr"`
+
 	output *string // all cmd output, read only, do not set!
 	stdout *string // the cmd stdout, read only, do not set!
 	stderr *string // the cmd stderr, read only, do not set!
 
+	dir           string // the path to local storage
 	interruptChan chan struct{}
 	wg            *sync.WaitGroup
 }
@@ -187,6 +219,12 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("the Args param can't be used when Cmd has args")
 	}
 
+	for _, file := range obj.WatchFiles {
+		if !strings.HasPrefix(file, "/") {
+			return fmt.Errorf("the path (`%s`) in WatchFiles must be absolute", file)
+		}
+	}
+
 	if obj.Creates != "" && !strings.HasPrefix(obj.Creates, "/") {
 		return fmt.Errorf("the Creates param must be an absolute path")
 	}
@@ -215,6 +253,12 @@ func (obj *ExecRes) Validate() error {
 func (obj *ExecRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	dir, err := obj.init.VarDir("")
+	if err != nil {
+		return errwrap.Wrapf(err, "could not get VarDir in Init()")
+	}
+	obj.dir = dir
+
 	obj.interruptChan = make(chan struct{})
 	obj.wg = &sync.WaitGroup{}
 
@@ -228,10 +272,13 @@ func (obj *ExecRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ExecRes) Watch(ctx context.Context) error {
-	defer obj.wg.Wait()
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 
 	ioChan := make(chan *cmdOutput)
 	rwChan := make(chan recwatch.Event)
+	filesChan := make(chan recwatch.Event)
+
 	var watchCmd *exec.Cmd
 	if obj.WatchCmd != "" {
 		var cmdName string
@@ -271,6 +318,46 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		}
 	}
 
+	for _, file := range obj.WatchFiles {
+		recurse := strings.HasSuffix(file, "/") // check if it's a file or dir
+		recWatcher, err := recwatch.NewRecWatcher(file, recurse)
+		if err != nil {
+			return err
+		}
+		defer recWatcher.Close()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				var files recwatch.Event
+				var ok bool
+				var shutdown bool
+
+				select {
+				case files, ok = <-recWatcher.Events(): // receiving events
+				case <-ctx.Done(): // unblock
+					return
+				}
+
+				if !ok {
+					err := fmt.Errorf("channel shutdown")
+					files = recwatch.Event{Error: err}
+					shutdown = true
+				}
+
+				select {
+				case filesChan <- files: // send events
+					if shutdown { // optimization to free early
+						return
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
 	if obj.Creates != "" {
 		recWatcher, err := recwatch.NewRecWatcher(obj.Creates, false)
 		if err != nil {
@@ -282,7 +369,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case data, ok := <-ioChan:
@@ -321,8 +407,8 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				obj.init.Logf("watch out:")
 				obj.init.Logf("%s", s)
 			}
-			if data.text != "" {
-				send = true
+			if data.text == "" { // TODO: do we want to skip event?
+				continue
 			}
 
 		case event, ok := <-rwChan:
@@ -332,17 +418,20 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
-			send = true
+
+		case files, ok := <-filesChan:
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected recwatch shutdown")
+			}
+			if err := files.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 
@@ -353,6 +442,10 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// If we receive a refresh signal, then the engine skips the IsStateOK()
 	// check and this will run. It is still guarded by the IfCmd, but it can
 	// have a chance to execute, and all without the check of obj.Refresh()!
+
+	if err := obj.checkApplyReadCache(); err != nil {
+		return false, err
+	}
 
 	if obj.IfCmd != "" { // if there is no onlyif check, we should just run
 		var cmdName string
@@ -413,6 +506,13 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 				obj.init.Logf("ifcmd out:")
 				obj.init.Logf("%s", s)
 			}
+			//if err := obj.checkApplyWriteCache(); err != nil {
+			//	return false, err
+			//}
+			obj.safety()
+			if err := obj.send(); err != nil {
+				return false, err
+			}
 			return true, nil // don't run
 		}
 		if s := out.String(); s == "" {
@@ -426,12 +526,26 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.Creates != "" { // gate the extra syscall
 		if _, err := os.Stat(obj.Creates); err == nil {
 			obj.init.Logf("creates file exists, skipping cmd")
+			//if err := obj.checkApplyWriteCache(); err != nil {
+			//	return false, err
+			//}
+			obj.safety()
+			if err := obj.send(); err != nil {
+				return false, err
+			}
 			return true, nil // don't run
 		}
 	}
 
 	// state is not okay, no work done, exit, but without error
 	if !apply {
+		//if err := obj.checkApplyWriteCache(); err != nil {
+		//	return false, err
+		//}
+		//obj.safety()
+		if err := obj.send(); err != nil {
+			return false, err
+		}
 		return false, nil
 	}
 
@@ -644,11 +758,10 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
-	if err := obj.init.Send(&ExecSends{
-		Output: obj.output,
-		Stdout: obj.stdout,
-		Stderr: obj.stderr,
-	}); err != nil {
+	if err := obj.checkApplyWriteCache(); err != nil {
+		return false, err
+	}
+	if err := obj.send(); err != nil {
 		return false, err
 	}
 
@@ -658,6 +771,77 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// know that we have applied since the state was set not ok by event!
 	// This now happens automatically after the engine runs CheckApply().
 	return false, nil // success
+}
+
+// send is a helper to avoid duplication of the same send operation.
+func (obj *ExecRes) send() error {
+	return obj.init.Send(&ExecSends{
+		Output: obj.output,
+		Stdout: obj.stdout,
+		Stderr: obj.stderr,
+	})
+}
+
+// safety is a helper function that populates the cached "send" values if they
+// are empty. It must only be called right before actually sending any values,
+// and right before CheckApply returns. It should be used only in situations
+// where we didn't produce our own sending values, and there are none in the
+// cache, and instead are relying on a runtime mechanism to help us out. This
+// mechanism is useful as a backstop for when we're running in unclean
+// scenarios.
+func (obj *ExecRes) safety() {
+	if x := obj.SendOutput; x != nil && obj.output == nil {
+		s := *x // copy
+		obj.output = &s
+	}
+	if x := obj.SendStdout; x != nil && obj.stdout == nil {
+		s := *x // copy
+		obj.stdout = &s
+	}
+	if x := obj.SendStderr; x != nil && obj.stderr == nil {
+		s := *x // copy
+		obj.stderr = &s
+	}
+}
+
+// checkApplyReadCache is a helper to do all our reading from the cache.
+func (obj *ExecRes) checkApplyReadCache() error {
+	output, err := engineUtil.ReadData(path.Join(obj.dir, "output"))
+	if err != nil {
+		return err
+	}
+	obj.output = output
+
+	stdout, err := engineUtil.ReadData(path.Join(obj.dir, "stdout"))
+	if err != nil {
+		return err
+	}
+	obj.stdout = stdout
+
+	stderr, err := engineUtil.ReadData(path.Join(obj.dir, "stderr"))
+	if err != nil {
+		return err
+	}
+	obj.stderr = stderr
+
+	return nil
+}
+
+// checkApplyWriteCache is a helper to do all our writing into the cache.
+func (obj *ExecRes) checkApplyWriteCache() error {
+	if _, err := engineUtil.WriteData(path.Join(obj.dir, "output"), obj.output); err != nil {
+		return err
+	}
+
+	if _, err := engineUtil.WriteData(path.Join(obj.dir, "stdout"), obj.stdout); err != nil {
+		return err
+	}
+
+	if _, err := engineUtil.WriteData(path.Join(obj.dir, "stderr"), obj.stderr); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -698,6 +882,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	if obj.WatchShell != res.WatchShell {
 		return fmt.Errorf("the WatchShell differs")
 	}
+	if err := engineUtil.StrListCmp(obj.WatchFiles, res.WatchFiles); err != nil {
+		return errwrap.Wrapf(err, "the WatchFiles differ")
+	}
 
 	if obj.IfCmd != res.IfCmd {
 		return fmt.Errorf("the IfCmd differs")
@@ -728,6 +915,16 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if obj.Group != res.Group {
 		return fmt.Errorf("the Group differs")
+	}
+
+	if err := engineUtil.StrPtrCmp(obj.SendOutput, res.SendOutput); err != nil {
+		return errwrap.Wrapf(err, "the SendOutput differs")
+	}
+	if err := engineUtil.StrPtrCmp(obj.SendStdout, res.SendStdout); err != nil {
+		return errwrap.Wrapf(err, "the SendStdout differs")
+	}
+	if err := engineUtil.StrPtrCmp(obj.SendStderr, res.SendStderr); err != nil {
+		return errwrap.Wrapf(err, "the SendStderr differs")
 	}
 
 	return nil

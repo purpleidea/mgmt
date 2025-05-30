@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -30,6 +30,7 @@
 package full
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -49,11 +50,17 @@ import (
 // particular output node, which the function returns so that the caller may
 // connect that output node to more nodes down the line.
 //
+// That's all done with the V field. You call it using the CallWithFuncs method.
+// This function also has a variant that takes a direct function implementation
+// which it can get called if needed. That's done with the F field. You call it
+// using the CallWithValues method.
+//
 // The function can also return an error which could represent that something
 // went horribly wrong. (Think, an internal panic.)
 type FuncValue struct {
 	types.Base
-	V func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
+	V interfaces.GraphSig
+	F interfaces.FuncSig
 	T *types.Type // contains ordered field types, arg names are a bonus part
 }
 
@@ -65,8 +72,12 @@ func NewFunc(t *types.Type) *FuncValue {
 	v := func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error) {
 		return nil, fmt.Errorf("nil function") // TODO: is this correct?
 	}
+	f := func(context.Context, []types.Value) (types.Value, error) {
+		return nil, fmt.Errorf("nil function") // TODO: is this correct?
+	}
 	return &FuncValue{
 		V: v,
+		F: f,
 		T: t,
 	}
 }
@@ -145,12 +156,20 @@ func (obj *FuncValue) Func() interface{} {
 }
 
 // Set sets the function value to be a new function.
-func (obj *FuncValue) Set(fn func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)) error { // TODO: change method name?
+func (obj *FuncValue) Set(fn interfaces.GraphSig) error { // TODO: change method name?
 	obj.V = fn
 	return nil // TODO: can we do any sort of checking here?
 }
 
-// Call calls the function with the provided txn and args.
-func (obj *FuncValue) Call(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+// CallWithValues calls the function with the provided value args.
+func (obj *FuncValue) CallWithValues(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.F == nil {
+		return nil, fmt.Errorf("nil function") // TODO: Should we use ErrCantSpeculate?
+	}
+	return obj.F(ctx, args)
+}
+
+// CallWithFuncs calls the function with the provided txn and func args.
+func (obj *FuncValue) CallWithFuncs(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 	return obj.V(txn, args)
 }

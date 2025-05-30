@@ -1,0 +1,3 @@
+user "mgmttest" {
+	state => "exists",
+}

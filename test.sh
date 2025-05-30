@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # runs all (or selected) test suite(s) in test/ and aggregates results
 # Usage:
 #	./test.sh
@@ -45,7 +45,7 @@ function skip-testsuite() {
 		echo skipping "$@" "($REASON)"
 		echo 'SKIP'
 	else
-		# if a skipped suite is explicity called, run it anyway
+		# if a skipped suite is explicitly called, run it anyway
 		if test "test-$testsuite" == "$testname"; then
 			run-testsuite "$@"
 		fi
@@ -65,6 +65,7 @@ if label-block "basic"; then
 	run-testsuite ./test/test-headerfmt.sh
 	run-testsuite ./test/test-markdownlint.sh
 	run-testsuite ./test/test-commit-message.sh
+	run-testsuite ./test/test-docs-generate.sh
 	run-testsuite ./test/test-govet.sh
 	run-testsuite ./test/test-examples.sh
 	run-testsuite ./test/test-gotest.sh

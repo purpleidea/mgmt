@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -181,7 +181,7 @@ func (obj RHVSlice) Less(i, j int) bool {
 	li := len(si)
 	lj := len(sj)
 
-	if li != lj { // eg: http:ui vs. http:ui:text
+	if li != lj { // eg: http:server:ui vs. http:server:ui:text
 		return li > lj // reverse
 	}
 

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -56,7 +56,14 @@ const (
 )
 
 func init() {
+	info := &simple.Info{
+		Pure: true,
+		Memo: true,
+		Fast: true,
+		Spec: true,
+	}
 	RegisterOperator("+", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(str, str) str",       // concatenation
@@ -64,6 +71,9 @@ func init() {
 			"func(float, float) float", // floating-point addition
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
 			switch k := input[0].Type().Kind; k {
 			case types.KindStr:
 				return &types.StrValue{
@@ -88,6 +98,7 @@ func init() {
 	})
 
 	RegisterOperator("-", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) int",       // subtraction
@@ -112,6 +123,7 @@ func init() {
 	})
 
 	RegisterOperator("*", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) ?1"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) int",       // multiplication
@@ -138,6 +150,7 @@ func init() {
 
 	// don't add: `func(int, float) float` or: `func(float, int) float`
 	RegisterOperator("/", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) float"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) float",     // division
@@ -170,6 +183,7 @@ func init() {
 	})
 
 	RegisterOperator("==", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: func(typ *types.Type) error {
 			//if typ == nil { // happens within iter
@@ -215,6 +229,7 @@ func init() {
 	})
 
 	RegisterOperator("!=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: func(typ *types.Type) error {
 			//if typ == nil { // happens within iter
@@ -260,6 +275,7 @@ func init() {
 	})
 
 	RegisterOperator("<", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // less-than
@@ -285,6 +301,7 @@ func init() {
 	})
 
 	RegisterOperator(">", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // greater-than
@@ -310,6 +327,7 @@ func init() {
 	})
 
 	RegisterOperator("<=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // less-than-equal
@@ -335,6 +353,7 @@ func init() {
 	})
 
 	RegisterOperator(">=", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(?1, ?1) bool"),
 		C: simple.TypeMatch([]string{
 			"func(int, int) bool",     // greater-than-equal
@@ -363,6 +382,7 @@ func init() {
 	// TODO: is there a way for the engine to have
 	// short-circuit operators, and does it matter?
 	RegisterOperator("and", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -373,6 +393,7 @@ func init() {
 
 	// logical or
 	RegisterOperator("or", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -383,6 +404,7 @@ func init() {
 
 	// logical not (unary operator)
 	RegisterOperator("not", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func(bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.BoolValue{
@@ -393,6 +415,7 @@ func init() {
 
 	// pi operator (this is an easter egg to demo a zero arg operator)
 	RegisterOperator("π", &simple.Scaffold{
+		I: info,
 		T: types.NewType("func() float"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			return &types.FloatValue{
@@ -475,6 +498,9 @@ type OperatorFunc struct {
 
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
+
+	lastOp string
+	fn     interfaces.FuncSig
 
 	result types.Value // last calculated output
 }
@@ -639,8 +665,11 @@ func (obj *OperatorFunc) Info() *interfaces.Info {
 	// avoid an accidental return of unification variables when we should be
 	// getting them from FuncInfer, and not from here. (During unification!)
 	return &interfaces.Info{
+		// XXX: get these from the scaffold
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.Type, // func kind, which includes operator arg as input
 		Err:  obj.Validate(),
 	}
@@ -654,8 +683,6 @@ func (obj *OperatorFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *OperatorFunc) Stream(ctx context.Context) error {
-	var op, lastOp string
-	var fn interfaces.FuncSig
 	defer close(obj.init.Output) // the sender closes
 	for {
 		select {
@@ -685,43 +712,12 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 				return fmt.Errorf("bad args, got: %v, want: %v", keys, obj.Type.Ord)
 			}
 
-			// build up arg list
-			args := []types.Value{}
-			for _, name := range obj.Type.Ord {
-				v, exists := input.Struct()[name]
-				if !exists {
-					// programming error
-					return fmt.Errorf("function engine was early, missing arg: %s", name)
-				}
-				if name == operatorArgName {
-					op = v.Str()
-					continue // skip over the operator arg
-				}
-				args = append(args, v)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
 			}
 
-			if op == "" {
-				// programming error
-				return fmt.Errorf("operator cannot be empty, args: %v", keys)
-			}
-			// operator selection is dynamic now, although mostly it
-			// should not change... to do so is probably uncommon...
-			if fn == nil {
-				fn = obj.findFunc(op)
-
-			} else if op != lastOp {
-				// TODO: check sig is compatible instead?
-				return fmt.Errorf("op changed from %s to %s", lastOp, op)
-			}
-
-			if fn == nil {
-				return fmt.Errorf("func not found for operator `%s` with sig: `%+v`", op, obj.Type)
-			}
-			lastOp = op
-
-			var result types.Value
-
-			result, err := fn(ctx, args) // (Value, error)
+			result, err := obj.Call(ctx, args) // (Value, error)
 			if err != nil {
 				return errwrap.Wrapf(err, "problem running function")
 			}
@@ -747,6 +743,52 @@ func (obj *OperatorFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Copy is implemented so that the obj.Type value is not lost if we copy this
+// function.
+func (obj *OperatorFunc) Copy() interfaces.Func {
+	return &OperatorFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *OperatorFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	op := args[0].Str()
+
+	if op == "" {
+		// programming error
+		return nil, fmt.Errorf("operator cannot be empty, args: %v", args)
+	}
+
+	// operator selection is dynamic now, although mostly it
+	// should not change... to do so is probably uncommon...
+	if obj.fn == nil {
+		obj.fn = obj.findFunc(op)
+
+	} else if op != obj.lastOp {
+		// TODO: check sig is compatible instead?
+		return nil, fmt.Errorf("op changed from %s to %s", obj.lastOp, op)
+	}
+
+	if obj.fn == nil {
+		return nil, fmt.Errorf("func not found for operator `%s` with sig: `%+v`", op, obj.Type)
+	}
+	obj.lastOp = op
+
+	newArgs := []types.Value{}
+	for i, x := range args {
+		if i == 0 {
+			continue // skip over the operator
+		}
+		newArgs = append(newArgs, x)
+	}
+
+	return obj.fn(ctx, newArgs) // (Value, error)
 }
 
 // removeOperatorArg returns a copy of the input KindFunc type, without the

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -46,7 +46,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/purpleidea/mgmt/etcd/scheduler" // TODO: is it okay to import this without abstraction?
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -87,6 +88,10 @@ type ScheduleFunc struct {
 	built bool // was this function built yet?
 
 	init *interfaces.Init
+
+	args []types.Value
+
+	world engine.SchedulerWorld
 
 	namespace string
 	scheduler *scheduler.Result
@@ -242,6 +247,17 @@ func (obj *ScheduleFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *ScheduleFunc) Copy() interfaces.Func {
+	return &ScheduleFunc{
+		Type:  obj.Type, // don't copy because we use this after unification
+		built: obj.built,
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
 // Validate tells us if the input struct takes a valid form.
 func (obj *ScheduleFunc) Validate() error {
 	if !obj.built {
@@ -267,6 +283,8 @@ func (obj *ScheduleFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// output is list of hostnames chosen
 		Sig: sig, // func kind
 		Err: obj.Validate(),
@@ -276,6 +294,13 @@ func (obj *ScheduleFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ScheduleFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+
+	world, ok := obj.init.World.(engine.SchedulerWorld)
+	if !ok {
+		return fmt.Errorf("world backend does not support the SchedulerWorld interface")
+	}
+	obj.world = world
+
 	obj.watchChan = make(chan *schedulerResult)
 	//obj.init.Debug = true // use this for local debugging
 	return nil
@@ -303,7 +328,15 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			namespace := input.Struct()[scheduleArgNameNamespace].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			namespace := args[0].Str()
+
+			//namespace := input.Struct()[scheduleArgNameNamespace].Str()
 			if namespace == "" {
 				return fmt.Errorf("can't use an empty namespace")
 			}
@@ -368,7 +401,7 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 					obj.init.Logf("starting scheduler...")
 				}
 				var err error
-				obj.scheduler, err = obj.init.World.Scheduler(obj.namespace, schedulerOpts...)
+				obj.scheduler, err = obj.world.Scheduler(obj.namespace, schedulerOpts...)
 				if err != nil {
 					return errwrap.Wrapf(err, "can't create scheduler")
 				}

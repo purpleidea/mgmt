@@ -1,0 +1,21 @@
+import "datetime"
+import "fmt"
+import "math"
+
+$now = datetime.now()
+$num = if math.mod($now, 2) == 0 {
+	13
+} else {
+	$now
+}
+
+# NOTE: the graph doesn't get regenerated just because a map value changed!
+$m = {"foo" => 42, "bar" => $num,}
+
+forkv $k, $v in $m {
+	print ["${k}",] {
+		msg => fmt.printf("hello %s; count: %d", $k, $v),
+
+		Meta:autogroup => true,
+	}
+}

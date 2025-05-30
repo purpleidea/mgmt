@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -43,7 +43,8 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/gapi"         // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/puppet"            // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/puppet/langpuppet" // import so the gapi registers
-	_ "github.com/purpleidea/mgmt/yamlgraph"         // import so the gapi registers
+	"github.com/purpleidea/mgmt/util/pprof"
+	_ "github.com/purpleidea/mgmt/yamlgraph" // import so the gapi registers
 	"go.etcd.io/etcd/server/v3/etcdmain"
 )
 
@@ -90,6 +91,16 @@ func main() {
 		},
 		Args: os.Args,
 	}
+
+	// Run profiling if it's activated.
+	// TODO: Should we pass a logger into this?
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := pprof.Run(ctx); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+		//return // redundant
+	}
+	defer cancel()
 
 	name := ""
 	if len(data.Args) > 1 {

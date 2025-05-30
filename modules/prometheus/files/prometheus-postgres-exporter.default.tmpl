@@ -1,0 +1,13 @@
+# Connection string for the PostgreSQL database. You need to either connect as
+# superuser, or create a user with enough rights, as described in
+# /usr/share/doc/prometheus-postgres-exporter/README.Debian
+
+# DATA_SOURCE_NAME='postgresql://login:password@hostname:port/'
+# DATA_SOURCE_NAME='user=prometheus host=/run/postgresql dbname=postgres'
+DATA_SOURCE_NAME='{{ .dsn }}'
+
+# Set the command-line arguments to pass to the server.
+# Due to shell escaping, to pass backslashes for regexes, you need to double
+# them (\\d for \d). If running under systemd, you need to double them again
+# (\\\\d to mean \d), and escape newlines too.
+ARGS="{{ .args }}"

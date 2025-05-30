@@ -1,0 +1,43 @@
+import "world"
+
+http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+	#address => ":8080",	# you can override the name like this
+}
+
+# you can add a raw file like this...
+http:server:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+http:server:ui "/ui/" {
+	#path => "/ui/",	# we can override the name like this if needed
+
+	data => struct{
+		title => "mgmt http ui",
+		head => "", # XXX: type unification requires specifying all fields for now
+	},
+}
+
+$text1_id = "text1"
+$range1_id = "range1"
+http:server:ui:input $text1_id {
+	store => "world://",
+	sort => "a",
+}
+
+http:server:ui:input $range1_id {
+	store => "world://",
+	type => "range://?min=0&max=5&step=1",
+	sort => "b",
+}
+
+#Http:Server:Ui:Input[$text1_id].value -> Kv[$text1_id].value
+#kv $text1_id { # store in world
+#}
+
+$ret1 = world.getval($text1_id)	# name of kv resource
+
+test "get1" {
+	anotherstr => $ret1->value,
+	onlyshow => ["AnotherStr",], # displays nicer
+}

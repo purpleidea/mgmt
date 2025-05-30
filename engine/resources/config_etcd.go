@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -65,6 +65,8 @@ type ConfigEtcdRes struct {
 	// IdealClusterSize to zero.
 	AllowSizeShutdown bool `lang:"allow_size_shutdown"`
 
+	world engine.EtcdWorld
+
 	// sizeFlag determines whether sizeCheckApply already ran or not.
 	sizeFlag bool
 
@@ -93,6 +95,12 @@ func (obj *ConfigEtcdRes) Validate() error {
 func (obj *ConfigEtcdRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	world, ok := obj.init.World.(engine.EtcdWorld)
+	if !ok {
+		return fmt.Errorf("world backend does not support the EtcdWorld interface")
+	}
+	obj.world = world
+
 	obj.interruptChan = make(chan struct{})
 
 	return nil
@@ -109,7 +117,7 @@ func (obj *ConfigEtcdRes) Watch(ctx context.Context) error {
 	defer wg.Wait()
 	innerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	ch, err := obj.init.World.IdealClusterSizeWatch(util.CtxWithWg(innerCtx, wg))
+	ch, err := obj.world.IdealClusterSizeWatch(util.CtxWithWg(innerCtx, wg))
 	if err != nil {
 		return errwrap.Wrapf(err, "could not watch ideal cluster size")
 	}
@@ -158,7 +166,7 @@ func (obj *ConfigEtcdRes) sizeCheckApply(ctx context.Context, apply bool) (bool,
 		}
 	}()
 
-	val, err := obj.init.World.IdealClusterSizeGet(ctx)
+	val, err := obj.world.IdealClusterSizeGet(ctx)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "could not get ideal cluster size")
 	}
@@ -181,7 +189,7 @@ func (obj *ConfigEtcdRes) sizeCheckApply(ctx context.Context, apply bool) (bool,
 
 	// set!
 	// This is run as a transaction so we detect if we needed to change it.
-	changed, err := obj.init.World.IdealClusterSizeSet(ctx, obj.IdealClusterSize)
+	changed, err := obj.world.IdealClusterSizeSet(ctx, obj.IdealClusterSize)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "could not set ideal cluster size")
 	}

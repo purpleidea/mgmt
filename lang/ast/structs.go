@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@ package ast
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -45,7 +46,9 @@ import (
 	"github.com/purpleidea/mgmt/lang/core"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/funcs/structs"
+	"github.com/purpleidea/mgmt/lang/funcs/txn"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -160,16 +163,16 @@ const (
 	scopedOrderingPrefix = "scoped:"
 
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
-	ErrNoStoredScope = interfaces.Error("scope is not stored in this node")
+	ErrNoStoredScope = util.Error("scope is not stored in this node")
 
 	// ErrFuncPointerNil is an error that explains the function pointer for
 	// table lookup is missing. If this happens, it's most likely a
 	// programming error.
-	ErrFuncPointerNil = interfaces.Error("missing func pointer for table")
+	ErrFuncPointerNil = util.Error("missing func pointer for table")
 
 	// ErrTableNoValue is an error that explains the table is missing a
 	// value. If this happens, it's most likely a programming error.
-	ErrTableNoValue = interfaces.Error("missing value in table")
+	ErrTableNoValue = util.Error("missing value in table")
 )
 
 var (
@@ -180,6 +183,9 @@ var (
 // StmtBind is a representation of an assignment, which binds a variable to an
 // expression.
 type StmtBind struct {
+	Textarea
+	data *interfaces.Data
+
 	Ident string
 	Value interfaces.Expr
 	Type  *types.Type
@@ -205,6 +211,9 @@ func (obj *StmtBind) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtBind) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Ident == "" {
 		return fmt.Errorf("bind ident is empty")
 	}
@@ -221,9 +230,11 @@ func (obj *StmtBind) Interpolate() (interfaces.Stmt, error) {
 		return nil, err
 	}
 	return &StmtBind{
-		Ident: obj.Ident,
-		Value: interpolated,
-		Type:  obj.Type,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		Ident:    obj.Ident,
+		Value:    interpolated,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -242,9 +253,11 @@ func (obj *StmtBind) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtBind{
-		Ident: obj.Ident,
-		Value: value,
-		Type:  obj.Type,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		Ident:    obj.Ident,
+		Value:    value,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -319,6 +332,7 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Value,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
@@ -336,10 +350,15 @@ func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // children might. This particular bind statement adds its linked expression to
 // the graph. It is not logically done in the ExprVar since that could exist
 // multiple times for the single binding operation done here.
-func (obj *StmtBind) Graph() (*pgraph.Graph, error) {
-	emptyContext := map[string]interfaces.Func{}
-	g, _, err := obj.Value.Graph(emptyContext)
+func (obj *StmtBind) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	g, _, err := obj.privateGraph(env)
 	return g, err
+}
+
+// privateGraph is a more general version of Graph which also returns a Func.
+func (obj *StmtBind) privateGraph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	g, f, err := obj.Value.Graph(env)
+	return g, f, err
 }
 
 // Output for the bind statement produces no output. Any values of interest come
@@ -359,12 +378,17 @@ func (obj *StmtBind) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // TODO: Consider expanding Name to have this return a list of Res's in the
 // Output function if it is a map[name]struct{}, or even a map[[]name]struct{}.
 type StmtRes struct {
+	Textarea
 	data *interfaces.Data
 
 	Kind     string            // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr   // unique name for the res of this kind
 	namePtr  interfaces.Func   // ptr for table lookup
 	Contents []StmtResContents // list of fields/edges in parsed order
+
+	// Collect specifies that we are "collecting" exported resources. The
+	// names come from other hosts (or from ourselves during a self-export).
+	Collect bool
 }
 
 // String returns a short representation of this statement.
@@ -393,6 +417,9 @@ func (obj *StmtRes) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtRes) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Kind == "" {
 		return fmt.Errorf("res kind is empty")
 	}
@@ -401,12 +428,12 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 		return fmt.Errorf("kind must not contain underscores")
 	}
 
-	obj.data = data
 	if err := obj.Name.Init(data); err != nil {
 		return err
 	}
 	fieldNames := make(map[string]struct{})
 	metaNames := make(map[string]struct{})
+	foundCollect := false
 	for _, x := range obj.Contents {
 
 		// Duplicate checking for identical field names.
@@ -425,10 +452,25 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 			// Ignore the generic MetaField struct field for now.
 			// You're allowed to have more than one Meta field, but
 			// they can't contain the same field twice.
+			// FIXME: Allow duplicates in certain fields, such as
+			// ones that are lists... In this case, they merge...
 			if _, exists := metaNames[line.Property]; exists && line.Property != MetaField {
 				return fmt.Errorf("resource has duplicate meta entry of: %s", line.Property)
 			}
 			metaNames[line.Property] = struct{}{}
+		}
+
+		// Duplicate checking for more than one StmtResCollect entry.
+		if stmt, ok := x.(*StmtResCollect); ok && foundCollect {
+			// programming error
+			return fmt.Errorf("duplicate collect body in res")
+
+		} else if ok {
+			if stmt.Kind != obj.Kind {
+				// programming error
+				return fmt.Errorf("unexpected kind mismatch")
+			}
+			foundCollect = true // found one
 		}
 
 		if err := x.Init(data); err != nil {
@@ -457,10 +499,12 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtRes{
+		Textarea: obj.Textarea,
 		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
+		Collect:  obj.Collect,
 	}, nil
 }
 
@@ -497,10 +541,12 @@ func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtRes{
+		Textarea: obj.Textarea,
 		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		Contents: contents,
+		Collect:  obj.Collect,
 	}, nil
 }
 
@@ -609,6 +655,10 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	// TODO: Check other cases, like if it's a function call, and we know it
 	// can only return a single string. (Eg: fmt.printf for example.)
 	isString := false
+	isListString := false
+	isCollectType := false
+	typCollectFuncInType := types.NewType(funcs.CollectFuncInType)
+
 	if _, ok := obj.Name.(*ExprStr); ok {
 		// It's a string! (A plain string was specified.)
 		isString = true
@@ -618,16 +668,44 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 		if typ.Cmp(types.TypeStr) == nil {
 			isString = true
 		}
+		if typ.Cmp(types.TypeListStr) == nil {
+			isListString = true
+		}
+		if typ.Cmp(typCollectFuncInType) == nil {
+			isCollectType = true
+		}
 	}
 
-	typExpr := types.TypeListStr // default
+	var typExpr *types.Type // nil
 
 	// If we pass here, we only allow []str, no need for exclusives!
 	if isString {
 		typExpr = types.TypeStr
 	}
+	if isListString {
+		typExpr = types.TypeListStr // default for regular resources
+	}
+	if isCollectType && obj.Collect {
+		typExpr = typCollectFuncInType
+	}
+
+	if !obj.Collect && typExpr == nil {
+		typExpr = types.TypeListStr // default for regular resources
+	}
+	if obj.Collect && typExpr == nil {
+		// TODO: do we want a default for collect ?
+		typExpr = typCollectFuncInType // default for collect resources
+	}
+
+	if typExpr == nil { // If we don't know for sure, then we unify it all.
+		typExpr = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
 
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Name,
 		Expect: typExpr, // the name
 		Actual: typ,
@@ -652,7 +730,7 @@ func (obj *StmtRes) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // Since I don't think it's worth extending the Stmt API for this, we can do the
 // checks here at the beginning, and error out if something was invalid. In this
 // particular case, the issue is one of catching duplicate meta fields.
-func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
+func (obj *StmtRes) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	metaNames := make(map[string]struct{})
 	for _, x := range obj.Contents {
 		line, ok := x.(*StmtResMeta)
@@ -692,15 +770,16 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 		return nil, err
 	}
 
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
+
 	graph.AddGraph(g)
 	obj.namePtr = f
 
 	for _, x := range obj.Contents {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -717,23 +796,103 @@ func (obj *StmtRes) Graph() (*pgraph.Graph, error) {
 // the case of this resource statement, this is definitely the case.
 func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.namePtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	nameValue, exists := table[obj.namePtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
-	names := []string{} // list of names to build
+	// the host in this output is who the data is from
+	mapping, err := obj.collect(table) // gives us (name, host, data)
+	if err != nil {
+		return nil, err
+	}
+	if mapping == nil { // for when we're not collecting
+		mapping = make(map[string]map[string]string)
+	}
+
+	typCollectFuncInType := types.NewType(funcs.CollectFuncInType)
+
+	names := []string{} // list of names to build (TODO: map instead?)
 	switch {
 	case types.TypeStr.Cmp(nameValue.Type()) == nil:
 		name := nameValue.Str() // must not panic
 		names = append(names, name)
+		for n := range mapping { // delete everything else
+			if n == name {
+				continue
+			}
+			delete(mapping, n)
+		}
+		if !obj.Collect { // mapping is empty, add a stub
+			mapping[name] = map[string]string{
+				"*": "", // empty data
+			}
+		}
 
 	case types.TypeListStr.Cmp(nameValue.Type()) == nil:
 		for _, x := range nameValue.List() { // must not panic
 			name := x.Str() // must not panic
 			names = append(names, name)
+			if !obj.Collect { // mapping is empty, add a stub
+				mapping[name] = map[string]string{
+					"*": "", // empty data
+				}
+			}
+		}
+		for n := range mapping { // delete everything else
+			if util.StrInList(n, names) {
+				continue
+			}
+			delete(mapping, n)
+		}
+
+	case obj.Collect && typCollectFuncInType.Cmp(nameValue.Type()) == nil:
+		hosts := make(map[string]string)
+		for _, x := range nameValue.List() { // must not panic
+			st, ok := x.(*types.StructValue)
+			if !ok {
+				// programming error
+				return nil, fmt.Errorf("value is not a struct")
+			}
+			name, exists := st.Lookup(funcs.CollectFuncInFieldName)
+			if !exists {
+				// programming error?
+				return nil, fmt.Errorf("name field is missing")
+			}
+			host, exists := st.Lookup(funcs.CollectFuncInFieldHost)
+			if !exists {
+				// programming error?
+				return nil, fmt.Errorf("host field is missing")
+			}
+
+			s := name.Str() // must not panic
+			if s == "" {
+				return nil, fmt.Errorf("empty name")
+			}
+			names = append(names, s)
+			// host is the input telling us who we want to pull from
+			hosts[s] = host.Str() // correspondence map
+			if hosts[s] == "" {
+				return nil, fmt.Errorf("empty host")
+			}
+			if hosts[s] == "*" { // safety
+				return nil, fmt.Errorf("invalid star host")
+			}
+		}
+		for n, m := range mapping { // delete everything else
+			if !util.StrInList(n, names) {
+				delete(mapping, n)
+				continue
+			}
+			host := hosts[n] // the matching host for the name
+			for h := range m {
+				if h == host {
+					continue
+				}
+				delete(mapping[n], h)
+			}
 		}
 
 	default:
@@ -743,22 +902,32 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
-	for _, name := range names {
-		res, err := obj.resource(table, name)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error building resource")
-		}
 
-		edgeList, err := obj.edges(table, name)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error building edges")
-		}
-		edges = append(edges, edgeList...)
+	apply, err := obj.metaparams(table)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error generating metaparams")
+	}
 
-		if err := obj.metaparams(table, res); err != nil { // set metaparams
-			return nil, errwrap.Wrapf(err, "error building meta params")
+	// TODO: sort?
+	for name, m := range mapping {
+		for host, data := range m {
+			// host may be * if not collecting
+			// data may be empty if not collecting
+			_ = host                                    // unused atm
+			res, err := obj.resource(table, name, data) // one at a time
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error building resource")
+			}
+			apply(res) // apply metaparams, does not return anything
+
+			resources = append(resources, res)
+
+			edgeList, err := obj.edges(table, name)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error building edges")
+			}
+			edges = append(edges, edgeList...)
 		}
-		resources = append(resources, res)
 	}
 
 	return &interfaces.Output{
@@ -767,12 +936,126 @@ func (obj *StmtRes) Output(table map[interfaces.Func]types.Value) (*interfaces.O
 	}, nil
 }
 
+// collect is a helper function to pull out the collected resource data.
+func (obj *StmtRes) collect(table map[interfaces.Func]types.Value) (map[string]map[string]string, error) {
+	if !obj.Collect {
+		return nil, nil // nothing to do
+	}
+
+	var val types.Value // = nil
+	typCollectFuncOutType := types.NewType(funcs.CollectFuncOutType)
+
+	for _, line := range obj.Contents {
+		x, ok := line.(*StmtResCollect)
+		if !ok {
+			continue
+		}
+		if x.Kind != obj.Kind { // should have been caught in Init
+			// programming error
+			return nil, fmt.Errorf("unexpected kind mismatch")
+		}
+		if x.valuePtr == nil {
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+		}
+
+		fv, exists := table[x.valuePtr]
+		if !exists {
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+		}
+
+		if err := fv.Type().Cmp(typCollectFuncOutType); err != nil { // "[]struct{name str; host str; data str}"
+			// programming error
+			return nil, fmt.Errorf("resource collect has invalid type: `%+v`", err)
+		}
+
+		val = fv // found
+		break
+	}
+
+	if val == nil {
+		// programming error?
+		return nil, nil // nothing found
+	}
+
+	m := make(map[string]map[string]string) // name, host, data
+
+	// TODO: Store/cache this in an efficient form to avoid loops...
+	// TODO: Eventually collect func should, for efficiency, return:
+	// map{struct{name str; host str}: str} // key => $data
+	for _, x := range val.List() { // must not panic
+		st, ok := x.(*types.StructValue)
+		if !ok {
+			// programming error
+			return nil, fmt.Errorf("value is not a struct")
+		}
+		name, exists := st.Lookup(funcs.CollectFuncOutFieldName)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("name field is missing")
+		}
+		host, exists := st.Lookup(funcs.CollectFuncOutFieldHost)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("host field is missing")
+		}
+		data, exists := st.Lookup(funcs.CollectFuncOutFieldData)
+		if !exists {
+			// programming error?
+			return nil, fmt.Errorf("data field is missing")
+		}
+
+		// found!
+		n := name.Str() // must not panic
+		h := host.Str() // must not panic
+
+		if n == "" {
+			// programming error
+			return nil, fmt.Errorf("name field is empty")
+		}
+		if h == "" {
+			// programming error
+			return nil, fmt.Errorf("host field is empty")
+		}
+		if h == "*" {
+			// programming error
+			return nil, fmt.Errorf("host field is a start")
+		}
+
+		if _, exists := m[n]; !exists {
+			m[n] = make(map[string]string)
+		}
+		m[n][h] = data.Str() // must not panic
+	}
+
+	return m, nil
+}
+
 // resource is a helper function to generate the res that comes from this.
 // TODO: it could memoize some of the work to avoid re-computation when looped
-func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName string) (engine.Res, error) {
+func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName, data string) (engine.Res, error) {
 	res, err := engine.NewNamedResource(obj.Kind, resName)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
+	}
+
+	// Here we start off by using the collected resource as the base params.
+	// Then we overwrite over it below using the normal param setup methods.
+	if obj.Collect && data != "" {
+		// TODO: Do we want to have an alternate implementation of this
+		// to go along with the ExportableRes encoding variant?
+		if res, err = engineUtil.B64ToRes(data); err != nil {
+			return nil, fmt.Errorf("can't convert from B64: %v", err)
+		}
+		if res.Kind() != obj.Kind { // should have been caught somewhere
+			// programming error
+			return nil, fmt.Errorf("unexpected kind mismatch")
+		}
+		obj.data.Logf("collect: %s", res)
+
+		// XXX: Do we want to change any metaparams when we collect?
+		// XXX: Do we want to change any metaparams when we export?
+		//res.MetaParams().Hidden = false // unlikely, but I considered
+		res.MetaParams().Export = []string{} // don't re-export
 	}
 
 	sv := reflect.ValueOf(res).Elem() // pointer to struct, then struct
@@ -795,11 +1078,11 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return nil, ErrFuncPointerNil
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return nil, ErrTableNoValue
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -843,11 +1126,11 @@ func (obj *StmtRes) resource(table map[interfaces.Func]types.Value, resName stri
 		}
 
 		if x.valuePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		fv, exists := table[x.valuePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// mutate the struct field f with the mcl data in fv
@@ -875,11 +1158,11 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return nil, ErrFuncPointerNil
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return nil, ErrTableNoValue
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -888,11 +1171,11 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 		}
 
 		if x.EdgeHalf.namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue, exists := table[x.EdgeHalf.namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -992,23 +1275,10 @@ func (obj *StmtRes) edges(table map[interfaces.Func]types.Value, resName string)
 	return edges, nil
 }
 
-// metaparams is a helper function to set the metaparams that come from the
-// resource on to the individual resource we're working on.
-func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine.Res) error {
-	meta := engine.DefaultMetaParams.Copy() // defaults
-
-	var rm *engine.ReversibleMeta
-	if r, ok := res.(engine.ReversibleRes); ok {
-		rm = r.ReversibleMeta() // get a struct with the defaults
-	}
-	var aem *engine.AutoEdgeMeta
-	if r, ok := res.(engine.EdgeableRes); ok {
-		aem = r.AutoEdgeMeta() // get a struct with the defaults
-	}
-	var agm *engine.AutoGroupMeta
-	if r, ok := res.(engine.GroupableRes); ok {
-		agm = r.AutoGroupMeta() // get a struct with the defaults
-	}
+// metaparams is a helper function to get the metaparams that come from the
+// resource AST so we can eventually set them on the individual resource.
+func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value) (func(engine.Res), error) {
+	apply := []func(engine.Res){}
 
 	for _, line := range obj.Contents {
 		x, ok := line.(*StmtResMeta)
@@ -1018,11 +1288,11 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 
 		if x.Condition != nil {
 			if x.conditionPtr == nil {
-				return ErrFuncPointerNil
+				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
 			b, exists := table[x.conditionPtr]
 			if !exists {
-				return ErrTableNoValue
+				return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1031,47 +1301,63 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 		}
 
 		if x.metaExprPtr == nil {
-			return ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		v, exists := table[x.metaExprPtr]
 		if !exists {
-			return ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		switch p := strings.ToLower(x.Property); p {
 		// TODO: we could add these fields dynamically if we were fancy!
 		case "noop":
-			meta.Noop = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Noop = v.Bool() // must not panic
+			})
 
 		case "retry":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow
-			meta.Retry = int16(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Retry = int16(x)
+			})
 
 		case "retryreset":
-			meta.RetryReset = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().RetryReset = v.Bool() // must not panic
+			})
 
 		case "delay":
 			x := v.Int() // must not panic
 			// TODO: check that it isn't signed
-			meta.Delay = uint64(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Delay = uint64(x)
+			})
 
 		case "poll":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow and isn't signed
-			meta.Poll = uint32(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Poll = uint32(x)
+			})
 
 		case "limit": // rate.Limit
 			x := v.Float() // must not panic
-			meta.Limit = rate.Limit(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Limit = rate.Limit(x)
+			})
 
 		case "burst":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow
-			meta.Burst = int(x)
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Burst = int(x)
+			})
 
 		case "reset":
-			meta.Reset = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Reset = v.Bool() // must not panic
+			})
 
 		case "sema": // []string
 			values := []string{}
@@ -1079,65 +1365,126 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 				s := x.Str() // must not panic
 				values = append(values, s)
 			}
-			meta.Sema = values
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Sema = values
+			})
 
 		case "rewatch":
-			meta.Rewatch = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Rewatch = v.Bool() // must not panic
+			})
 
 		case "realize":
-			meta.Realize = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Realize = v.Bool() // must not panic
+			})
 
 		case "dollar":
-			meta.Dollar = v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Dollar = v.Bool() // must not panic
+			})
+
+		case "hidden":
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Hidden = v.Bool() // must not panic
+			})
+
+		case "export": // []string
+			values := []string{}
+			for _, x := range v.List() { // must not panic
+				s := x.Str() // must not panic
+				values = append(values, s)
+			}
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Export = values
+			})
 
 		case "reverse":
-			if rm != nil {
-				rm.Disabled = !v.Bool() // must not panic
-			}
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.ReversibleRes)
+				if !ok {
+					return
+				}
+				// *engine.ReversibleMeta
+				rm := r.ReversibleMeta() // get current values
+				rm.Disabled = !v.Bool()  // must not panic
+				r.SetReversibleMeta(rm)  // set
+			})
 
 		case "autoedge":
-			if aem != nil {
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.EdgeableRes)
+				if !ok {
+					return
+				}
+				// *engine.AutoEdgeMeta
+				aem := r.AutoEdgeMeta()  // get current values
 				aem.Disabled = !v.Bool() // must not panic
-			}
+				r.SetAutoEdgeMeta(aem)   // set
+			})
 
 		case "autogroup":
-			if agm != nil {
+			apply = append(apply, func(res engine.Res) {
+				r, ok := res.(engine.GroupableRes)
+				if !ok {
+					return
+				}
+				// *engine.AutoGroupMeta
+				agm := r.AutoGroupMeta() // get current values
 				agm.Disabled = !v.Bool() // must not panic
-			}
+				r.SetAutoGroupMeta(agm)  // set
+
+			})
 
 		case MetaField:
 			if val, exists := v.Struct()["noop"]; exists {
-				meta.Noop = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Noop = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["retry"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
-				meta.Retry = int16(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Retry = int16(x)
+				})
 			}
 			if val, exists := v.Struct()["retryreset"]; exists {
-				meta.RetryReset = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().RetryReset = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["delay"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it isn't signed
-				meta.Delay = uint64(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Delay = uint64(x)
+				})
 			}
 			if val, exists := v.Struct()["poll"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow and isn't signed
-				meta.Poll = uint32(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Poll = uint32(x)
+				})
 			}
 			if val, exists := v.Struct()["limit"]; exists {
 				x := val.Float() // must not panic
-				meta.Limit = rate.Limit(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Limit = rate.Limit(x)
+				})
 			}
 			if val, exists := v.Struct()["burst"]; exists {
 				x := val.Int() // must not panic
 				// TODO: check that it doesn't overflow
-				meta.Burst = int(x)
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Burst = int(x)
+				})
 			}
 			if val, exists := v.Struct()["reset"]; exists {
-				meta.Reset = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Reset = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["sema"]; exists {
 				values := []string{}
@@ -1145,44 +1492,90 @@ func (obj *StmtRes) metaparams(table map[interfaces.Func]types.Value, res engine
 					s := x.Str() // must not panic
 					values = append(values, s)
 				}
-				meta.Sema = values
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Sema = values
+				})
 			}
 			if val, exists := v.Struct()["rewatch"]; exists {
-				meta.Rewatch = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Rewatch = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["realize"]; exists {
-				meta.Realize = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Realize = val.Bool() // must not panic
+				})
 			}
 			if val, exists := v.Struct()["dollar"]; exists {
-				meta.Dollar = val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Dollar = val.Bool() // must not panic
+				})
 			}
-			if val, exists := v.Struct()["reverse"]; exists && rm != nil {
-				rm.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["hidden"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Hidden = val.Bool() // must not panic
+				})
 			}
-			if val, exists := v.Struct()["autoedge"]; exists && aem != nil {
-				aem.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["export"]; exists {
+				values := []string{}
+				for _, x := range val.List() { // must not panic
+					s := x.Str() // must not panic
+					values = append(values, s)
+				}
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Export = values
+				})
 			}
-			if val, exists := v.Struct()["autogroup"]; exists && agm != nil {
-				agm.Disabled = !val.Bool() // must not panic
+			if val, exists := v.Struct()["reverse"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.ReversibleRes)
+					if !ok {
+						return
+					}
+					// *engine.ReversibleMeta
+					rm := r.ReversibleMeta()  // get current values
+					rm.Disabled = !val.Bool() // must not panic
+					r.SetReversibleMeta(rm)   // set
+				})
+			}
+			if val, exists := v.Struct()["autoedge"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.EdgeableRes)
+					if !ok {
+						return
+					}
+					// *engine.AutoEdgeMeta
+					aem := r.AutoEdgeMeta()    // get current values
+					aem.Disabled = !val.Bool() // must not panic
+					r.SetAutoEdgeMeta(aem)     // set
+				})
+			}
+			if val, exists := v.Struct()["autogroup"]; exists {
+				apply = append(apply, func(res engine.Res) {
+					r, ok := res.(engine.GroupableRes)
+					if !ok {
+						return
+					}
+					// *engine.AutoGroupMeta
+					agm := r.AutoGroupMeta()   // get current values
+					agm.Disabled = !val.Bool() // must not panic
+					r.SetAutoGroupMeta(agm)    // set
+
+				})
 			}
 
 		default:
-			return fmt.Errorf("unknown property: %s", p)
+			return nil, fmt.Errorf("unknown property: %s", p)
 		}
 	}
 
-	res.SetMetaParams(meta) // set it!
-	if r, ok := res.(engine.ReversibleRes); ok {
-		r.SetReversibleMeta(rm) // set
-	}
-	if r, ok := res.(engine.EdgeableRes); ok {
-		r.SetAutoEdgeMeta(aem) // set
-	}
-	if r, ok := res.(engine.GroupableRes); ok {
-		r.SetAutoGroupMeta(agm) // set
+	fn := func(res engine.Res) {
+		for _, f := range apply {
+			f(res)
+		}
 	}
 
-	return nil
+	return fn, nil
 }
 
 // StmtResContents is the interface that is met by the resource contents. Look
@@ -1195,12 +1588,15 @@ type StmtResContents interface {
 	Ordering(map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error)
 	SetScope(*interfaces.Scope) error
 	TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error)
-	Graph() (*pgraph.Graph, error)
+	Graph(env *interfaces.Env) (*pgraph.Graph, error)
 }
 
 // StmtResField represents a single field in the parsed resource representation.
 // This does not satisfy the Stmt interface.
 type StmtResField struct {
+	Textarea
+	data *interfaces.Data
+
 	Field        string
 	Value        interfaces.Expr
 	valuePtr     interfaces.Func // ptr for table lookup
@@ -1234,6 +1630,9 @@ func (obj *StmtResField) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResField) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Field == "" {
 		return fmt.Errorf("res field name is empty")
 	}
@@ -1264,6 +1663,8 @@ func (obj *StmtResField) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResField{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Field:     obj.Field,
 		Value:     interpolated,
 		Condition: condition,
@@ -1297,6 +1698,8 @@ func (obj *StmtResField) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResField{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Field:     obj.Field,
 		Value:     value,
 		Condition: condition,
@@ -1388,6 +1791,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj.Condition,
 			Expect: types.TypeBool,
 			Actual: typ,
@@ -1428,6 +1832,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 
 	// regular scenario
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Value,
 		Expect: typExpr,
 		Actual: typ,
@@ -1446,13 +1851,13 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResField) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resfield")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Value.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Value.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -1460,7 +1865,7 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 	obj.valuePtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1474,6 +1879,9 @@ func (obj *StmtResField) Graph() (*pgraph.Graph, error) {
 // StmtResEdge represents a single edge property in the parsed resource
 // representation. This does not satisfy the Stmt interface.
 type StmtResEdge struct {
+	Textarea
+	data *interfaces.Data
+
 	Property     string // TODO: iota constant instead?
 	EdgeHalf     *StmtEdgeHalf
 	Condition    interfaces.Expr // the value will be used if nil or true
@@ -1506,6 +1914,9 @@ func (obj *StmtResEdge) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResEdge) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Property == "" {
 		return fmt.Errorf("res edge property is empty")
 	}
@@ -1539,6 +1950,8 @@ func (obj *StmtResEdge) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResEdge{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Property:  obj.Property,
 		EdgeHalf:  interpolated,
 		Condition: condition,
@@ -1571,6 +1984,8 @@ func (obj *StmtResEdge) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResEdge{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Property:  obj.Property,
 		EdgeHalf:  edgeHalf,
 		Condition: condition,
@@ -1663,6 +2078,7 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj.Condition,
 			Expect: types.TypeBool,
 			Actual: typ,
@@ -1682,20 +2098,20 @@ func (obj *StmtResEdge) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResEdge) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resedge")
 	if err != nil {
 		return nil, err
 	}
 
-	g, err := obj.EdgeHalf.Graph()
+	g, err := obj.EdgeHalf.Graph(env)
 	if err != nil {
 		return nil, err
 	}
 	graph.AddGraph(g)
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -1713,6 +2129,9 @@ func (obj *StmtResEdge) Graph() (*pgraph.Graph, error) {
 // correspond to the particular meta parameter specified. This does not satisfy
 // the Stmt interface.
 type StmtResMeta struct {
+	Textarea
+	data *interfaces.Data
+
 	Property     string // TODO: iota constant instead?
 	MetaExpr     interfaces.Expr
 	metaExprPtr  interfaces.Func // ptr for table lookup
@@ -1746,6 +2165,9 @@ func (obj *StmtResMeta) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtResMeta) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Property == "" {
 		return fmt.Errorf("res meta property is empty")
 	}
@@ -1764,6 +2186,8 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "rewatch":
 	case "realize":
 	case "dollar":
+	case "hidden":
+	case "export":
 	case "reverse":
 	case "autoedge":
 	case "autogroup":
@@ -1799,6 +2223,8 @@ func (obj *StmtResMeta) Interpolate() (StmtResContents, error) {
 		}
 	}
 	return &StmtResMeta{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Property:  obj.Property,
 		MetaExpr:  interpolated,
 		Condition: condition,
@@ -1831,6 +2257,8 @@ func (obj *StmtResMeta) Copy() (StmtResContents, error) {
 		return obj, nil
 	}
 	return &StmtResMeta{
+		Textarea:  obj.Textarea,
+		data:      obj.data,
 		Property:  obj.Property,
 		MetaExpr:  metaExpr,
 		Condition: condition,
@@ -1924,6 +2352,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 
 		// XXX: Is this needed?
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj.Condition,
 			Expect: types.TypeBool,
 			Actual: typ,
@@ -1976,6 +2405,12 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	case "dollar":
 		typExpr = types.TypeBool
 
+	case "hidden":
+		typExpr = types.TypeBool
+
+	case "export":
+		typExpr = types.TypeListStr
+
 	case "reverse":
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = types.TypeBool
@@ -1992,7 +2427,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = wrap(types.TypeBool)
@@ -2002,6 +2437,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	}
 
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.MetaExpr,
 		Expect: typExpr,
 		Actual: typ,
@@ -2020,13 +2456,13 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
+func (obj *StmtResMeta) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("resmeta")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.MetaExpr.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.MetaExpr.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2034,7 +2470,7 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 	obj.metaExprPtr = f
 
 	if obj.Condition != nil {
-		g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+		g, f, err := obj.Condition.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2042,6 +2478,198 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 		obj.conditionPtr = f
 
 	}
+
+	return graph, nil
+}
+
+// StmtResCollect represents hidden resource collection data in the resource.
+// This does not satisfy the Stmt interface.
+type StmtResCollect struct {
+	//Textarea
+	data *interfaces.Data
+
+	Kind     string
+	Value    interfaces.Expr
+	valuePtr interfaces.Func // ptr for table lookup
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtResCollect) String() string {
+	// TODO: add .String() for Condition and Value
+	return fmt.Sprintf("rescollect(%s)", obj.Kind)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtResCollect) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Value.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtResCollect) Init(data *interfaces.Data) error {
+	obj.data = data
+	//obj.Textarea.Setup(data)
+
+	if obj.Kind == "" {
+		return fmt.Errorf("res kind is empty")
+	}
+
+	return obj.Value.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This interpolate is different It is different from the interpolate found in
+// the Expr and Stmt interfaces because it returns a different type as output.
+func (obj *StmtResCollect) Interpolate() (StmtResContents, error) {
+	interpolated, err := obj.Value.Interpolate()
+	if err != nil {
+		return nil, err
+	}
+	return &StmtResCollect{
+		//Textarea: obj.Textarea,
+		data:  obj.data,
+		Kind:  obj.Kind,
+		Value: interpolated,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtResCollect) Copy() (StmtResContents, error) {
+	copied := false
+	value, err := obj.Value.Copy()
+	if err != nil {
+		return nil, err
+	}
+	if value != obj.Value { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtResCollect{
+		//Textarea: obj.Textarea,
+		data:  obj.data,
+		Kind:  obj.Kind,
+		Value: value,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtResCollect) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// additional constraint...
+	edge := &pgraph.SimpleEdge{Name: "stmtrescollectvalue"}
+	graph.AddEdge(obj.Value, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+	nodes := []interfaces.Expr{obj.Value}
+
+	for _, node := range nodes {
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtrescollect"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtResCollect) SetScope(scope *interfaces.Scope) error {
+	if err := obj.Value.SetScope(scope, map[string]interfaces.Expr{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions. It is different from the TypeCheck method
+// found in the Stmt interface because it adds an input parameter.
+func (obj *StmtResCollect) TypeCheck(kind string) ([]*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Value.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	//invars, err := obj.Value.Check(typ) // don't call this here!
+
+	if !engine.IsKind(kind) {
+		return nil, fmt.Errorf("invalid resource kind: %s", kind)
+	}
+
+	typExpr := types.NewType(funcs.CollectFuncOutType)
+	if typExpr == nil {
+		return nil, fmt.Errorf("unexpected nil type")
+	}
+
+	// regular scenario
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.Value,
+		Expect: typExpr,
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. It is interesting to note that nothing directly adds an edge
+// to the resources created, but rather, once all the values (expressions) with
+// no outgoing edges have produced at least a single value, then the resources
+// know they're able to be built.
+func (obj *StmtResCollect) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("rescollect")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Value.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.valuePtr = f
 
 	return graph, nil
 }
@@ -2055,6 +2683,9 @@ func (obj *StmtResMeta) Graph() (*pgraph.Graph, error) {
 // names are compatible and listed. In this case of Send/Recv, only lists of
 // length two are legal.
 type StmtEdge struct {
+	Textarea
+	data *interfaces.Data
+
 	EdgeHalfList []*StmtEdgeHalf // represents a chain of edges
 
 	// TODO: should notify be an Expr?
@@ -2083,6 +2714,9 @@ func (obj *StmtEdge) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdge) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	for _, x := range obj.EdgeHalfList {
 		if err := x.Init(data); err != nil {
 			return err
@@ -2109,6 +2743,8 @@ func (obj *StmtEdge) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtEdge{
+		Textarea:     obj.Textarea,
+		data:         obj.data,
 		EdgeHalfList: edgeHalfList,
 		Notify:       obj.Notify,
 	}, nil
@@ -2133,6 +2769,8 @@ func (obj *StmtEdge) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtEdge{
+		Textarea:     obj.Textarea,
+		data:         obj.data,
 		EdgeHalfList: edgeHalfList,
 		Notify:       obj.Notify,
 	}, nil
@@ -2282,14 +2920,14 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // to the edges created, but rather, once all the values (expressions) with no
 // outgoing function graph edges have produced at least a single value, then the
 // edges know they're able to be built.
-func (obj *StmtEdge) Graph() (*pgraph.Graph, error) {
+func (obj *StmtEdge) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("edge")
 	if err != nil {
 		return nil, err
 	}
 
 	for _, x := range obj.EdgeHalfList {
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2311,11 +2949,11 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 	// EdgeHalfList goes in a chain, so we increment like i++ and not i+=2.
 	for i := 0; i < len(obj.EdgeHalfList)-1; i++ {
 		if obj.EdgeHalfList[i].namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue1, exists := table[obj.EdgeHalfList[i].namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -2338,11 +2976,11 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 		}
 
 		if obj.EdgeHalfList[i+1].namePtr == nil {
-			return nil, ErrFuncPointerNil
+			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 		nameValue2, exists := table[obj.EdgeHalfList[i+1].namePtr]
 		if !exists {
-			return nil, ErrTableNoValue
+			return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 		}
 
 		names2 := []string{} // list of names to build
@@ -2394,6 +3032,9 @@ func (obj *StmtEdge) Output(table map[interfaces.Func]types.Value) (*interfaces.
 // is assumed that a list of strings should be expected. More mechanisms to
 // determine if the value is static may be added over time.
 type StmtEdgeHalf struct {
+	Textarea
+	data *interfaces.Data
+
 	Kind     string          // kind of resource, eg: pkg, file, svc, etc...
 	Name     interfaces.Expr // unique name for the res of this kind
 	namePtr  interfaces.Func // ptr for table lookup
@@ -2421,6 +3062,8 @@ func (obj *StmtEdgeHalf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
 	if obj.Kind == "" {
 		return fmt.Errorf("edge half kind is empty")
 	}
@@ -2443,6 +3086,7 @@ func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
 	}
 
 	return &StmtEdgeHalf{
+		Textarea: obj.Textarea,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
@@ -2464,6 +3108,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 		return obj, nil
 	}
 	return &StmtEdgeHalf{
+		Textarea: obj.Textarea,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
@@ -2523,6 +3168,7 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 	}
 
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Name,
 		Expect: typExpr, // the name
 		Actual: typ,
@@ -2541,8 +3187,8 @@ func (obj *StmtEdgeHalf) TypeCheck() ([]*interfaces.UnificationInvariant, error)
 // to the resources created, but rather, once all the values (expressions) with
 // no outgoing edges have produced at least a single value, then the resources
 // know they're able to be built.
-func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
-	g, f, err := obj.Name.Graph(map[string]interfaces.Func{})
+func (obj *StmtEdgeHalf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	g, f, err := obj.Name.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2557,6 +3203,9 @@ func (obj *StmtEdgeHalf) Graph() (*pgraph.Graph, error) {
 // optional, it is the else branch, although this struct allows either to be
 // optional, even if it is not commonly used.
 type StmtIf struct {
+	Textarea
+	data *interfaces.Data
+
 	Condition    interfaces.Expr
 	conditionPtr interfaces.Func // ptr for table lookup
 	ThenBranch   interfaces.Stmt // optional, but usually present
@@ -2604,6 +3253,9 @@ func (obj *StmtIf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtIf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if err := obj.Condition.Init(data); err != nil {
 		return err
 	}
@@ -2643,6 +3295,8 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 		}
 	}
 	return &StmtIf{
+		Textarea:   obj.Textarea,
+		data:       obj.data,
 		Condition:  condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch,
@@ -2685,6 +3339,8 @@ func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtIf{
+		Textarea:   obj.Textarea,
+		data:       obj.data,
 		Condition:  condition,
 		ThenBranch: thenBranch,
 		ElseBranch: elseBranch,
@@ -2807,6 +3463,7 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 
 	typExpr := types.TypeBool // default
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Condition,
 		Expect: typExpr, // the condition
 		Actual: typ,
@@ -2842,13 +3499,13 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
+func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, err
 	}
 
-	g, f, err := obj.Condition.Graph(map[string]interfaces.Func{})
+	g, f, err := obj.Condition.Graph(env)
 	if err != nil {
 		return nil, err
 	}
@@ -2859,7 +3516,7 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 		if x == nil {
 			continue
 		}
-		g, err := x.Graph()
+		g, err := x.Graph(env)
 		if err != nil {
 			return nil, err
 		}
@@ -2875,11 +3532,11 @@ func (obj *StmtIf) Graph() (*pgraph.Graph, error) {
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
 	if obj.conditionPtr == nil {
-		return nil, ErrFuncPointerNil
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
 	b, exists := table[obj.conditionPtr]
 	if !exists {
-		return nil, ErrTableNoValue
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
 	}
 
 	var output *interfaces.Output
@@ -2910,17 +3567,1031 @@ func (obj *StmtIf) Output(table map[interfaces.Func]types.Value) (*interfaces.Ou
 	}, nil
 }
 
+// StmtFor represents an iteration over a list. The body contains statements.
+type StmtFor struct {
+	Textarea
+	data  *interfaces.Data
+	scope *interfaces.Scope // store for referencing this later
+
+	Index string // no $ prefix
+	Value string // no $ prefix
+
+	TypeIndex *types.Type
+	TypeValue *types.Type
+
+	indexParam *ExprParam
+	valueParam *ExprParam
+
+	Expr    interfaces.Expr
+	exprPtr interfaces.Func // ptr for table lookup
+	Body    interfaces.Stmt // optional, but usually present
+
+	iterBody []interfaces.Stmt
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtFor) String() string {
+	// TODO: improve/change this if needed
+	s := fmt.Sprintf("for($%s, $%s)", obj.Index, obj.Value)
+	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	if obj.Body != nil {
+		s += fmt.Sprintf(" { %s }", obj.Body.String())
+	}
+	return s
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtFor) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Expr.Apply(fn); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtFor) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
+	obj.iterBody = []interfaces.Stmt{}
+
+	if err := obj.Expr.Init(data); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Init(data); err != nil {
+			return err
+		}
+	}
+	// XXX: remove this check if we can!
+	for _, stmt := range obj.Body.(*StmtProg).Body {
+		if _, ok := stmt.(*StmtImport); !ok {
+			continue
+		}
+		return fmt.Errorf("a StmtImport can't be contained inside a StmtFor")
+	}
+	return nil
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtFor) Interpolate() (interfaces.Stmt, error) {
+	expr, err := obj.Expr.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Expr")
+	}
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Interpolate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not interpolate Body")
+		}
+	}
+	return &StmtFor{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Index: obj.Index,
+		Value: obj.Value,
+
+		TypeIndex: obj.TypeIndex,
+		TypeValue: obj.TypeValue,
+
+		indexParam: obj.indexParam, // XXX: Should we copy/include this here?
+		valueParam: obj.valueParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
+	copied := false
+	expr, err := obj.Expr.Copy()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy Expr")
+	}
+	if expr != obj.Expr { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Copy()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy Body")
+		}
+		if body != obj.Body {
+			copied = true
+		}
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtFor{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Index: obj.Index,
+		Value: obj.Value,
+
+		TypeIndex: obj.TypeIndex,
+		TypeValue: obj.TypeValue,
+
+		indexParam: obj.indexParam, // XXX: Should we copy/include this here?
+		valueParam: obj.valueParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtFor) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraints: We know the condition has to be satisfied
+	// before this for statement itself can be used, since we depend on that
+	// value.
+	edge := &pgraph.SimpleEdge{Name: "stmtforexpr1"}
+	graph.AddEdge(obj.Expr, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Expr.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "stmtforexpr2"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	if obj.Body == nil { // return early
+		return graph, cons, nil
+	}
+
+	// additional constraints...
+	edge1 := &pgraph.SimpleEdge{Name: "stmtforbodyexpr"}
+	graph.AddEdge(obj.Expr, obj.Body, edge1) // prod -> cons
+	edge2 := &pgraph.SimpleEdge{Name: "stmtforbody1"}
+	graph.AddEdge(obj.Body, obj, edge2) // prod -> cons
+
+	nodes := []interfaces.Stmt{obj.Body} // XXX: are there more to add?
+
+	for _, node := range nodes { // "dry"
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtforbody2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope // store for later
+
+	if err := obj.Expr.SetScope(scope, map[string]interfaces.Expr{}); err != nil { // XXX: empty sctx?
+		return err
+	}
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
+
+	// We need to build the two ExprParam's here, and those will contain the
+	// type unification variables, so we might as well populate those parts
+	// now, rather than waiting for the subsequent TypeCheck step.
+
+	typExprIndex := obj.TypeIndex
+	if obj.TypeIndex == nil {
+		typExprIndex = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	// We know this one is types.TypeInt, but we only officially determine
+	// that in the subsequent TypeCheck step since we need to relate things
+	// to the input param so it can be easily solved if it's a variable...
+	obj.indexParam = newExprParam(
+		obj.Index,
+		typExprIndex,
+	)
+
+	typExprValue := obj.TypeValue
+	if obj.TypeValue == nil {
+		typExprValue = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.valueParam = newExprParam(
+		obj.Value,
+		typExprValue,
+	)
+
+	newScope := scope.Copy()
+	newScope.Iterated = true // important!
+	newScope.Variables[obj.Index] = obj.indexParam
+	newScope.Variables[obj.Value] = obj.valueParam
+
+	return obj.Body.SetScope(newScope)
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtFor) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Expr.Check here!
+	typ, invariants, err := obj.Expr.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	// The type unification variables get created in SetScope! (If needed!)
+	typExprIndex := obj.indexParam.typ
+	typExprValue := obj.valueParam.typ
+
+	typExpr := &types.Type{
+		Kind: types.KindList,
+		Val:  typExprValue,
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.Expr,
+		Expect: typExpr, // the list
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	// The following two invariants are needed to ensure the ExprParam's are
+	// added to the unification solver so that we actually benefit from that
+	// relationship and solution!
+	invarIndex := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.indexParam,
+		Expect: typExprIndex,  // the list index type
+		Actual: types.TypeInt, // here we finally also say it's an int!
+	}
+	invariants = append(invariants, invarIndex)
+
+	invarValue := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.valueParam,
+		Expect: typExprValue, // the list element type
+		Actual: typExprValue,
+	}
+	invariants = append(invariants, invarValue)
+
+	if obj.Body != nil {
+		invars, err := obj.Body.TypeCheck()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular for statement has lots of complex magic to
+// make it all work.
+func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("for")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Expr.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.exprPtr = f
+
+	if obj.Body == nil { // no loop body, we're done early
+		return graph, nil
+	}
+
+	mutex := &sync.Mutex{}
+
+	// This gets called once per iteration, each time the list changes.
+	appendToIterBody := func(innerTxn interfaces.Txn, index int, value interfaces.Func) error {
+		// Extend the environment with the two loop variables.
+		extendedEnv := env.Copy()
+
+		// calling convention
+		extendedEnv.Variables[obj.indexParam.envKey] = &interfaces.FuncSingleton{
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := &structs.ConstFunc{
+					Value: &types.IntValue{
+						V: int64(index),
+					},
+					NameHint: obj.Index, // XXX: is this right?
+				}
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// XXX: create the function in ForFunc instead?
+		//extendedEnv.Variables[obj.Index] = index
+		//extendedEnv.Variables[obj.Value] = value
+		//extendedEnv.Variables[obj.valueParam.envKey] = value
+		extendedEnv.Variables[obj.valueParam.envKey] = &interfaces.FuncSingleton{ // XXX: We could set this one statically
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := value
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// NOTE: We previously considered doing a "copy singletons" here
+		// instead, but decided we didn't need it after all.
+		body, err := obj.Body.Copy()
+		if err != nil {
+			return err
+		}
+
+		mutex.Lock()
+		obj.iterBody = append(obj.iterBody, body)
+		// TODO: Can we avoid using append and do it this way instead?
+		//obj.iterBody[index] = body
+		mutex.Unlock()
+
+		// Create a subgraph from the lambda's body, instantiating the
+		// lambda's parameters with the args and the other variables
+		// with the nodes in the captured environment.
+		subgraph, err := body.Graph(extendedEnv)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+		}
+
+		innerTxn.AddGraph(subgraph)
+
+		// We don't need an output func because body.Graph is a
+		// statement and it doesn't return an interfaces.Func,
+		// only the expression versions return those!
+		return nil
+	}
+
+	// Add a vertex for the list passing itself.
+	edgeName := structs.ForFuncArgNameList
+	forFunc := &structs.ForFunc{
+		IndexType: obj.indexParam.typ,
+		ValueType: obj.valueParam.typ,
+
+		EdgeName: edgeName,
+
+		AppendToIterBody: appendToIterBody,
+		ClearIterBody: func(length int) { // XXX: use length?
+			mutex.Lock()
+			obj.iterBody = []interfaces.Stmt{}
+			mutex.Unlock()
+		},
+	}
+	graph.AddVertex(forFunc)
+	graph.AddEdge(f, forFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+
+	return graph, nil
+}
+
+// Output returns the output that this "program" produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output.
+func (obj *StmtFor) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.exprPtr == nil {
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+	}
+	expr, exists := table[obj.exprPtr]
+	if !exists {
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+	}
+
+	if obj.Body == nil { // logically body is optional
+		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
+	}
+
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+
+	list := expr.List() // must not panic!
+
+	for index := range list {
+		// index is a golang int, value is an mcl types.Value
+		// XXX: Do we need a mutex around this iterBody access?
+		output, err := obj.iterBody[index].Output(table)
+		if err != nil {
+			return nil, err
+		}
+
+		if output != nil {
+			resources = append(resources, output.Resources...)
+			edges = append(edges, output.Edges...)
+		}
+	}
+
+	return &interfaces.Output{
+		Resources: resources,
+		Edges:     edges,
+	}, nil
+}
+
+// StmtForKV represents an iteration over a map. The body contains statements.
+type StmtForKV struct {
+	Textarea
+	data  *interfaces.Data
+	scope *interfaces.Scope // store for referencing this later
+
+	Key string // no $ prefix
+	Val string // no $ prefix
+
+	TypeKey *types.Type
+	TypeVal *types.Type
+
+	keyParam *ExprParam
+	valParam *ExprParam
+
+	Expr    interfaces.Expr
+	exprPtr interfaces.Func // ptr for table lookup
+	Body    interfaces.Stmt // optional, but usually present
+
+	iterBody map[types.Value]interfaces.Stmt
+}
+
+// String returns a short representation of this statement.
+func (obj *StmtForKV) String() string {
+	// TODO: improve/change this if needed
+	s := fmt.Sprintf("forkv($%s, $%s)", obj.Key, obj.Val)
+	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	if obj.Body != nil {
+		s += fmt.Sprintf(" { %s }", obj.Body.String())
+	}
+	return s
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *StmtForKV) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Expr.Apply(fn); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *StmtForKV) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
+	obj.iterBody = make(map[types.Value]interfaces.Stmt)
+
+	if err := obj.Expr.Init(data); err != nil {
+		return err
+	}
+	if obj.Body != nil {
+		if err := obj.Body.Init(data); err != nil {
+			return err
+		}
+	}
+	// XXX: remove this check if we can!
+	for _, stmt := range obj.Body.(*StmtProg).Body {
+		if _, ok := stmt.(*StmtImport); !ok {
+			continue
+		}
+		return fmt.Errorf("a StmtImport can't be contained inside a StmtForKV")
+	}
+	return nil
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *StmtForKV) Interpolate() (interfaces.Stmt, error) {
+	expr, err := obj.Expr.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Expr")
+	}
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Interpolate()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not interpolate Body")
+		}
+	}
+	return &StmtForKV{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Key: obj.Key,
+		Val: obj.Val,
+
+		TypeKey: obj.TypeKey,
+		TypeVal: obj.TypeVal,
+
+		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
+		valParam: obj.valParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
+	copied := false
+	expr, err := obj.Expr.Copy()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy Expr")
+	}
+	if expr != obj.Expr { // must have been copied, or pointer would be same
+		copied = true
+	}
+
+	var body interfaces.Stmt
+	if obj.Body != nil {
+		body, err = obj.Body.Copy()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not copy Body")
+		}
+		if body != obj.Body {
+			copied = true
+		}
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &StmtForKV{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope, // XXX: Should we copy/include this here?
+
+		Key: obj.Key,
+		Val: obj.Val,
+
+		TypeKey: obj.TypeKey,
+		TypeVal: obj.TypeVal,
+
+		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
+		valParam: obj.valParam, // XXX: Should we copy/include this here?
+
+		Expr:    expr,
+		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
+		Body:    body,
+
+		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *StmtForKV) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraints: We know the condition has to be satisfied
+	// before this for statement itself can be used, since we depend on that
+	// value.
+	edge := &pgraph.SimpleEdge{Name: "stmtforkvexpr1"}
+	graph.AddEdge(obj.Expr, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Expr.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "stmtforkvexpr2"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	if obj.Body == nil { // return early
+		return graph, cons, nil
+	}
+
+	// additional constraints...
+	edge1 := &pgraph.SimpleEdge{Name: "stmtforkvbodyexpr"}
+	graph.AddEdge(obj.Expr, obj.Body, edge1) // prod -> cons
+	edge2 := &pgraph.SimpleEdge{Name: "stmtforkvbody1"}
+	graph.AddEdge(obj.Body, obj, edge2) // prod -> cons
+
+	nodes := []interfaces.Stmt{obj.Body} // XXX: are there more to add?
+
+	for _, node := range nodes { // "dry"
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "stmtforkvbody2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope // store for later
+
+	if err := obj.Expr.SetScope(scope, map[string]interfaces.Expr{}); err != nil { // XXX: empty sctx?
+		return err
+	}
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
+
+	// We need to build the two ExprParam's here, and those will contain the
+	// type unification variables, so we might as well populate those parts
+	// now, rather than waiting for the subsequent TypeCheck step.
+
+	typExprKey := obj.TypeKey
+	if obj.TypeKey == nil {
+		typExprKey = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.keyParam = newExprParam(
+		obj.Key,
+		typExprKey,
+	)
+
+	typExprVal := obj.TypeVal
+	if obj.TypeVal == nil {
+		typExprVal = &types.Type{
+			Kind: types.KindUnification,
+			Uni:  types.NewElem(), // unification variable, eg: ?1
+		}
+	}
+	obj.valParam = newExprParam(
+		obj.Val,
+		typExprVal,
+	)
+
+	newScope := scope.Copy()
+	newScope.Iterated = true // important!
+	newScope.Variables[obj.Key] = obj.keyParam
+	newScope.Variables[obj.Val] = obj.valParam
+
+	return obj.Body.SetScope(newScope)
+}
+
+// TypeCheck returns the list of invariants that this node produces. It does so
+// recursively on any children elements that exist in the AST, and returns the
+// collection to the caller. It calls TypeCheck for child statements, and
+// Infer/Check for child expressions.
+func (obj *StmtForKV) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	// Don't call obj.Expr.Check here!
+	typ, invariants, err := obj.Expr.Infer()
+	if err != nil {
+		return nil, err
+	}
+
+	// The type unification variables get created in SetScope! (If needed!)
+	typExprKey := obj.keyParam.typ
+	typExprVal := obj.valParam.typ
+
+	typExpr := &types.Type{
+		Kind: types.KindMap,
+		Key:  typExprKey,
+		Val:  typExprVal,
+	}
+
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.Expr,
+		Expect: typExpr, // the map
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	// The following two invariants are needed to ensure the ExprParam's are
+	// added to the unification solver so that we actually benefit from that
+	// relationship and solution!
+	invarKey := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.keyParam,
+		Expect: typExprKey, // the map key type
+		Actual: typExprKey, // not necessarily an int!
+	}
+	invariants = append(invariants, invarKey)
+
+	invarVal := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj.valParam,
+		Expect: typExprVal, // the map val type
+		Actual: typExprVal,
+	}
+	invariants = append(invariants, invarVal)
+
+	if obj.Body != nil {
+		invars, err := obj.Body.TypeCheck()
+		if err != nil {
+			return nil, err
+		}
+		invariants = append(invariants, invars...)
+	}
+
+	return invariants, nil
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might. This particular for statement has lots of complex magic to
+// make it all work.
+func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	graph, err := pgraph.NewGraph("forkv")
+	if err != nil {
+		return nil, err
+	}
+
+	g, f, err := obj.Expr.Graph(env)
+	if err != nil {
+		return nil, err
+	}
+	graph.AddGraph(g)
+	obj.exprPtr = f
+
+	if obj.Body == nil { // no loop body, we're done early
+		return graph, nil
+	}
+
+	mutex := &sync.Mutex{}
+
+	// This gets called once per iteration, each time the map changes.
+	setOnIterBody := func(innerTxn interfaces.Txn, ptr types.Value, key, val interfaces.Func) error {
+		// Extend the environment with the two loop variables.
+		extendedEnv := env.Copy()
+
+		// calling convention
+		extendedEnv.Variables[obj.keyParam.envKey] = &interfaces.FuncSingleton{
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := key
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// XXX: create the function in ForKVFunc instead?
+		extendedEnv.Variables[obj.valParam.envKey] = &interfaces.FuncSingleton{ // XXX: We could set this one statically
+			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+				f := val
+				g, err := pgraph.NewGraph("g")
+				if err != nil {
+					return nil, nil, err
+				}
+				g.AddVertex(f)
+				return g, f, nil
+			},
+		}
+
+		// NOTE: We previously considered doing a "copy singletons" here
+		// instead, but decided we didn't need it after all.
+		body, err := obj.Body.Copy()
+		if err != nil {
+			return err
+		}
+
+		mutex.Lock()
+		obj.iterBody[ptr] = body
+		// XXX: Do we fake our map by giving each key an index too?
+		// NOTE: We can't do append since the key might not be an int.
+		//obj.iterBody = append(obj.iterBody, body) // not possible
+		mutex.Unlock()
+
+		// Create a subgraph from the lambda's body, instantiating the
+		// lambda's parameters with the args and the other variables
+		// with the nodes in the captured environment.
+		subgraph, err := body.Graph(extendedEnv)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+		}
+
+		innerTxn.AddGraph(subgraph)
+
+		// We don't need an output func because body.Graph is a
+		// statement and it doesn't return an interfaces.Func,
+		// only the expression versions return those!
+		return nil
+	}
+
+	// Add a vertex for the map passing itself.
+	edgeName := structs.ForKVFuncArgNameMap
+	forKVFunc := &structs.ForKVFunc{
+		KeyType: obj.keyParam.typ,
+		ValType: obj.valParam.typ,
+
+		EdgeName: edgeName,
+
+		SetOnIterBody: setOnIterBody,
+		ClearIterBody: func(length int) { // XXX: use length?
+			mutex.Lock()
+			obj.iterBody = map[types.Value]interfaces.Stmt{}
+			mutex.Unlock()
+		},
+	}
+	graph.AddVertex(forKVFunc)
+	graph.AddEdge(f, forKVFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+
+	return graph, nil
+}
+
+// Output returns the output that this "program" produces. This output is what
+// is used to build the output graph. This only exists for statements. The
+// analogous function for expressions is Value. Those Value functions might get
+// called by this Output function if they are needed to produce the output.
+func (obj *StmtForKV) Output(table map[interfaces.Func]types.Value) (*interfaces.Output, error) {
+	if obj.exprPtr == nil {
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
+	}
+	expr, exists := table[obj.exprPtr]
+	if !exists {
+		return nil, fmt.Errorf("%w: %T", ErrTableNoValue, obj)
+	}
+
+	if obj.Body == nil { // logically body is optional
+		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
+	}
+
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+
+	m := expr.Map() // must not panic!
+
+	for key := range m {
+		// key and val are both an mcl types.Value
+		// XXX: Do we need a mutex around this iterBody access?
+		if _, exists := obj.iterBody[key]; !exists {
+			// programming error
+			return nil, fmt.Errorf("programming error on key: %s", key)
+		}
+		output, err := obj.iterBody[key].Output(table)
+		if err != nil {
+			return nil, err
+		}
+
+		if output != nil {
+			resources = append(resources, output.Resources...)
+			edges = append(edges, output.Edges...)
+		}
+	}
+
+	return &interfaces.Output{
+		Resources: resources,
+		Edges:     edges,
+	}, nil
+}
+
 // StmtProg represents a list of stmt's. This usually occurs at the top-level of
 // any program, and often within an if stmt. It also contains the logic so that
 // the bind statement's are correctly applied in this scope, and irrespective of
 // their order of definition.
 type StmtProg struct {
+	Textarea
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for use by imports
 
 	// TODO: should this be a map? if so, how would we sort it to loop it?
 	importProgs []*StmtProg // list of child programs after running SetScope
 	importFiles []string    // list of files seen during the SetScope import
+
+	nodeOrder []interfaces.Stmt // used for .Graph
 
 	Body []interfaces.Stmt
 }
@@ -2957,6 +4628,7 @@ func (obj *StmtProg) Init(data *interfaces.Data) error {
 	obj.data = data
 	obj.importProgs = []*StmtProg{}
 	obj.importFiles = []string{}
+	obj.nodeOrder = []interfaces.Stmt{}
 	for _, x := range obj.Body {
 		if err := x.Init(data); err != nil {
 			return err
@@ -3038,10 +4710,12 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 		body = append(body, interpolated)
 	}
 	return &StmtProg{
+		Textarea:    obj.Textarea,
 		data:        obj.data,
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
+		nodeOrder:   obj.nodeOrder,
 		Body:        body,
 	}, nil
 }
@@ -3050,6 +4724,9 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 	copied := false
 	body := []interfaces.Stmt{}
+
+	m := make(map[interfaces.Stmt]interfaces.Stmt) // mapping
+
 	for _, x := range obj.Body {
 		cp, err := x.Copy()
 		if err != nil {
@@ -3059,16 +4736,24 @@ func (obj *StmtProg) Copy() (interfaces.Stmt, error) {
 			copied = true
 		}
 		body = append(body, cp)
+		m[x] = cp // store mapping
+	}
+
+	newNodeOrder := []interfaces.Stmt{}
+	for _, n := range obj.nodeOrder {
+		newNodeOrder = append(newNodeOrder, m[n])
 	}
 
 	if !copied { // it's static
 		return obj, nil
 	}
 	return &StmtProg{
+		Textarea:    obj.Textarea,
 		data:        obj.data,
 		scope:       obj.scope,
 		importProgs: obj.importProgs, // TODO: do we even need this here?
 		importFiles: obj.importFiles,
+		nodeOrder:   newNodeOrder, // we need to update this
 		Body:        body,
 	}, nil
 }
@@ -3170,6 +4855,47 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			}
 			prod[uid] = stmt // store
 		}
+
+		// XXX: I have no idea if this is needed or is done correctly.
+		// XXX: If I add it, it turns this into a dag.
+		//if stmt, ok := x.(*StmtFor); ok {
+		//	if stmt.Index == "" {
+		//		return nil, nil, fmt.Errorf("missing index name")
+		//	}
+		//	uid1 := varOrderingPrefix + stmt.Index // ordering id
+		//	if n, exists := prod[uid1]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid1, n)
+		//	}
+		//	prod[uid1] = stmt // store
+		//
+		//	if stmt.Value == "" {
+		//		return nil, nil, fmt.Errorf("missing value name")
+		//	}
+		//	uid2 := varOrderingPrefix + stmt.Value // ordering id
+		//	if n, exists := prod[uid2]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid2, n)
+		//	}
+		//	prod[uid2] = stmt // store
+		//}
+		//if stmt, ok := x.(*StmtForKV); ok {
+		//	if stmt.Key == "" {
+		//		return nil, nil, fmt.Errorf("missing index name")
+		//	}
+		//	uid1 := varOrderingPrefix + stmt.Key // ordering id
+		//	if n, exists := prod[uid1]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid1, n)
+		//	}
+		//	prod[uid1] = stmt // store
+		//
+		//	if stmt.Val == "" {
+		//		return nil, nil, fmt.Errorf("missing val name")
+		//	}
+		//	uid2 := varOrderingPrefix + stmt.Val // ordering id
+		//	if n, exists := prod[uid2]; exists {
+		//		return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid2, n)
+		//	}
+		//	prod[uid2] = stmt // store
+		//}
 	}
 
 	newProduces := CopyNodeMapping(produces) // don't modify the input map!
@@ -3451,7 +5177,7 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 	scope := &interfaces.Scope{
 		// TODO: we could use the core API for variables somehow...
 		Variables: variables,
-		Functions: functions, // map[string]interfaces.Expr
+		Functions: functions, // map[string]Expr
 		// TODO: we could add a core API for classes too!
 		//Classes: make(map[string]interfaces.Stmt),
 	}
@@ -3646,6 +5372,7 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		LexParser:       obj.data.LexParser,
 		Downloader:      obj.data.Downloader,
 		StrInterpolater: obj.data.StrInterpolater,
+		SourceFinder:    obj.data.SourceFinder,
 		//World: obj.data.World, // TODO: do we need this?
 
 		//Prefix: obj.Prefix, // TODO: add a path on?
@@ -3860,7 +5587,6 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	// If we don't do this deterministically the type unification errors can
 	// flip from `type error: int != str` to `type error: str != int` etc...
 	nodeOrder, err := orderingGraph.DeterministicTopologicalSort() // sorted!
-
 	if err != nil {
 		// TODO: print the cycle in a prettier way (with names?)
 		if obj.data.Debug {
@@ -3868,6 +5594,12 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			//obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
 		return errwrap.Wrapf(err, "recursive reference while setting scope")
+	}
+	if obj.data.Debug { // XXX: catch ordering errors in the logs
+		obj.data.Logf("nodeOrder:")
+		for i, x := range nodeOrder {
+			obj.data.Logf("nodeOrder[%d]: %+v", i, x)
+		}
 	}
 
 	// XXX: implement ValidTopoSortOrder!
@@ -3913,10 +5645,11 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 	if obj.data.Debug {
 		obj.data.Logf("prog: set scope: ordering: %+v", stmts)
 	}
+	obj.nodeOrder = stmts // save for .Graph()
 
 	// Track all the bind statements, functions, and classes. This is used
 	// for duplicate checking. These might appear out-of-order as code, but
-	// are iterated in the topoligically sorted node order. When we collect
+	// are iterated in the topologically sorted node order. When we collect
 	// all the functions, we group by name (if polyfunc is ok) and we also
 	// do something similar for classes.
 	// TODO: if we ever allow poly classes, then group in lists by name
@@ -3961,15 +5694,22 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			}
 
 			binds[bind.Ident] = struct{}{} // mark as found in scope
-			// add to scope, (overwriting, aka shadowing is ok)
-			loopScope.Variables[bind.Ident] = &ExprTopLevel{
-				Definition: &ExprSingleton{
-					Definition: bind.Value,
 
-					mutex: &sync.Mutex{}, // TODO: call Init instead
-				},
-				CapturedScope: capturedScope,
+			if loopScope.Iterated {
+				exprIterated := newExprIterated(bind.Ident, bind.Value)
+				loopScope.Variables[bind.Ident] = exprIterated
+			} else {
+				// add to scope, (overwriting, aka shadowing is ok)
+				loopScope.Variables[bind.Ident] = &ExprTopLevel{
+					Definition: &ExprSingleton{
+						Definition: bind.Value,
+
+						mutex: &sync.Mutex{}, // TODO: call Init instead
+					},
+					CapturedScope: capturedScope,
+				}
 			}
+
 			if obj.data.Debug { // TODO: is this message ever useful?
 				obj.data.Logf("prog: set scope: bind collect: (%+v): %+v (%T) is %p", bind.Ident, bind.Value, bind.Value, bind.Value)
 			}
@@ -4008,12 +5748,39 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			if len(fnList) == 1 {
 				f := fnList[0].Func // local reference to avoid changing it in the loop...
 				// add to scope, (overwriting, aka shadowing is ok)
-				loopScope.Functions[fn.Name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
-					Definition: &ExprTopLevel{
-						Definition:    f, // store the *ExprFunc
-						CapturedScope: capturedScope,
-					},
+
+				if loopScope.Iterated {
+					// XXX: ExprPoly or ExprTopLevel might
+					// end up breaking something here...
+					//loopScope.Functions[fn.Name] = &ExprIterated{
+					//	Name: fn.Name,
+					//	Definition: &ExprPoly{
+					//		Definition: &ExprTopLevel{
+					//			Definition:    f, // store the *ExprFunc
+					//			CapturedScope: capturedScope,
+					//		},
+					//	},
+					//}
+					// We reordered the nesting here to try and fix some bug.
+					loopScope.Functions[fn.Name] = &ExprPoly{
+						Definition: newExprIterated(
+							fn.Name,
+							&ExprTopLevel{
+								Definition:    f, // store the *ExprFunc
+								CapturedScope: capturedScope,
+							},
+						),
+					}
+
+				} else {
+					loopScope.Functions[fn.Name] = &ExprPoly{ // XXX: is this ExprPoly approach optimal?
+						Definition: &ExprTopLevel{
+							Definition:    f, // store the *ExprFunc
+							CapturedScope: capturedScope,
+						},
+					}
 				}
+
 				continue
 			}
 
@@ -4213,30 +5980,114 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("prog")
+func (obj *StmtProg) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	g, _, err := obj.updateEnv(env)
 	if err != nil {
 		return nil, err
 	}
+	return g, nil
+}
 
-	// collect all graphs that need to be included
-	for _, x := range obj.Body {
+// updateEnv is a more general version of Graph.
+func (obj *StmtProg) updateEnv(env *interfaces.Env) (*pgraph.Graph, *interfaces.Env, error) {
+	graph, err := pgraph.NewGraph("prog")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	loopEnv := env.Copy()
+
+	// In this loop, we want to skip over StmtClass, StmtFunc, and StmtBind,
+	// but only in their "normal" boring definition modes.
+	for _, x := range obj.nodeOrder {
+		stmt, ok := x.(interfaces.Stmt)
+		if !ok {
+			continue
+		}
+
+		//if _, ok := x.(*StmtImport); ok { // TODO: should we skip this?
+		//	continue
+		//}
+
 		// skip over *StmtClass here
 		if _, ok := x.(*StmtClass); ok {
 			continue
 		}
-		// skip over StmtFunc, even though it doesn't produce anything!
-		if _, ok := x.(*StmtFunc); ok {
-			continue
-		}
-		// skip over StmtBind, even though it doesn't produce anything!
-		if _, ok := x.(*StmtBind); ok {
+
+		if include, ok := x.(*StmtInclude); ok && obj.scope.Iterated {
+			// The include can bring a bunch of variables into scope
+			// so we need an entry for them in the loop Env. Let's
+			// fill it up.
+			//g, extendedEnv, err := include.class.Body.(*StmtProg).updateEnv(loopEnv)
+			g, extendedEnv, err := include.updateEnv(loopEnv)
+			//g, err := include.Graph(loopEnv)
+			if err != nil {
+				return nil, nil, err
+			}
+			loopEnv = extendedEnv // XXX: Sam says we need to change this for trickier cases!
+
+			graph.AddGraph(g) // We DO want to add this to graph.
 			continue
 		}
 
-		g, err := x.Graph()
+		if bind, ok := x.(*StmtBind); ok {
+			if !obj.scope.Iterated {
+				continue // We do NOTHING, not even add to Graph
+			}
+
+			// always squash, this is shadowing...
+			expr, exists := obj.scope.Variables[bind.Ident]
+			if !exists {
+				// TODO: is this a programming error?
+				return nil, nil, fmt.Errorf("programming error")
+			}
+			exprIterated, ok := expr.(*ExprIterated)
+			if !ok {
+				// TODO: is this a programming error?
+				return nil, nil, fmt.Errorf("programming error")
+			}
+			//loopEnv.Variables[exprIterated.envKey] = f
+			loopEnv.Variables[exprIterated.envKey] = &interfaces.FuncSingleton{
+				MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+					return bind.privateGraph(loopEnv)
+				},
+			}
+
+			//graph.AddGraph(g) // We DO want to add this to graph.
+			continue
+		}
+
+		if stmtFunc, ok := x.(*StmtFunc); ok {
+			if !obj.scope.Iterated {
+				continue // We do NOTHING, not even add to Graph
+			}
+
+			expr, exists := obj.scope.Functions[stmtFunc.Name] // map[string]Expr
+			if !exists {
+				// programming error
+				return nil, nil, fmt.Errorf("programming error 1")
+			}
+			exprPoly, ok := expr.(*ExprPoly)
+			if !ok {
+				// programming error
+				return nil, nil, fmt.Errorf("programming error 2")
+			}
+			if _, ok := exprPoly.Definition.(*ExprIterated); !ok {
+				// programming error
+				return nil, nil, fmt.Errorf("programming error 3")
+			}
+
+			// always squash, this is shadowing...
+			// XXX: We probably don't need to copy here says Sam.
+			loopEnv.Functions[expr] = loopEnv.Copy() // captured env
+
+			// We NEVER want to add anything to the graph here.
+			continue
+		}
+
+		g, err := stmt.Graph(loopEnv)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		graph.AddGraph(g)
 	}
@@ -4250,7 +6101,7 @@ func (obj *StmtProg) Graph() (*pgraph.Graph, error) {
 	//	graph.AddGraph(g)
 	//}
 
-	return graph, nil
+	return graph, loopEnv, nil
 }
 
 // Output returns the output that this "program" produces. This output is what
@@ -4306,7 +6157,7 @@ func (obj *StmtProg) Output(table map[interfaces.Func]types.Value) (*interfaces.
 func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 	for _, x := range obj.Body {
 		// stmt's allowed: import, bind, func, class
-		// stmt's not-allowed: if, include, res, edge
+		// stmt's not-allowed: for, forkv, if, include, res, edge
 		switch x.(type) {
 		case *StmtImport:
 		case *StmtBind:
@@ -4326,6 +6177,9 @@ func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 // the supplied function in the current scope and irrespective of the order of
 // definition.
 type StmtFunc struct {
+	Textarea
+	data *interfaces.Data
+
 	Name string
 	Func interfaces.Expr
 	Type *types.Type
@@ -4351,11 +6205,13 @@ func (obj *StmtFunc) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtFunc) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Name == "" {
 		return fmt.Errorf("func name is empty")
 	}
 
-	//obj.data = data // TODO: ???
 	if err := obj.Func.Init(data); err != nil {
 		return err
 	}
@@ -4373,9 +6229,11 @@ func (obj *StmtFunc) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtFunc{
-		Name: obj.Name,
-		Func: interpolated,
-		Type: obj.Type,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Func:     interpolated,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -4394,9 +6252,11 @@ func (obj *StmtFunc) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtFunc{
-		Name: obj.Name,
-		Func: fn,
-		Type: obj.Type,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Func:     fn,
+		Type:     obj.Type,
 	}, nil
 }
 
@@ -4487,6 +6347,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	}
 
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj.Func,
 		Expect: typExpr, // obj.Type
 		Actual: typ,
@@ -4494,7 +6355,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants = append(invariants, invar)
 
 	// I think the invariants should come in from ExprCall instead, because
-	// ExprCall operates on an instatiated copy of the contained ExprFunc
+	// ExprCall operates on an instantiated copy of the contained ExprFunc
 	// which will have different pointers than what is seen here.
 
 	// nope!
@@ -4514,7 +6375,7 @@ func (obj *StmtFunc) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtFunc) Graph() (*pgraph.Graph, error) {
+func (obj *StmtFunc) Graph(*interfaces.Env) (*pgraph.Graph, error) {
 	//return obj.Func.Graph(nil) // nope!
 	return pgraph.NewGraph("stmtfunc") // do this in ExprCall instead
 }
@@ -4530,11 +6391,13 @@ func (obj *StmtFunc) Output(map[interfaces.Func]types.Value) (*interfaces.Output
 // TODO: We don't currently support defining polymorphic classes (eg: different
 // signatures for the same class name) but it might be something to consider.
 type StmtClass struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	Name string
-	Args []*interfaces.Arg
-	Body interfaces.Stmt // probably a *StmtProg
+	Args []*interfaces.Arg // XXX: sam thinks we should name this Params and interfaces.Param
+	Body interfaces.Stmt   // probably a *StmtProg
 }
 
 // String returns a short representation of this statement.
@@ -4557,6 +6420,9 @@ func (obj *StmtClass) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtClass) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Name == "" {
 		return fmt.Errorf("class name is empty")
 	}
@@ -4579,10 +6445,12 @@ func (obj *StmtClass) Interpolate() (interfaces.Stmt, error) {
 	}
 
 	return &StmtClass{
-		scope: obj.scope,
-		Name:  obj.Name,
-		Args:  args, // ensure this has length == 0 instead of nil
-		Body:  interpolated,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		Name:     obj.Name,
+		Args:     args, // ensure this has length == 0 instead of nil
+		Body:     interpolated,
 	}, nil
 }
 
@@ -4606,10 +6474,12 @@ func (obj *StmtClass) Copy() (interfaces.Stmt, error) {
 		return obj, nil
 	}
 	return &StmtClass{
-		scope: obj.scope,
-		Name:  obj.Name,
-		Args:  args, // ensure this has length == 0 instead of nil
-		Body:  body,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		Name:     obj.Name,
+		Args:     args, // ensure this has length == 0 instead of nil
+		Body:     body,
 	}, nil
 }
 
@@ -4715,8 +6585,8 @@ func (obj *StmtClass) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtClass) Graph() (*pgraph.Graph, error) {
-	return obj.Body.Graph()
+func (obj *StmtClass) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	return obj.Body.Graph(env)
 }
 
 // Output for the class statement produces no output. Any values of interest
@@ -4731,12 +6601,17 @@ func (obj *StmtClass) Output(table map[interfaces.Func]types.Value) (*interfaces
 // to call a class except that it produces output instead of a value. Most of
 // the interesting logic for classes happens here or in StmtProg.
 type StmtInclude struct {
+	Textarea
+	data  *interfaces.Data
+	scope *interfaces.Scope
+
 	class *StmtClass   // copy of class that we're using
 	orig  *StmtInclude // original pointer to this
 
-	Name  string
-	Args  []interfaces.Expr
-	Alias string
+	Name        string
+	Args        []interfaces.Expr
+	argsEnvKeys []*ExprIterated
+	Alias       string
 }
 
 // String returns a short representation of this statement.
@@ -4770,6 +6645,9 @@ func (obj *StmtInclude) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtInclude) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if obj.Name == "" {
 		return fmt.Errorf("include name is empty")
 	}
@@ -4800,11 +6678,15 @@ func (obj *StmtInclude) Interpolate() (interfaces.Stmt, error) {
 		orig = obj.orig
 	}
 	return &StmtInclude{
-		//class: obj.class, // TODO: is this necessary?
-		orig:  orig,
-		Name:  obj.Name,
-		Args:  args,
-		Alias: obj.Alias,
+		Textarea:    obj.Textarea,
+		data:        obj.data,
+		scope:       obj.scope,
+		class:       obj.class, // XXX: Should we copy this?
+		orig:        orig,
+		Name:        obj.Name,
+		Args:        args,
+		argsEnvKeys: obj.argsEnvKeys, // update this if we interpolate after SetScope
+		Alias:       obj.Alias,
 	}, nil
 }
 
@@ -4830,15 +6712,37 @@ func (obj *StmtInclude) Copy() (interfaces.Stmt, error) {
 		copied = true // TODO: is this what we want?
 	}
 
+	// Sometimes when we run copy it's legal for obj.class to be nil.
+	var newClass *StmtClass
+	if obj.class != nil {
+		stmt, err := obj.class.Copy()
+		if err != nil {
+			return nil, err
+		}
+		class, ok := stmt.(*StmtClass)
+		if !ok {
+			// programming error
+			return nil, fmt.Errorf("unexpected copy failure")
+		}
+		if class != obj.class {
+			copied = true // TODO: is this what we want?
+		}
+		newClass = class
+	}
+
 	if !copied { // it's static
 		return obj, nil
 	}
 	return &StmtInclude{
-		//class: obj.class, // TODO: is this necessary?
-		orig:  orig,
-		Name:  obj.Name,
-		Args:  args,
-		Alias: obj.Alias,
+		Textarea:    obj.Textarea,
+		data:        obj.data,
+		scope:       obj.scope,
+		class:       newClass, // This seems necessary!
+		orig:        orig,
+		Name:        obj.Name,
+		Args:        args,
+		argsEnvKeys: obj.argsEnvKeys,
+		Alias:       obj.Alias,
 	}, nil
 }
 
@@ -4920,6 +6824,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	if scope == nil {
 		scope = interfaces.EmptyScope()
 	}
+	obj.scope = scope
 
 	stmt, exists := scope.Classes[obj.Name]
 	if !exists {
@@ -4983,21 +6888,37 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// We start with the scope that the class had, and we augment it with
 	// our parameterized arg variables, which will be needed in that scope.
 	newScope := obj.class.scope.Copy()
-	// Add our args `include foo(42, "bar", true)` into the class scope.
-	for i, arg := range obj.class.Args { // copy
-		newScope.Variables[arg.Name] = &ExprTopLevel{
-			Definition: &ExprSingleton{
-				Definition: obj.Args[i],
 
-				mutex: &sync.Mutex{}, // TODO: call Init instead
-			},
-			CapturedScope: newScope,
+	if obj.scope.Iterated { // Sam says NOT obj.class.scope
+		obj.argsEnvKeys = make([]*ExprIterated, len(obj.class.Args)) // or just append() in loop below...
+
+		// Add our args `include foo(42, "bar", true)` into the class scope.
+		for i, param := range obj.class.Args { // copy
+			// NOTE: similar to StmtProg.SetScope (StmtBind case)
+			obj.argsEnvKeys[i] = newExprIterated(
+				param.Name,
+				obj.Args[i],
+			)
+			newScope.Variables[param.Name] = obj.argsEnvKeys[i]
+		}
+	} else {
+		// Add our args `include foo(42, "bar", true)` into the class scope.
+		for i, param := range obj.class.Args { // copy
+			newScope.Variables[param.Name] = &ExprTopLevel{
+				Definition: &ExprSingleton{
+					Definition: obj.Args[i],
+
+					mutex: &sync.Mutex{}, // TODO: call Init instead
+				},
+				CapturedScope: newScope,
+			}
 		}
 	}
 
 	// recursion detection
 	newScope.Chain = append(newScope.Chain, obj.orig) // add stmt to list
 	newScope.Classes[obj.Name] = copied               // overwrite with new pointer
+	newScope.Iterated = scope.Iterated                // very important!
 
 	// NOTE: This would overwrite the scope that was previously set here,
 	// which would break the scoping rules. Scopes are propagated into
@@ -5005,6 +6926,11 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 	// need to use the original scope of the class as it was set as the
 	// basis for this scope, so that we overwrite it only with the arg
 	// changes.
+	//
+	// Whether this body is iterated or not, does not depend on whether the
+	// class definition site is inside of a for loop but on whether the
+	// StmtInclude is inside of a for loop. So we set that Iterated var
+	// above.
 	if err := obj.class.Body.SetScope(newScope); err != nil {
 		return err
 	}
@@ -5051,6 +6977,7 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 		// add invariants between the args and the class
 		if typExpr := obj.class.Args[i].Type; typExpr != nil {
 			invar := &interfaces.UnificationInvariant{
+				Node:   obj,
 				Expr:   x,
 				Expect: typExpr, // type of arg
 				Actual: typ,
@@ -5069,19 +6996,87 @@ func (obj *StmtInclude) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular func statement adds its linked expression to
 // the graph.
-func (obj *StmtInclude) Graph() (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("include")
+func (obj *StmtInclude) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
+	g, _, err := obj.updateEnv(env)
 	if err != nil {
 		return nil, err
 	}
+	return g, nil
+}
 
-	g, err := obj.class.Graph()
+// updateEnv is a more general version of Graph.
+//
+// Normally, an ExprIterated.Name is the same as the name in the corresponding
+// StmtBind. When StmtInclude AS is used, the name in ExprIterated is the short
+// name (like `result`), and the StmtBind.Ident is the short name (like
+// `result`), but the ExprVar and the ExprCall use $iterated.result. Instead of
+// the short name (in ExprIterated.Name and the environment) we should either
+// use $iterated.result or the ExprIterated pointer. We are currently trying the
+// latter (the pointer).
+//
+// More importantly: StmtFor.Graph copies the body of the ? for N times. If
+// there are any StmtBind's their ExprSingleton's are cleared, so that each
+// iteration gets its own Func. If there is a StmtInclude, it contains a copy of
+// the class body, and this body is also copied once per iteration. However, the
+// variables in that body do not contain the thing to which they refer, that is
+// called the "referend" (since we just have a string name) and therefore if it
+// refers to an ExprSingleton, that ExprSingleton does not get cleared, and
+// every iteration of the loop gets the same value for that variable. This is
+// fine under normal circumstances because the thing to which the ExprVar refers
+// might be defined outside of the for loop, in which case, we don't want to
+// copy it once per iteration. The problem is that in this case, the variable is
+// pointing to something inside the for loop which is somehow not being copied.
+func (obj *StmtInclude) updateEnv(env *interfaces.Env) (*pgraph.Graph, *interfaces.Env, error) {
+	graph, err := pgraph.NewGraph("include")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+
+	if obj.class == nil {
+		// programming error
+		return nil, nil, fmt.Errorf("can't include class %s, contents are nil", obj.Name)
+	}
+
+	if obj.scope.Iterated {
+		loopEnv := env.Copy()
+
+		// This args stuff is here since it's not technically needed in
+		// the non-iterated case, and it would only make the function
+		// graph bigger if that arg isn't used. The arg gets pulled in
+		// to the function graph via ExprSingleton otherwise.
+		for i, arg := range obj.Args {
+			//g, f, err := arg.Graph(env)
+			//if err != nil {
+			//	return nil, nil, err
+			//}
+			//graph.AddGraph(g)
+			//paramName := obj.class.Args[i].Name
+			//loopEnv.Variables[paramName] = f
+			//loopEnv.Variables[obj.argsEnvKeys[i]] = f
+			loopEnv.Variables[obj.argsEnvKeys[i]] = &interfaces.FuncSingleton{
+				MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+					return arg.Graph(env)
+				},
+			}
+		}
+
+		g, extendedEnv, err := obj.class.Body.(*StmtProg).updateEnv(loopEnv)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g)
+		loopEnv = extendedEnv
+
+		return graph, loopEnv, nil
+	}
+
+	g, err := obj.class.Graph(env)
+	if err != nil {
+		return nil, nil, err
 	}
 	graph.AddGraph(g)
 
-	return graph, nil
+	return graph, env, nil
 }
 
 // Output returns the output that this include produces. This output is what is
@@ -5100,6 +7095,9 @@ func (obj *StmtInclude) Output(table map[interfaces.Func]types.Value) (*interfac
 // file. As with any statement, it produces output, but that output is empty. To
 // benefit from its inclusion, reference the scope definitions you want.
 type StmtImport struct {
+	Textarea
+	data *interfaces.Data
+
 	Name  string
 	Alias string
 }
@@ -5118,7 +7116,9 @@ func (obj *StmtImport) Apply(fn func(interfaces.Node) error) error { return fn(o
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *StmtImport) Init(*interfaces.Data) error {
+func (obj *StmtImport) Init(data *interfaces.Data) error {
+	obj.Textarea.Setup(data)
+
 	if obj.Name == "" {
 		return fmt.Errorf("import name is empty")
 	}
@@ -5130,8 +7130,10 @@ func (obj *StmtImport) Init(*interfaces.Data) error {
 // on any child elements and builds the new node with those new node contents.
 func (obj *StmtImport) Interpolate() (interfaces.Stmt, error) {
 	return &StmtImport{
-		Name:  obj.Name,
-		Alias: obj.Alias,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		Name:     obj.Name,
+		Alias:    obj.Alias,
 	}, nil
 }
 
@@ -5182,7 +7184,7 @@ func (obj *StmtImport) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular statement just returns an empty graph.
-func (obj *StmtImport) Graph() (*pgraph.Graph, error) {
+func (obj *StmtImport) Graph(*interfaces.Env) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("import") // empty graph
 }
 
@@ -5202,6 +7204,8 @@ func (obj *StmtImport) Output(map[interfaces.Func]types.Value) (*interfaces.Outp
 // formatting) but so that they can exist anywhere in the code. Currently these
 // are dropped by the lexer.
 type StmtComment struct {
+	Textarea
+
 	Value string
 }
 
@@ -5219,7 +7223,9 @@ func (obj *StmtComment) Apply(fn func(interfaces.Node) error) error { return fn(
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *StmtComment) Init(*interfaces.Data) error {
+func (obj *StmtComment) Init(data *interfaces.Data) error {
+	obj.Textarea.Setup(data)
+
 	return nil
 }
 
@@ -5269,7 +7275,7 @@ func (obj *StmtComment) TypeCheck() ([]*interfaces.UnificationInvariant, error) 
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This particular graph does nothing clever.
-func (obj *StmtComment) Graph() (*pgraph.Graph, error) {
+func (obj *StmtComment) Graph(*interfaces.Env) (*pgraph.Graph, error) {
 	return pgraph.NewGraph("comment")
 }
 
@@ -5280,6 +7286,8 @@ func (obj *StmtComment) Output(map[interfaces.Func]types.Value) (*interfaces.Out
 
 // ExprBool is a representation of a boolean.
 type ExprBool struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V bool
@@ -5297,7 +7305,11 @@ func (obj *ExprBool) Apply(fn func(interfaces.Node) error) error { return fn(obj
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprBool) Init(*interfaces.Data) error { return nil }
+func (obj *ExprBool) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -5305,8 +7317,10 @@ func (obj *ExprBool) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprBool) Interpolate() (interfaces.Expr, error) {
 	return &ExprBool{
-		scope: obj.scope,
-		V:     obj.V,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5359,6 +7373,7 @@ func (obj *ExprBool) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	return types.TypeBool, []*interfaces.UnificationInvariant{
 		{
+			Node:   obj,
 			Expr:   obj,
 			Expect: types.TypeBool,
 			Actual: types.TypeBool,
@@ -5387,7 +7402,7 @@ func (obj *ExprBool) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprBool) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprBool) Graph(*interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("bool")
 	if err != nil {
 		return nil, nil, err
@@ -5424,6 +7439,7 @@ func (obj *ExprBool) Value() (types.Value, error) {
 
 // ExprStr is a representation of a string.
 type ExprStr struct {
+	Textarea
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
@@ -5444,6 +7460,7 @@ func (obj *ExprStr) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // validate.
 func (obj *ExprStr) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.Textarea.Setup(data)
 	return nil
 }
 
@@ -5455,6 +7472,7 @@ func (obj *ExprStr) Init(data *interfaces.Data) error {
 // a function which returns a string as its root. Otherwise it returns itself.
 func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	pos := &interfaces.Pos{
+		// XXX: populate this?
 		// column/line number, starting at 1
 		//Column: -1, // TODO
 		//Line: -1, // TODO
@@ -5474,6 +7492,7 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		LexParser:       obj.data.LexParser,
 		Downloader:      obj.data.Downloader,
 		StrInterpolater: obj.data.StrInterpolater,
+		SourceFinder:    obj.data.SourceFinder,
 		//World: obj.data.World, // TODO: do we need this?
 
 		Prefix: obj.data.Prefix,
@@ -5489,9 +7508,10 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	}
 	if result == nil {
 		return &ExprStr{
-			data:  obj.data,
-			scope: obj.scope,
-			V:     obj.V,
+			Textarea: obj.Textarea,
+			data:     obj.data,
+			scope:    obj.scope,
+			V:        obj.V,
 		}, nil
 	}
 	// we got something, overwrite the existing static str
@@ -5556,6 +7576,7 @@ func (obj *ExprStr) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	return types.TypeStr, []*interfaces.UnificationInvariant{
 		{
+			Node:   obj,
 			Expr:   obj,
 			Expect: types.TypeStr,
 			Actual: types.TypeStr,
@@ -5584,7 +7605,7 @@ func (obj *ExprStr) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprStr) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprStr) Graph(*interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("str")
 	if err != nil {
 		return nil, nil, err
@@ -5620,6 +7641,8 @@ func (obj *ExprStr) Value() (types.Value, error) {
 
 // ExprInt is a representation of an int.
 type ExprInt struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V int64
@@ -5637,7 +7660,11 @@ func (obj *ExprInt) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprInt) Init(*interfaces.Data) error { return nil }
+func (obj *ExprInt) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -5645,8 +7672,10 @@ func (obj *ExprInt) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprInt) Interpolate() (interfaces.Expr, error) {
 	return &ExprInt{
-		scope: obj.scope,
-		V:     obj.V,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5699,6 +7728,7 @@ func (obj *ExprInt) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	return types.TypeInt, []*interfaces.UnificationInvariant{
 		{
+			Node:   obj,
 			Expr:   obj,
 			Expect: types.TypeInt,
 			Actual: types.TypeInt,
@@ -5727,7 +7757,7 @@ func (obj *ExprInt) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprInt) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprInt) Graph(*interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("int")
 	if err != nil {
 		return nil, nil, err
@@ -5763,6 +7793,8 @@ func (obj *ExprInt) Value() (types.Value, error) {
 
 // ExprFloat is a representation of a float.
 type ExprFloat struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
 	V float64
@@ -5782,7 +7814,11 @@ func (obj *ExprFloat) Apply(fn func(interfaces.Node) error) error { return fn(ob
 
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
-func (obj *ExprFloat) Init(*interfaces.Data) error { return nil }
+func (obj *ExprFloat) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+	return nil
+}
 
 // Interpolate returns a new node (aka a copy) once it has been expanded. This
 // generally increases the size of the AST when it is used. It calls Interpolate
@@ -5790,8 +7826,10 @@ func (obj *ExprFloat) Init(*interfaces.Data) error { return nil }
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *ExprFloat) Interpolate() (interfaces.Expr, error) {
 	return &ExprFloat{
-		scope: obj.scope,
-		V:     obj.V,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		V:        obj.V,
 	}, nil
 }
 
@@ -5844,6 +7882,7 @@ func (obj *ExprFloat) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	return types.TypeFloat, []*interfaces.UnificationInvariant{
 		{
+			Node:   obj,
 			Expr:   obj,
 			Expect: types.TypeFloat,
 			Actual: types.TypeFloat,
@@ -5872,7 +7911,7 @@ func (obj *ExprFloat) Func() (interfaces.Func, error) {
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFloat) Graph(map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFloat) Graph(*interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("float")
 	if err != nil {
 		return nil, nil, err
@@ -5908,6 +7947,8 @@ func (obj *ExprFloat) Value() (types.Value, error) {
 
 // ExprList is a representation of a list.
 type ExprList struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -5941,6 +7982,9 @@ func (obj *ExprList) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprList) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	for _, x := range obj.Elements {
 		if err := x.Init(data); err != nil {
 			return err
@@ -5962,6 +8006,8 @@ func (obj *ExprList) Interpolate() (interfaces.Expr, error) {
 		elements = append(elements, interpolated)
 	}
 	return &ExprList{
+		Textarea: obj.Textarea,
+		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Elements: elements,
@@ -5987,6 +8033,8 @@ func (obj *ExprList) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprList{
+		Textarea: obj.Textarea,
+		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Elements: elements,
@@ -6093,7 +8141,7 @@ func (obj *ExprList) Type() (*types.Type, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
 		}
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -6136,6 +8184,7 @@ func (obj *ExprList) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -6174,7 +8223,7 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprList) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprList) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("list")
 	if err != nil {
 		return nil, nil, err
@@ -6262,6 +8311,8 @@ func (obj *ExprList) Value() (types.Value, error) {
 
 // ExprMap is a representation of a (dictionary) map.
 type ExprMap struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -6297,6 +8348,9 @@ func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprMap) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	// XXX: Can we check that there aren't any duplicate keys? Can we Cmp?
 	for _, x := range obj.KVs {
 		if err := x.Key.Init(data); err != nil {
@@ -6330,9 +8384,11 @@ func (obj *ExprMap) Interpolate() (interfaces.Expr, error) {
 		kvs = append(kvs, kv)
 	}
 	return &ExprMap{
-		scope: obj.scope,
-		typ:   obj.typ,
-		KVs:   kvs,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		KVs:      kvs,
 	}, nil
 }
 
@@ -6373,9 +8429,11 @@ func (obj *ExprMap) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprMap{
-		scope: obj.scope,
-		typ:   obj.typ,
-		KVs:   kvs,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		KVs:      kvs,
 	}, nil
 }
 
@@ -6523,7 +8581,7 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
 		}
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -6577,6 +8635,7 @@ func (obj *ExprMap) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -6615,7 +8674,7 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprMap) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprMap) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("map")
 	if err != nil {
 		return nil, nil, err
@@ -6741,12 +8800,16 @@ func (obj *ExprMap) Value() (types.Value, error) {
 // ExprMapKV represents a key and value pair in a (dictionary) map. This does
 // not satisfy the Expr interface.
 type ExprMapKV struct {
+	Textarea
+
 	Key interfaces.Expr // keys can be strings, int's, etc...
 	Val interfaces.Expr
 }
 
 // ExprStruct is a representation of a struct.
 type ExprStruct struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -6779,6 +8842,9 @@ func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprStruct) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	fields := make(map[string]struct{})
 	for _, x := range obj.Fields {
 		// Validate field names and ensure no duplicates!
@@ -6811,9 +8877,11 @@ func (obj *ExprStruct) Interpolate() (interfaces.Expr, error) {
 		fields = append(fields, field)
 	}
 	return &ExprStruct{
-		scope:  obj.scope,
-		typ:    obj.typ,
-		Fields: fields,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Fields:   fields,
 	}, nil
 }
 
@@ -6842,9 +8910,11 @@ func (obj *ExprStruct) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprStruct{
-		scope:  obj.scope,
-		typ:    obj.typ,
-		Fields: fields,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Fields:   fields,
 	}, nil
 }
 
@@ -6950,7 +9020,7 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
 		}
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -7001,6 +9071,7 @@ func (obj *ExprStruct) Infer() (*types.Type, []*interfaces.UnificationInvariant,
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -7038,7 +9109,7 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprStruct) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprStruct) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("struct")
 	if err != nil {
 		return nil, nil, err
@@ -7133,6 +9204,8 @@ func (obj *ExprStruct) Value() (types.Value, error) {
 // ExprStructField represents a name value pair in a struct field. This does not
 // satisfy the Expr interface.
 type ExprStructField struct {
+	Textarea
+
 	Name  string
 	Value interfaces.Expr
 }
@@ -7147,6 +9220,7 @@ type ExprStructField struct {
 // 4. A pure built-in function (set Values to a singleton)
 // 5. A pure polymorphic built-in function (set Values to a list)
 type ExprFunc struct {
+	Textarea
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
@@ -7310,11 +9384,13 @@ func (obj *ExprFunc) Interpolate() (interfaces.Expr, error) {
 	}
 
 	return &ExprFunc{
+		Textarea: obj.Textarea,
 		data:     obj.data,
 		scope:    obj.scope,
 		typ:      obj.typ,
 		Title:    obj.Title,
 		Args:     args,
+		params:   obj.params,
 		Return:   obj.Return,
 		Body:     body,
 		Function: obj.Function,
@@ -7398,18 +9474,20 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 		// copied = true // XXX: add this if anyone isn't static?
 	}
 
-	// We wan't to allow static functions, although we have to be careful...
+	// We want to allow static functions, although we have to be careful...
 	// Doing this for static functions causes us to hit a strange case in
 	// the SetScope function for ExprCall... Investigate if we find a bug...
 	if !copied { // it's static
 		return obj, nil
 	}
 	return &ExprFunc{
+		Textarea: obj.Textarea,
 		data:     obj.data,
 		scope:    obj.scope, // TODO: copy?
 		typ:      obj.typ,
 		Title:    obj.Title,
 		Args:     obj.Args,
+		params:   obj.params, // don't copy says sam!
 		Return:   obj.Return,
 		Body:     body, // definitely copy
 		Function: obj.Function,
@@ -7421,7 +9499,6 @@ func (obj *ExprFunc) Copy() (interfaces.Expr, error) {
 
 // Ordering returns a graph of the scope ordering that represents the data flow.
 // This can be used in SetScope so that it knows the correct order to run it in.
-// XXX: do we need to add ordering around named args, eg: obj.Args Name strings?
 func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
 	graph, err := pgraph.NewGraph("ordering")
 	if err != nil {
@@ -7449,7 +9526,6 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 	cons := make(map[interfaces.Node]string)
 
-	// XXX: do we need ordering for other aspects of ExprFunc ?
 	if obj.Body != nil {
 		g, c, err := obj.Body.Ordering(newProduces)
 		if err != nil {
@@ -7495,10 +9571,10 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		// make a list as long as obj.Args
 		obj.params = make([]*ExprParam, len(obj.Args))
 		for i, arg := range obj.Args {
-			param := &ExprParam{
-				typ:  arg.Type,
-				Name: arg.Name,
-			}
+			param := newExprParam(
+				arg.Name,
+				arg.Type,
+			)
 			obj.params[i] = param
 			sctxBody[arg.Name] = param
 		}
@@ -7580,14 +9656,14 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		}
 
 		if obj.typ == nil {
-			return nil, interfaces.ErrTypeCurrentlyUnknown
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 		}
 		return obj.typ, nil
 
 	} else if len(obj.Values) > 0 {
 		// there's nothing we can do to speculate at this time
 		if obj.typ == nil {
-			return nil, interfaces.ErrTypeCurrentlyUnknown
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -7596,7 +9672,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		if obj.function == nil {
 			// TODO: should we return ErrTypeCurrentlyUnknown instead?
 			panic("unexpected empty function")
-			//return nil, interfaces.ErrTypeCurrentlyUnknown
+			//return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 		}
 		sig := obj.function.Info().Sig
 		if sig != nil && !sig.HasVariant() && obj.typ == nil { // type is now known statically
@@ -7604,7 +9680,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		}
 
 		if obj.typ == nil {
-			return nil, interfaces.ErrTypeCurrentlyUnknown
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -7652,7 +9728,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
 		}
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -7749,6 +9825,7 @@ func (obj *ExprFunc) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -7772,7 +9849,7 @@ func (obj *ExprFunc) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it.
-func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	// This implementation produces a graph with a single node of in-degree
 	// zero which outputs a single FuncValue. The FuncValue is a closure, in
 	// that it holds both a lambda body and a captured environment. This
@@ -7797,60 +9874,96 @@ func (obj *ExprFunc) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 
 	var funcValueFunc interfaces.Func
 	if obj.Body != nil {
+		f := func(ctx context.Context, args []types.Value) (types.Value, error) {
+			// XXX: Find a way to exercise this function if possible.
+			//return nil, funcs.ErrCantSpeculate
+			return nil, fmt.Errorf("not implemented")
+		}
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// Extend the environment with the arguments.
+			extendedEnv := env.Copy() // TODO: Should we copy?
+			for i := range obj.Args {
+				if args[i] == nil {
+					return nil, fmt.Errorf("programming error")
+				}
+				param := obj.params[i]
+				//extendedEnv.Variables[arg.Name] = args[i]
+				//extendedEnv.Variables[param.envKey] = args[i]
+				extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+					MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+						f := args[i]
+						g, err := pgraph.NewGraph("g")
+						if err != nil {
+							return nil, nil, err
+						}
+						g.AddVertex(f)
+						return g, f, nil
+					},
+				}
+
+			}
+
+			// Create a subgraph from the lambda's body, instantiating the
+			// lambda's parameters with the args and the other variables
+			// with the nodes in the captured environment.
+			subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			}
+
+			innerTxn.AddGraph(subgraph)
+
+			return bodyFunc, nil
+		}
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Extend the environment with the arguments.
-				extendedEnv := make(map[string]interfaces.Func)
-				for k, v := range env {
-					extendedEnv[k] = v
-				}
-				for i, arg := range obj.Args {
-					extendedEnv[arg.Name] = args[i]
-				}
-
-				// Create a subgraph from the lambda's body, instantiating the
-				// lambda's parameters with the args and the other variables
-				// with the nodes in the captured environment.
-				subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
-				}
-
-				innerTxn.AddGraph(subgraph)
-
-				return bodyFunc, nil
-			},
+			V: v,
+			F: f,
 			T: obj.typ,
 		})
 	} else if obj.Function != nil {
+		// Build this "callable" version in case it's available and we
+		// can use that directly. We don't need to copy it because we
+		// expect anything that is Callable to be stateless, and so it
+		// can use the same function call for every instantiation of it.
+		var f interfaces.FuncSig
+		callableFunc, ok := obj.function.(interfaces.CallableFunc)
+		if ok {
+			// XXX: this might be dead code, how do we exercise it?
+			// If the function is callable then the surrounding
+			// ExprCall will produce a graph containing this func
+			// instead of calling ExprFunc.Graph().
+			f = callableFunc.Call
+		}
+		v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// Copy obj.function so that the underlying ExprFunc.function gets
+			// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
+			// calls to this function will share the same Func.
+			exprCopy, err := obj.Copy()
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not copy expression")
+			}
+			funcExprCopy, ok := exprCopy.(*ExprFunc)
+			if !ok {
+				// programming error
+				return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+			}
+			valueTransformingFunc := funcExprCopy.function
+			txn.AddVertex(valueTransformingFunc)
+			for i, arg := range args {
+				argName := obj.typ.Ord[i]
+				txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+					Args: []string{argName},
+				})
+			}
+			return valueTransformingFunc, nil
+		}
+
 		// obj.function is a node which transforms input values into
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
-
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
-			V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-				// Copy obj.function so that the underlying ExprFunc.function gets
-				// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
-				// calls to this function will share the same Func.
-				exprCopy, err := obj.Copy()
-				if err != nil {
-					return nil, errwrap.Wrapf(err, "could not copy expression")
-				}
-				funcExprCopy, ok := exprCopy.(*ExprFunc)
-				if !ok {
-					// programming error
-					return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
-				}
-				valueTransformingFunc := funcExprCopy.function
-				txn.AddVertex(valueTransformingFunc)
-				for i, arg := range args {
-					argName := obj.typ.Ord[i]
-					txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
-						Args: []string{argName},
-					})
-				}
-				return valueTransformingFunc, nil
-			},
+			V: v,
+			F: f,
 			T: obj.typ,
 		})
 	} else /* len(obj.Values) > 0 */ {
@@ -7899,19 +10012,130 @@ func (obj *ExprFunc) SetValue(value types.Value) error {
 // This particular value is always known since it is a constant.
 func (obj *ExprFunc) Value() (types.Value, error) {
 	// Don't panic because we call Value speculatively for partial values!
-	// XXX: Not implemented
-	return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
-	//// TODO: implement speculative value lookup (if not already sufficient)
-	//return &full.FuncValue{
-	//	V: obj.V,
-	//	T: obj.typ,
-	//}, nil
+	//return nil, fmt.Errorf("error: ExprFunc does not store its latest value because resources don't yet have function fields")
+
+	if obj.Body != nil {
+		// We can only return a Value if we know the value of all the
+		// ExprParams. We don't have an environment, so this is only
+		// possible if there are no ExprParams at all.
+		// XXX: If we add in EnvValue as an arg, can we change this up?
+		if err := checkParamScope(obj, make(map[interfaces.Expr]struct{})); err != nil {
+			// return the sentinel value
+			return nil, funcs.ErrCantSpeculate
+		}
+
+		f := func(ctx context.Context, args []types.Value) (types.Value, error) {
+			// TODO: make TestAstFunc1/shape8.txtar better...
+			//extendedValueEnv := interfaces.EmptyValueEnv() // TODO: add me?
+			//for _, x := range obj.Args {
+			//	extendedValueEnv[???] = ???
+			//}
+
+			// XXX: Find a way to exercise this function if possible.
+			// chained-returned-funcs.txtar will error if we use:
+			//return nil, fmt.Errorf("not implemented")
+			return nil, funcs.ErrCantSpeculate
+		}
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+			// There are no ExprParams, so we start with the empty environment.
+			// Extend that environment with the arguments.
+			extendedEnv := interfaces.EmptyEnv()
+			//extendedEnv := make(map[string]interfaces.Func)
+			for i := range obj.Args {
+				if args[i] == nil {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+				if len(obj.params) <= i {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+				param := obj.params[i]
+				if param == nil || param.envKey == nil {
+					// XXX: speculation error?
+					return nil, fmt.Errorf("programming error?")
+				}
+
+				extendedEnv.Variables[param.envKey] = &interfaces.FuncSingleton{
+					MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
+						f := args[i]
+						g, err := pgraph.NewGraph("g")
+						if err != nil {
+							return nil, nil, err
+						}
+						g.AddVertex(f)
+						return g, f, nil
+					},
+				}
+			}
+
+			// Create a subgraph from the lambda's body, instantiating the
+			// lambda's parameters with the args and the other variables
+			// with the nodes in the captured environment.
+			subgraph, bodyFunc, err := obj.Body.Graph(extendedEnv)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			}
+
+			innerTxn.AddGraph(subgraph)
+
+			return bodyFunc, nil
+		}
+
+		return &full.FuncValue{
+			V: v,
+			F: f,
+			T: obj.typ,
+		}, nil
+
+	} else if obj.Function != nil {
+		copyFunc := func() interfaces.Func {
+			copyableFunc, isCopyableFunc := obj.function.(interfaces.CopyableFunc)
+			if obj.function == nil || !isCopyableFunc {
+				return obj.Function() // force re-build a new pointer here!
+			}
+
+			// is copyable!
+			return copyableFunc.Copy()
+		}
+
+		// Instead of passing in the obj.function, we instead pass in a
+		// builder function so that this can use that inside of the
+		// *full.FuncValue implementation to make new functions when it
+		// gets called. We'll need more than one so they're not the same
+		// pointer!
+		return structs.FuncToFullFuncValue(copyFunc, obj.typ), nil
+	}
+	// else if /* len(obj.Values) > 0 */
+
+	// XXX: It's unclear if the below code in this function is correct or
+	// even tested.
+
+	// polymorphic case: figure out which one has the correct type and wrap
+	// it in a full.FuncValue.
+
+	index, err := langUtil.FnMatch(obj.typ, obj.Values)
+	if err != nil {
+		// programming error
+		// since type checking succeeded at this point, there should only be one match
+		return nil, errwrap.Wrapf(err, "multiple matches found")
+	}
+
+	simpleFn := obj.Values[index] // *types.FuncValue
+	simpleFn.T = obj.typ          // ensure the precise type is set/known
+
+	return &full.FuncValue{
+		V: nil,        // XXX: do we need to implement this too?
+		F: simpleFn.V, // XXX: is this correct?
+		T: obj.typ,
+	}, nil
 }
 
 // ExprCall is a representation of a function call. This does not represent the
 // declaration or implementation of a new function value. This struct has an
 // analogous symmetry with ExprVar.
 type ExprCall struct {
+	Textarea
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
@@ -7923,10 +10147,16 @@ type ExprCall struct {
 
 	// Name of the function to be called. We look for it in the scope.
 	Name string
+
 	// Args are the list of inputs to this function.
 	Args []interfaces.Expr // list of args in parsed order
+
 	// Var specifies whether the function being called is a lambda in a var.
 	Var bool
+
+	// Anon is an *ExprFunc which is used if we are calling anonymously. If
+	// this is specified, Name must be the empty string.
+	Anon interfaces.Expr
 }
 
 // String returns a short representation of this expression.
@@ -7935,7 +10165,11 @@ func (obj *ExprCall) String() string {
 	for _, x := range obj.Args {
 		s = append(s, fmt.Sprintf("%s", x.String()))
 	}
-	return fmt.Sprintf("call:%s(%s)", obj.Name, strings.Join(s, ", "))
+	name := obj.Name
+	if obj.Name == "" && obj.Anon != nil {
+		name = "<anon>"
+	}
+	return fmt.Sprintf("call:%s(%s)", name, strings.Join(s, ", "))
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -7949,6 +10183,11 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 			return err
 		}
 	}
+	if obj.Anon != nil {
+		if err := obj.Anon.Apply(fn); err != nil {
+			return err
+		}
+	}
 	return fn(obj)
 }
 
@@ -7956,8 +10195,19 @@ func (obj *ExprCall) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprCall) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.Textarea.Setup(data)
+
+	if obj.Name == "" && obj.Anon == nil {
+		return fmt.Errorf("missing call name")
+	}
+
 	for _, x := range obj.Args {
 		if err := x.Init(data); err != nil {
+			return err
+		}
+	}
+	if obj.Anon != nil {
+		if err := obj.Anon.Init(data); err != nil {
 			return err
 		}
 	}
@@ -7976,6 +10226,14 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		}
 		args = append(args, interpolated)
 	}
+	var anon interfaces.Expr
+	if obj.Anon != nil {
+		f, err := obj.Anon.Interpolate()
+		if err != nil {
+			return nil, err
+		}
+		anon = f
+	}
 
 	orig := obj
 	if obj.orig != nil { // preserve the original pointer (the identifier!)
@@ -7983,9 +10241,10 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 	}
 
 	return &ExprCall{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
 		// XXX: Copy copies this, do we want to here as well? (or maybe
 		// we want to do it here, but not in Copy?)
 		expr: obj.expr,
@@ -7994,6 +10253,7 @@ func (obj *ExprCall) Interpolate() (interfaces.Expr, error) {
 		Name: obj.Name,
 		Args: args,
 		Var:  obj.Var,
+		Anon: anon,
 	}, nil
 }
 
@@ -8016,6 +10276,18 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		copied = true
 	} else {
 		args = obj.Args // don't re-package it unnecessarily!
+	}
+
+	var anon interfaces.Expr
+	if obj.Anon != nil {
+		cp, err := obj.Anon.Copy()
+		if err != nil {
+			return nil, err
+		}
+		if cp != obj.Anon { // must have been copied, or pointer would be same
+			copied = true
+		}
+		anon = cp
 	}
 
 	var err error
@@ -8042,15 +10314,17 @@ func (obj *ExprCall) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprCall{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
-		expr:  expr, // it seems that we need to copy this for it to work
-		orig:  orig,
-		V:     obj.V,
-		Name:  obj.Name,
-		Args:  args,
-		Var:   obj.Var,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		expr:     expr, // it seems that we need to copy this for it to work
+		orig:     orig,
+		V:        obj.V,
+		Name:     obj.Name,
+		Args:     args,
+		Var:      obj.Var,
+		Anon:     anon,
 	}, nil
 }
 
@@ -8063,7 +10337,7 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	}
 	graph.AddVertex(obj)
 
-	if obj.Name == "" {
+	if obj.Name == "" && obj.Anon == nil {
 		return nil, nil, fmt.Errorf("missing call name")
 	}
 	uid := funcOrderingPrefix + obj.Name // ordering id
@@ -8123,6 +10397,33 @@ func (obj *ExprCall) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 		}
 	}
 
+	if obj.Anon != nil {
+		g, c, err := obj.Anon.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		// additional constraints...
+		edge := &pgraph.SimpleEdge{Name: "exprcallanon1"}
+		graph.AddEdge(obj.Anon, obj, edge) // prod -> cons
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "exprcallanon2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
 	return graph, cons, nil
 }
 
@@ -8147,6 +10448,12 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		}
 	}
 
+	if obj.Anon != nil {
+		if err := obj.Anon.SetScope(scope, sctx); err != nil {
+			return err
+		}
+	}
+
 	var prefixedName string
 	var target interfaces.Expr
 	if obj.Var {
@@ -8161,10 +10468,14 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				if obj.data.Debug || true { // TODO: leave this on permanently?
 					lambdaScopeFeedback(obj.scope, obj.data.Logf)
 				}
-				return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
+				return fmt.Errorf("lambda `$%s` does not exist in this scope", prefixedName)
 			}
 			target = f
 		}
+	} else if obj.Name == "" && obj.Anon != nil {
+		// The call looks like <anon>().
+
+		target = obj.Anon
 	} else {
 		// The call looks like f().
 		prefixedName = obj.Name
@@ -8178,7 +10489,8 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		target = f
 	}
 
-	if polymorphicTarget, isPolymorphic := target.(*ExprPoly); isPolymorphic {
+	// NOTE: We previously used a findExprPoly helper function here.
+	if polymorphicTarget, isExprPoly := target.(*ExprPoly); isExprPoly {
 		// This function call refers to a polymorphic function
 		// expression. Those expressions can be instantiated at
 		// different types in different parts of the program, so that
@@ -8226,12 +10538,18 @@ func (obj *ExprCall) SetType(typ *types.Type) error {
 		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
 	}
 	obj.typ = typ // set
+
+	// XXX: Do we need to do something to obj.Anon ?
+
 	return nil
 }
 
 // Type returns the type of this expression, which is the return type of the
 // function call.
 func (obj *ExprCall) Type() (*types.Type, error) {
+
+	// XXX: If we have the function statically in obj.Anon, run this?
+
 	if obj.expr == nil {
 		// possible programming error
 		return nil, fmt.Errorf("call doesn't contain an expr pointer yet")
@@ -8241,7 +10559,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	exprFunc, isFn := obj.expr.(*ExprFunc)
 	if !isFn {
 		if obj.typ == nil {
-			return nil, interfaces.ErrTypeCurrentlyUnknown
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -8294,7 +10612,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	if obj.typ == nil {
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -8447,6 +10765,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -8517,6 +10836,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 		}
 
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj.expr, // this should NOT be obj
 			Expect: typFunc,  // TODO: are these two reversed here?
 			Actual: typFn,
@@ -8556,7 +10876,7 @@ func (obj *ExprCall) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might. This returns a graph with a single vertex (itself) in it, and
 // the edges from all of the child graphs to this.
-func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	if obj.expr == nil {
 		// possible programming error
 		return nil, nil, fmt.Errorf("call doesn't contain an expr pointer yet")
@@ -8572,30 +10892,6 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		return nil, nil, errwrap.Wrapf(err, "could not get the type of the function")
 	}
 
-	// Find the vertex which produces the FuncValue.
-	var funcValueFunc interfaces.Func
-	if _, isParam := obj.expr.(*ExprParam); isParam {
-		// The function being called is a parameter from the surrounding function.
-		// We should be able to find this parameter in the environment.
-		paramFunc, exists := env[obj.Name]
-		if !exists {
-			return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
-		}
-		graph.AddVertex(paramFunc)
-		funcValueFunc = paramFunc
-	} else {
-		// The function being called is a top-level definition. The parameters which
-		// are visible at this use site must not be visible at the definition site,
-		// so we pass an empty environment.
-		emptyEnv := map[string]interfaces.Func{}
-		exprGraph, topLevelFunc, err := obj.expr.Graph(emptyEnv)
-		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
-		}
-		graph.AddGraph(exprGraph)
-		funcValueFunc = topLevelFunc
-	}
-
 	// Loop over the arguments, add them to the graph, but do _not_ connect them
 	// to the function vertex. Instead, each time the call vertex (which we
 	// create below) receives a FuncValue from the function node, it creates the
@@ -8609,6 +10905,50 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 		graph.AddGraph(argGraph)
 		argFuncs = append(argFuncs, argFunc)
 	}
+
+	// Speculate early, in an attempt to get a simpler graph shape.
+	//exprFunc, ok := obj.expr.(*ExprFunc)
+	// XXX: Does this need to be .Pure for it to be allowed?
+	//canSpeculate := !ok || exprFunc.function == nil || (exprFunc.function.Info().Fast && exprFunc.function.Info().Spec)
+	canSpeculate := true // XXX: use the magic Info fields?
+	exprValue, err := obj.expr.Value()
+	exprFuncValue, ok := exprValue.(*full.FuncValue)
+	if err == nil && ok && canSpeculate {
+		txn := (&txn.GraphTxn{
+			GraphAPI: (&txn.Graph{
+				Debug: obj.data.Debug,
+				Logf: func(format string, v ...interface{}) {
+					obj.data.Logf(format, v...)
+				},
+			}).Init(),
+			Lock:     func() {},
+			Unlock:   func() {},
+			RefCount: (&ref.Count{}).Init(),
+		}).Init()
+		txn.AddGraph(graph) // add all of the graphs so far...
+
+		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs)
+		if err != nil {
+			return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
+		}
+		txn.AddVertex(outputFunc)
+
+		if err := txn.Commit(); err != nil { // Must Commit after txn.AddGraph(...)
+			return nil, nil, err
+		}
+
+		return txn.Graph(), outputFunc, nil
+	} else if err != nil && ok && canSpeculate && err != funcs.ErrCantSpeculate {
+		// This is a permanent error, not a temporary speculation error.
+		//return nil, nil, err // XXX: Consider adding this...
+	}
+
+	// Find the vertex which produces the FuncValue.
+	g, funcValueFunc, err := obj.funcValueFunc(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g)
 
 	// Add a vertex for the call itself.
 	edgeName := structs.CallFuncArgNameFunction
@@ -8626,6 +10966,92 @@ func (obj *ExprCall) Graph(env map[string]interfaces.Func) (*pgraph.Graph, inter
 	return graph, callFunc, nil
 }
 
+// funcValueFunc is a helper function to make the code more readable. This was
+// some very hard logic to get right for each case, and it eventually simplifies
+// down to two cases after refactoring.
+// TODO: Maybe future refactoring can improve this even more!
+func (obj *ExprCall) funcValueFunc(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	_, isParam := obj.expr.(*ExprParam)
+	exprIterated, isIterated := obj.expr.(*ExprIterated)
+
+	if !isIterated || obj.Var {
+		// XXX: isIterated and !obj.Var -- seems to never happen
+		//if (isParam || isIterated) && !obj.Var // better replacement?
+		if isParam && !obj.Var {
+			return nil, nil, fmt.Errorf("programming error")
+		}
+		// XXX: AFAICT we can *always* use the real env here. Ask Sam!
+		useEnv := interfaces.EmptyEnv()
+		if (isParam || isIterated) && obj.Var {
+			useEnv = env
+		}
+		// If isParam, the function being called is a parameter from the
+		// surrounding function. We should be able to find this
+		// parameter in the environment.
+
+		// If obj.Var, then the function being called is a top-level
+		// definition. The parameters which are visible at this use site
+		// must not be visible at the definition site, so we pass an
+		// empty environment. Sam was confused about this but apparently
+		// it works. He thinks that the reason it works must be in
+		// ExprFunc where we must be capturing the Env somehow. See:
+		// watsam1.mcl and watsam2.mcl for more examples.
+
+		// If else, the function being called is a top-level definition.
+		// (Which is NOT inside of a for loop.) The parameters which are
+		// visible at this use site must not be visible at the
+		// definition site, so we pass the captured environment. Sam is
+		// VERY confused about this case.
+		//
+		//capturedEnv, exists := env.Functions[obj.Name]
+		//if !exists {
+		//	return nil, nil, fmt.Errorf("programming error with `%s`", obj.Name)
+		//}
+		//useEnv = capturedEnv
+		// But then we decided to not use this env there after all...
+
+		return obj.expr.Graph(useEnv)
+	}
+
+	// This is: isIterated && !obj.Var
+
+	// The ExprPoly has been unwrapped to produce a fresh ExprIterated which
+	// was stored in obj.expr therefore we don't want to look up obj.expr in
+	// env.Functions because we would not find this fresh copy of the
+	// ExprIterated. Instead we recover the ExprPoly and look up that
+	// ExprPoly in env.Functions.
+	expr, exists := obj.scope.Functions[obj.Name]
+	if !exists {
+		// XXX: Improve this error message.
+		return nil, nil, fmt.Errorf("unspecified error with: %s", obj.Name)
+	}
+
+	exprPoly, ok := expr.(*ExprPoly)
+	if !ok {
+		// XXX: Improve this error message.
+		return nil, nil, fmt.Errorf("unspecified error with: %s", obj.Name)
+	}
+
+	// The function being called is a top-level definition inside a for
+	// loop. The parameters which are visible at this use site must not be
+	// visible at the definition site, so we pass the captured environment.
+	// Sam is not confused ANYMORE about this case.
+	capturedEnv, exists := env.Functions[exprPoly]
+	if !exists {
+		// XXX: Improve this error message.
+		return nil, nil, fmt.Errorf("unspecified error with: %s", obj.Name)
+	}
+
+	g, f, err := exprIterated.Definition.Graph(capturedEnv)
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not get the graph for the expr pointer")
+	}
+
+	return g, f, nil
+
+	// NOTE: If `isIterated && obj.Var` is now handled in the above "else"!
+}
+
 // SetValue here is used to store the result of the last computation of this
 // expression node after it has received all the required input values. This
 // value is cached and can be retrieved by calling Value.
@@ -8633,7 +11059,7 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 	if err := obj.typ.Cmp(value.Type()); err != nil {
 		return err
 	}
-	obj.V = value
+	obj.V = value // XXX: is this useful or a good idea?
 	return nil
 }
 
@@ -8641,18 +11067,52 @@ func (obj *ExprCall) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 // It is often unlikely that this kind of speculative execution finds something.
-// This particular implementation of the function returns the previously stored
-// and cached value as received by SetValue.
+// This particular implementation will run a function if all of the needed
+// values are known. This is necessary for getting the efficient graph shape of
+// ExprCall.
 func (obj *ExprCall) Value() (types.Value, error) {
-	if obj.V == nil {
+	if obj.V != nil { // XXX: is this useful or a good idea?
+		return obj.V, nil
+	}
+
+	if obj.expr == nil {
 		return nil, fmt.Errorf("func value does not yet exist")
 	}
-	return obj.V, nil
+
+	// Speculatively call Value() on obj.expr and each arg.
+	// XXX: Should we check obj.expr.(*ExprFunc).Info.Pure here ?
+	value, err := obj.expr.Value() // speculative
+	if err != nil {
+		return nil, err
+	}
+
+	funcValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("not a func value")
+	}
+
+	args := []types.Value{}
+	for _, arg := range obj.Args { // []interfaces.Expr
+		a, err := arg.Value() // speculative
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, a)
+	}
+
+	// We now have a *full.FuncValue and a []types.Value. We can't call the
+	// existing:
+	//	Call(..., []interfaces.Func) interfaces.Func` method on the
+	// FuncValue, we need a speculative:
+	//	Call(..., []types.Value) types.Value
+	// method.
+	return funcValue.CallWithValues(context.TODO(), args)
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression
 // that that variable refers to.
 type ExprVar struct {
+	Textarea
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
@@ -8685,10 +11145,11 @@ func (obj *ExprVar) Init(data *interfaces.Data) error {
 // support variable, variables or anything crazy like that.
 func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 	return &ExprVar{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
-		Name:  obj.Name,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Name:     obj.Name,
 	}, nil
 }
 
@@ -8699,10 +11160,11 @@ func (obj *ExprVar) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprVar) Copy() (interfaces.Expr, error) {
 	return &ExprVar{
-		data:  obj.data,
-		scope: obj.scope,
-		typ:   obj.typ,
-		Name:  obj.Name,
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Name:     obj.Name,
 	}, nil
 }
 
@@ -8752,7 +11214,7 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
 	obj.scope = interfaces.EmptyScope()
 	if scope != nil {
-		obj.scope = scope.Copy()
+		obj.scope = scope.Copy() // XXX: Sam says we probably don't need to copy this.
 	}
 
 	if monomorphicTarget, exists := sctx[obj.Name]; exists {
@@ -8770,7 +11232,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 		if obj.data.Debug || true { // TODO: leave this on permanently?
 			variableScopeFeedback(obj.scope, obj.data.Logf)
 		}
-		return fmt.Errorf("variable %s not in scope", obj.Name)
+		return fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
 	}
 
 	obj.scope.Variables[obj.Name] = target
@@ -8797,6 +11259,13 @@ func (obj *ExprVar) SetType(typ *types.Type) error {
 func (obj *ExprVar) Type() (*types.Type, error) {
 	// TODO: should this look more like Type() in ExprCall or vice-versa?
 
+	if obj.scope == nil { // avoid a possible nil panic if we speculate here
+		if obj.typ == nil {
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		}
+		return obj.typ, nil
+	}
+
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
 	expr, exists := obj.scope.Variables[obj.Name]
@@ -8807,7 +11276,7 @@ func (obj *ExprVar) Type() (*types.Type, error) {
 	}
 
 	if obj.typ == nil {
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -8836,6 +11305,7 @@ func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typ,
 		Actual: typ,
@@ -8866,23 +11336,28 @@ func (obj *ExprVar) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 // important for filling the logical requirements of the graph type checker, and
 // to avoid duplicating production of the incoming input value from the bound
 // expression.
-func (obj *ExprVar) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	// Delegate to the targetExpr.
-	targetExpr := obj.scope.Variables[obj.Name]
-	if _, isParam := targetExpr.(*ExprParam); isParam {
-		// The variable points to a function parameter. We should be able to find
-		// this parameter in the environment.
-		targetFunc, exists := env[obj.Name]
-		if !exists {
-			return nil, nil, fmt.Errorf("param `%s` is not in the environment", obj.Name)
-		}
+func (obj *ExprVar) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	// New "env" based methodology. One day we will use this for everything,
+	// and not use the scope in the same way. Sam hacking!
+	//targetFunc, exists := env.Variables[obj.Name]
+	//if exists {
+	//	if targetFunc == nil {
+	//		panic("BUG")
+	//	}
+	//	graph, err := pgraph.NewGraph("ExprVar")
+	//	if err != nil {
+	//		return nil, nil, err
+	//	}
+	//	graph.AddVertex(targetFunc)
+	//	return graph, targetFunc, nil
+	//}
 
-		graph, err := pgraph.NewGraph("ExprParam")
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddVertex(targetFunc)
-		return graph, targetFunc, nil
+	// Leave this remainder here for now...
+
+	// Delegate to the targetExpr.
+	targetExpr, exists := obj.scope.Variables[obj.Name]
+	if !exists {
+		return nil, nil, fmt.Errorf("scope is missing %s", obj.Name)
 	}
 
 	// The variable points to a top-level expression.
@@ -8909,6 +11384,10 @@ func (obj *ExprVar) SetValue(value types.Value) error {
 // it can lookup in the previous set scope which expression this points to, and
 // then it can call Value on that expression.
 func (obj *ExprVar) Value() (types.Value, error) {
+	if obj.scope == nil { // avoid a possible nil panic if we speculate here
+		return nil, errwrap.Wrapf(interfaces.ErrValueCurrentlyUnknown, obj.String())
+	}
+
 	expr, exists := obj.scope.Variables[obj.Name]
 	if !exists {
 		return nil, fmt.Errorf("var `%s` does not exist in scope", obj.Name)
@@ -8921,6 +11400,8 @@ type ExprParam struct {
 	typ *types.Type
 
 	Name string // name of the parameter
+
+	envKey interfaces.Expr
 }
 
 // String returns a short representation of this expression.
@@ -8945,10 +11426,12 @@ func (obj *ExprParam) Init(*interfaces.Data) error {
 // generally increases the size of the AST when it is used. It calls Interpolate
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
-	return &ExprParam{
+	expr := &ExprParam{
 		typ:  obj.typ,
 		Name: obj.Name,
-	}, nil
+	}
+	expr.envKey = expr
+	return expr, nil
 }
 
 // Copy returns a light copy of this struct. Anything static will not be copied.
@@ -8958,8 +11441,9 @@ func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprParam) Copy() (interfaces.Expr, error) {
 	return &ExprParam{
-		typ:  obj.typ,
-		Name: obj.Name,
+		typ:    obj.typ,
+		Name:   obj.Name,
+		envKey: obj.envKey, // don't copy
 	}, nil
 }
 
@@ -8991,8 +11475,9 @@ func (obj *ExprParam) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 
 // SetScope stores the scope for use in this resource.
 func (obj *ExprParam) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
-	// ExprParam doesn't have a scope, because it is the node to which a VarExpr
-	// can point to, it doesn't point to anything itself.
+	obj.envKey = obj // XXX: not being used, we use newExprParam for now
+	// ExprParam doesn't have a scope, because it is the node to which a
+	// ExprVar can point to, so it doesn't point to anything itself.
 	return nil
 }
 
@@ -9030,7 +11515,7 @@ func (obj *ExprParam) Type() (*types.Type, error) {
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
 	if obj.typ == nil {
-		return nil, interfaces.ErrTypeCurrentlyUnknown
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 	}
 	return obj.typ, nil
 }
@@ -9063,6 +11548,7 @@ func (obj *ExprParam) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 
 		// This adds the obj ptr, so it's seen as an expr that we need to solve.
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj,
 			Expect: typ,
 			Actual: typ,
@@ -9087,8 +11573,13 @@ func (obj *ExprParam) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *ExprParam) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
-	panic("ExprParam.Graph(): should not happen, ExprVar.Graph() should handle the case where the ExprVar points to an ExprParam")
+func (obj *ExprParam) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	fSingleton, exists := env.Variables[obj.envKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("could not find `%s` in env for ExprParam", obj.Name)
+	}
+
+	return fSingleton.GraphFunc()
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -9104,7 +11595,201 @@ func (obj *ExprParam) SetValue(value types.Value) error {
 // usually only be valid once the engine has run and values have been produced.
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprParam) Value() (types.Value, error) {
+	// XXX: if value env is an arg in Expr.Value(...)
+	//value, exists := valueEnv[obj]
+	//if exists {
+	//	return value, nil
+	//}
 	return nil, fmt.Errorf("no value for ExprParam")
+}
+
+// ExprIterated tags an Expr to indicate that we want to use the env instead of
+// the scope in Graph() because this variable was defined inside a for loop. We
+// create a new ExprIterated which wraps an Expr and indicates that we want to
+// use an iteration-specific value instead of the wrapped Expr. It delegates to
+// the Expr for SetScope() and Infer(), and looks up in the env for Graph(), the
+// same as ExprParam.Graph(), and panics if any later phase is called.
+type ExprIterated struct {
+	// Name is the name (Ident) of the StmtBind.
+	Name string
+
+	// Definition is the wrapped expression.
+	Definition interfaces.Expr
+
+	envKey interfaces.Expr
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprIterated) String() string {
+	return fmt.Sprintf("iterated(%v %s)", obj.Definition, obj.Name)
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprIterated) Apply(fn func(interfaces.Node) error) error {
+	if obj.Definition != nil {
+		if err := obj.Definition.Apply(fn); err != nil {
+			return err
+		}
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprIterated) Init(*interfaces.Data) error {
+	if obj.Name == "" {
+		return fmt.Errorf("empty name for ExprIterated")
+	}
+	if obj.Definition == nil {
+		return fmt.Errorf("empty Definition for ExprIterated")
+	}
+	return nil
+	//return langUtil.ValidateVarName(obj.Name) XXX: Should we add this?
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprIterated) Interpolate() (interfaces.Expr, error) {
+	expr := &ExprIterated{
+		Name:       obj.Name,
+		Definition: obj.Definition,
+		// TODO: Should we copy envKey ?
+	}
+	expr.envKey = expr
+	return expr, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+// This intentionally returns a copy, because if a function (usually a lambda)
+// that is used more than once, contains this variable, we will want each
+// instantiation of it to be unique, otherwise they will be the same pointer,
+// and they won't be able to have different values.
+func (obj *ExprIterated) Copy() (interfaces.Expr, error) {
+	return &ExprIterated{
+		Name:       obj.Name,
+		Definition: obj.Definition, // XXX: Should we copy this?
+		envKey:     obj.envKey,     // don't copy
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprIterated) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	return obj.Definition.Ordering(produces) // Also do this.
+	// XXX: Do we need to add our own graph too? Sam says yes, maybe.
+	//
+	//graph, err := pgraph.NewGraph("ordering")
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	//graph.AddVertex(obj)
+	//
+	//if obj.Name == "" {
+	//	return nil, nil, fmt.Errorf("missing param name")
+	//}
+	//uid := paramOrderingPrefix + obj.Name // ordering id
+	//
+	//cons := make(map[interfaces.Node]string)
+	//cons[obj] = uid
+	//
+	//node, exists := produces[uid]
+	//if exists {
+	//	edge := &pgraph.SimpleEdge{Name: "ExprIterated"}
+	//	graph.AddEdge(node, obj, edge) // prod -> cons
+	//}
+	//
+	//return graph, cons, nil
+}
+
+// SetScope stores the scope for use in this resource.
+func (obj *ExprIterated) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	// When we copy, the pointer of the obj changes, so we save it here now,
+	// so that we can use it later in the env lookup!
+	obj.envKey = obj // XXX: not being used we use newExprIterated for now
+	return obj.Definition.SetScope(scope, sctx)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprIterated) SetType(typ *types.Type) error {
+	return obj.Definition.SetType(typ)
+}
+
+// Type returns the type of this expression.
+func (obj *ExprIterated) Type() (*types.Type, error) {
+	return obj.Definition.Type()
+}
+
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer returns a quasi-equivalent to my
+// ExprAny invariant idea.
+func (obj *ExprIterated) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Definition.Infer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	invar := &interfaces.UnificationInvariant{
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprIterated) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprIterated) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	fSingleton, exists := env.Variables[obj.envKey]
+	if !exists {
+		return nil, nil, fmt.Errorf("could not find `%s` in env for ExprIterated", obj.Name)
+	}
+
+	return fSingleton.GraphFunc()
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the dest lookup expr) will have had this
+// done to them first, and as such when we try and retrieve the set value from
+// this expression by calling `Value`, it will build it from scratch!
+func (obj *ExprIterated) SetValue(value types.Value) error {
+	// ignored, as we don't support ExprIterated.Value()
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprIterated) Value() (types.Value, error) {
+	return nil, fmt.Errorf("no value for ExprIterated")
 }
 
 // ExprPoly is a polymorphic expression that is a definition that can be used in
@@ -9183,7 +11868,7 @@ func (obj *ExprPoly) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprPoly) Type() (*types.Type, error) {
-	return nil, interfaces.ErrTypeCurrentlyUnknown
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -9211,7 +11896,7 @@ func (obj *ExprPoly) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *ExprPoly) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprPoly) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	panic("ExprPoly.Graph(): should not happen, all ExprPoly expressions should be gone by the time type-checking starts")
 }
 
@@ -9370,6 +12055,7 @@ func (obj *ExprTopLevel) Infer() (*types.Type, []*interfaces.UnificationInvarian
 
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typ,
 		Actual: typ,
@@ -9393,7 +12079,7 @@ func (obj *ExprTopLevel) Check(typ *types.Type) ([]*interfaces.UnificationInvari
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *ExprTopLevel) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprTopLevel) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	return obj.Definition.Graph(env)
 }
 
@@ -9420,8 +12106,8 @@ type ExprSingleton struct {
 
 	singletonType  *types.Type
 	singletonGraph *pgraph.Graph
-	singletonExpr  interfaces.Func
-	mutex          *sync.Mutex // protects singletonGraph and singletonExpr
+	singletonFunc  interfaces.Func
+	mutex          *sync.Mutex // protects singletonGraph and singletonFunc
 }
 
 // String returns a short representation of this expression.
@@ -9461,7 +12147,7 @@ func (obj *ExprSingleton) Interpolate() (interfaces.Expr, error) {
 		Definition:     definition,
 		singletonType:  nil, // each copy should have its own Type
 		singletonGraph: nil, // each copy should have its own Graph
-		singletonExpr:  nil, // each copy should have its own Func
+		singletonFunc:  nil, // each copy should have its own Func
 		mutex:          &sync.Mutex{},
 	}, nil
 }
@@ -9477,7 +12163,7 @@ func (obj *ExprSingleton) Copy() (interfaces.Expr, error) {
 		Definition:     definition,
 		singletonType:  nil, // each copy should have its own Type
 		singletonGraph: nil, // each copy should have its own Graph
-		singletonExpr:  nil, // each copy should have its own Func
+		singletonFunc:  nil, // each copy should have its own Func
 		mutex:          &sync.Mutex{},
 	}, nil
 }
@@ -9564,6 +12250,7 @@ func (obj *ExprSingleton) Infer() (*types.Type, []*interfaces.UnificationInvaria
 		// This adds the obj ptr, so it's seen as an expr that we need
 		// to solve.
 		invar := &interfaces.UnificationInvariant{
+			Node:   obj,
 			Expr:   obj,
 			Expect: typ,
 			Actual: typ,
@@ -9591,21 +12278,21 @@ func (obj *ExprSingleton) Check(typ *types.Type) ([]*interfaces.UnificationInvar
 // interface directly produce vertices (and possible children) where as nodes
 // that fulfill the Stmt interface do not produces vertices, where as their
 // children might.
-func (obj *ExprSingleton) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprSingleton) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	if obj.singletonExpr == nil {
+	if obj.singletonFunc == nil {
 		g, f, err := obj.Definition.Graph(env)
 		if err != nil {
 			return nil, nil, err
 		}
 		obj.singletonGraph = g
-		obj.singletonExpr = f
+		obj.singletonFunc = f
 		return g, f, nil
 	}
 
-	return obj.singletonGraph, obj.singletonExpr, nil
+	return obj.singletonGraph, obj.singletonFunc, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from
@@ -9627,6 +12314,8 @@ func (obj *ExprSingleton) Value() (types.Value, error) {
 // returns a value. As a result, it has a type. This is different from a StmtIf,
 // which does not need to have both branches, and which does not return a value.
 type ExprIf struct {
+	Textarea
+	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 	typ   *types.Type
 
@@ -9664,6 +12353,9 @@ func (obj *ExprIf) Apply(fn func(interfaces.Node) error) error {
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *ExprIf) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
 	if err := obj.Condition.Init(data); err != nil {
 		return err
 	}
@@ -9695,6 +12387,8 @@ func (obj *ExprIf) Interpolate() (interfaces.Expr, error) {
 		return nil, errwrap.Wrapf(err, "could not interpolate ElseBranch")
 	}
 	return &ExprIf{
+		Textarea:   obj.Textarea,
+		data:       obj.data,
 		scope:      obj.scope,
 		typ:        obj.typ,
 		Condition:  condition,
@@ -9733,6 +12427,8 @@ func (obj *ExprIf) Copy() (interfaces.Expr, error) {
 		return obj, nil
 	}
 	return &ExprIf{
+		Textarea:   obj.Textarea,
+		data:       obj.data,
 		scope:      obj.scope,
 		typ:        obj.typ,
 		Condition:  condition,
@@ -9884,7 +12580,7 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 	if typ != nil {
 		return typ, nil
 	}
-	return nil, interfaces.ErrTypeCurrentlyUnknown
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -9931,6 +12627,7 @@ func (obj *ExprIf) Infer() (*types.Type, []*interfaces.UnificationInvariant, err
 	}
 	// This must be added even if redundant, so that we collect the obj ptr.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typExpr, // This is the type that we return.
 		Actual: typType,
@@ -9971,7 +12668,7 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 // shouldn't have any ill effects.
 // XXX: is this completely true if we're running technically impure, but safe
 // built-in functions on both branches? Can we turn off half of this?
-func (obj *ExprIf) Graph(env map[string]interfaces.Func) (*pgraph.Graph, interfaces.Func, error) {
+func (obj *ExprIf) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, nil, err

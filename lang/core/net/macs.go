@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "macs", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false, // might be different at real runtime
+		},
 		T: types.NewType("func() []str"),
 		F: Macs,
 	})

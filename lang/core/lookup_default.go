@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -93,12 +93,15 @@ func (obj *LookupDefaultFunc) ArgGen(index int) (string, error) {
 // runs.
 func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
+	if typ == nil {
+		return nil, fmt.Errorf("nil type") // happens b/c of Copy()
+	}
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) < 1 {
-		return nil, fmt.Errorf("the lookup function needs at least one arg") // actually 2 or 3
+	if len(typ.Ord) != 3 {
+		return nil, fmt.Errorf("the lookup function needs three args")
 	}
 	tListOrMap, exists := typ.Map[typ.Ord[0]]
 	if !exists || tListOrMap == nil {
@@ -108,16 +111,51 @@ func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("first arg must have a type")
 	}
 
+	name := ""
 	if tListOrMap.Kind == types.KindList {
-		obj.fn = &ListLookupDefaultFunc{} // set it
-		return obj.fn.Build(typ)
+		name = ListLookupDefaultFuncName
 	}
 	if tListOrMap.Kind == types.KindMap {
-		obj.fn = &MapLookupDefaultFunc{} // set it
-		return obj.fn.Build(typ)
+		name = MapLookupDefaultFuncName
+	}
+	if name == "" {
+		return nil, fmt.Errorf("we must lookup from either a list or a map")
 	}
 
-	return nil, fmt.Errorf("we must lookup from either a list or a map")
+	f, err := funcs.Lookup(name)
+	if err != nil {
+		// programming error
+		return nil, err
+	}
+
+	if _, ok := f.(interfaces.CallableFunc); !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+
+	bf, ok := f.(interfaces.BuildableFunc)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("not a BuildableFunc")
+	}
+	obj.fn = bf
+
+	return obj.fn.Build(typ)
+}
+
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *LookupDefaultFunc) Copy() interfaces.Func {
+	fn := &LookupDefaultFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+		//fn: get this through Build()
+
+		//init: obj.init, // likely gets overwritten anyways
+	}
+	if _, err := fn.Build(obj.Type); err != nil {
+		// ignore, since we just didn't set the type
+	}
+	return fn
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -137,7 +175,9 @@ func (obj *LookupDefaultFunc) Info() *interfaces.Info {
 	if obj.fn == nil {
 		return &interfaces.Info{
 			Pure: true,
-			Memo: false,
+			Memo: true,
+			Fast: true,
+			Spec: true,
 			Sig:  types.NewType("func(?1, ?2, ?3) ?3"), // func kind
 			Err:  obj.Validate(),
 		}
@@ -160,4 +200,17 @@ func (obj *LookupDefaultFunc) Stream(ctx context.Context) error {
 		return fmt.Errorf("function not built correctly")
 	}
 	return obj.fn.Stream(ctx)
+}
+
+// Call returns the result of this function.
+func (obj *LookupDefaultFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.fn == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	cf, ok := obj.fn.(interfaces.CallableFunc)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+	return cf.Call(ctx, args)
 }

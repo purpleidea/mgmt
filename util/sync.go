@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -180,7 +180,7 @@ func (obj *EasyExit) Error() error {
 // instantiated before it can be used. It must not be copied after first use. It
 // is equivalent to receiving a multicast signal from a closing channel, except
 // that it must be acknowledged by every reader of the signal, and once this is
-// done, it is reset and can be re-used. Readers must obtain a handle to the
+// done, it is reset and can be reused. Readers must obtain a handle to the
 // signal with the Subscribe method, and the signal is sent out with the Done
 // method.
 type SubscribedSignal struct {
@@ -239,7 +239,7 @@ func (obj *SubscribedSignal) Send() {
 
 	obj.exit = make(chan struct{}) // reset
 
-	// release (re-use the above mutex)
+	// release (reuse the above mutex)
 }
 
 // BoundedReadSemaphore is a mutex that allows multiple Lock operations to occur

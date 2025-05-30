@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that go vet passes
 
 echo running "$0"
@@ -122,12 +122,18 @@ function reflowed-comments() {
 		return 0
 	fi
 
-	./test/comment_parser "$1"
+	# Name this to match the function so it's easy to run this by itself.
+	./test/reflowed-comments "$1"
 }
 
 # run go vet on a per-package basis
 base=$(go list .)
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
+
+	if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_server_ui" ]; then
+		continue # skip this special main package
+	fi
+
 	echo -e "\tgo vet: $pkg"
 	run-test go vet -source "$pkg" || fail_test "go vet -source did not pass pkg"
 

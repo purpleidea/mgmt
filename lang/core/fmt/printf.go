@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -92,13 +92,16 @@ type PrintfFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	result *string // last calculated output
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *PrintfFunc) String() string {
-	return fmt.Sprintf("%s@%p", PrintfFuncName, obj) // be more unique!
+	if obj.Type != nil {
+		return fmt.Sprintf("%s: %s", PrintfFuncName, obj.Type)
+	}
+	return PrintfFuncName
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -165,6 +168,9 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 		formatList, err := parseFormatToTypeList(*format)
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not parse format string")
+		}
+		if a, l := len(typList)-1, len(formatList); a != l {
+			return nil, nil, fmt.Errorf("number of args (%d) doesn't match format string verb count (%d)", a, l)
 		}
 		for i, x := range typList {
 			if i == 0 { // format string
@@ -295,7 +301,9 @@ func (obj *PrintfFunc) Info() *interfaces.Info {
 	// getting them from FuncInfer, and not from here. (During unification!)
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.Type,
 		Err:  obj.Validate(),
 	}
@@ -325,38 +333,68 @@ func (obj *PrintfFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			format := input.Struct()[printfArgNameFormat].Str()
-			values := []types.Value{}
-			for _, name := range obj.Type.Ord {
-				if name == printfArgNameFormat { // skip format arg
-					continue
-				}
-				x := input.Struct()[name]
-				values = append(values, x)
-			}
-
-			result, err := compileFormatToString(format, values)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
 			if err != nil {
-				return err // no errwrap needed b/c helper func
+				return err
 			}
 
-			if obj.result != nil && *obj.result == result {
+			result, err := obj.Call(ctx, args)
+			if err != nil {
+				return err
+			}
+
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Copy is implemented so that the obj.Type value is not lost if we copy this
+// function.
+func (obj *PrintfFunc) Copy() interfaces.Func {
+	return &PrintfFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *PrintfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	format := args[0].Str()
+
+	values := []types.Value{}
+	for i, x := range args {
+		if i == 0 { // skip format arg
+			continue
+		}
+		values = append(values, x)
+	}
+
+	result, err := compileFormatToString(format, values)
+	if err != nil {
+		return nil, err // no errwrap needed b/c helper func
+	}
+	return &types.StrValue{
+		V: result,
+	}, nil
 }
 
 // valueToString prints our values how we expect for printf.
@@ -367,6 +405,19 @@ func valueToString(value types.Value) string {
 	case types.KindFloat:
 		// TODO: use formatting flags ?
 		// FIXME: Our String() method in FloatValue doesn't print nicely
+		return value.String()
+
+	case types.KindList:
+		fallthrough
+	case types.KindMap:
+		fallthrough
+	case types.KindStruct:
+		// XXX: Attempting to run value.Value() on a struct, which will
+		// surely have a lowercase (unexported) name will panic. This
+		// will also happen on any container types like list or map that
+		// may have a struct inside. It's expected that we have
+		// lowercase field names since we're using mcl, but workaround
+		// this panic for now with this cheap representation.
 		return value.String()
 	}
 

@@ -1,0 +1,11 @@
+exec "a" {
+	shell => "/bin/bash",
+	cmd => "echo hello | tee /tmp/hello",
+	creates => "/tmp/hello",
+}
+
+file "/tmp/hello" {
+	mode => "ug=rw,o=",
+}
+
+Exec["a"].output -> File["/tmp/hello"].content

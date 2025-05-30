@@ -1,5 +1,5 @@
 # Mgmt
-# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Copyright (C) James Shubin and the project contributors
 # Written by James Shubin <james@shubin.ca> and the project contributors
 #
 # This program is free software: you can redistribute it and/or modify
@@ -29,8 +29,11 @@
 
 import "golang"
 import "golang/strings"
+import "iter"
+import "local"
 import "net"
 import "os"
+import "world/collect"
 
 # ssh_keygen creates an ssh key pair in the user's home directory if the private
 # key doesn't exist.
@@ -60,6 +63,34 @@ class ssh_keygen($user) {
 	file "${p}.ssh/id_rsa" {
 		mode => "u=rw,go=",
 		owner => $user,
+	}
+
+	line "${user}@${hostname}" {
+		#file => "", # specified on collect
+		#state => "exists", # specified on collect
+		content => os.readfilewait("${p}.ssh/id_rsa.pub"),
+
+		Meta:hidden => true,
+		Meta:export => ["*",],
+	}
+}
+
+# ssh_authorized_keys pulls down an export key for a $user, from a user@host.
+class ssh_authorized_keys($user, $from) {
+	panic($user == "") # panic if $user is empty
+	$p = os.expand_home("~${user}/") # eg: ~james/
+
+	$all = collect.res("line") # []struct{name str; host str;}
+	$fn = func($st) {
+		$st->name == "${from}" and $st->host != "${hostname}"
+	}
+	$filtered = iter.filter($all, $fn)
+
+	collect line $filtered { # pull down everyone's public keys
+		file => "${p}.ssh/authorized_keys",
+		state => $const.res.file.state.exists,
+
+		Meta:hidden => false,
 	}
 }
 
@@ -158,5 +189,35 @@ mac-address={{ .mac }}
 	}
 
 	svc "NetworkManager" {
+	}
+}
+
+# systemd_daemon_reload creates an exec which runs a systemctl daemon-reload if
+# one is needed. The exec resource uses the input name, to make it easy to
+# attach an edge to it.
+# TODO: can we use: systemctl show foo.service --property=NeedDaemonReload
+class systemd_daemon_reload($name) {
+	$vardir = local.vardir("misc/")
+	$mtime_file = "${vardir}daemon-reload"
+
+	exec "${name}" {
+		cmd => "/usr/bin/systemctl",
+		args => [
+			"daemon-reload",
+		],
+
+		donecmd => "/usr/bin/date --utc > ${mtime_file}",
+		doneshell => "/usr/bin/bash",
+
+		watchfiles => [
+			"/lib/systemd/system/",
+			"/etc/systemd/system/",
+			"${mtime_file}",
+		],
+
+		# If we have any file that's newer than our mtime, the run.
+		# NOTE: We grep since find doesn't return a useful return code.
+		ifcmd => "/usr/bin/test ! -e '${mtime_file}' || /usr/bin/find /lib/systemd/system/ /etc/systemd/system/ -type f -name '*.service' -newer '${mtime_file}' | /usr/bin/grep -q .",
+		ifshell => "/usr/bin/bash",
 	}
 }

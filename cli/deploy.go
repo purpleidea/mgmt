@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -36,9 +36,11 @@ import (
 	"os/signal"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/etcd"
 	"github.com/purpleidea/mgmt/etcd/client"
-	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
+	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
@@ -52,11 +54,22 @@ import (
 // particular one contains all the common flags for the `deploy` subcommand
 // which all frontends can use.
 type DeployArgs struct {
-	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etc client endpoint"`
+	// SSHURL can be specified if we want to transport the SSH client
+	// connection over SSH. If this is specified, the second hop is made
+	// with the Seeds values, but they connect from this destination. You
+	// can specify this in the standard james@server:22 format. This will
+	// use your ~/.ssh/ directory for public key authentication and
+	// verifying the host key in the known_hosts file. This must already be
+	// setup for things to work.
+	SSHURL string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
+
+	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	Noop  bool     `arg:"--noop" help:"globally force all resources into no-op mode"`
 	Sema  int      `arg:"--sema" default:"-1" help:"globally add a semaphore to all resources with this lock count"`
 	NoGit bool     `arg:"--no-git" help:"don't look at git commit id for safe deploys"`
 	Force bool     `arg:"--force" help:"force a new deploy, even if the safety chain would break"`
+
+	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
 
 	DeployEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"deploy empty payload"`
 	DeployLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
@@ -184,26 +197,52 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		}
 	}()
 
-	simpleDeploy := &deployer.SimpleDeploy{
-		Client: etcdClient,
-		Debug:  data.Flags.Debug,
+	var world engine.World
+	world = &etcd.World{ // XXX: What should some of these fields be?
+		Client: etcdClient, // XXX: remove me when etcdfs below is done
+		Seeds:  obj.Seeds,
+		NS:     lib.NS,
+		//MetadataPrefix: lib.MetadataPrefix,
+		//StoragePrefix:  lib.StoragePrefix,
+		//StandaloneFs: ???.DeployFs, // used for static deploys
+		//GetURI: func() string {
+		//},
+	}
+	if obj.SSHURL != "" { // alternate world implementation over SSH
+		world = &etcdSSH.World{
+			URL:   obj.SSHURL,
+			Seeds: obj.Seeds,
+			NS:    lib.NS,
+			//MetadataPrefix: lib.MetadataPrefix,
+			//StoragePrefix:  lib.StoragePrefix,
+			//StandaloneFs: ???.DeployFs, // used for static deploys
+			//GetURI: func() string {
+			//},
+		}
+		// XXX: We need to first get rid of the standalone etcd client,
+		// and then pull the etcdfs stuff in so it uses that client.
+		return false, fmt.Errorf("--ssh-url is not implemented yet")
+	}
+	worldInit := &engine.WorldInit{
+		Hostname: "", // XXX: Should we set this?
+		Debug:    data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
-			Logf("deploy: "+format, v...)
+			Logf("world: etcd: "+format, v...)
 		},
 	}
-	if err := simpleDeploy.Init(); err != nil {
-		return false, errwrap.Wrapf(err, "deploy Init failed")
+	if err := world.Init(worldInit); err != nil {
+		return false, errwrap.Wrapf(err, "world Init failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(simpleDeploy.Close(), "deploy Close failed")
+		err := errwrap.Wrapf(world.Close(), "world Close failed")
 		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("deploy cleanup error: %+v", err)
+			// TODO: cause the final exit code to be non-zero?
+			Logf("close error: %+v", err)
 		}
 	}()
 
 	// get max id (from all the previous deploys)
-	max, err := simpleDeploy.GetMaxDeployID(ctx)
+	max, err := world.GetMaxDeployID(ctx)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error getting max deploy id")
 	}
@@ -211,6 +250,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	var id = max + 1 // next id
 	Logf("previous max deploy id: %d", max)
 
+	// XXX: Get this from the World API? (Which might need improving!)
 	etcdFs := &etcdfs.Fs{
 		Client: etcdClient,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
@@ -251,13 +291,16 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	deploy.Noop = obj.Noop
 	deploy.Sema = obj.Sema
 
+	deploy.NoAutoEdges = obj.NoAutoEdges
+
 	str, err := deploy.ToB64()
 	if err != nil {
 		return false, errwrap.Wrapf(err, "encoding error")
 	}
 
+	Logf("pushing...")
 	// this nominally checks the previous git hash matches our expectation
-	if err := simpleDeploy.AddDeploy(ctx, id, hash, pHash, &str); err != nil {
+	if err := world.AddDeploy(ctx, id, hash, pHash, &str); err != nil {
 		return false, errwrap.Wrapf(err, "could not create deploy id `%d`", id)
 	}
 	Logf("success, id: %d", id)

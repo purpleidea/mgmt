@@ -7,9 +7,9 @@ test "greeting" {
 	anotherstr => fmt.printf("hello: %s", $s),
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
+Edge: const: str("hello: %s") -> printf: func(format str, a str) str # format
+Edge: const: str("world") -> printf: func(format str, a str) str # a
 Vertex: const: str("greeting")
 Vertex: const: str("hello: %s")
 Vertex: const: str("world")
+Vertex: printf: func(format str, a str) str

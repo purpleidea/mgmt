@@ -1,0 +1,11 @@
+-- main.mcl --
+http:server:ui:input "text1" {}
+
+Http:Server:Ui:Input["text1"].value -> Kv["kv1"].value
+
+kv "kv1" {}
+
+-- OUTPUT --
+Edge: http:server:ui:input[text1] -> kv[kv1] # http:server:ui:input[text1] -> kv[kv1]
+Vertex: http:server:ui:input[text1]
+Vertex: kv[kv1]

@@ -1,0 +1,11 @@
+-- main.mcl --
+$x = ["foo", "bar",]
+$f = func() {
+	$x[0]
+}
+$y = $f()
+$z = $f()
+
+test ["${y}${z}",] {}
+-- OUTPUT --
+Vertex: test[foofoo]

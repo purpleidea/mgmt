@@ -1,4 +1,4 @@
-FROM fedora:38
+FROM fedora:41
 LABEL org.opencontainers.image.authors="laurent.indermuehle@pm.me"
 
 ENV GOPATH=/root/gopath

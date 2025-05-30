@@ -1,5 +1,5 @@
 # Mgmt
-# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Copyright (C) James Shubin and the project contributors
 # Written by James Shubin <james@shubin.ca> and the project contributors
 #
 # This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
-SHELL = /usr/bin/env bash
+SHELL = bash
 .PHONY: all build clean fuzz
 
 all: build
@@ -40,11 +40,13 @@ clean:
 parser/lexer.nn.go: parser/lexer.nex
 	@echo "Generating: lexer..."
 	nex -e -o $@ $<
+	gofmt -s -w $@
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/lexer.nn.go'
 
 parser/y.go: parser/parser.y
 	@echo "Generating: parser..."
 	goyacc -v parser/y.output -o $@ $<
+	gofmt -s -w $@
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl

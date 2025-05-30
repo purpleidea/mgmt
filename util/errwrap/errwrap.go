@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -58,7 +58,7 @@ func Append(reterr, err error) error {
 }
 
 // String returns a string representation of the error. In particular, if the
-// error is nil, it returns an empty string instead of panicing.
+// error is nil, it returns an empty string instead of panicking.
 func String(err error) string {
 	if err == nil {
 		return ""

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -240,10 +240,11 @@ func (g *Graph) DeleteVertex(xv ...Vertex) {
 
 // AddEdge adds a directed edge to the graph from v1 to v2.
 func (g *Graph) AddEdge(v1, v2 Vertex, e Edge) {
-	// NOTE: this doesn't allow more than one edge between two vertexes...
+	// NOTE: this doesn't allow more than one edge between two vertices...
 	g.AddVertex(v1, v2) // supports adding N vertices now
 	// TODO: check if an edge exists to avoid overwriting it!
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
+	// NOTE: Interpret() depends on overwriting it at the moment...
 	g.adjacency[v1][v2] = e
 }
 
@@ -707,8 +708,13 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
-		// This doesn't need to loop in a deterministically sorted order.
+
+		var vertices []Vertex
 		for n := range g.adjacency[v] { // map[Vertex]Edge
+			vertices = append(vertices, n)
+		}
+		sort.Sort(VertexSlice(vertices)) // add determinism
+		for _, n := range vertices {     // map[Vertex]Edge
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {
@@ -856,7 +862,7 @@ Loop:
 
 	// check edges
 	for v1 := range g.Adjacency() { // for each vertex in g
-		v2 := m[v1] // lookup in map to get correspondance
+		v2 := m[v1] // lookup in map to get correspondence
 		// g.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
 		if e1, e2 := len(g.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
 			return fmt.Errorf("base graph, vertex(%s) has %d edges, while input graph, vertex(%s) has %d", v1, e1, v2, e2)

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -129,12 +129,80 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// sendrecv!
 	// connect any senders to receivers and detect if values changed
 	// this actually checks and sends into resource trees recursively...
+
+	// XXX: This code is duplicated in the fancier autogrouping code below!
+	//if res, ok := vertex.(engine.RecvableRes); ok {
+	//	if obj.Debug {
+	//		obj.Logf("SendRecv: %s", res) // receiving here
+	//	}
+	//	if updated, err := SendRecv(res, nil); err != nil {
+	//		return errwrap.Wrapf(err, "could not SendRecv")
+	//	} else if len(updated) > 0 {
+	//		//for _, s := range graph.UpdatedStrings(updated) {
+	//		//	obj.Logf("SendRecv: %s", s)
+	//		//}
+	//		for r, m := range updated { // map[engine.RecvableRes]map[string]*engine.Send
+	//			v, ok := r.(pgraph.Vertex)
+	//			if !ok {
+	//				continue
+	//			}
+	//			_, stateExists := obj.state[v] // autogrouped children probably don't have a state
+	//			if !stateExists {
+	//				continue
+	//			}
+	//			for s, send := range m {
+	//				if !send.Changed {
+	//					continue
+	//				}
+	//				obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
+	//				// if send.Changed == true, at least one was updated
+	//				// invalidate cache, mark as dirty
+	//				obj.state[v].setDirty()
+	//				//break // we might have more vertices now
+	//			}
+	//
+	//			// re-validate after we change any values
+	//			if err := engine.Validate(r); err != nil {
+	//				return errwrap.Wrapf(err, "failed Validate after SendRecv")
+	//			}
+	//		}
+	//	}
+	//}
+
+	// Send/Recv *can* receive from someone that was grouped! The sender has
+	// to use *their* send/recv handle/implementation, which has to be setup
+	// properly by the parent resource during Init(). See: http:server:flag.
+	collectSendRecv := []engine.Res{} // found resources
+
 	if res, ok := vertex.(engine.RecvableRes); ok {
-		if obj.Debug {
-			obj.Logf("SendRecv: %s", res) // receiving here
+		collectSendRecv = append(collectSendRecv, res)
+	}
+
+	// If we contain grouped resources, maybe someone inside wants to recv?
+	// This code is similar to the above and was added for http:server:ui.
+	// XXX: Maybe this block isn't needed, as mentioned we need to check!
+	if res, ok := vertex.(engine.GroupableRes); ok {
+		process := res.GetGroup() // look through these
+		for len(process) > 0 {    // recurse through any nesting
+			var x engine.GroupableRes
+			x, process = process[0], process[1:] // pop from front!
+
+			for _, g := range x.GetGroup() {
+				collectSendRecv = append(collectSendRecv, g.(engine.Res))
+			}
 		}
-		if updated, err := SendRecv(res, nil); err != nil {
-			return errwrap.Wrapf(err, "could not SendRecv")
+	}
+
+	//for _, g := res.GetGroup() // non-recursive, one-layer method
+	for _, g := range collectSendRecv { // recursive method!
+		r, ok := g.(engine.RecvableRes)
+		if !ok {
+			continue
+		}
+
+		// This section looks almost identical to the above one!
+		if updated, err := SendRecv(r, nil); err != nil {
+			return errwrap.Wrapf(err, "could not grouped SendRecv")
 		} else if len(updated) > 0 {
 			//for _, s := range graph.UpdatedStrings(updated) {
 			//	obj.Logf("SendRecv: %s", s)
@@ -161,11 +229,13 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 				// re-validate after we change any values
 				if err := engine.Validate(r); err != nil {
-					return errwrap.Wrapf(err, "failed Validate after SendRecv")
+					return errwrap.Wrapf(err, "failed grouped Validate after SendRecv")
 				}
 			}
 		}
 	}
+	// XXX: this might not work with two merged "CompatibleRes" resources...
+	// XXX: fix that so we can have the mappings to do it in lang/interpret.go ?
 
 	var ok = true
 	var applied = false              // did we run an apply?
@@ -181,6 +251,18 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		refreshableRes.SetRefresh(refresh) // tell the resource
 	}
 
+	// Run the exported resource exporter!
+	var exportOK bool
+	var exportErr error
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	// (Run this concurrently with the CheckApply related stuff below...)
+	go func() {
+		defer wg.Done()
+		// doesn't really need to be in parallel, but we can...
+		exportOK, exportErr = obj.Exporter.Export(ctx, res)
+	}()
+
 	// Check cached state, to skip CheckApply, but can't skip if refreshing!
 	// If the resource doesn't implement refresh, skip the refresh test.
 	// FIXME: if desired, check that we pass through refresh notifications!
@@ -189,6 +271,13 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 
 	} else if noop && (refresh && isRefreshableRes) { // had a refresh to do w/ noop!
 		checkOK, err = false, nil // therefore the state is wrong
+
+	} else if res.MetaParams().Hidden {
+		// We're not running CheckApply
+		if obj.Debug {
+			obj.Logf("%s: Hidden", res)
+		}
+		checkOK, err = true, nil // default
 
 	} else {
 		// run the CheckApply!
@@ -200,6 +289,13 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		if !checkOK && obj.Debug { // don't log on (checkOK == true)
 			obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 		}
+	}
+	wg.Wait()
+	checkOK = checkOK && exportOK // always combine
+	if err == nil {               // If CheckApply didn't error, look at exportOK.
+		// This is because if CheckApply errors we don't need to care or
+		// tell anyone about an exporting error.
+		err = exportErr
 	}
 
 	if checkOK && err != nil { // should never return this way
@@ -304,14 +400,24 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	}
 
 	// initialize or reinitialize the meta state for this resource uid
-	obj.mlock.Lock()
-	if _, exists := obj.metas[engine.PtrUID(res)]; !exists || res.MetaParams().Reset {
-		obj.metas[engine.PtrUID(res)] = &engine.MetaState{
-			CheckApplyRetry: res.MetaParams().Retry, // lookup the retry value
-		}
+	// if we're using a Hidden resource, we don't support this feature
+	// TODO: should we consider supporting it? is it really necessary?
+	// XXX: to support this for Hidden, we'd need to handle dupe names
+	metas := &engine.MetaState{
+		CheckApplyRetry: res.MetaParams().Retry, // lookup the retry value
 	}
-	metas := obj.metas[engine.PtrUID(res)] // handle
-	obj.mlock.Unlock()
+	if !res.MetaParams().Hidden {
+		// Skip this if Hidden since we can have a hidden res that has
+		// the same kind+name as a regular res, and this would conflict.
+		obj.mlock.Lock()
+		if _, exists := obj.metas[engine.PtrUID(res)]; !exists || res.MetaParams().Reset {
+			obj.metas[engine.PtrUID(res)] = &engine.MetaState{
+				CheckApplyRetry: res.MetaParams().Retry, // lookup the retry value
+			}
+		}
+		metas = obj.metas[engine.PtrUID(res)] // handle
+		obj.mlock.Unlock()
+	}
 
 	//defer close(obj.state[vertex].stopped) // done signal
 
@@ -376,10 +482,21 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 					delay = 0 // reset
 					continue
 				}
+
+			} else if res.MetaParams().Hidden {
+				// We're not running Watch
+				if obj.Debug {
+					obj.Logf("%s: Hidden", res)
+				}
+				obj.state[vertex].cuid.StartTimer() // TODO: Should we do this?
+				err = obj.state[vertex].hidden(obj.state[vertex].doneCtx)
+				obj.state[vertex].cuid.StopTimer() // TODO: Should we do this?
+
 			} else if interval := res.MetaParams().Poll; interval > 0 { // poll instead of watching :(
 				obj.state[vertex].cuid.StartTimer()
 				err = obj.state[vertex].poll(obj.state[vertex].doneCtx, interval)
 				obj.state[vertex].cuid.StopTimer() // clean up nicely
+
 			} else {
 				obj.state[vertex].cuid.StartTimer()
 				if obj.Debug {

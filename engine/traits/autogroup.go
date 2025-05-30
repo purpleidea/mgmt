@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -78,12 +78,29 @@ func (obj *Groupable) GroupCmp(res engine.GroupableRes) error {
 // GroupRes groups resource argument (res) into self. Callers of this method
 // should probably also run SetParent.
 func (obj *Groupable) GroupRes(res engine.GroupableRes) error {
+	// We can keep this check with hierarchical grouping by adding in the
+	// Kind test which we seen inside... If they're all the same, then we
+	// can't do it. But if they're dissimilar, then it's okay to group!
 	if l := len(res.GetGroup()); l > 0 {
-		return fmt.Errorf("the `%s` resource already contains %d grouped resources", res, l)
+		kind := res.Kind()
+		ok := true // assume okay for now
+		for _, r := range res.GetGroup() {
+			if r.Kind() == kind {
+				ok = false // non-hierarchical grouping, error!
+			}
+		}
+		// XXX: Why is it not acceptable to allow hierarchical grouping,
+		// AND self-kind grouping together? For example, group
+		// http:server:flag with another flag, and then group that group
+		// inside http:server!
+		if !ok && false { // XXX: disabled this check for now...
+			return fmt.Errorf("the `%s` resource already contains %d grouped resources", res, l)
+		}
 	}
-	if res.IsGrouped() {
-		return fmt.Errorf("the `%s` resource is already grouped", res)
-	}
+	// XXX: Do we need to disable this to support hierarchical grouping?
+	//if res.IsGrouped() {
+	//	return fmt.Errorf("the `%s` resource is already grouped", res)
+	//}
 
 	obj.grouped = append(obj.grouped, res)
 	res.SetGrouped(true) // i am contained _in_ a group

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that headers are properly formatted
 
 echo running "$0"

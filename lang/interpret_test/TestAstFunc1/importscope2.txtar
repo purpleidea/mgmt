@@ -15,13 +15,11 @@ class xclass {
 	}
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: call -> if # c
 Edge: const: str("bbb") -> if # a
 Edge: const: str("ccc") -> if # b
-Vertex: FuncValue
-Vertex: call
+Edge: os.is_family_debian -> if # c
 Vertex: const: str("bbb")
 Vertex: const: str("ccc")
 Vertex: const: str("hello")
 Vertex: if
+Vertex: os.is_family_debian

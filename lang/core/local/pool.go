@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -54,6 +54,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, PoolFuncName, func() interfaces.Func { return &PoolFunc{} }) // must register the func and name
 }
 
+var _ interfaces.DataFunc = &PoolFunc{}
+
 // PoolFunc is a function that returns a unique integer from a pool of numbers.
 // Within a given namespace, it returns the same integer for a given name. It is
 // a simple mechanism to allocate numbers to different inputs when we don't have
@@ -93,8 +95,10 @@ func (obj *PoolFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *PoolFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: true,
+		Pure: false, // depends on local API
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str, %s str) int", absPathArgNameNamespace, absPathArgNameUID)),
 		// TODO: add an optional config arg
 		//Sig: types.NewType(fmt.Sprintf("func(%s str, %s str, %s struct{}) int", absPathArgNameNamespace, absPathArgNameUID, absPathArgNameConfig)),
@@ -153,15 +157,30 @@ func (obj *PoolFunc) Stream(ctx context.Context) error {
 	}
 }
 
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *PoolFunc) Copy() interfaces.Func {
+	return &PoolFunc{
+		init: obj.init, // likely gets overwritten anyways
+		data: obj.data, // needed because we don't call SetData twice
+	}
+}
+
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
-func (obj *PoolFunc) Call(ctx context.Context, input []types.Value) (types.Value, error) {
+func (obj *PoolFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
 	// Validation of these inputs happens in the Local API which does it.
-	namespace := input[0].Str()
-	uid := input[1].Str()
+	namespace := args[0].Str()
+	uid := args[1].Str()
 	// TODO: pass in config
-	//config := input[2].???()
+	//config := args[2].???()
 
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
 	result, err := obj.init.Local.Pool(ctx, namespace, uid, nil)
 	if err != nil {
 		return nil, err

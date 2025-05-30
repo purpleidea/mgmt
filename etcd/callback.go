@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -271,7 +271,7 @@ func (obj *EmbdEtcd) nominateCb(ctx context.Context) error {
 // didn't remove a member...
 // XXX: If the leader changes, do we need to kick the volunteerCb or anything
 // else that might have required a leader and which returned because it did not
-// have one, thus loosing an event?
+// have one, thus losing an event?
 func (obj *EmbdEtcd) volunteerCb(ctx context.Context) error {
 	// Ensure that only one copy of this function is run simultaneously.
 	// It's not entirely clear if this can ever happen or if it's needed,

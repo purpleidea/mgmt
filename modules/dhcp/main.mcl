@@ -1,5 +1,5 @@
 # Mgmt
-# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Copyright (C) James Shubin and the project contributors
 # Written by James Shubin <james@shubin.ca> and the project contributors
 #
 # This program is free software: you can redistribute it and/or modify
@@ -32,6 +32,7 @@ import "fmt"
 import "golang"
 import "local"
 import "golang/strings"
+import "os"
 
 class server($st) {
 	$authoritative = $st->authoritative || true
@@ -44,7 +45,14 @@ class server($st) {
 		authoritative => $authoritative,
 	}
 
-	pkg "dhcp-server" {
+	# TODO: add other os families and versions
+	$pkgs = {
+		"redhat" => "dhcp-server", # fedora
+		"debian" => "isc-dhcp-server", # debian
+	}
+	$pkg = $pkgs[os.family()] || ""
+	panic("${pkg}" == "") # not specified
+	pkg "${pkg}" {
 		state => "installed",
 
 		Before => File["/etc/dhcp/"],
@@ -75,6 +83,8 @@ class server($st) {
 	}
 
 	$vardir = local.vardir("dhcp/")
+
+	include host_base
 }
 
 class server:subnet_base() {

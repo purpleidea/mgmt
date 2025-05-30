@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -46,7 +46,7 @@ func init() {
 // PanicRes is a no-op resource that does nothing as quietly as possible. One of
 // these will be added the graph if you use the panic function. (Even when it is
 // in a non-panic mode.) This is possibly the simplest resource that exists, and
-// in fact, everytime it is used, it will always have the same "name" value. It
+// in fact, every time it is used, it will always have the same "name" value. It
 // is only used so that there is a valid destination for the panic function.
 type PanicRes struct {
 	traits.Base // add the base methods without re-implementation

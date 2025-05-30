@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -102,7 +102,6 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("Watching: %s", groupFile) // attempting to watch...
@@ -119,17 +118,12 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
 				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

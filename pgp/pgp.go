@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -230,13 +230,13 @@ func ParseIdentity(identity string) (name, comment, email string, err error) {
 	// get name
 	n := strings.Split(identity, " <")
 	if len(n) != 2 {
-		return "", "", "", errwrap.Wrapf(err, "user string mal formated")
+		return "", "", "", errwrap.Wrapf(err, "user string malformed")
 	}
 
 	// get email and comment
 	ec := strings.Split(n[1], "> ")
 	if len(ec) != 2 {
-		return "", "", "", errwrap.Wrapf(err, "user string mal formated")
+		return "", "", "", errwrap.Wrapf(err, "user string malformed")
 	}
 
 	return n[0], ec[1], ec[0], nil

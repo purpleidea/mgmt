@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+
+	class foo($x) {
+		func result($s) {
+			$s + $x + $value
+		}
+	}
+	include foo($value) as included
+
+	$s = fmt.printf("%s is %d", included.result($value), $index)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[aaa is 0]
+Vertex: test[bbb is 1]
+Vertex: test[ccc is 2]

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -204,13 +204,20 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 
 	obj.Func = &wrapped.Func{
 		Name: obj.String(),
+		FuncInfo: &wrapped.Info{
+			// TODO: dedup with below Info data
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		Type: typ, // .Copy(),
 	}
 
 	obj.Type = tMap // map type
 	fn := &types.FuncValue{
 		T: typ,
-		V: obj.Function, // implementation
+		V: obj.Call, // implementation
 	}
 	obj.Fn = fn // inside wrapper.Func
 	//return obj.Fn.T, nil
@@ -229,19 +236,22 @@ func (obj *MapLookupFunc) Copy() interfaces.Func {
 	}
 }
 
-// Function is the actual implementation here. This is used in lieu of the
-// Stream function which we'd have these contents within.
-func (obj *MapLookupFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
-	m := (input[0]).(*types.MapValue)
-	key := input[1]
+// Call is the actual implementation here. This is used in lieu of the Stream
+// function which we'd have these contents within.
+func (obj *MapLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	m := (args[0]).(*types.MapValue)
+	key := args[1]
 	//zero := m.Type().Val.New() // the zero value
 
 	val, exists := m.Lookup(key)
 	if exists {
 		return val, nil
 	}
-	if len(input) == 3 { // default value since lookup is missing
-		return input[2], nil
+	if len(args) == 3 { // default value since lookup is missing
+		return args[2], nil
 	}
 
 	return nil, fmt.Errorf("map key not present, got: %v", key)
@@ -266,7 +276,9 @@ func (obj *MapLookupFunc) Validate() error {
 func (obj *MapLookupFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

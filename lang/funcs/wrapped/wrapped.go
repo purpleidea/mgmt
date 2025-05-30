@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,14 @@ import (
 
 var _ interfaces.Func = &Func{} // ensure it meets this expectation
 
+// Info holds some information about this function.
+type Info struct {
+	Pure bool // is the function pure? (can it be memoized?)
+	Memo bool // should the function be memoized? (false if too much output)
+	Fast bool // is the function slow? (avoid speculative execution)
+	Spec bool // can we speculatively execute it? (true for most)
+}
+
 // Func is a wrapped scaffolding function struct which fulfills the boiler-plate
 // for the function API, but that can run a very simple, static, pure, function.
 // It can be wrapped by other structs that support polymorphism in various ways.
@@ -47,6 +55,9 @@ type Func struct {
 
 	// Name is a unique string name for the function.
 	Name string
+
+	// Info is some general info about the function.
+	FuncInfo *Info
 
 	// Type is the type of the function. It can include unification
 	// variables when this struct is wrapped in one that can build this out.
@@ -64,7 +75,16 @@ type Func struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *Func) String() string {
-	return fmt.Sprintf("%s @ %p", obj.Name, obj) // be more unique!
+	//if obj.Fn != nil { // TODO: would this work and be useful?
+	//	return fmt.Sprintf("%s: %s", obj.Name, obj.Fn)
+	//}
+	//if obj.Type != nil { // TODO: would this work and be useful?
+	//	return fmt.Sprintf("%s: %s", obj.Name, obj.Type)
+	//}
+	if obj.Name == "" {
+		return "<wrapped>"
+	}
+	return obj.Name
 }
 
 // ArgGen returns the Nth arg name for this function.
@@ -104,12 +124,21 @@ func (obj *Func) Info() *interfaces.Info {
 		typ = obj.Fn.Type()
 	}
 
-	return &interfaces.Info{
-		Pure: true,
-		Memo: false, // TODO: should this be something we specify here?
+	info := &interfaces.Info{
+		Pure: false,
+		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  typ,
 		Err:  obj.Validate(),
 	}
+	if fi := obj.FuncInfo; fi != nil {
+		info.Pure = fi.Pure
+		info.Memo = fi.Memo
+		info.Fast = fi.Fast
+		info.Spec = fi.Spec
+	}
+	return info
 }
 
 // Init runs some startup code for this function.
@@ -141,16 +170,15 @@ func (obj *Func) Stream(ctx context.Context) error {
 				obj.last = input // store for next
 			}
 
-			values := []types.Value{}
-			for _, name := range obj.Fn.Type().Ord {
-				x := input.Struct()[name]
-				values = append(values, x)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
 			}
 
 			if obj.init.Debug {
-				obj.init.Logf("Calling function with: %+v", values)
+				obj.init.Logf("Calling function with: %+v", args)
 			}
-			result, err := obj.Fn.Call(ctx, values) // (Value, error)
+			result, err := obj.Call(ctx, args) // (Value, error)
 			if err != nil {
 				if obj.init.Debug {
 					obj.init.Logf("Function returned error: %+v", err)
@@ -180,4 +208,14 @@ func (obj *Func) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *Func) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.Fn == nil {
+		// happens with speculative graph shape code paths
+		return nil, fmt.Errorf("nil function")
+	}
+	return obj.Fn.Call(ctx, args) // (Value, error)
 }

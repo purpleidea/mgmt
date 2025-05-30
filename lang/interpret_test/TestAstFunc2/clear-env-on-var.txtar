@@ -7,4 +7,4 @@ $f = func($x) {
 $name = $f("foo")
 test "${name}" {}
 -- OUTPUT --
-# err: errSetScope: variable x not in scope
+# err: errSetScope: var `$x` does not exist in this scope

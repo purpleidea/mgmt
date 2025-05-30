@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -53,8 +53,13 @@ func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 // SimpleFnToDirectFunc transforms a name and *types.FuncValue into an
 // interfaces.Func which is implemented by &simple.WrappedFunc{}.
 func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
+	var typ *types.Type
+	if fv != nil { // TODO: is this necessary?
+		typ = fv.T
+	}
 	return &wrapped.Func{
 		Name: name,
+		Type: typ, // TODO: is this needed?
 		Fn:   fv,
 	}
 }
@@ -74,6 +79,7 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 			}
 			return wrappedFunc, nil
 		},
+		F: nil, // unused
 		T: fv.T,
 	}
 }
@@ -83,4 +89,43 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 // SimpleFnToFuncValue.
 func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 	return FuncValueToConstFunc(SimpleFnToFuncValue(name, fv))
+}
+
+// FuncToFullFuncValue creates a *full.FuncValue which adds the given
+// interfaces.Func to the graph. Note that this means the *full.FuncValue can
+// only be called once.
+func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type) *full.FuncValue {
+
+	v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		valueTransformingFunc := makeFunc() // do this once here
+		buildableFunc, ok := valueTransformingFunc.(interfaces.BuildableFunc)
+		if ok {
+			// Set the type in case it's not already done.
+			if _, err := buildableFunc.Build(typ); err != nil {
+				// programming error?
+				return nil, err
+			}
+		}
+		for i, arg := range args {
+			argName := typ.Ord[i]
+			txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
+				Args: []string{argName},
+			})
+		}
+		return valueTransformingFunc, nil
+	}
+
+	var f interfaces.FuncSig
+	callableFunc, ok := makeFunc().(interfaces.CallableFunc)
+	if ok {
+		f = callableFunc.Call
+	}
+
+	// This has the "V" implementation and the simpler "F" implementation
+	// which can occasionally be used if the interfaces.Func supports that!
+	return &full.FuncValue{
+		V: v,
+		F: f,
+		T: typ,
+	}
 }

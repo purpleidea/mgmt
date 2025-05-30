@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # simple test loop runner, eg: ./looper.sh make test-shell-exec-fail
 
 while true

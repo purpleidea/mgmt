@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -214,6 +214,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
 		StrInterpolater: interpolate.StrInterpolate,
+		SourceFinder:    os.ReadFile,
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
@@ -328,6 +329,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	}
 
 	// get the list of needed files (this is available after SetScope)
+	logf("collecting files...")
 	fileList, err := ast.CollectFiles(iast)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not collect files")
@@ -487,6 +489,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Name: Name,
 		Noop: info.Flags.Noop,
 		Sema: info.Flags.Sema,
+
+		NoAutoEdges: info.Flags.NoAutoEdges,
+
 		GAPI: &GAPI{
 			InputURI: fs.URI(),
 			Data: &lang.Data{
@@ -556,6 +561,11 @@ func (obj *GAPI) LangInit(ctx context.Context) error {
 	go func() {
 		defer obj.wgRun.Done()
 		obj.reterr = obj.lang.Run(obj.ctx)
+		if obj.reterr == nil {
+			return
+		}
+		// XXX: Temporary extra logging for catching bugs!
+		obj.data.Logf(Name+": %+v", obj.reterr)
 	}()
 
 	return nil

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # check that our documentation still generates, even if we don't use it here
 
 # shellcheck disable=SC1091

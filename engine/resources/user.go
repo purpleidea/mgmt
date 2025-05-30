@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -42,6 +42,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -49,8 +50,6 @@ import (
 func init() {
 	engine.RegisterResource("user", func() engine.Res { return &UserRes{} })
 }
-
-const passwdFile = "/etc/passwd"
 
 // UserRes is a user account resource.
 type UserRes struct {
@@ -77,6 +76,11 @@ type UserRes struct {
 
 	// HomeDir is the path to the user's home directory.
 	HomeDir *string `lang:"homedir" yaml:"homedir"`
+
+	// Shell is the users login shell. Many options may exist in the
+	// `/etc/shells` file. If you set this, you most likely want to pick
+	// `/bin/bash` or `/usr/sbin/nologin`.
+	Shell *string `lang:"shell" yaml:"shell"`
 
 	// AllowDuplicateUID is needed for a UID to be non-unique. This is rare
 	// but happens if you want more than one username to access the
@@ -141,7 +145,7 @@ func (obj *UserRes) Cleanup() error {
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *UserRes) Watch(ctx context.Context) error {
 	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(passwdFile, false)
+	obj.recWatcher, err = recwatch.NewRecWatcher(util.EtcPasswdFile, false)
 	if err != nil {
 		return err
 	}
@@ -149,10 +153,9 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("Watching: %s", passwdFile) // attempting to watch...
+			obj.init.Logf("watching: %s", util.EtcPasswdFile) // attempting to watch...
 		}
 
 		select {
@@ -161,28 +164,23 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
-				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 
 // CheckApply method for User resource.
 func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	var exists = true
+	exists := true
 	usr, err := user.Lookup(obj.Name())
 	if err != nil {
 		if _, ok := err.(user.UnknownUserError); !ok {
@@ -207,6 +205,10 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if usercheck := true; exists && obj.State == "exists" {
+		shell, err := util.UserShell(ctx, obj.Name())
+		if err != nil {
+			return false, err
+		}
 		intUID, err := strconv.Atoi(usr.Uid)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error casting UID to int")
@@ -224,6 +226,9 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		if obj.HomeDir != nil && *obj.HomeDir != usr.HomeDir {
 			usercheck = false
 		}
+		if obj.Shell != nil && *obj.Shell != shell {
+			usercheck = false
+		}
 		if usercheck {
 			return true, nil
 		}
@@ -238,38 +243,42 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.State == "exists" {
 		if exists {
 			cmdName = "usermod"
-			obj.init.Logf("Modifying user: %s", obj.Name())
+			obj.init.Logf("modifying user: %s", obj.Name())
 		} else {
 			cmdName = "useradd"
-			obj.init.Logf("Adding user: %s", obj.Name())
+			obj.init.Logf("adding user: %s", obj.Name())
 		}
 		if obj.AllowDuplicateUID {
 			args = append(args, "--non-unique")
 		}
 		if obj.UID != nil {
-			args = append(args, "-u", fmt.Sprintf("%d", *obj.UID))
+			args = append(args, "--uid", fmt.Sprintf("%d", *obj.UID))
 		}
 		if obj.GID != nil {
-			args = append(args, "-g", fmt.Sprintf("%d", *obj.GID))
+			args = append(args, "--gid", fmt.Sprintf("%d", *obj.GID))
 		}
 		if obj.Group != nil {
-			args = append(args, "-g", *obj.Group)
+			args = append(args, "--gid", *obj.Group)
 		}
 		if obj.Groups != nil {
-			args = append(args, "-G", strings.Join(obj.Groups, ","))
+			args = append(args, "--groups", strings.Join(obj.Groups, ","))
 		}
 		if obj.HomeDir != nil {
-			args = append(args, "-d", *obj.HomeDir)
+			args = append(args, "--home", *obj.HomeDir)
+		}
+		if obj.Shell != nil {
+			args = append(args, "--shell", *obj.Shell)
 		}
 	}
 	if obj.State == "absent" {
 		cmdName = "userdel"
-		obj.init.Logf("Deleting user: %s", obj.Name())
+		args = []string{}
+		obj.init.Logf("deleting user: %s", obj.Name())
 	}
 
 	args = append(args, obj.Name())
 
-	cmd := exec.Command(cmdName, args...)
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
@@ -343,13 +352,22 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 		}
 	}
 	if (obj.HomeDir == nil) != (res.HomeDir == nil) {
-		return fmt.Errorf("the HomeDirs differs")
+		return fmt.Errorf("the HomeDir differs")
 	}
 	if obj.HomeDir != nil && res.HomeDir != nil {
 		if *obj.HomeDir != *res.HomeDir {
 			return fmt.Errorf("the HomeDir differs")
 		}
 	}
+	if (obj.Shell == nil) != (res.Shell == nil) {
+		return fmt.Errorf("the Shell differs")
+	}
+	if obj.Shell != nil && res.Shell != nil {
+		if *obj.Shell != *res.Shell {
+			return fmt.Errorf("the Shell differs")
+		}
+	}
+
 	if obj.AllowDuplicateUID != res.AllowDuplicateUID {
 		return fmt.Errorf("the AllowDuplicateUID differs")
 	}

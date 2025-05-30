@@ -1,0 +1,24 @@
+-- main.mcl --
+include foo(struct{
+	str0 => ["A", "B",],
+})
+
+class foo($st1) {
+	$str1 = $st1->str0
+
+	include bar(struct{
+		str2 => $str1,
+	})
+}
+
+class bar($st2) {
+	# Tricky because LHS and optional arg are both strings! Make sure to
+	# check that this type matches what's in the incoming struct in case
+	# that field in the struct exists.
+	#$str3 = _struct_lookup_optional($st2, "str2", "C")
+	$str3 = $st2->str2 || "C" # should not unify
+
+	test ["str: ${str3}",] {}
+}
+-- OUTPUT --
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup_optional> }, error: non-optional arg must match return type: base kind does not match (str != list)

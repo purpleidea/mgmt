@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -44,22 +44,62 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "cidr_to_ip", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToIP,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_prefix", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToPrefix,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_mask", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToMask,
 	})
+	simple.ModuleRegister(ModuleName, "cidr_to_network", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
+		T: types.NewType("func(a str) str"),
+		F: CidrToNetwork,
+	})
 	simple.ModuleRegister(ModuleName, "cidr_to_first", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToFirst,
 	})
 	simple.ModuleRegister(ModuleName, "cidr_to_last", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a str) str"),
 		F: CidrToLast,
 	})
@@ -102,6 +142,22 @@ func CidrToMask(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 	return &types.StrValue{
 		V: net.IP(ipnet.Mask).String(),
+	}, nil
+}
+
+// CidrToNetwork returns the network CIDR from a CIDR address.
+func CidrToNetwork(ctx context.Context, input []types.Value) (types.Value, error) {
+	cidr := input[0].Str()
+	ip, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
+	if err != nil {
+		return nil, err
+	}
+
+	networkAddr := ip.Mask(ipnet.Mask)
+	ones, _ := ipnet.Mask.Size()
+
+	return &types.StrValue{
+		V: networkAddr.String() + "/" + strconv.Itoa(ones),
 	}, nil
 }
 

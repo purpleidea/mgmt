@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -67,6 +67,8 @@ func (obj *DateTimeFact) String() string {
 // Info returns some static info about itself.
 func (obj *DateTimeFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType("int"),
 	}
 }
@@ -102,12 +104,22 @@ func (obj *DateTimeFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
+		result, err := obj.Call(ctx)
+		if err != nil {
+			return err
+		}
+
 		select {
-		case obj.init.Output <- &types.IntValue{ // seconds since 1970...
-			V: time.Now().Unix(), // .UTC() not necessary
-		}:
+		case obj.init.Output <- result:
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *DateTimeFact) Call(ctx context.Context) (types.Value, error) {
+	return &types.IntValue{ // seconds since 1970...
+		V: time.Now().Unix(), // .UTC() not necessary
+	}, nil
 }

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "errorbool", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false, // XXX: because it errors do we need to be be safer here?
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(a bool) str"),
 		F: ErrorBool,
 	})

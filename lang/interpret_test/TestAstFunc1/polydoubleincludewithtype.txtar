@@ -12,4 +12,4 @@ class c1($a, $b []str) {
 	}
 }
 -- OUTPUT --
-# err: errUnify: unify error with: str("hello"): type error: list != str
+# err: errUnify: type error: list != str: /main.mcl @ 4:1-4:25

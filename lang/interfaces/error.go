@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -29,19 +29,25 @@
 
 package interfaces
 
-// Error is a constant error type that implements error.
-type Error string
-
-// Error fulfills the error interface of this type.
-func (e Error) Error() string { return string(e) }
+import (
+	"github.com/purpleidea/mgmt/util"
+)
 
 const (
 	// ErrTypeCurrentlyUnknown is returned from the Type() call on Expr if
 	// unification didn't run successfully and the type isn't obvious yet.
-	ErrTypeCurrentlyUnknown = Error("type is currently unknown")
+	// Note that it is perfectly legal to return any error, but this one can
+	// be used instead of inventing your own.
+	ErrTypeCurrentlyUnknown = util.Error("type is currently unknown")
+
+	// ErrValueCurrentlyUnknown is returned from the Value() call on Expr if
+	// we're speculating and we don't know a value statically. Note that it
+	// is perfectly legal to return any error, but this one can be used
+	// instead of inventing your own.
+	ErrValueCurrentlyUnknown = util.Error("value is currently unknown")
 
 	// ErrExpectedFileMissing is returned when a file that is used by an
 	// import is missing. This might signal the downloader, or it might
 	// signal a permanent error.
-	ErrExpectedFileMissing = Error("file is currently missing")
+	ErrExpectedFileMissing = util.Error("file is currently missing")
 )

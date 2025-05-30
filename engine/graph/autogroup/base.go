@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -58,17 +58,18 @@ func (ag *baseGrouper) Init(g *pgraph.Graph) error {
 	ag.graph = g // pointer
 
 	// We sort deterministically, first by kind, and then by name. In
-	// particular, longer kind chunks sort first. So http:ui:text should
-	// appear before http:server and http:ui. This is a hack so that if we
-	// are doing hierarchical automatic grouping, it gives the http:ui:text
-	// a chance to get grouped into http:ui, before http:ui gets grouped
-	// into http:server, because once that happens, http:ui:text will never
-	// get grouped, and this won't work properly. This works, because when
-	// we start comparing iteratively the list of resources, it does this
-	// with a O(n^2) loop that compares the X and Y zero indexes first, and
-	// and then continues along. If the "longer" resources appear first,
-	// then they'll group together first. We should probably put this into
-	// a new Grouper struct, but for now we might as well leave it here.
+	// particular, longer kind chunks sort first. So http:server:ui:input
+	// should appear before http:server and http:server:ui. This is a
+	// strategy so that if we are doing hierarchical automatic grouping, it
+	// gives the http:server:ui:input a chance to get grouped into
+	// http:server:ui, before http:server:ui gets grouped into http:server,
+	// because once that happens, http:server:ui:input will never get
+	// grouped, and this won't work properly. This works, because when we
+	// start comparing iteratively the list of resources, it does this with
+	// a O(n^2) loop that compares the X and Y zero indexes first, and then
+	// continues along. If the "longer" resources appear first, then they'll
+	// group together first. We should probably put this into a new Grouper
+	// struct, but for now we might as well leave it here.
 	//vertices := ag.graph.VerticesSorted() // formerly
 	vertices := RHVSort(ag.graph.Vertices())
 
@@ -134,7 +135,7 @@ func (ag *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	return
 }
 
-// VertexCmp can be used in addition to an overridding implementation.
+// VertexCmp can be used in addition to an overriding implementation.
 func (ag *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	if v1 == nil || v2 == nil {
 		return fmt.Errorf("the vertex is nil")

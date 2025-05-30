@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -131,7 +131,7 @@ func (obj *StructLookupOptionalFunc) FuncInfer(partialType *types.Type, partialV
 		return nil, nil, fmt.Errorf("function must not have an empty field name")
 	}
 	// This can happen at runtime too, but we save it here for Build()!
-	//obj.field = s // don't store for this optional lookup version!
+	obj.field = s
 
 	// Figure out more about the sig if any information is known statically.
 	if len(partialType.Ord) > 0 && partialType.Map[partialType.Ord[0]] != nil {
@@ -200,11 +200,38 @@ func (obj *StructLookupOptionalFunc) Build(typ *types.Type) (*types.Type, error)
 		return nil, fmt.Errorf("first arg must be of kind struct, got: %s", tStruct.Kind)
 	}
 
+	if obj.field == "" {
+		// programming error
+		return nil, fmt.Errorf("got an empty field name")
+	}
+
+	// If the field exists, then it MUST match typ.Out of course!
+	tFoundField, exists := tStruct.Map[obj.field]
+	if exists {
+		if err := typ.Out.Cmp(tFoundField); err != nil {
+			return nil, errwrap.Wrapf(err, "non-optional arg must match return type")
+		}
+	}
+
 	obj.Type = tStruct // struct type
 	obj.Out = typ.Out  // type of return value
 	obj.built = true
 
 	return obj.sig(), nil
+}
+
+// Copy is implemented so that the obj.field value is not lost if we copy this
+// function. That value is learned during FuncInfer, and previously would have
+// been lost by the time we used it in Build.
+func (obj *StructLookupOptionalFunc) Copy() interfaces.Func {
+	return &StructLookupOptionalFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+		Out:  obj.Out,
+
+		built: obj.built,
+		init:  obj.init,  // likely gets overwritten anyways
+		field: obj.field, // this we really need!
+	}
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -239,7 +266,9 @@ func (obj *StructLookupOptionalFunc) Info() *interfaces.Info {
 	}
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -314,4 +343,35 @@ func (obj *StructLookupOptionalFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call returns the result of this function.
+func (obj *StructLookupOptionalFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 3 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	st := args[0].(*types.StructValue)
+	field := args[1].Str()
+	optional := args[2]
+
+	if field == "" {
+		return nil, fmt.Errorf("received empty field")
+	}
+	// TODO: Is it a hack to grab this first value?
+	if obj.field == "" {
+		// This can happen at compile time too. Bonus!
+		obj.field = field // store first field
+	}
+	if field != obj.field {
+		return nil, fmt.Errorf("input field changed from: `%s`, to: `%s`", obj.field, field)
+	}
+
+	// We know the result of this lookup statically at compile time, but for
+	// simplicity we check each time here anyways. Maybe one day there will
+	// be a fancy reason why this might vary over time.
+	val, exists := st.Lookup(obj.field)
+	if !exists {
+		return optional, nil
+	}
+	return val, nil
 }

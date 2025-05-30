@@ -15,4 +15,4 @@ test ["x",] {
 	float32 => $b,
 }
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(func() { <built-in:_operator> }): type error: int != float
+# err: errUnify: type error: int != float: /main.mcl @ 10:6-10:22

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -40,13 +40,20 @@ import (
 
 func init() {
 {{ range $i, $func := .Functions }}	simple.ModuleRegister("{{$func.MgmtPackage}}", "{{$func.MclName}}", &simple.Scaffold{
+		// XXX: pull these from a database, remove the impure functions
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("{{$func.Signature}}"),
 		F: {{$func.InternalName}},
 	})
 {{ end }}
 }
 {{ range $i, $func := .Functions }}
-{{$func.Help}}func {{$func.InternalName}}(ctx context.Context, input []types.Value) (types.Value, error) {
+{{$func.Help}}func {{$func.InternalName}}(ctx context.Context, args []types.Value) (types.Value, error) {
 {{- if $func.Errorful }}
 	v, err := {{ if not (eq $func.GolangPackage.Alias "") }}{{$func.GolangPackage.Alias}}{{else}}{{$func.GolangPackage.Name}}{{end}}.{{$func.GolangFunc}}({{$func.MakeGolangArgs}})
 	if err != nil {

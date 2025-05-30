@@ -1,0 +1,22 @@
+import "sys"
+
+exec "env-small" {
+	cmd => "/bin/bash",
+	args => ["-c", "env > /tmp/env-small",],
+	#env => sys.env(),
+	creates => "/tmp/env-small",
+}
+
+exec "env-all" {
+	cmd => "/bin/bash",
+	args => ["-c", "env > /tmp/env-all",],
+	env => sys.env(),
+	creates => "/tmp/env-all",
+}
+
+exec "env-ls" {
+	cmd => "/bin/bash",
+	args => ["-c", "ls > /tmp/env-ls",],
+	#env => sys.env(),
+	creates => "/tmp/env-ls",
+}

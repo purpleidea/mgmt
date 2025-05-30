@@ -1,0 +1,29 @@
+apiVersion: 1
+
+#deleteDatasources:
+#  - name: "{{ .name }}"
+#    orgId: 1
+
+# Mark provisioned data sources for deletion if they are no longer in a provisioning file.
+# It takes no effect if data sources are already listed in the deleteDatasources section.
+prune: true
+
+datasources:
+{{ if .comment -}}
+#
+#	{{ .comment }}
+#
+{{ end }}
+  - name: "{{ .name }}"
+    type: prometheus
+    access: proxy
+    # Access mode - proxy (server in the UI) or direct (browser in the UI).
+    url: "{{ .url }}"
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      #prometheusVersion: 2.44.0
+      #cacheLevel: 'High'
+      #disableRecordingRules: false
+      #incrementalQueryOverlapWindow: 10m

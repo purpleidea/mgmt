@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -45,6 +45,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -500,7 +501,8 @@ func TestResources1(t *testing.T) {
 			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 			defer doneCtxCancel()
 
-			debug := testing.Verbose() // set via the -test.v flag to `go test`
+			tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
+			debug := testing.Verbose()                // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
@@ -518,6 +520,10 @@ func TestResources1(t *testing.T) {
 					case eventChan <- struct{}{}:
 
 					}
+				},
+
+				VarDir: func(p string) (string, error) {
+					return path.Join(tmpdir, p), nil
 				},
 
 				// Watch listens on this for close/pause events.
@@ -1776,4 +1782,48 @@ func TestResPtrUID1(t *testing.T) {
 	if uid1, uid2 := engine.PtrUID(t1), engine.PtrUID(t2); uid1 != uid2 {
 		t.Errorf("uid's don't match")
 	}
+}
+
+func TestResToB64(t *testing.T) {
+	res, err := engine.NewNamedResource("noop", "n1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+
+	s, err := engineUtil.ResToB64(res)
+	if err != nil {
+		t.Errorf("error trying to encode res: %s", err.Error())
+		return
+	}
+	t.Logf("out: %s", s)
+}
+
+func TestResToB64Meta(t *testing.T) {
+	hidden := true // must be true, since false is a default
+
+	res, err := engine.NewNamedResource("noop", "n1")
+	if err != nil {
+		t.Errorf("could not build resource: %+v", err)
+		return
+	}
+	res.MetaParams().Hidden = hidden
+
+	s, err := engineUtil.ResToB64(res)
+	if err != nil {
+		t.Errorf("error trying to encode res: %s", err.Error())
+		return
+	}
+	t.Logf("out: %s", s)
+
+	r, err := engineUtil.B64ToRes(s)
+	if err != nil {
+		t.Errorf("error trying to decode res: %s", err.Error())
+		return
+	}
+	if r.MetaParams().Hidden != hidden {
+		t.Errorf("metaparam did not get preserved")
+		return
+	}
+	t.Logf("meta: %v", r.MetaParams().Hidden)
 }

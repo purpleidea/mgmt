@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -255,23 +255,23 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 
 					switch event[svc].ActiveState {
 					case "active":
-						obj.init.Logf("started")
+						obj.init.Logf("event: started")
 					case "inactive":
-						obj.init.Logf("stopped")
+						obj.init.Logf("event: stopped")
 					case "reloading":
-						obj.init.Logf("reloading")
+						obj.init.Logf("event: reloading")
 					case "failed":
-						obj.init.Logf("failed")
+						obj.init.Logf("event: failed")
 					case "activating":
-						obj.init.Logf("activating")
+						obj.init.Logf("event: activating")
 					case "deactivating":
-						obj.init.Logf("deactivating")
+						obj.init.Logf("event: deactivating")
 					default:
 						return fmt.Errorf("unknown svc state: %s", event[svc].ActiveState)
 					}
 				} else {
 					// svc stopped (and ActiveState is nil...)
-					obj.init.Logf("stopped")
+					obj.init.Logf("event: stopped")
 				}
 				send = true
 
@@ -333,7 +333,15 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	var running = (activestate.Value == dbus.MakeVariant("active"))
 	var stateOK = ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
-	var startupOK = true // XXX: DETECT AND SET
+
+	startupstate, err := conn.GetUnitPropertyContext(ctx, svc, "UnitFileState")
+	if err != nil {
+		return false, errwrap.Wrapf(err, "failed to get unit file state")
+	}
+
+	enabled := (startupstate.Value == dbus.MakeVariant("enabled"))
+	disabled := (startupstate.Value == dbus.MakeVariant("disabled"))
+	startupOK := ((obj.Startup == "") || (obj.Startup == "enabled" && enabled) || (obj.Startup == "disabled" && disabled))
 
 	// NOTE: if this svc resource is embedded as a composite resource inside
 	// of another resource using a technique such as `makeComposite()`, then
@@ -370,35 +378,37 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	result := make(chan string, 1) // catch result information
 	var status string
 
-	if obj.State == "running" {
-		_, err = conn.StartUnitContext(ctx, svc, SystemdUnitModeFail, result)
-	} else if obj.State == "stopped" {
-		_, err = conn.StopUnitContext(ctx, svc, SystemdUnitModeFail, result)
-	}
-	if err != nil {
-		return false, errwrap.Wrapf(err, "unable to change running status")
-	}
-	if refresh {
-		obj.init.Logf("Skipping reload, due to pending start/stop")
-	}
-	refresh = false // We did a start or stop, so a reload is not needed.
+	if !stateOK {
+		if obj.State == "running" {
+			_, err = conn.StartUnitContext(ctx, svc, SystemdUnitModeFail, result)
+		} else if obj.State == "stopped" {
+			_, err = conn.StopUnitContext(ctx, svc, SystemdUnitModeFail, result)
+		}
+		if err != nil {
+			return false, errwrap.Wrapf(err, "unable to change running status")
+		}
+		if refresh {
+			obj.init.Logf("skipping reload, due to pending start/stop")
+		}
+		refresh = false // We did a start or stop, so a reload is not needed.
 
-	// TODO: Do we need a timeout here?
-	select {
-	case status = <-result:
-	case <-ctx.Done():
-		return false, ctx.Err()
-	}
-	if &status == nil {
-		return false, fmt.Errorf("systemd service action result is nil")
-	}
-	switch status {
-	case SystemdUnitResultDone:
-		// pass
-	case SystemdUnitResultFailed:
-		return false, fmt.Errorf("svc failed (selinux?)")
-	default:
-		return false, fmt.Errorf("unknown systemd return string: %v", status)
+		// TODO: Do we need a timeout here?
+		select {
+		case status = <-result:
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
+		if &status == nil {
+			return false, fmt.Errorf("systemd service action result is nil")
+		}
+		switch status {
+		case SystemdUnitResultDone:
+			// pass
+		case SystemdUnitResultFailed:
+			return false, fmt.Errorf("svc failed (selinux?)")
+		default:
+			return false, fmt.Errorf("unknown systemd return string: %v", status)
+		}
 	}
 
 	// XXX: also set enabled on boot
@@ -407,7 +417,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, nil // success
 	}
 
-	obj.init.Logf("Reloading...")
+	obj.init.Logf("reloading...")
 
 	// From: https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html
 	// If a service is restarted that isn't running, it will be started

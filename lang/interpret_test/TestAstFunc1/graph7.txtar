@@ -8,9 +8,10 @@ if true {
 }
 $i = 13
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
+Edge: const: int(13) -> _operator # b
+Edge: const: int(42) -> _operator # a
+Edge: const: str("+") -> _operator # op
+Vertex: _operator
 Vertex: const: bool(true)
 Vertex: const: int(13)
 Vertex: const: int(42)

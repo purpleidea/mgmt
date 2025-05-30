@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -56,6 +56,28 @@ type SendableRes interface {
 
 	// Sent returns the most recently sent data. This is used by the engine.
 	Sent() interface{}
+
+	// SendActive let's the resource know if it must send a value. This is
+	// usually called during CheckApply, but it's probably safe to check it
+	// during Init as well.
+	// XXX: Not doing this for now. If a send/recv edge wasn't initially on,
+	// and the sender ran CheckApply, but didn't cache the value to send,
+	// and then the edge flipped on, we'd have to error. Better to always
+	// generate the cache, and only consider adding this if we have a more
+	// important privacy or performance situation that requires it.
+	//SendActive() bool
+
+	// SendSetActive is used by the compiler to store the "SendActive" bool
+	// so that it will later know if it will need to send or not. Only the
+	// engine should call this function.
+	// TODO: We could instead pass in the various edges we will be sending,
+	// and store a map of those for the resource to know more precisely.
+	// XXX: Not doing this for now. If a send/recv edge wasn't initially on,
+	// and the sender ran CheckApply, but didn't cache the value to send,
+	// and then the edge flipped on, we'd have to error. Better to always
+	// generate the cache, and only consider adding this if we have a more
+	// important privacy or performance situation that requires it.
+	//SendSetActive(bool)
 }
 
 // RecvableRes is the interface a resource must implement to support receiving

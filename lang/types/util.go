@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -226,6 +226,18 @@ func ListStrToValue(input []string) Value {
 			V: x,
 		}
 		l.V = append(l.V, v) // be more efficient than using .Add(...)
+	}
+	return l
+}
+
+// ValueToListStr is a simple helper function to convert from a list of strings
+// in our type system to the equivalent in golang. This panics if the input is
+// not of the correct type.
+func ValueToListStr(input Value) []string {
+	l := []string{}
+	for _, x := range input.List() {
+		s := x.Str()
+		l = append(l, s)
 	}
 	return l
 }

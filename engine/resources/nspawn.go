@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -183,32 +183,27 @@ func (obj *NspawnRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
 		case event := <-busChan:
 			// process org.freedesktop.machine1 events for this resource's name
-			if event.Body[0] == obj.Name() {
-				obj.init.Logf("Event received: %v", event.Name)
-				if event.Name == machineNew {
-					obj.init.Logf("Machine started")
-				} else if event.Name == machineRemoved {
-					obj.init.Logf("Machine stopped")
-				} else {
-					return fmt.Errorf("unknown event: %s", event.Name)
-				}
-				send = true
+			if event.Body[0] != obj.Name() {
+				continue
+			}
+			obj.init.Logf("Event received: %v", event.Name)
+			if event.Name == machineNew {
+				obj.init.Logf("Machine started")
+			} else if event.Name == machineRemoved {
+				obj.init.Logf("Machine stopped")
+			} else {
+				return fmt.Errorf("unknown event: %s", event.Name)
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 

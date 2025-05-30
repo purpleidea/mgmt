@@ -1,0 +1,21 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+$key = 42 # should be out of scope
+
+forkv $key, $val in $map {
+
+	$fn = func($x) {
+		"hello " + $x
+	}
+
+	$s = fmt.printf("%s is %d", $fn($val), $key)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello a is 0]
+Vertex: test[hello b is 1]
+Vertex: test[hello c is 2]

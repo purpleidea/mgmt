@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -58,6 +58,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/util"
 	_ "github.com/purpleidea/mgmt/lang/core/value"
 	_ "github.com/purpleidea/mgmt/lang/core/world"
+	_ "github.com/purpleidea/mgmt/lang/core/world/collect"
 )
 
 // TODO: Instead of doing this one-level embed, we could give each package an

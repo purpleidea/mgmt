@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -121,18 +121,9 @@ func (obj *MsgRes) Cleanup() error {
 func (obj *MsgRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
-	//var send = false // send event?
-	for {
-		select {
-		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
-		}
-
-		// do all our event sending all together to avoid duplicate msgs
-		//if send {
-		//	send = false
-		//	obj.init.Event() // notify engine of an event (this can block)
-		//}
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+		return nil
 	}
 }
 

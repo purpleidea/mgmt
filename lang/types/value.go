@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -50,6 +50,12 @@ var (
 	// ErrInvalidValue is returned when ValueOf() is called on an invalid or
 	// zero reflect.Value.
 	ErrInvalidValue = errors.New("cannot represent invalid reflect.Value")
+
+	// ValueFalse is a false value in our system. Can be used where needed.
+	ValueFalse, _ = ValueOfGolang(false)
+
+	// ValueTrue is a true value in our system. Can be used where needed.
+	ValueTrue, _ = ValueOfGolang(true)
 )
 
 // Value represents an interface to get values out of each type. It is similar
@@ -921,6 +927,11 @@ func (obj *ListValue) List() []Value {
 	return obj.V
 }
 
+// Len returns the number of elements in this list.
+func (obj *ListValue) Len() int {
+	return len(obj.V)
+}
+
 // Add adds an element to this list. It errors if the type does not match.
 func (obj *ListValue) Add(v Value) error {
 	if obj.T.Val.Kind != KindVariant { // skip cmp if dest is a variant
@@ -1051,6 +1062,11 @@ func (obj *MapValue) Value() interface{} {
 // is not a map, then this panics.
 func (obj *MapValue) Map() map[Value]Value {
 	return obj.V
+}
+
+// Len returns the number of elements in this map.
+func (obj *MapValue) Len() int {
+	return len(obj.V)
 }
 
 // Add adds an element to this map. It errors if the types do not match.
@@ -1305,6 +1321,9 @@ func (obj *FuncValue) Value() interface{} {
 // inappropriate input types, or if it returns an inappropriate output type.
 func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 	// cmp input args type to obj.T
+	if obj.T == nil {
+		return nil, fmt.Errorf("the type is nil")
+	}
 	length := len(obj.T.Ord)
 	if length != len(args) {
 		return nil, fmt.Errorf("arg length of %d does not match expected of %d", len(args), length)

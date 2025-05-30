@@ -1,0 +1,174 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "golang"
+import "golang/strconv" as golang_strconv
+import "local"
+import "os"
+import "strings"
+
+class base() {
+	$vardir = local.vardir("cups/")
+
+	pkg "cups" {
+		state => "installed",
+
+		Before => File["/etc/cups/"],
+	}
+
+	file "/etc/cups/" {
+		state => $const.res.file.state.exists,
+		recurse => false, # not completely managed!
+		purge => false, # not completely managed!
+		owner => "root",
+		group => "lp", # TODO: debian?
+		mode => "u=rwx,go=rx", # dir
+	}
+
+	file "/etc/cups/printers.conf" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}printers.conf.header", # also pull this one file
+			"${vardir}printers.d/", # pull from this dir
+		],
+		owner => "root",
+		group => "lp",
+		mode => "u=rw,go=",
+
+		Before => Exec["restorecon"],
+		Notify => Svc["cups"],
+	}
+
+	exec "restorecon" {
+		cmd => "/usr/sbin/restorecon -rv /etc/cups/",
+		# XXX: make some magic snippets which turn into ./mgmt snippet <type> /etc/cups/ (for example) and get substituted in here!
+		# XXX: or even better, instead of snippets which exec mgmt stuff, they turn into pure golang equivalents...
+		#ifcmd => "mgmt:changed /etc/cups/", # XXX: implement this
+		#watchcmd => "mgmt:dir /etc/cups/", # XXX: implement this
+	}
+
+	svc "cups" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
+class base:printer_base() {
+	file "${vardir}printers.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "root",
+		group => "root",
+		mode => "u=rwx,go=", # dir
+	}
+
+	file "${vardir}printers.conf.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/printers.conf.header"), # static, no template!
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
+class base:printer($name, $st) {
+	$default = $st->default || false
+	$info = $st->info || ""
+	$location = $st->location || ""
+	$makemodel = $st->makemodel || ""
+	$uri str = $st->uri
+	$ppd str = $st->ppd
+
+	$comment = $st->comment || ""
+
+	include printer_base
+
+	$index = local.pool("cups-printer", $name) # the uid will always return the same int
+	# XXX: implement local.pool_max("cups-printer") to use for NextPrinterId
+
+	panic($index < 0 or $index > 65535) # 0xffffh is the maximum
+	$hex = strings.left_pad(golang_strconv.format_int($index, 16), "0", 4)
+	$tail = strings.substr($hex, 0, 4) # TODO: support $hex[0] or $hex[0:4] ?
+	$uuid = "01234567-89ab-cdef-0000-00000000${tail}"
+
+	$tmpl = struct{
+		name => $name,
+		id => $index, # it just has to be constant and unique
+		uuid => $uuid,
+		default => $default,
+		info => $info,
+		location => $location,
+		makemodel => $makemodel,
+		uri => $uri,
+		#ppd => $ppd,
+		comment => $comment,
+	}
+
+	$content = golang.template(deploy.readfile("/files/printer.conf.tmpl"), $tmpl)
+	#$f = os.readfile("${vardir}printers.d/${name}") # XXX: replace with something.stateok() ???
+	#if $f != $content {
+	#	# XXX: stop the svc... then change the file, then start it up again...
+	#	# XXX: might need a flag so that we stop the svc for multiples of these all in the same place...
+	#}
+
+	file "${vardir}printers.d/${name}" {
+		state => $const.res.file.state.exists,
+		content => $content,
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+
+	file "/etc/cups/ppd/${name}.ppd" {
+		state => $const.res.file.state.exists,
+		# TODO: build a file "handle" system for bigger data
+		content => $ppd,
+		#source => $ppd,
+		owner => "root",
+		group => "lp",
+		mode => "u=rw,g=r,o=",
+
+		Before => Exec["restorecon"],
+		Notify => Svc["cups"],
+	}
+
+	if $default {
+		# there can only be one!
+		# if more than one of these is set on the same machine we'd error
+		file "${vardir}default" {
+			state => $const.res.file.state.exists,
+			content => "${name}",
+			owner => "root",
+			group => "root",
+			mode => "u=rw,go=",
+		}
+	}
+}

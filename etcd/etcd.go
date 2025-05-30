@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -262,6 +262,9 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	// NoNetwork causes this to use unix:// sockets instead of TCP for
 	// connections.
 	NoNetwork bool
+	// NoMagic turns off some things which aren't needed when used with a
+	// simple Seeds and NoServer option.
+	NoMagic bool
 
 	// Chooser is the implementation of the algorithm that decides which
 	// hosts to add or remove to grow and shrink the cluster.
@@ -416,6 +419,10 @@ func (obj *EmbdEtcd) Validate() error {
 		if len(obj.Seeds) != 0 || len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 {
 			return fmt.Errorf("option NoNetwork is mutually exclusive with Seeds, ClientURLs and ServerURLs")
 		}
+	}
+
+	if obj.NoMagic && !obj.NoServer {
+		return fmt.Errorf("we need Magic if we're a Server")
 	}
 
 	if _, err := etcdUtil.CopyURLs(obj.Seeds); err != nil { // this will validate
@@ -1215,11 +1222,13 @@ func (obj *EmbdEtcd) Run() error {
 	obj.activateExit4.Ack()
 
 	// startup endpoints watcher (to learn about other servers)
-	ctx, cancel := context.WithCancel(unblockCtx)
-	defer cancel() // cleanup on close...
-	if err := obj.runEndpoints(ctx); err != nil {
-		obj.activateExit5.Ack()
-		return err
+	if !obj.NoMagic { // disable possibly buggy code for now
+		ctx, cancel := context.WithCancel(unblockCtx)
+		defer cancel() // cleanup on close...
+		if err := obj.runEndpoints(ctx); err != nil {
+			obj.activateExit5.Ack()
+			return err
+		}
 	}
 	obj.activateExit5.Ack()
 	// We don't set state, we only watch others, so nothing to defer close!

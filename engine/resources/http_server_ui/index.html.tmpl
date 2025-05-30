@@ -1,0 +1,163 @@
+{{- /*
+Mgmt
+Copyright (C) James Shubin and the project contributors
+Written by James Shubin <james@shubin.ca> and the project contributors
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Additional permission under GNU GPL version 3 section 7
+
+If you modify this program, or any covered work, by linking or combining it
+with embedded mcl code and modules (and that the embedded mcl code and
+modules which link with this program, contain a copy of their source code in
+the authoritative form) containing parts covered by the terms of any other
+license, the licensors of this program grant you additional permission to
+convey the resulting work. Furthermore, the licensors of this program grant
+the original author, James Shubin, additional permission to update this
+additional permission if he deems it necessary to achieve the goals of this
+additional permission.
+
+This was modified from the boiler-plate in the ~golang/misc/wasm/* directory.
+*/ -}}
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+{{ if .title }}
+	<title>{{ .title }}</title>
+{{ end }}
+{{ if .head }}
+{{ .head }}
+{{ end }}
+
+{{ if .embedded }}
+<link href="static/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+<script src="static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+{{ else }}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+{{ end }}
+
+<style>
+/* Auto-apply Bootstrap-like blue (primary) styling based on element type. */
+body {
+	--bs-primary: #0d6efd; /* Bootstrap 5 default primary color */
+}
+
+h1, h2, h3, h4, h5, h6, strong, b {
+	color: var(--bs-primary);
+}
+
+a {
+	color: var(--bs-primary);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+	color: #0b5ed7; /* slightly darker blue */
+}
+
+button, input[type="submit"], input[type="button"] {
+	background-color: var(--bs-primary);
+	color: #fff;
+	border: none;
+	padding: 0.375rem 0.75rem;
+	border-radius: 0.25rem;
+	cursor: pointer;
+}
+
+button:hover, input[type="submit"]:hover, input[type="button"]:hover {
+	background-color: #0b5ed7;
+}
+
+p, span, li {
+	color: #212529; /* standard text color */
+}
+
+code, pre {
+	background-color: #e7f1ff;
+	color: #084298;
+	padding: 0.25rem 0.5rem;
+	border-radius: 0.25rem;
+}
+
+fieldset {
+	background-color: #e7f1ff;
+	border: 1px solid blue;
+	padding: 10px; /* optional: adds spacing inside the border */
+	margin-bottom: 20px; /* optional: adds spacing below the fieldset */
+	margin: 0 20px; /* adds 20px space on left and right */
+}
+
+label {
+	display: inline-block;
+	width: 100px; /* arbitrary */
+	text-align: right; /* aligns label text to the right */
+	margin-right: 10px; /* spacing between label and input */
+	margin-bottom: 8px; /* small vertical space below each label */
+}
+
+input[type="text"] {
+	width: 30ch; /* the number of characters you want to fit */
+	box-sizing: border-box; /* ensures padding and border are included in the width */
+}
+
+input[type="range"] {
+	vertical-align: middle; /* aligns the range input vertically with other elements */
+	width: 30ch; /* the number of characters you want to fit (to match text) */
+	box-sizing: border-box; /* ensures padding and border are included in the width */
+}
+</style>
+</head>
+<body>
+<!--
+Add the following polyfill for Microsoft Edge 17/18 support:
+<script src="https://cdn.jsdelivr.net/npm/text-encoding@0.7.0/lib/encoding.min.js"></script>
+(see https://caniuse.com/#feat=textencoder)
+-->
+<script src="wasm_exec.js"></script>
+<script>
+	// These values can be read from inside the wasm program.
+	window._mgmt_program = "{{ .program }}";
+	window._mgmt_version = "{{ .version }}";
+	window._mgmt_hostname = "{{ .hostname }}";
+	window._mgmt_title = "{{ .title }}";
+	window._mgmt_path = "{{ .path }}";
+
+	if (!WebAssembly.instantiateStreaming) { // polyfill
+		WebAssembly.instantiateStreaming = async (resp, importObject) => {
+			const source = await (await resp).arrayBuffer();
+			return await WebAssembly.instantiate(source, importObject);
+		};
+	}
+
+	const go = new Go();
+	//let mod, inst;
+	WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+		//mod = result.module;
+		//inst = result.instance;
+		go.run(result.instance);
+	}).catch((err) => {
+		console.error(err);
+	});
+
+	//async function run() {
+	//	console.clear();
+	//	await go.run(inst);
+	//	inst = await WebAssembly.instantiate(mod, go.importObject); // reset instance
+	//}
+</script>
+</body>
+</html>

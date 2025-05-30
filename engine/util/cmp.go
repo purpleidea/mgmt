@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -37,7 +37,7 @@ import (
 // both of the same value, then this errors.
 func StrPtrCmp(x, y *string) error {
 	if (x == nil) != (y == nil) { // xor
-		return fmt.Errorf("the Content differs")
+		return fmt.Errorf("the ptr differs")
 	}
 	if x != nil && y != nil {
 		if *x != *y { // compare the strings
@@ -51,11 +51,11 @@ func StrPtrCmp(x, y *string) error {
 // do not contain identical strings in the same order, then this errors.
 func StrListCmp(x, y []string) error {
 	if len(x) != len(y) {
-		return fmt.Errorf("length differs")
+		return fmt.Errorf("the length differs")
 	}
 	for i := range x {
 		if x[i] != y[i] {
-			return fmt.Errorf("the elements at position %d differed", i)
+			return fmt.Errorf("the elements at position %d differ", i)
 		}
 	}
 

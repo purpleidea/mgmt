@@ -2,4 +2,4 @@
 import "fmt"
 test fmt.printf("%d%d", 42) {} # should not pass, missing second int
 -- OUTPUT --
-# err: errUnify: unify error with: call:fmt.printf(str("%d%d"), int(42)): type error: str != list
+# err: errUnify: func `printf` infer error: number of args (1) doesn't match format string verb count (2)

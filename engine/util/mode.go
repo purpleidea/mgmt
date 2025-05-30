@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -69,7 +69,7 @@ func modeIsValidWhat(what string) bool {
 	return len(what) == 0
 }
 
-// modeAssigned executes an assigment symbolic mode string (u=r). It clears out
+// modeAssigned executes an assignment symbolic mode string (u=r). It clears out
 // any bits for every subject in who and then assigns the specified modes in
 // what.
 func modeAssigned(who, what string, from os.FileMode) (os.FileMode, error) {
@@ -208,7 +208,7 @@ func modeSubtracted(who, what string, from os.FileMode) (os.FileMode, error) {
 }
 
 // modeValueFrom will return the bits requested for the mode in the correct
-// possitions for the specified subjects in who.
+// positions for the specified subjects in who.
 func modeValueFrom(who string, modeType uint32) os.FileMode {
 	i := uint32(0)
 	for _, w := range who {

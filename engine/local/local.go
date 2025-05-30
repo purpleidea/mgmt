@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -144,7 +144,7 @@ func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error)
 
 	var val interface{}
 	//var err error
-	if _, skip := obj.skipread[key]; skip {
+	if _, skip := obj.skipread[key]; !skip {
 		val, err = valueRead(ctx, prefix, key) // must return val == nil if missing
 		if err != nil {
 			// We had an actual read issue. Report this and stop
@@ -176,6 +176,16 @@ func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) e
 
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
+
+	// If we're already in the correct state, then return early and *don't*
+	// send any events at the very end...
+	v, exists := obj.values[key]
+	if !exists && value == nil {
+		return nil // already in the correct state
+	}
+	if exists && v == value { // XXX: reflect.DeepEqual(v, value) ?
+		return nil // already in the correct state
+	}
 
 	// Write to state dir on disk first. If ctx cancels, we assume it's not
 	// written or it doesn't matter because we're cancelling, meaning we're

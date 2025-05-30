@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -37,6 +37,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"reflect"
@@ -51,7 +52,7 @@ import (
 )
 
 const (
-	// DBusInterface is the dbus interface that contains genereal methods.
+	// DBusInterface is the dbus interface that contains general methods.
 	DBusInterface = "org.freedesktop.DBus"
 	// DBusAddMatch is the dbus method to receive a subset of dbus broadcast
 	// signals.
@@ -353,7 +354,7 @@ func ResToParamValues(res engine.Res) (map[string]types.Value, error) {
 	return ret, nil
 }
 
-// GetUID returns the UID of an user. It supports an UID or an username. Caller
+// GetUID returns the UID of a user. It supports a UID or a username. Caller
 // should first check user is not empty. It will return an error if it can't
 // lookup the UID or username.
 func GetUID(username string) (int, error) {
@@ -387,7 +388,84 @@ func GetGID(group string) (int, error) {
 	return -1, errwrap.Wrapf(err, "group lookup error (%s)", group)
 }
 
-// RestartUnit resarts the given dbus unit and waits for it to finish starting.
+// GetUIDGID is a small helper function to return the current uid and gid of the
+// user running this program. If invoked under `sudo` it works as expected to
+// return the root uid and gid.
+func GetUIDGID() (int, int, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		return -1, -1, err
+	}
+
+	uid, err := strconv.Atoi(currentUser.Uid)
+	if err != nil {
+		return -1, -1, err
+	}
+
+	gid, err := strconv.Atoi(currentUser.Gid)
+	if err != nil {
+		return -1, -1, err
+	}
+
+	return uid, gid, nil
+}
+
+// ReadData is a helper to read data, usually from our vardir directory. If the
+// data is nil, this means the file didn't exist.
+func ReadData(p string) (*string, error) {
+	file, err := os.Open(p) // open a handle to read the file
+	if os.IsNotExist(err) {
+		return nil, nil // no file
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	s := string(data)
+	return &s, nil
+}
+
+// WriteData is a helper to write data, usually into our vardir directory. If
+// the data is nil, this counts as a request to delete the file.
+func WriteData(p string, data *string) (int, error) {
+	if data == nil {
+		err := os.Remove(p)
+		if os.IsNotExist(err) {
+			return 0, nil // no file
+		}
+		return -1, err
+	}
+
+	uid, gid, err := GetUIDGID()
+	if err != nil {
+		return -1, err
+	}
+
+	// Chmod it before we write the secret data.
+	file, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	//file, err := os.Create(p) // open a handle to create the file
+	if err != nil {
+		return -1, err
+	}
+	defer file.Close()
+
+	// Chown it before we write the secret data.
+	if err := file.Chown(uid, gid); err != nil {
+		return -1, err
+	}
+
+	c, err := file.Write([]byte(*data))
+	if err != nil {
+		return c, errwrap.Wrapf(err, "can't write file")
+	}
+	return c, file.Sync()
+}
+
+// RestartUnit restarts the given dbus unit and waits for it to finish starting.
 func RestartUnit(ctx context.Context, conn *dbus.Conn, unit string) error {
 	return unitStateAction(ctx, conn, unit, DBusRestartUnit)
 }
@@ -484,4 +562,35 @@ func CleanError(err error) string {
 		return fmt.Sprintf("%v", err)
 	}
 	return strings.ReplaceAll(err.Error(), "\n", " ")
+}
+
+// DebugStructFields returns a pretty string display of struct fields (like a
+// resource) for debugging. The output is not guaranteed to be stable.
+func DebugStructFields(st interface{}) string {
+	s := ""
+	v := reflect.ValueOf(st)
+	t := reflect.TypeOf(st)
+
+	// if it's a pointer, get the element it points to
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+		t = t.Elem()
+	}
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		// only print exported (public) fields
+		if field.PkgPath != "" {
+			continue
+		}
+		if value.IsZero() {
+			s += fmt.Sprintf("(%s): %v\n", field.Name, "<nil>")
+		} else {
+			s += fmt.Sprintf("(%s): %v\n", field.Name, value.Elem().Interface())
+		}
+	}
+
+	return s
 }

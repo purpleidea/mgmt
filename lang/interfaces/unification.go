@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,8 +39,12 @@ import (
 // solution. Those two types are symmetrical in that it doesn't matter which is
 // used where, it only affects how we print out error messages.
 type UnificationInvariant struct { // formerly the SamInvariant
-	// Expr is the expression we are determining the type for. This improves
-	// our error messages.
+	// Node is the AST node holding the expression. This improves our error
+	// messages.
+	Node Node
+
+	// Expr is the expression we are determining the type for. This is what
+	// we are unifying. This improves our error messages.
 	Expr Expr
 
 	// Expect is one of the two types to unify.
@@ -65,6 +69,7 @@ func GenericCheck(obj Expr, typ *types.Type) ([]*UnificationInvariant, error) {
 
 	invar := &UnificationInvariant{
 		Expr:   obj,
+		Node:   obj,
 		Expect: typ, // sam says not backwards
 		Actual: actual,
 	}

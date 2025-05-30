@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -206,8 +206,14 @@ func (obj *opAddEdge) Fn(opapi *opapi) error {
 			args[x] = struct{}{}
 		}
 		if len(args) != len(obj.FE.Args)+len(edge.Args) {
-			// programming error
-			return fmt.Errorf("duplicate arg found")
+			// previously, a programming error
+			// On 24/nov/2024, Sam and I agreed this should be on.
+			// On 11/jan/2025, Sam and I decided to disable this
+			// check, since it was cause duplicates when a nested
+			// StmtFor was having it's list contents add more than
+			// once. It may be helpful to turn this on when
+			// debugging graph transactions not involved StmtFor.
+			//return fmt.Errorf("duplicate arg found: %v -> %v (%v)", obj.F1, obj.F2, obj.FE.Args)
 		}
 		newArgs := []string{}
 		for x := range args {

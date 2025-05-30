@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,13 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "expand_home", &simple.Scaffold{
+		// These might change depending on user database...
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(str) str"),
 		F: ExpandHome,
 	})

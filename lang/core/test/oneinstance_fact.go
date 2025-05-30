@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -122,6 +122,12 @@ func init() {
 	})
 
 	simple.ModuleRegister(ModuleName, OneInstanceBFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceBMutex.Lock()
@@ -135,6 +141,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceDMutex.Lock()
@@ -148,6 +160,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceFMutex.Lock()
@@ -161,6 +179,12 @@ func init() {
 		D: &OneInstanceFact{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: false, // don't break tests
+		},
 		T: types.NewType("func() str"),
 		F: func(context.Context, []types.Value) (types.Value, error) {
 			oneInstanceHMutex.Lock()
@@ -243,13 +267,24 @@ func (obj *OneInstanceFact) Init(init *facts.Init) error {
 func (obj *OneInstanceFact) Stream(ctx context.Context) error {
 	obj.init.Logf("Stream of `%s` @ %p", obj.Name, obj)
 	defer close(obj.init.Output) // always signal when we're done
+
+	result, err := obj.Call(ctx)
+	if err != nil {
+		return err
+	}
+
 	select {
-	case obj.init.Output <- &types.StrValue{
-		V: msg,
-	}:
+	case obj.init.Output <- result:
 	case <-ctx.Done():
 		return nil
 	}
 
 	return nil
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *OneInstanceFact) Call(ctx context.Context) (types.Value, error) {
+	return &types.StrValue{
+		V: msg,
+	}, nil
 }

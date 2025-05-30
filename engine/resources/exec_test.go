@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,8 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -45,7 +47,8 @@ import (
 )
 
 func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
-	debug := testing.Verbose() // set via the -test.v flag to `go test`
+	tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
+	debug := testing.Verbose()                // set via the -test.v flag to `go test`
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
@@ -58,6 +61,9 @@ func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 			}
 			*execSends = *x // set
 			return nil
+		},
+		VarDir: func(p string) (string, error) {
+			return path.Join(tmpdir, p), nil
 		},
 		Debug: debug,
 		Logf:  logf,
@@ -253,6 +259,126 @@ func TestExecSendRecv3(t *testing.T) {
 	}
 }
 
+func TestExecEnvEmpty(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
+	r1 := &ExecRes{
+		Cmd:   "env",
+		Shell: "/bin/bash",
+	}
+
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
+	defer func() {
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
+		}
+	}()
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
+		t.Errorf("init failed with: %v", err)
+	}
+	// run artificially without the entire engine
+	if _, err := r1.CheckApply(ctx, true); err != nil {
+		t.Errorf("checkapply failed with: %v", err)
+	}
+
+	if execSends.Stdout == nil {
+		t.Errorf("stdout is nil")
+		return
+	}
+	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+		if v == "" {
+			continue
+		}
+		s := strings.SplitN(v, "=", 2)
+		if s[0] == "_" || s[0] == "PWD" || s[0] == "SHLVL" {
+			// these variables are set by bash and are expected
+			continue
+		}
+		t.Errorf("executed process had an unexpected env variable: %s", s[0])
+	}
+}
+
+func TestExecEnvSetByResource(t *testing.T) {
+	now := time.Now()
+	min := time.Second * 3 // approx min time needed for the test
+	ctx := context.Background()
+	if deadline, ok := t.Deadline(); ok {
+		d := deadline.Add(-min)
+		t.Logf("  now: %+v", now)
+		t.Logf("    d: %+v", d)
+		newCtx, cancel := context.WithDeadline(ctx, d)
+		ctx = newCtx
+		defer cancel()
+	}
+
+	r1 := &ExecRes{
+		Cmd:   "env",
+		Shell: "/bin/bash",
+		Env: map[string]string{
+			"PURPLE":               "idea",
+			"CONTAINS_UNDERSCORES": "and=equal=signs",
+		},
+	}
+
+	if err := r1.Validate(); err != nil {
+		t.Errorf("validate failed with: %v", err)
+	}
+	defer func() {
+		if err := r1.Cleanup(); err != nil {
+			t.Errorf("cleanup failed with: %v", err)
+		}
+	}()
+	init, execSends := fakeExecInit(t)
+	if err := r1.Init(init); err != nil {
+		t.Errorf("init failed with: %v", err)
+	}
+	// run artificially without the entire engine
+	if _, err := r1.CheckApply(ctx, true); err != nil {
+		t.Errorf("checkapply failed with: %v", err)
+	}
+
+	if execSends.Stdout == nil {
+		t.Errorf("stdout is nil")
+		return
+	}
+	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+		if v == "" {
+			continue
+		}
+		s := strings.SplitN(v, "=", 2)
+		if s[0] == "_" || s[0] == "PWD" || s[0] == "SHLVL" {
+			// these variables are set by bash and are expected
+			continue
+		}
+		if s[0] == "PURPLE" {
+			if s[1] != "idea" {
+				t.Errorf("executed process had an unexpected value for env variable: %s", v)
+			}
+			continue
+		}
+		if s[0] == "CONTAINS_UNDERSCORES" {
+			if s[1] != "and=equal=signs" {
+				t.Errorf("executed process had an unexpected value for env variable: %s", v)
+			}
+			continue
+		}
+		t.Errorf("executed process had an unexpected env variable: %s", s[0])
+	}
+}
+
 func TestExecTimeoutBehaviour(t *testing.T) {
 	now := time.Now()
 	min := time.Second * 3 // approx min time needed for the test
@@ -291,7 +417,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 	}
 
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-	if err != nil && ok {
+	if ok {
 		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 		wStatus, ok := pStateSys.(syscall.WaitStatus)
 		if !ok {
@@ -311,13 +437,8 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 
 		t.Logf("exit status: %d", wStatus.ExitStatus())
 		return
-
-	} else if err != nil {
-		t.Errorf("general cmd error")
-		return
 	}
-
-	// no error
+	t.Errorf("general cmd error")
 }
 
 func TestExecAutoEdge1(t *testing.T) {

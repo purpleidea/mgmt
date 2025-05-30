@@ -7,6 +7,4 @@ $out1 = answer()
 
 test "${out1}" {}
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: call
+Vertex: const: str("the answer is 42")

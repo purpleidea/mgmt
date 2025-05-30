@@ -1,0 +1,57 @@
+-- main.mcl --
+import "datetime"
+import "iter"
+import "golang"
+
+$lambda1 = func($x) {
+	$x + "!"
+}
+$lambda2 = func($x) {
+	$x + "?"
+}
+
+$lambda = if 10 > 0 { # must be a const, otherwise this is a dynamic graph
+	$lambda1
+} else {
+	$lambda2
+}
+
+$fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+	len($x)
+}
+
+$in1 = ["a", "bb", "ccc", "dddd", "eeeee",]
+
+$out1 = iter.map($in1, $fn)
+
+$s = golang.template("out1: {{ . }}", $out1)
+
+test [$lambda($s),] {}
+-- OUTPUT --
+Edge: FuncValue -> map # function
+Edge: _operator -> composite: []str # 0
+Edge: composite: []str -> map # inputs
+Edge: const: str("!") -> _operator # b
+Edge: const: str("+") -> _operator # op
+Edge: const: str("a") -> composite: []str # 0
+Edge: const: str("bb") -> composite: []str # 1
+Edge: const: str("ccc") -> composite: []str # 2
+Edge: const: str("dddd") -> composite: []str # 3
+Edge: const: str("eeeee") -> composite: []str # 4
+Edge: const: str("out1: {{ . }}") -> template # template
+Edge: map -> template # vars
+Edge: template -> _operator # a
+Vertex: FuncValue
+Vertex: _operator
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: const: str("!")
+Vertex: const: str("+")
+Vertex: const: str("a")
+Vertex: const: str("bb")
+Vertex: const: str("ccc")
+Vertex: const: str("dddd")
+Vertex: const: str("eeeee")
+Vertex: const: str("out1: {{ . }}")
+Vertex: map
+Vertex: template

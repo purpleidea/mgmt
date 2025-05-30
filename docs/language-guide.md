@@ -100,6 +100,24 @@ expression
 	}
 	```
 
+- **for**: loop over a list with a body of statements
+
+	```mcl
+	$list = ["a", "b", "c",]
+	for $index, $value in $list {
+		# some statements go here
+	}
+	```
+
+- **forkv**: loop over a map with a body of statements
+
+	```mcl
+	$map = {0 => "a", 1 => "b", 2 => "c",}
+	forkv $key, $val in $map {
+		# some statements go here
+	}
+	```
+
 - **resource**: produces a resource
 
 	```mcl
@@ -985,7 +1003,7 @@ Not really, but practically it can be used as such. The `class` statement is not
 a singleton since it can be called multiple times in different locations, and it
 can also be parameterized and called multiple times (with `include`) using
 different input parameters. The reason it can be used as such is that statement
-output (from multple classes) that is compatible (and usually identical) will
+output (from multiple classes) that is compatible (and usually identical) will
 be automatically collated and have the duplicates removed. In that way, you can
 assume that an unparameterized class is always a singleton, and that
 parameterized classes can often be singletons depending on their contents and if
@@ -1027,7 +1045,7 @@ thing FRP experts might notice is that some of the concepts from FRP are either
 named differently, or are notably absent.
 
 In mgmt, we don't talk about behaviours, events, or signals in the strict FRP
-definitons of the words. Firstly, because we only support discretized, streams
+definitions of the words. Firstly, because we only support discretized, streams
 of values with no plan to add continuous semantics. Secondly, because we prefer
 to use terms which are more natural and relatable to what our target audience is
 expecting. Our users are more likely to have a background in Physiology, or

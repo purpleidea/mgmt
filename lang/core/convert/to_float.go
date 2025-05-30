@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -38,6 +38,12 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "to_float", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		T: types.NewType("func(a int) float"),
 		F: ToFloat,
 	})

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@ package util
 
 import (
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -1635,4 +1636,858 @@ func TestSortMapStringValuesByUInt64Keys(t *testing.T) {
 	if slice2[0] != "d" || slice2[1] != "c" || slice2[2] != "b" {
 		t.Errorf("input slice reordered to: %v", slice2)
 	}
+}
+
+func TestFirstToUpper(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "lowercase word",
+			input: "small",
+			want:  "Small",
+		},
+		{
+			name:  "capitalized word",
+			input: "CAPITAL",
+			want:  "CAPITAL",
+		},
+		{
+			name:  "capitalized first letter",
+			input: "First",
+			want:  "First",
+		},
+		{
+			name:  "lowercase first letter",
+			input: "fIRST",
+			want:  "FIRST",
+		},
+		{
+			name:  "number",
+			input: "0number",
+			want:  "0number",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FirstToUpper(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUint64KeyFromStrInMap(t *testing.T) {
+	type input struct {
+		needle   string
+		haystack map[uint64]string
+	}
+	type want struct {
+		key   uint64
+		exist bool
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  want
+	}{
+		{
+			name: `needle "n" in empty haystack`,
+			input: input{
+				needle:   "n",
+				haystack: make(map[uint64]string),
+			},
+			want: want{
+				key:   0,
+				exist: false,
+			},
+		},
+		{
+			name: `needle "n" in haystack doesn't contain "n"`,
+			input: input{
+				needle:   "n",
+				haystack: map[uint64]string{0: "a", 1: "b"},
+			},
+			want: want{
+				key:   0,
+				exist: false,
+			},
+		},
+		{
+			name: `needle "n" in haystack contain "n"`,
+			input: input{
+				needle:   "n",
+				haystack: map[uint64]string{0: "a", 1: "b", 2: "n"},
+			},
+			want: want{
+				key:   2,
+				exist: true,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotKey, gotExist := Uint64KeyFromStrInMap(tt.input.needle, tt.input.haystack)
+
+			if gotKey != tt.want.key {
+				t.Errorf("got key: %d, want key: %d", gotKey, tt.want.key)
+			}
+
+			if gotExist != tt.want.exist {
+				t.Errorf("got exist: %t, want exist: %t", gotExist, tt.want.exist)
+			}
+		})
+	}
+}
+
+func TestStrFilterElementsInList(t *testing.T) {
+	type input struct {
+		filter []string
+		list   []string
+	}
+
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "empty filter",
+			input: input{
+				filter: []string{},
+				list:   []string{"first", "second"},
+			},
+			want: []string{"first", "second"},
+		},
+		{
+			name: "empty list",
+			input: input{
+				filter: []string{"filter"},
+				list:   []string{},
+			},
+			want: []string{},
+		},
+		{
+			name: "nil",
+			input: input{
+				filter: nil,
+				list:   nil,
+			},
+			want: []string{},
+		},
+		{
+			name: "filter",
+			input: input{
+				filter: []string{"filter"},
+				list:   []string{"first", "second", "filter"},
+			},
+			want: []string{"first", "second"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrFilterElementsInList(tt.input.filter, tt.input.list)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrListIntersection(t *testing.T) {
+	type input struct {
+		list1 []string
+		list2 []string
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "nil",
+			input: input{
+				list1: nil,
+				list2: nil,
+			},
+			want: []string{},
+		},
+		{
+			name: "no intersection elements",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"three", "four"},
+			},
+			want: []string{},
+		},
+		{
+			name: "contains intersection element",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"two", "three"},
+			},
+			want: []string{"two"},
+		},
+		{
+			name: "all intersection elements",
+			input: input{
+				list1: []string{"one", "two"},
+				list2: []string{"one", "two"},
+			},
+			want: []string{"one", "two"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrListIntersection(tt.input.list1, tt.input.list2)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrMapKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]string{},
+			want:  []string{},
+		},
+		{
+			name:  "returns sorted keys",
+			input: map[string]string{"key1": "value1", "key2": "value2"},
+			want:  []string{"key1", "key2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapKeys(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrMapKeysUint64(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]uint64
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]uint64{},
+			want:  []string{},
+		},
+		{
+			name:  "returns sorted keys",
+			input: map[string]uint64{"key1": 1, "key2": 2},
+			want:  []string{"key1", "key2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapKeysUint64(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %s, want: %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBoolMapValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]bool
+		want  []bool
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []bool{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]bool{},
+			want:  []bool{},
+		},
+		{
+			name:  "return values unordered",
+			input: map[string]bool{"key1": true},
+			want:  []bool{true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BoolMapValues(tt.input)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrMapValues(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[string]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[string]string{},
+			want:  []string{},
+		},
+		{
+			name:  "return values",
+			input: map[string]string{"key1": "value1", "key2": "value2"},
+			want:  []string{"value1", "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := StrMapValues(tt.input)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStrMapValuesUint64(t *testing.T) {
+	tests := []struct {
+		name  string
+		input map[uint64]string
+		want  []string
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  []string{},
+		},
+		{
+			name:  "empty map",
+			input: map[uint64]string{},
+			want:  []string{},
+		},
+		{
+			name:  "return values",
+			input: map[uint64]string{1: "value1", 2: "value2"},
+			want:  []string{"value1", "value2"},
+		},
+	}
+
+	for _, tt := range tests {
+		got := StrMapValuesUint64(tt.input)
+
+		if !slices.Equal(got, tt.want) {
+			t.Errorf("got: %v, want: %v", got, tt.want)
+		}
+	}
+}
+
+func TestBoolMapTrue(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []bool
+		want  bool
+	}{
+		{
+			name:  "nil",
+			input: nil,
+			want:  true,
+		},
+		{
+			name:  "empty slice",
+			input: []bool{},
+			want:  true,
+		},
+		{
+			name:  "all true return true",
+			input: []bool{true, true, true},
+			want:  true,
+		},
+		{
+			name:  "contain false return false",
+			input: []bool{true, false, true},
+			want:  false,
+		},
+		{
+			name:  "all false return false",
+			input: []bool{false, false, false},
+			want:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BoolMapTrue(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSafePathClean(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "empty",
+			input: "",
+			want:  ".",
+		},
+		{
+			name:  "slash",
+			input: "/",
+			want:  "/",
+		},
+		{
+			name:  "end with slash",
+			input: "a//b/",
+			want:  "a/b/",
+		},
+		{
+			name:  "end without slash",
+			input: "a//b",
+			want:  "a/b",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SafePathClean(tt.input)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCommonPathPrefix(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []string
+		want  string
+	}{
+		{
+			name:  "common path",
+			input: []string{"/common/uncommon1", "/common/uncommon2"},
+			want:  "/common/",
+		},
+		{
+			name:  "empty",
+			input: []string{},
+			want:  "",
+		},
+		{
+			name:  "single path",
+			input: []string{"/path/to"},
+			want:  "/path/to",
+		},
+		// XXX: currently undefined behaviour
+		//{
+		//	name:  "single path doesn't start with /",
+		//	input: []string{"path/to"},
+		//	want:  "path/to",
+		//},
+		{
+			name:  "one of the paths doesn't contain /",
+			input: []string{"/path/with/slash", "path/without/slash"},
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CommonPathPrefix(tt.input...)
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFlattenListWithSplit(t *testing.T) {
+	type input struct {
+		input []string
+		split []string
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  []string
+	}{
+		{
+			name: "split by spaces and dots",
+			input: input{
+				input: []string{"a b.c"},
+				split: []string{" ", "."},
+			},
+			want: []string{"a", "b", "c"},
+		},
+		{
+			name: "empty split",
+			input: input{
+				input: []string{"a b.c"},
+				split: []string{},
+			},
+			want: []string{"a b.c"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := FlattenListWithSplit(tt.input.input, tt.input.split)
+
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRebase(t *testing.T) {
+	type input struct {
+		path string
+		base string
+		root string
+	}
+	type want struct {
+		rebasedPath string
+		err         error
+	}
+
+	tests := []struct {
+		name  string
+		input input
+		want  want
+	}{
+		{
+			name: "rebased to absolute directory",
+			input: input{
+				path: "/usr/bin/foo",
+				base: "/usr/",
+				root: "/usr/local/",
+			},
+			want: want{
+				rebasedPath: "/usr/local/bin/foo",
+				err:         nil,
+			},
+		},
+		{
+			name: "rebased to relative directory",
+			input: input{
+				path: "/var/lib/dir/file.conf",
+				base: "/var/lib/",
+				root: "",
+			},
+			want: want{
+				rebasedPath: "dir/file.conf",
+				err:         nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		gotStr, gotErr := Rebase(tt.input.path, tt.input.base, tt.input.root)
+
+		if gotStr != tt.want.rebasedPath {
+			t.Errorf("got rebased path: %v, want rebased path: %v", gotStr, tt.want.rebasedPath)
+		}
+		if gotErr != tt.want.err {
+			t.Errorf("got error: %v, want error to be: %v", gotErr, tt.want.err)
+		}
+	}
+
+	t.Run("root doesn't end with /", func(t *testing.T) {
+		// XXX: in Rebase function return a predefined error
+		// e.g. var ErrRootNotDirectory = errors.New("root is not a directory")
+		// so it would be clearer and easier to test
+		gotStr, gotErr := Rebase("/usr/bin/foo", "/user/", "/usr/local")
+
+		if gotStr != "" {
+			t.Errorf("rebased path should be empty")
+		}
+
+		if gotErr.Error() != "root is not a directory" {
+			t.Errorf(`should receive error: "root is not a directory"`)
+		}
+	})
+}
+
+func TestRemovePathPrefix(t *testing.T) {
+	t.Run("removes path prefix", func(t *testing.T) {
+		gotStr, gotErr := RemovePathPrefix("/removed/path/to")
+
+		if gotStr != "/path/to" {
+			t.Errorf("got: %v, want: %v", gotStr, gotErr)
+		}
+
+		if gotErr != nil {
+			t.Errorf("got error: %v, want nil error", gotErr)
+		}
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		gotStr, gotErr := RemovePathPrefix("path/to")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "must be absolute" {
+			t.Errorf(`got error: %v, want error "must be absolute"`, gotErr.Error())
+		}
+	})
+
+	// XXX: edge cases currently panic, handle edge cases. "/", ""
+}
+
+func TestRemovePathSuffix(t *testing.T) {
+	t.Run("removes path prefix", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("/path/to/removed")
+
+		if gotStr != "/path/to/" {
+			t.Errorf("got: %v, want: %v", gotStr, "/path/to/")
+		}
+
+		if gotErr != nil {
+			t.Errorf("got error: %v, want nil error", gotErr)
+		}
+	})
+
+	t.Run("relative path", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("path/to")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "must be absolute" {
+			t.Errorf(`got error: %v, want error "must be absolute"`, gotErr.Error())
+		}
+	})
+
+	t.Run("/", func(t *testing.T) {
+		gotStr, gotErr := RemovePathSuffix("/")
+
+		if gotStr != "" {
+			t.Errorf("got: %v, want empty string", gotStr)
+		}
+
+		if gotErr.Error() != "input is /" {
+			t.Errorf(`got error: %v, want error "input is /"`, gotErr.Error())
+		}
+	})
+	// XXX: double check desired behavior for edge cases. "/", ""
+}
+
+func TestSystemBusPrivateUsable(t *testing.T) {
+	t.Run("return conn", func(t *testing.T) {
+		conn, err := SystemBusPrivateUsable()
+
+		if conn == nil {
+			t.Errorf("got conn %v", conn)
+		}
+
+		if err != nil {
+			t.Errorf("got error %v", err)
+		}
+	})
+	// XXX: testing other cases require refactoring(dependency injection, mock provider)
+}
+
+func TestSessionBusPrivateUsable(t *testing.T) {
+	t.Run("return conn", func(t *testing.T) {
+		conn, err := SessionBusPrivateUsable()
+
+		if conn == nil {
+			t.Errorf("got conn %v", conn)
+		}
+
+		if err != nil {
+			t.Errorf("got error %v", err)
+		}
+	})
+	// XXX: testing other cases require refactoring(dependency injection, mock provider)
+}
+
+func TestPathSliceSortMethod(t *testing.T) {
+	s := PathSlice{"/c", "/b", "/a"}
+	s.Sort()
+
+	if s[0] != "/a" || s[1] != "/b" || s[2] != "/c" {
+		t.Errorf("function PathSlice.Sort did not sort correctly, got: %v", s)
+	}
+}
+
+func TestUInt64SliceSortMethod(t *testing.T) {
+	s := UInt64Slice{3, 2, 1}
+	s.Sort()
+
+	if s[0] != 1 || s[1] != 2 || s[2] != 3 {
+		t.Errorf("function UInt64Slice.Sort did not sort correctly, got: %v", s)
+	}
+}
+
+func TestPathSliceLessMethod(t *testing.T) {
+	type input struct {
+		s PathSlice
+		i int
+		j int
+	}
+	tests := []struct {
+		name  string
+		input input
+		want  bool
+	}{
+		{
+			name: "less",
+			input: input{
+				s: PathSlice{"/a", "/b"},
+				i: 0,
+				j: 1,
+			},
+			want: true,
+		},
+		{
+			name: "not less",
+			input: input{
+				s: PathSlice{"/b", "/a"},
+				i: 0,
+				j: 1,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input.s.Less(tt.input.i, tt.input.j)
+
+			if got != tt.want {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+	// XXX: check other test cases (unable to reach the code)
+}
+
+func TestValueToB64(t *testing.T) {
+	t.Run("value to b64", func(t *testing.T) {
+		v := "value"
+		str, err := ValueToB64(v)
+
+		valueInB64 := "EhAABnN0cmluZwwHAAV2YWx1ZQ=="
+		if str != valueInB64 {
+			t.Errorf("got: %v, want: %v", str, valueInB64)
+		}
+
+		if err != nil {
+			t.Errorf("didn't expect error, got %v", err)
+		}
+	})
+
+	t.Run("passing function", func(t *testing.T) {
+		str, err := ValueToB64(func() {})
+
+		if str != "" {
+			t.Errorf("wanted empty string, got: %v", str)
+		}
+
+		if !strings.Contains(err.Error(), "gob failed to encode") {
+			t.Errorf(`expected error to contain "gob failed to encode", got: %v`, err.Error())
+		}
+	})
+}
+
+func TestB64ToValue(t *testing.T) {
+	t.Run("b64 to value", func(t *testing.T) {
+		b64 := "EhAABnN0cmluZwwHAAV2YWx1ZQ=="
+		str, err := B64ToValue(b64)
+
+		value := "value"
+		if str != value {
+			t.Errorf("got: %v, want: %v", str, value)
+		}
+
+		if err != nil {
+			t.Errorf("didn't expect error, got %v", err)
+		}
+	})
+
+	t.Run("invalid b64", func(t *testing.T) {
+		i, err := B64ToValue("invalid value")
+
+		if i != nil {
+			t.Errorf("wanted empty string, got: %v", i)
+		}
+
+		if !strings.Contains(err.Error(), "base64 failed to decode") {
+			t.Errorf(`expected error to contain "base64 failed to decode", got: %v`, err.Error())
+		}
+	})
+
+	t.Run("invalid gob", func(t *testing.T) {
+		i, err := B64ToValue("dmFsdWU=")
+
+		if i != nil {
+			t.Errorf("wanted empty string, got: %v", i)
+		}
+
+		if !strings.Contains(err.Error(), "gob failed to decode") {
+			t.Errorf(`expected error to contain "gob failed to decode", got: %v`, err.Error())
+		}
+	})
+
+	// XXX: check unreachable case: "output `%v` is not a value"
 }

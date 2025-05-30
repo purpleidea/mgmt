@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -514,7 +514,6 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	startupChan := make(chan struct{})
 	close(startupChan) // send one initial signal
 
-	var send = false // send event?
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("Looping...")
@@ -523,7 +522,6 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 		select {
 		case <-startupChan:
 			startupChan = nil
-			send = true
 
 		case <-closeSignal: // something shut us down early
 			return closeError
@@ -532,11 +530,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 
@@ -1863,7 +1857,7 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 
 	// FIXME: Run this somewhere for now, eventually it should get scheduled
 	// to run in the returned duration of time. This way, it would clean old
-	// peristed entries when they're stale, not when a new request comes in.
+	// persisted entries when they're stale, not when a new request comes in.
 	if _, err := obj.leaseClean(); err != nil {
 		return nil, errwrap.Wrapf(err, "clean error")
 	}

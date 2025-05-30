@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -40,18 +40,42 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "getenv", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(str) str"),
 		F: GetEnv,
 	})
 	simple.ModuleRegister(ModuleName, "defaultenv", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(str, str) str"),
 		F: DefaultEnv,
 	})
 	simple.ModuleRegister(ModuleName, "hasenv", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func(str) bool"),
 		F: HasEnv,
 	})
 	simple.ModuleRegister(ModuleName, "env", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() map{str: str}"),
 		F: Env,
 	})

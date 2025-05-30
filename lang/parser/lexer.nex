@@ -154,6 +154,16 @@
 			lval.str = yylex.Text()
 			return IN
 		}
+/for/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FOR
+		}
+/forkv/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return FORKV
+		}
 /\->/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
@@ -251,6 +261,11 @@
 			lval.str = yylex.Text()
 			return PANIC_IDENTIFIER
 		}
+/collect/	{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return COLLECT_IDENTIFIER
+		}
 /"(\\.|[^"])*"/
 		{	// This matches any number of the bracketed patterns
 			// that are surrounded by the two quotes on each side.
@@ -335,7 +350,7 @@
 			yylex.pos(lval) // our pos
 			s := yylex.Text()
 
-			lval.str = s[1:len(s)] // remove the leading #
+			lval.str = s[1:] // remove the leading #
 			//log.Printf("lang: lexer: comment: `%s`", lval.str)
 			//return COMMENT // skip return to avoid parsing
 		}
@@ -358,7 +373,7 @@
 //
 
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify

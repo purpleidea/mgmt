@@ -10,22 +10,16 @@ class c1($a, $b) {
 	}
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
+Edge: composite: []int -> len # 0
 Edge: const: int(-37) -> composite: []int # 3
 Edge: const: int(0) -> composite: []int # 2
 Edge: const: int(13) -> composite: []int # 0
 Edge: const: int(42) -> composite: []int # 1
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
+Edge: const: str("hello") -> len # 0
+Edge: const: str("len is: %d") -> printf: func(format str, a int) str # format
+Edge: const: str("len is: %d") -> printf: func(format str, a int) str # format
+Edge: len -> printf: func(format str, a int) str # a
+Edge: len -> printf: func(format str, a int) str # a
 Vertex: composite: []int
 Vertex: const: int(-37)
 Vertex: const: int(0)
@@ -36,3 +30,7 @@ Vertex: const: str("len is: %d")
 Vertex: const: str("len is: %d")
 Vertex: const: str("t1")
 Vertex: const: str("t2")
+Vertex: len
+Vertex: len
+Vertex: printf: func(format str, a int) str
+Vertex: printf: func(format str, a int) str

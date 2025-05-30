@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -51,6 +51,9 @@ type Deploy struct {
 	//Sync bool // wait for everyone to close previous GAPI before switching
 	Noop bool
 	Sema int // sema override
+
+	NoAutoEdges bool
+
 	GAPI GAPI
 }
 

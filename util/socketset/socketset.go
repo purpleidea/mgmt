@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -151,7 +151,7 @@ type UEvent struct {
 }
 
 // ReceiveUEvent is a wrapper around ReceiveBytes. Parses the UEvent data
-// receieved from the socket and puts it into a UEvent struct.
+// received from the socket and puts it into a UEvent struct.
 func (obj *SocketSet) ReceiveUEvent() (*UEvent, error) {
 	// TODO: can multiple events come in the same socket?
 	event := &UEvent{Data: map[string]string{}}

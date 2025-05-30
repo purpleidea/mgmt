@@ -1,0 +1,20 @@
+-- main.mcl --
+import "fmt"
+import "math"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+	$index = if math.mod($index, 2) == 0 {
+		$index
+	} else {
+		42
+	}
+	$s = fmt.printf("%s is %d", $value, $index)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+# err: errSetScope: recursive reference while setting scope: not a dag

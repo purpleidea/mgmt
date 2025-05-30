@@ -327,7 +327,7 @@ Yes, you can use a function generator in `golang` to build multiple different
 implementations from the same function generator. You just need to implement a
 function which *returns* a `golang` type of `func([]types.Value) (types.Value, error)`
 which is what `FuncValue` expects. The generator function can use any input it
-wants to build the individual functions, thus helping with code re-use.
+wants to build the individual functions, thus helping with code reuse.
 
 ### How do I determine the signature of my simple, polymorphic function?
 

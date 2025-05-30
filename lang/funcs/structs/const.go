@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -111,6 +111,16 @@ func (obj *ConstFunc) Stream(ctx context.Context) error {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *ConstFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.Info() == nil {
+		return nil, fmt.Errorf("info is empty")
+	}
+	if obj.Info().Sig == nil {
+		return nil, fmt.Errorf("sig is empty")
+	}
+	if i, j := len(args), len(obj.Info().Sig.Ord); i != j {
+		return nil, fmt.Errorf("arg length doesn't match, got %d, exp: %d", i, j)
+	}
+
 	if obj.Value == nil {
 		return nil, fmt.Errorf("no value available from const")
 	}

@@ -1,0 +1,43 @@
+line "add" { # name isn't important
+	file => "/tmp/lines1",
+	state => "exists",
+	content => "hello",
+}
+
+line "remove" {
+	file => "/tmp/lines2",
+	state => "absent",
+	content => "hello",
+}
+
+line "multiple" {
+	file => "/tmp/lines3",
+	state => "exists",
+	content => "hello\nworld\n",
+}
+
+exec "nonl" {
+	cmd => "echo -n hello > /tmp/lines4",
+	shell => "/bin/bash",
+	creates => "/tmp/lines4",
+
+	Before => Line["nonl"],
+}
+line "nonl" {
+	file => "/tmp/lines4",
+	state => "exists",
+	content => "hello",
+}
+
+exec "rmnl" {
+	cmd => "echo hello > /tmp/lines5 && echo -n world >> /tmp/lines5",
+	shell => "/bin/bash",
+	creates => "/tmp/lines5",
+
+	Before => Line["rmnl"],
+}
+line "rmnl" {
+	file => "/tmp/lines5",
+	state => "absent",
+	content => "hello",
+}

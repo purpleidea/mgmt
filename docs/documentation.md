@@ -297,6 +297,49 @@ This meta param is a safety measure to make your life easier. It works for all
 resources. If someone comes up with a resource which would routinely start with
 a dollar sign, then we can revisit the default for this resource kind.
 
+#### Hidden
+
+Boolean. Hidden means that this resource will not get executed on the resource
+graph on which it is defined. This can be used as a simple boolean switch, or,
+more commonly in combination with the Export meta param which specifies that the
+resource params are exported into the shared database. When this is true, it
+does not prevent export. In fact, it is commonly used in combination with
+Export. Using this option will still include it in the resource graph, but it
+will exist there in a special "mode" where it will not conflict with any other
+identically named resources. It can even be used as part of an edge or via a
+send/recv receiver. It can NOT be a sending vertex. These properties
+differentiate the use of this instead of simply wrapping a resource in an "if"
+statement.
+
+#### Export
+
+List of strings. Export is a list of hostnames (and/or the special "*" entry)
+which if set, will mark this resource data as intended for export to those
+hosts. This does not prevent any users of the shared data storage from reading
+these values, so if you want to guarantee secrecy, use the encryption
+primitives. This only labels the data accordingly, so that other hosts can know
+what data is available for them to collect. The (kind, name, host) export triple
+must be unique from any given exporter. In other words, you may not export two
+different instances of a kind+name to the same host, the exports must not
+conflict. On resource collect, this parameter is not preserved.
+
+```mcl
+file "/tmp/foo" {
+	state => "exists",
+	content => "i'm exported!\n",
+
+	Meta:hidden => true,
+	Meta:export => ["h1",],
+}
+
+file "/tmp/foo" {
+	state => "exists",
+	content => "i'm exported AND i'm used here\n",
+
+	Meta:export => ["h1",],
+}
+```
+
 #### Reverse
 
 Boolean. Reverse is a property that some resources can implement that specifies
@@ -493,7 +536,7 @@ To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt
 
 ## Authors
 
-Copyright (C) 2013-2024+ James Shubin and the project contributors
+Copyright (C) James Shubin and the project contributors
 
 Please see the
 [AUTHORS](https://github.com/purpleidea/mgmt/tree/master/AUTHORS) file

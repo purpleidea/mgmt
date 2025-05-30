@@ -1,0 +1,35 @@
+{{/*
+TODO: A lot of this could be templated, if we knew what it did.
+*/ -}}
+{{ if .default -}}
+<DefaultPrinter {{ .name }}>
+{{ else -}}
+<Printer {{ .name }}>
+{{ end -}}
+PrinterId {{ .id }}
+UUID urn:uuid:{{ .uuid }}
+{{ if .info -}}
+Info {{ .info }}
+{{ end -}}
+{{ if .location -}}
+Location {{ .location }}
+{{ end -}}
+MakeModel {{ .makemodel }}
+DeviceURI {{ .uri }}
+State Idle
+StateTime 1735329279
+ConfigTime 1734305561
+Type 36884
+Accepting Yes
+Shared Yes
+JobSheets none none
+QuotaPeriod 0
+PageLimit 0
+KLimit 0
+OpPolicy default
+ErrorPolicy abort-job
+{{ if .default -}}
+</DefaultPrinter>
+{{ else -}}
+</Printer>
+{{ end -}}

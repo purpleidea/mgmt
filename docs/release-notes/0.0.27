@@ -1,0 +1,205 @@
+I've just released version 0.0.27 of mgmt!
+
+> 854 files changed, 28882 insertions(+), 16049 deletions(-)
+
+This is rather large release, as I'm not making regular releases unless there's
+a specific ask. Most folks that are playing with mgmt are using `git master`.
+
+With that, here are a few highlights from the release:
+
+* Type unification is now extremely fast for all scenarios.
+
+* Added a modules/ directory with shared mcl code for everyone to use. This
+includes code for virtualization, cups, shorewall, dhcp, routers, and more!
+
+* New core mgmt commands including setup, firstboot, and docs were added!
+
+* The provisioner got lots of improvements including handoff, and iPXE support.
+
+And much more...
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/0.0.27
+
+They can also be found on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/0.0.27/
+
+
+NEWS
+
+* Primary community channel is now on Matrix. IRC is deprecated until someone
+wants to run a bridge for us.
+
+* Type unification is now textbook, and blazingly (linearly) fast. The large
+programs I'm writing now unify in under 200ms. Most small programs typically
+unify in ~5ms.
+
+* Resource and edge names are always lists of strings now unless they're static.
+
+* We're up to golang 1.23 now. Older versions may still work.
+
+* Our type system now supports unification variables like ?1, ?2 and so on.
+
+* I fixed a bug in my contrib.sh script which omitted the Co-authored-by people!
+This means Samuel Gélineau might have previously been missed in past release
+notes which is tragic, since he has been by far the most important contributor
+to mgmt.
+
+* Made toposort deterministic which fixes some spurious non-determinism.
+
+* Added the iterator filter function. (An important core primitive.)
+
+* Cleaned up the output of many resources to make logs more useful / less noisy.
+
+* Added constants, although I plan to change this to a `const` import package.
+
+* Added the list and map core packages.
+
+* Catch $ in metaparams to make the obvious bug cases easier for users to avoid.
+
+* Consul is now behind a build tag for now, since it's non-free. We'll remove it
+eventually if there isn't a suitable free replacement.
+
+* Added mcl modules directory with a good initial set of interesting code.
+
+* Added the the "vardir" API to our "local" package. This is a helpful primitive
+which I use in almost every module that I write.
+
+* Added a gzip resource!
+
+* Added a tar resource!
+
+* We moved the template() function to the golang.template namespace. This makes
+it clear what kind of template it is and de-emphasizes our "love" for it as the
+blessed template engine at least for now.
+
+* Added a sysctl resource!
+
+* Added a virt-builder resource for building images. We can now automate virtual
+machines really elegantly.
+
+* A bunch of core functions were added including stuff in net, strings, deploy,
+and more!
+
+* The local package got a neat "pool" function. There are lots of possibilities
+to use this in creative ways!
+
+* The GAPI/deploy code got more testing and we found some edge cases and patched
+them. You can now deploy in all sorts of creative ways and things should work
+as expected!
+
+* Added a resource for archiving a deploy. This is deploy:tar and helps with
+bootstrapping new machines.
+
+* Found a sneaky DHCP bug and fixed it!
+
+* Added mgmt setup and firstboot commands! This helps bootstrap things without
+needing to re-implement that logic everywhere as bash too!
+
+* Added a "docs" command for generating resources and function documentation!
+
+* The provisioner got lots of improvements including handoff, and iPXE support.
+
+* New mcl modules include shorewall, dhcp, cups, some meta modules, misc modules
+and more!
+
+* Added a BMC resource in case you want to automate your server hardware.
+
+* We now allow multiple star (*) imports although it's not recommended.
+
+* Hostname handoff is now also part of the provisioner.
+
+* Fixed two type unification corner cases with magic struct functions.
+
+* Added iPXE support to the provisioner.
+
+* Added pprof support to make it easy to generate performance information.
+
+* Added anonymous function calling. These are occasionally useful, and now the
+language has them. They were fun and concise to implement!
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner, etc,
+resources if anyone is interested, reach out to us. Particularly if there is
+support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but it's not a
+blocker, but it would definitely be useful. We're looking into it.
+
+* Function graphs are unnecessarily dynamic. We might make them more static so
+that we don't need as many transactions. This is really a compiler optimization
+and not a bug, but it's something important we'd like to have.
+
+* Running two Txn's during the same pause would be really helpful. I'm not sure
+how much of a performance improvement we'd get from this, but it would sure be
+interesting to build. If you want to build a fancy synchronization primitive,
+then let us know! Again this is not a bug.
+
+* The arm64 version doesn't support augeas, so it was built with:
+GOTAGS='noaugeas' to get the build out.
+
+
+TALKS
+
+After FOSDEM/CfgMgmtCamp 2025, I don't have anything planned until CfgMgmtCamp
+2026. If you'd like to book me for a private event, or sponsor my travel for
+your conference, please let me know.
+
+
+PARTNER PROGRAM
+
+Interest in the partner program has been limited to small individuals with no
+real corporate backing, so its been officially discontinued for now. If you're
+interested in partnering with us and receiving support, mgmt products early
+access to releases, bug fixes, support, and many other goodies, please sign-up
+today: https://bit.ly/mgmt-partner-program
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat employees use
+their infrastructure. We're looking for a new home. I've opened a ticket with
+Freedesktop. If you have any sway with them or other recommendations, please let
+me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and while there are easy, medium and
+hard issues available! You're also welcome to suggest your own! Please join us
+in #mgmtconfig on Libera IRC or Matrix (preferred) and ping us if you'd like
+help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-contribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove
+
+Although asking in matrix is the best way to find something to work on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get involved. This is
+fun and friendly! You get to improve your skills, and we get some patches in
+return. Ping me off-list for details.
+
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest release:
+Cian Yong Leow, Felix Frank, James Shubin, Joe Groocock, Julian Rüth, Omar Al-Shuha, Samuel Gélineau, xlai89
+We had 8 unique committers since 0.0.26, and have had 96 overall.
+Run 'git log 0.0.26..0.0.27' to see what has changed since 0.0.26
+
+
+Happy hacking,
+James
+@purpleidea

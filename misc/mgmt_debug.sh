@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # This is a helper script to run mgmt and capture and filter stack traces. Any
 # time mgmt crashes with a trace, it will first be filtered, and then displayed

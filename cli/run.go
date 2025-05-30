@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -141,6 +141,8 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 			Noop:     obj.Noop,
 			Sema:     obj.Sema,
 			//Update: obj.Update,
+
+			NoAutoEdges: obj.NoAutoEdges,
 		},
 
 		Fs:    standaloneFs,

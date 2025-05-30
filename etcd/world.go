@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -41,50 +41,164 @@ import (
 	"github.com/purpleidea/mgmt/etcd/client/resources"
 	"github.com/purpleidea/mgmt/etcd/client/str"
 	"github.com/purpleidea/mgmt/etcd/client/strmap"
+	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
-	Hostname       string // uuid for the consumer of these
-	Client         interfaces.Client
+	// NOTE: Update the etcd/ssh/ World struct if this one changes.
+
+	// Client is the etcd client to use. This should not be specified, one
+	// will be created automatically. This exists for legacy reasons and for
+	// the SSH etcd world implementation. Maybe it can be removed in the
+	// future.
+	Client interfaces.Client
+
+	// Seeds are the list of etcd endpoints to connect to.
+	Seeds []string
+
+	// NS is the etcd namespace to use.
+	NS string
+
 	MetadataPrefix string    // expected metadata prefix
 	StoragePrefix  string    // storage prefix for etcdfs storage
 	StandaloneFs   engine.Fs // store an fs here for local usage
 	GetURI         func() string
-	Debug          bool
-	Logf           func(format string, v ...interface{})
+
+	init         *engine.WorldInit
+	client       interfaces.Client
+	simpleDeploy *deployer.SimpleDeploy
+
+	cleanups []func() error
+}
+
+// Init runs first.
+func (obj *World) Init(init *engine.WorldInit) error {
+	obj.init = init
+
+	obj.client = obj.Client // legacy default
+	if obj.Client == nil {
+		c := client.NewClientFromSeedsNamespace(
+			obj.Seeds, // endpoints
+			obj.NS,
+		)
+		if err := c.Init(); err != nil {
+			return errwrap.Wrapf(err, "client Init failed")
+		}
+		obj.cleanups = append(obj.cleanups, func() error {
+			e := c.Close()
+			if obj.init.Debug && e != nil {
+				obj.init.Logf("etcd client close error: %+v", e)
+			}
+			return e
+		})
+		obj.client = c
+	}
+
+	obj.simpleDeploy = &deployer.SimpleDeploy{
+		Client: obj.client,
+		Debug:  obj.init.Debug,
+		Logf: func(format string, v ...interface{}) {
+			obj.init.Logf("deploy: "+format, v...)
+		},
+	}
+	if err := obj.simpleDeploy.Init(); err != nil {
+		return errwrap.Wrapf(err, "deploy Init failed")
+	}
+	obj.cleanups = append(obj.cleanups, func() error {
+		e := obj.simpleDeploy.Close()
+		if obj.init.Debug && e != nil {
+			obj.init.Logf("deploy close error: %+v", e)
+		}
+		return e
+	})
+
+	return nil
+}
+
+// cleanup performs all the "close" actions either at the very end or as we go.
+func (obj *World) cleanup() error {
+	var errs error
+	for i := len(obj.cleanups) - 1; i >= 0; i-- { // reverse
+		f := obj.cleanups[i]
+		if err := f(); err != nil {
+			errs = errwrap.Append(errs, err)
+		}
+	}
+	obj.cleanups = nil // clean
+	return errs
+}
+
+// Close runs last.
+func (obj *World) Close() error {
+	return obj.cleanup()
+}
+
+// WatchDeploy returns a channel which spits out events on new deploy activity.
+func (obj *World) WatchDeploy(ctx context.Context) (chan error, error) {
+	return obj.simpleDeploy.WatchDeploy(ctx)
+}
+
+// GetDeploys gets all the available deploys.
+func (obj *World) GetDeploys(ctx context.Context) (map[uint64]string, error) {
+	return obj.simpleDeploy.GetDeploys(ctx)
+}
+
+// GetDeploy returns the deploy with the specified id if it exists.
+func (obj *World) GetDeploy(ctx context.Context, id uint64) (string, error) {
+	return obj.simpleDeploy.GetDeploy(ctx, id)
+}
+
+// GetMaxDeployID returns the maximum deploy id.
+func (obj *World) GetMaxDeployID(ctx context.Context) (uint64, error) {
+	return obj.simpleDeploy.GetMaxDeployID(ctx)
+}
+
+// AddDeploy adds a new deploy.
+func (obj *World) AddDeploy(ctx context.Context, id uint64, hash, pHash string, data *string) error {
+	return obj.simpleDeploy.AddDeploy(ctx, id, hash, pHash, data)
 }
 
 // ResWatch returns a channel which spits out events on possible exported
 // resource changes.
-func (obj *World) ResWatch(ctx context.Context) (chan error, error) {
-	return resources.WatchResources(ctx, obj.Client)
+func (obj *World) ResWatch(ctx context.Context, kind string) (chan error, error) {
+	return resources.WatchResources(ctx, obj.client, obj.init.Hostname, kind)
 }
 
-// ResExport exports a list of resources under our hostname namespace.
-// Subsequent calls replace the previously set collection atomically.
-func (obj *World) ResExport(ctx context.Context, resourceList []engine.Res) error {
-	return resources.SetResources(ctx, obj.Client, obj.Hostname, resourceList)
-}
-
-// ResCollect gets the collection of exported resources which match the filter.
+// ResCollect gets the collection of exported resources which match the filters.
 // It does this atomically so that a call always returns a complete collection.
-func (obj *World) ResCollect(ctx context.Context, hostnameFilter, kindFilter []string) ([]engine.Res, error) {
-	// XXX: should we be restricted to retrieving resources that were
-	// exported with a tag that allows or restricts our hostname? We could
-	// enforce that here if the underlying API supported it... Add this?
-	return resources.GetResources(ctx, obj.Client, hostnameFilter, kindFilter)
+func (obj *World) ResCollect(ctx context.Context, filters []*engine.ResFilter) ([]*engine.ResOutput, error) {
+	return resources.GetResources(ctx, obj.client, obj.init.Hostname, filters)
+}
+
+// ResExport stores a number of resources in the world storage system. The
+// individual records should not be updated if they are identical to what is
+// already present. (This is to prevent unnecessary events.) If this makes no
+// changes, it returns (true, nil). If it makes a change, then it returns
+// (false, nil). On any error we return (false, err). It stores the exports
+// under our hostname namespace. Subsequent calls do NOT replace the previously
+// set collection.
+func (obj *World) ResExport(ctx context.Context, resourceExports []*engine.ResExport) (bool, error) {
+	return resources.SetResources(ctx, obj.client, obj.init.Hostname, resourceExports)
+}
+
+// ResDelete deletes a number of resources in the world storage system. If this
+// doesn't delete, it returns (true, nil). If it makes a delete, then it returns
+// (false, nil). On any error we return (false, err).
+func (obj *World) ResDelete(ctx context.Context, resourceDeletes []*engine.ResDelete) (bool, error) {
+	return resources.DelResources(ctx, obj.client, obj.init.Hostname, resourceDeletes)
 }
 
 // IdealClusterSizeWatch returns a stream of errors anytime the cluster-wide
 // dynamic cluster size setpoint changes.
 func (obj *World) IdealClusterSizeWatch(ctx context.Context) (chan error, error) {
-	c := client.NewClientFromSimple(obj.Client, ChooserPath)
+	c := client.NewClientFromSimple(obj.client, ChooserPath)
 	if err := c.Init(); err != nil {
 		return nil, err
 	}
@@ -108,7 +222,7 @@ func (obj *World) IdealClusterSizeWatch(ctx context.Context) (chan error, error)
 
 // IdealClusterSizeGet gets the cluster-wide dynamic cluster size setpoint.
 func (obj *World) IdealClusterSizeGet(ctx context.Context) (uint16, error) {
-	c := client.NewClientFromSimple(obj.Client, ChooserPath)
+	c := client.NewClientFromSimple(obj.client, ChooserPath)
 	if err := c.Init(); err != nil {
 		return 0, err
 	}
@@ -118,7 +232,7 @@ func (obj *World) IdealClusterSizeGet(ctx context.Context) (uint16, error) {
 
 // IdealClusterSizeSet sets the cluster-wide dynamic cluster size setpoint.
 func (obj *World) IdealClusterSizeSet(ctx context.Context, size uint16) (bool, error) {
-	c := client.NewClientFromSimple(obj.Client, ChooserPath)
+	c := client.NewClientFromSimple(obj.client, ChooserPath)
 	if err := c.Init(); err != nil {
 		return false, err
 	}
@@ -128,7 +242,7 @@ func (obj *World) IdealClusterSizeSet(ctx context.Context, size uint16) (bool, e
 
 // StrWatch returns a channel which spits out events on possible string changes.
 func (obj *World) StrWatch(ctx context.Context, namespace string) (chan error, error) {
-	return str.WatchStr(ctx, obj.Client, namespace)
+	return str.WatchStr(ctx, obj.client, namespace)
 }
 
 // StrIsNotExist returns whether the error from StrGet is a key missing error.
@@ -138,41 +252,41 @@ func (obj *World) StrIsNotExist(err error) bool {
 
 // StrGet returns the value for the the given namespace.
 func (obj *World) StrGet(ctx context.Context, namespace string) (string, error) {
-	return str.GetStr(ctx, obj.Client, namespace)
+	return str.GetStr(ctx, obj.client, namespace)
 }
 
 // StrSet sets the namespace value to a particular string.
 // XXX: This can overwrite another hosts value that was set with StrMapSet. Add
 // possible cryptographic signing or special namespacing to prevent such things.
 func (obj *World) StrSet(ctx context.Context, namespace, value string) error {
-	return str.SetStr(ctx, obj.Client, namespace, &value)
+	return str.SetStr(ctx, obj.client, namespace, &value)
 }
 
 // StrDel deletes the value in a particular namespace.
 func (obj *World) StrDel(ctx context.Context, namespace string) error {
-	return str.SetStr(ctx, obj.Client, namespace, nil)
+	return str.SetStr(ctx, obj.client, namespace, nil)
 }
 
 // StrMapWatch returns a channel which spits out events on possible string
 // changes.
 func (obj *World) StrMapWatch(ctx context.Context, namespace string) (chan error, error) {
-	return strmap.WatchStrMap(ctx, obj.Client, namespace)
+	return strmap.WatchStrMap(ctx, obj.client, namespace)
 }
 
 // StrMapGet returns a map of hostnames to values in the given namespace.
 func (obj *World) StrMapGet(ctx context.Context, namespace string) (map[string]string, error) {
-	return strmap.GetStrMap(ctx, obj.Client, []string{}, namespace)
+	return strmap.GetStrMap(ctx, obj.client, []string{}, namespace)
 }
 
 // StrMapSet sets the namespace value to a particular string under the identity
 // of its own hostname.
 func (obj *World) StrMapSet(ctx context.Context, namespace, value string) error {
-	return strmap.SetStrMap(ctx, obj.Client, obj.Hostname, namespace, &value)
+	return strmap.SetStrMap(ctx, obj.client, obj.init.Hostname, namespace, &value)
 }
 
 // StrMapDel deletes the value in a particular namespace.
 func (obj *World) StrMapDel(ctx context.Context, namespace string) error {
-	return strmap.SetStrMap(ctx, obj.Client, obj.Hostname, namespace, nil)
+	return strmap.SetStrMap(ctx, obj.client, obj.init.Hostname, namespace, nil)
 }
 
 // Scheduler returns a scheduling result of hosts in a particular namespace.
@@ -183,11 +297,11 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 		modifiedOpts = append(modifiedOpts, o) // copy in
 	}
 
-	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.Debug))
-	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.Logf))
+	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.init.Debug))
+	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.init.Logf))
 
 	path := fmt.Sprintf(schedulerPathFmt, namespace)
-	return scheduler.Schedule(obj.Client.GetClient(), path, obj.Hostname, modifiedOpts...)
+	return scheduler.Schedule(obj.client.GetClient(), path, obj.init.Hostname, modifiedOpts...)
 }
 
 // URI returns the current FS URI.
@@ -227,13 +341,13 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 	}
 
 	etcdFs := &etcdfs.Fs{
-		Client:     obj.Client, // TODO: do we need to add a namespace?
+		Client:     obj.client, // TODO: do we need to add a namespace?
 		Metadata:   u.Path,
 		DataPrefix: obj.StoragePrefix,
 
-		Debug: obj.Debug,
+		Debug: obj.init.Debug,
 		Logf: func(format string, v ...interface{}) {
-			obj.Logf("fs: "+format, v...)
+			obj.init.Logf("fs: "+format, v...)
 		},
 	}
 	return etcdFs, nil
@@ -241,5 +355,5 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 
 // WatchMembers returns a channel of changing members in the cluster.
 func (obj *World) WatchMembers(ctx context.Context) (<-chan *interfaces.MembersResult, error) {
-	return obj.Client.WatchMembers(ctx)
+	return obj.client.WatchMembers(ctx)
 }

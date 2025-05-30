@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -49,6 +49,13 @@ import (
 
 func init() {
 	engine.RegisterResource("nooptest", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo:hello", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo:world", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo:world:big", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo:world:bad", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:foo:world:bazzz", func() engine.Res { return &NoopResTest{} })
+	engine.RegisterResource("nooptestkind:this:is:very:long", func() engine.Res { return &NoopResTest{} })
 }
 
 // NoopResTest is a no-op resource that groups strangely.
@@ -108,19 +115,35 @@ func (obj *NoopResTest) GroupCmp(r engine.GroupableRes) error {
 	}
 
 	// TODO: implement this in vertexCmp for *testGrouper instead?
-	if strings.Contains(res.Name(), ",") { // HACK
-		return fmt.Errorf("already grouped") // element to be grouped is already grouped!
+	k1 := strings.HasPrefix(obj.Kind(), "nooptestkind:")
+	k2 := strings.HasPrefix(res.Kind(), "nooptestkind:")
+	if !k1 && !k2 { // XXX: compat mode, to skip during "kind" tests
+		if strings.Contains(res.Name(), ",") { // HACK
+			return fmt.Errorf("already grouped") // element to be grouped is already grouped!
+		}
+	}
+
+	// XXX: make a better grouping algorithm for test expression
+	// XXX: this prevents us from re-using the same kind twice in a test...
+	// group different kinds if they're hierarchical (helpful hack for testing)
+	if obj.Kind() != res.Kind() {
+		s1 := strings.Split(obj.Kind(), ":")
+		s2 := strings.Split(res.Kind(), ":")
+		if len(s1) > len(s2) { // let longer get grouped INTO shorter
+			return fmt.Errorf("chunk inversion")
+		}
 	}
 
 	// group if they start with the same letter! (helpful hack for testing)
 	if obj.Name()[0] != res.Name()[0] {
 		return fmt.Errorf("different starting letter")
 	}
+	//fmt.Printf("group of: %+v into: %+v\n", res.Kind(), obj.Kind())
 	return nil
 }
 
-func NewNoopResTest(name string) *NoopResTest {
-	n, err := engine.NewNamedResource("nooptest", name)
+func NewKindNoopResTest(kind, name string) *NoopResTest {
+	n, err := engine.NewNamedResource(kind, name)
 	if err != nil {
 		panic(fmt.Sprintf("unexpected error: %+v", err))
 	}
@@ -136,6 +159,10 @@ func NewNoopResTest(name string) *NoopResTest {
 	x := n.(*NoopResTest)
 
 	return x
+}
+
+func NewNoopResTest(name string) *NoopResTest {
+	return NewKindNoopResTest("nooptest", name)
 }
 
 func NewNoopResTestSema(name string, semas []string) *NoopResTest {
@@ -174,21 +201,29 @@ func (obj *testGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 		return fmt.Errorf("v2 is not a GroupableRes")
 	}
 
-	if r1.Kind() != r2.Kind() { // we must group similar kinds
-		// TODO: maybe future resources won't need this limitation?
-		return fmt.Errorf("the two resources aren't the same kind")
-	}
+	//if r1.Kind() != r2.Kind() { // we must group similar kinds
+	//	// TODO: maybe future resources won't need this limitation?
+	//	return fmt.Errorf("the two resources aren't the same kind")
+	//}
 	// someone doesn't want to group!
 	if r1.AutoGroupMeta().Disabled || r2.AutoGroupMeta().Disabled {
 		return fmt.Errorf("one of the autogroup flags is false")
 	}
 
-	if r1.IsGrouped() { // already grouped!
-		return fmt.Errorf("already grouped")
+	// We don't want to bail on these two conditions if the kinds are the
+	// same. This prevents us from having a linear chain of pkg->pkg->pkg,
+	// instead of flattening all of them into one arbitrary choice. But if
+	// we are doing hierarchical grouping, then we want to allow this type
+	// of grouping, or we won't end up building any hierarchies!
+	if r1.Kind() == r2.Kind() {
+		if r1.IsGrouped() { // already grouped!
+			return fmt.Errorf("already grouped")
+		}
+		if len(r2.GetGroup()) > 0 { // already has children grouped!
+			return fmt.Errorf("already has groups")
+		}
 	}
-	if len(r2.GetGroup()) > 0 { // already has children grouped!
-		return fmt.Errorf("already has groups")
-	}
+
 	if err := r1.GroupCmp(r2); err != nil { // resource groupcmp failed!
 		return errwrap.Wrapf(err, "the GroupCmp failed")
 	}
@@ -197,6 +232,8 @@ func (obj *testGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 }
 
 func (obj *testGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err error) {
+	//fmt.Printf("merge of: %s into: %s\n", v2, v1)
+	// NOTE: this doesn't look at kind!
 	r1 := v1.(engine.GroupableRes)
 	r2 := v2.(engine.GroupableRes)
 	if err := r1.GroupRes(r2); err != nil { // group them first
@@ -273,8 +310,12 @@ Loop:
 	for v1 := range g1.Adjacency() { // for each vertex in g1
 		r1 := v1.(engine.GroupableRes)
 		l1 := strings.Split(r1.Name(), ",") // make list of everyone's names...
-		for _, x1 := range r1.GetGroup() {
-			l1 = append(l1, x1.Name()) // add my contents
+		// XXX: this should be recursive for hierarchical grouping...
+		// XXX: instead, hack it for now:
+		if !strings.HasPrefix(r1.Kind(), "nooptestkind:") {
+			for _, x1 := range r1.GetGroup() {
+				l1 = append(l1, x1.Name()) // add my contents
+			}
 		}
 		l1 = util.StrRemoveDuplicatesInList(l1) // remove duplicates
 		sort.Strings(l1)
@@ -283,8 +324,12 @@ Loop:
 		for v2 := range g2.Adjacency() { // does it match in g2 ?
 			r2 := v2.(engine.GroupableRes)
 			l2 := strings.Split(r2.Name(), ",")
-			for _, x2 := range r2.GetGroup() {
-				l2 = append(l2, x2.Name())
+			// XXX: this should be recursive for hierarchical grouping...
+			// XXX: instead, hack it for now:
+			if !strings.HasPrefix(r2.Kind(), "nooptestkind:") {
+				for _, x2 := range r2.GetGroup() {
+					l2 = append(l2, x2.Name())
+				}
 			}
 			l2 = util.StrRemoveDuplicatesInList(l2) // remove duplicates
 			sort.Strings(l2)
@@ -301,7 +346,7 @@ Loop:
 
 	// check edges
 	for v1 := range g1.Adjacency() { // for each vertex in g1
-		v2 := m[v1] // lookup in map to get correspondance
+		v2 := m[v1] // lookup in map to get correspondence
 		// g1.Adjacency()[v1] corresponds to g2.Adjacency()[v2]
 		if e1, e2 := len(g1.Adjacency()[v1]), len(g2.Adjacency()[v2]); e1 != e2 {
 			r1 := v1.(engine.Res)
@@ -771,9 +816,9 @@ func TestPgraphGrouping16(t *testing.T) {
 		a := NewNoopResTest("a1,a2")
 		b1 := NewNoopResTest("b1")
 		c1 := NewNoopResTest("c1")
-		e1 := NE("e1")
-		e2 := NE("e2")
-		e3 := NE("e3")
+		e1 := NE("e1") // +e3 a bit?
+		e2 := NE("e2") // ok!
+		e3 := NE("e3") // +e1 a bit?
 		g3.AddEdge(a, b1, e1)
 		g3.AddEdge(b1, c1, e2)
 		g3.AddEdge(a, c1, e3)
@@ -859,9 +904,9 @@ func TestPgraphGrouping18(t *testing.T) {
 		a := NewNoopResTest("a1,a2")
 		b := NewNoopResTest("b1,b2")
 		c1 := NewNoopResTest("c1")
-		e1 := NE("e1")
-		e2 := NE("e2,e4")
-		e3 := NE("e3")
+		e1 := NE("e1")    // +e3 a bit?
+		e2 := NE("e2,e4") // ok!
+		e3 := NE("e3")    // +e1 a bit?
 		g3.AddEdge(a, b, e1)
 		g3.AddEdge(b, c1, e2)
 		g3.AddEdge(a, c1, e3)
@@ -975,6 +1020,113 @@ func TestPgraphSemaphoreGrouping3(t *testing.T) {
 	{
 		a123 := NewNoopResTestSema("a1,a2,a3", []string{"s:1", "s:2", "s:3"})
 		g2.AddVertex(a123)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphGroupingKinds0(t *testing.T) {
+	g1, _ := pgraph.NewGraph("g1") // original graph
+	{
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:hello", "a2")
+		g1.AddVertex(a1, a2)
+	}
+	g2, _ := pgraph.NewGraph("g2") // expected result ?
+	{
+		a := NewNoopResTest("a1,a2")
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphGroupingKinds1(t *testing.T) {
+	g1, _ := pgraph.NewGraph("g1") // original graph
+	{
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		g1.AddVertex(a1, a2, a3)
+	}
+	g2, _ := pgraph.NewGraph("g2") // expected result ?
+	{
+		a := NewNoopResTest("a1,a2,a3")
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphGroupingKinds2(t *testing.T) {
+	g1, _ := pgraph.NewGraph("g1") // original graph
+	{
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		a4 := NewKindNoopResTest("nooptestkind:foo:world:bad", "a4")
+		g1.AddVertex(a1, a2, a3, a4)
+	}
+	g2, _ := pgraph.NewGraph("g2") // expected result ?
+	{
+		a := NewNoopResTest("a1,a2,a3,a4")
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+func TestPgraphGroupingKinds3(t *testing.T) {
+	g1, _ := pgraph.NewGraph("g1") // original graph
+	{
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		a4 := NewKindNoopResTest("nooptestkind:foo:world:bad", "a4")
+		a5 := NewKindNoopResTest("nooptestkind:foo:world:bazzz", "a5")
+		g1.AddVertex(a1, a2, a3, a4, a5)
+	}
+	g2, _ := pgraph.NewGraph("g2") // expected result ?
+	{
+		a := NewNoopResTest("a1,a2,a3,a4,a5")
+		g2.AddVertex(a)
+	}
+	runGraphCmp(t, g1, g2)
+}
+
+// This test is valid, but our test system doesn't support duplicate kinds atm.
+//func TestPgraphGroupingKinds4(t *testing.T) {
+//	g1, _ := pgraph.NewGraph("g1") // original graph
+//	{
+//		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+//		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+//		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+//		a4 := NewKindNoopResTest("nooptestkind:foo:world:big", "a4")
+//		g1.AddVertex(a1, a2, a3, a4)
+//	}
+//	g2, _ := pgraph.NewGraph("g2") // expected result ?
+//	{
+//		a := NewNoopResTest("a1,a2,a3,a4")
+//		g2.AddVertex(a)
+//	}
+//	runGraphCmp(t, g1, g2)
+//}
+
+func TestPgraphGroupingKinds5(t *testing.T) {
+	g1, _ := pgraph.NewGraph("g1") // original graph
+	{
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		a4 := NewKindNoopResTest("nooptestkind:foo:world:bad", "a4")
+		a5 := NewKindNoopResTest("nooptestkind:foo:world:bazzz", "a5")
+		b1 := NewKindNoopResTest("nooptestkind:foo", "b1")
+		// NOTE: the very long one shouldn't group, but our test doesn't
+		// support detecting this pattern at the moment...
+		b2 := NewKindNoopResTest("nooptestkind:this:is:very:long", "b2")
+		g1.AddVertex(a1, a2, a3, a4, a5, b1, b2)
+	}
+	g2, _ := pgraph.NewGraph("g2") // expected result ?
+	{
+		a := NewNoopResTest("a1,a2,a3,a4,a5")
+		b := NewNoopResTest("b1,b2")
+		g2.AddVertex(a, b)
 	}
 	runGraphCmp(t, g1, g2)
 }

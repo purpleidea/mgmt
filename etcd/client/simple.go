@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -462,6 +462,9 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 					select { // send the error
 					case eventsChan <- data:
 					case <-ctx.Done():
+						if count > 0 { // XXX: hack
+							wg.Done()
+						}
 						return
 					}
 					continue // channel should close shortly
@@ -481,6 +484,9 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 			select { // send the event
 			case eventsChan <- data:
 			case <-ctx.Done():
+				if count > 0 { // XXX: hack
+					wg.Done()
+				}
 				return
 			}
 		}

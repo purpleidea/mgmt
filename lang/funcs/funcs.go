@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -31,17 +31,14 @@
 package funcs
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
-	"sync"
 
 	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
-	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
@@ -90,6 +87,42 @@ const (
 	// as. This starts with an underscore so that it cannot be used from the
 	// lexer.
 	StructLookupOptionalFuncName = "_struct_lookup_optional"
+
+	// CollectFuncName is the name this function is registered as. This
+	// starts with an underscore so that it cannot be used from the lexer.
+	CollectFuncName = "_collect"
+
+	// CollectFuncInFieldName is the name of the name field in the struct.
+	CollectFuncInFieldName = "name"
+	// CollectFuncInFieldHost is the name of the host field in the struct.
+	CollectFuncInFieldHost = "host"
+
+	// CollectFuncInType is the most complex of the three possible input
+	// types. The other two possible ones are str or []str.
+	CollectFuncInType = "[]struct{" + CollectFuncInFieldName + " str; " + CollectFuncInFieldHost + " str}"
+
+	// CollectFuncOutFieldName is the name of the name field in the struct.
+	CollectFuncOutFieldName = "name"
+	// CollectFuncOutFieldHost is the name of the host field in the struct.
+	CollectFuncOutFieldHost = "host"
+	// CollectFuncOutFieldData is the name of the data field in the struct.
+	CollectFuncOutFieldData = "data"
+
+	// CollectFuncOutStruct is the struct type that we return a list of.
+	CollectFuncOutStruct = "struct{" + CollectFuncOutFieldName + " str; " + CollectFuncOutFieldHost + " str; " + CollectFuncOutFieldData + " str}"
+
+	// CollectFuncOutType is the expected return type, the data field is an
+	// encoded resource blob.
+	CollectFuncOutType = "[]" + CollectFuncOutStruct
+
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to Call a function. This often gets called by the Value()
+	// method of the Expr. This can be useful if we want to distinguish
+	// between "something is broken" and "I just can't produce a value at
+	// this time", which can be identified and skipped over. If it's the
+	// former, then it's okay to error early and shut everything down since
+	// we know this function is never going to work the way it's called.
+	ErrCantSpeculate = util.Error("can't speculate")
 )
 
 // registeredFuncs is a global map of all possible funcs which can be used. You
@@ -264,182 +297,4 @@ func GetFunctionMetadata(fn interface{}) (*docsUtil.Metadata, error) {
 		Filename: filename,
 		Typename: funcname,
 	}, nil
-}
-
-// PureFuncExec is usually used to provisionally speculate about the result of a
-// pure function, by running it once, and returning the result. Pure functions
-// are expected to only produce one value that depends only on the input values.
-// This won't run any slow functions either.
-func PureFuncExec(handle interfaces.Func, args []types.Value) (types.Value, error) {
-	hostname := ""                                   // XXX: add to interface
-	debug := false                                   // XXX: add to interface
-	logf := func(format string, v ...interface{}) {} // XXX: add to interface
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-
-	info := handle.Info()
-	if !info.Pure {
-		return nil, fmt.Errorf("func is not pure")
-	}
-	// if function is expensive to run, we won't run it provisionally
-	if info.Slow {
-		return nil, fmt.Errorf("func is slow")
-	}
-
-	sig := handle.Info().Sig
-	if sig.Kind != types.KindFunc {
-		return nil, fmt.Errorf("must be kind func")
-	}
-	if sig.HasUni() {
-		return nil, fmt.Errorf("func contains unification vars")
-	}
-
-	if buildableFunc, ok := handle.(interfaces.BuildableFunc); ok {
-		if _, err := buildableFunc.Build(sig); err != nil {
-			return nil, fmt.Errorf("can't build function: %v", err)
-		}
-	}
-
-	if err := handle.Validate(); err != nil {
-		return nil, errwrap.Wrapf(err, "could not validate func")
-	}
-
-	ord := handle.Info().Sig.Ord
-	if i, j := len(ord), len(args); i != j {
-		return nil, fmt.Errorf("expected %d args, got %d", i, j)
-	}
-
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-
-	errch := make(chan error)
-	input := make(chan types.Value)  // we close this when we're done
-	output := make(chan types.Value) // we create it, func closes it
-
-	init := &interfaces.Init{
-		Hostname: hostname,
-		Input:    input,
-		Output:   output,
-		World:    nil, // should not be used for pure functions
-		Debug:    debug,
-		Logf: func(format string, v ...interface{}) {
-			logf("func: "+format, v...)
-		},
-	}
-
-	if err := handle.Init(init); err != nil {
-		return nil, errwrap.Wrapf(err, "could not init func")
-	}
-
-	close1 := make(chan struct{})
-	close2 := make(chan struct{})
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(errch) // last one turns out the lights
-		select {
-		case <-close1:
-		}
-		select {
-		case <-close2:
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(close1)
-		if debug {
-			logf("Running func")
-		}
-		err := handle.Stream(ctx) // sends to output chan
-		if debug {
-			logf("Exiting func")
-		}
-		if err == nil {
-			return
-		}
-		// we closed with an error...
-		select {
-		case errch <- errwrap.Wrapf(err, "problem streaming func"):
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(close2)
-		defer close(input) // we only send one value
-		if len(args) == 0 {
-			return
-		}
-		si := &types.Type{
-			// input to functions are structs
-			Kind: types.KindStruct,
-			Map:  handle.Info().Sig.Map,
-			Ord:  handle.Info().Sig.Ord,
-		}
-		st := types.NewStruct(si)
-
-		for i, arg := range args {
-			name := handle.Info().Sig.Ord[i]
-			if err := st.Set(name, arg); err != nil { // populate struct
-				select {
-				case errch <- errwrap.Wrapf(err, "struct set failure"):
-				}
-				return
-			}
-		}
-
-		select {
-		case input <- st: // send to function (must not block)
-		case <-close1: // unblock the input send in case stream closed
-			select {
-			case errch <- fmt.Errorf("stream closed early"):
-			}
-		}
-	}()
-
-	once := false
-	var result types.Value
-	var reterr error
-Loop:
-	for {
-		select {
-		case value, ok := <-output: // read from channel
-			if !ok {
-				output = nil
-				continue Loop // only exit via errch closing!
-			}
-			if once {
-				reterr = fmt.Errorf("got more than one value")
-				continue // only exit via errch closing!
-			}
-			once = true
-			result = value // save value
-
-		case err, ok := <-errch: // handle possible errors
-			if !ok {
-				break Loop
-			}
-			if err == nil {
-				// programming error
-				err = fmt.Errorf("error was missing")
-			}
-			e := errwrap.Wrapf(err, "problem streaming func")
-			reterr = errwrap.Append(reterr, e)
-		}
-	}
-
-	cancel()
-
-	if result == nil && reterr == nil {
-		// programming error
-		// XXX: i think this can happen when we exit without error, but
-		// before we send one output message... not sure how this happens
-		// XXX: iow, we never send on output, and errch closes...
-		// XXX: this could happen if we send zero input args, and Stream exits without error
-		return nil, fmt.Errorf("function exited with nil result and nil error")
-	}
-	return result, reterr
 }

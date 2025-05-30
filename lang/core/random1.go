@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -96,6 +96,9 @@ func (obj *Random1Func) Validate() error {
 func (obj *Random1Func) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false,
+		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s int) str", random1ArgNameLength)),
 		Err:  obj.Validate(),
 	}

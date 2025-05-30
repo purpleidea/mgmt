@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -34,6 +34,7 @@ package interpolate
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -228,6 +229,9 @@ func TestInterpolate0(t *testing.T) {
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
 				StrInterpolater: StrInterpolate,
+				SourceFinder: func(string) ([]byte, error) {
+					return nil, fmt.Errorf("not implemented")
+				},
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -271,7 +275,7 @@ func TestInterpolate0(t *testing.T) {
 				StripPackageNames: true,
 				HidePrivateFields: true,
 				HideZeroValues:    true,
-				//FieldExclusions: regexp.MustCompile(`^(data)$`),
+				FieldExclusions:   regexp.MustCompile(`^(Textarea)$`),
 				//FieldFilter       func(reflect.StructField, reflect.Value) bool
 				//HomePackage       string
 				//Separator         string
@@ -480,6 +484,9 @@ func TestInterpolateBasicStmt(t *testing.T) {
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
 				StrInterpolater: StrInterpolate,
+				SourceFinder: func(string) ([]byte, error) {
+					return nil, fmt.Errorf("not implemented")
+				},
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -787,6 +794,9 @@ func TestInterpolateBasicExpr(t *testing.T) {
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
 				StrInterpolater: StrInterpolate,
+				SourceFinder: func(string) ([]byte, error) {
+					return nil, fmt.Errorf("not implemented")
+				},
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

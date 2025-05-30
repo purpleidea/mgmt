@@ -52,27 +52,31 @@ if $state == "three" {
 	Exec["timer"] -> Kv["${ns}"]
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
+Edge: _lookup_default -> _operator # a
+Edge: _lookup_default -> _operator # a
+Edge: _lookup_default -> _operator # a
+Edge: _lookup_default -> _operator # a
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # b
+Edge: const: str("") -> _lookup_default # indexorkey
+Edge: const: str("==") -> _operator # op
+Edge: const: str("==") -> _operator # op
+Edge: const: str("==") -> _operator # op
+Edge: const: str("==") -> _operator # op
+Edge: const: str("default") -> _lookup_default # default
+Edge: const: str("default") -> _operator # b
+Edge: const: str("estate") -> kvlookup # namespace
+Edge: const: str("one") -> _operator # b
+Edge: const: str("or") -> _operator # op
+Edge: const: str("three") -> _operator # b
+Edge: const: str("two") -> _operator # b
+Edge: kvlookup -> _lookup_default # listormap
+Vertex: _lookup_default
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
 Vertex: const: str("")
 Vertex: const: str("/tmp/mgmt/state")
 Vertex: const: str("/tmp/mgmt/state")
@@ -103,3 +107,4 @@ Vertex: const: str("timer")
 Vertex: const: str("timer")
 Vertex: const: str("two")
 Vertex: const: str("two")
+Vertex: kvlookup

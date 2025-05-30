@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -62,7 +62,7 @@ func WatchStr(ctx context.Context, client interfaces.Client, key string) (chan e
 func GetStr(ctx context.Context, client interfaces.Client, key string) (string, error) {
 	// new key structure is $NS/strings/$key = $data
 	path := fmt.Sprintf("%s/strings/%s", ns, key)
-	keyMap, err := client.Get(ctx, path, etcd.WithPrefix())
+	keyMap, err := client.Get(ctx, path)
 	if err != nil {
 		return "", errwrap.Wrapf(err, "could not get strings in: %s", key)
 	}

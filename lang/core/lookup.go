@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ func init() {
 	funcs.Register(LookupFuncName, func() interfaces.Func { return &LookupFunc{} }) // must register the func and name
 }
 
-var _ interfaces.BuildableFunc = &LookupFunc{} // ensure it meets this expectation
+var _ interfaces.InferableFunc = &LookupFunc{} // ensure it meets this expectation
 
 // LookupFunc is a list index or map key lookup function. It does both because
 // the current syntax in the parser is identical, so it's convenient to mix the
@@ -84,6 +84,63 @@ func (obj *LookupFunc) ArgGen(index int) (string, error) {
 	return seq[index], nil
 }
 
+// FuncInfer takes partial type and value information from the call site of this
+// function so that it can build an appropriate type signature for it. The type
+// signature may include unification variables.
+func (obj *LookupFunc) FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*interfaces.UnificationInvariant, error) {
+	// func(?1, ?2) ?3
+	//
+	// UNLESS we can be more precise, in which case it's
+	//
+	// func(list []?1, index int) ?1
+	// OR
+	// func(map map{?1: ?2}, key ?1) ?2
+
+	// FIXME: We'd instead love to do this during type unification with a
+	// callback or similar, but at least for now this handles some cases.
+
+	var sig *types.Type
+	listSig := types.NewType("func(list []?1, index int) ?1")
+	mapSig := types.NewType("func(map map{?1: ?2}, key ?1) ?2")
+
+	// If first arg is a list or map, then we know which sig to use.
+	if len(partialType.Ord) == 2 && partialType.Map[partialType.Ord[0]] != nil {
+		typ, exists := partialType.Map[partialType.Ord[0]]
+		// don't overwrite earlier determinations
+		if exists && typ.Kind == types.KindList && sig == nil {
+			sig = listSig
+		}
+		if exists && typ.Kind == types.KindMap && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If second arg is not an int, then it must be a map lookup.
+	if len(partialType.Ord) == 2 && partialType.Map[partialType.Ord[1]] != nil {
+		typ, exists := partialType.Map[partialType.Ord[1]]
+		// don't overwrite earlier determinations
+		if exists && typ.Kind != types.KindInt && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If second arg is not an int, then it must be a map lookup.
+	if len(partialValues) == 2 && partialValues[1] != nil {
+		typ := partialValues[1].Type()
+		// don't overwrite earlier determinations
+		if typ != nil && typ.Kind != types.KindInt && sig == nil {
+			sig = mapSig
+		}
+	}
+
+	// If we haven't found a precise sig, use the less specific type.
+	if sig == nil {
+		sig = types.NewType("func(?1, ?2) ?3")
+	}
+
+	return sig, []*interfaces.UnificationInvariant{}, nil
+}
+
 // Build is run to turn the polymorphic, undetermined function, into the
 // specific statically typed version. It is usually run after Unify completes,
 // and must be run before Info() and any of the other Func interface methods are
@@ -91,12 +148,15 @@ func (obj *LookupFunc) ArgGen(index int) (string, error) {
 // runs.
 func (obj *LookupFunc) Build(typ *types.Type) (*types.Type, error) {
 	// typ is the KindFunc signature we're trying to build...
+	if typ == nil {
+		return nil, fmt.Errorf("nil type") // happens b/c of Copy()
+	}
 	if typ.Kind != types.KindFunc {
 		return nil, fmt.Errorf("input type must be of kind func")
 	}
 
-	if len(typ.Ord) < 1 {
-		return nil, fmt.Errorf("the lookup function needs at least one arg") // actually 2 or 3
+	if len(typ.Ord) != 2 {
+		return nil, fmt.Errorf("the lookup function needs two args")
 	}
 	tListOrMap, exists := typ.Map[typ.Ord[0]]
 	if !exists || tListOrMap == nil {
@@ -106,16 +166,50 @@ func (obj *LookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("first arg must have a type")
 	}
 
+	name := ""
 	if tListOrMap.Kind == types.KindList {
-		obj.fn = &ListLookupFunc{} // set it
-		return obj.fn.Build(typ)
+		name = ListLookupFuncName
 	}
 	if tListOrMap.Kind == types.KindMap {
-		obj.fn = &MapLookupFunc{} // set it
-		return obj.fn.Build(typ)
+		name = MapLookupFuncName
+	}
+	if name == "" {
+		return nil, fmt.Errorf("we must lookup from either a list or a map")
 	}
 
-	return nil, fmt.Errorf("we must lookup from either a list or a map")
+	f, err := funcs.Lookup(name)
+	if err != nil {
+		// programming error
+		return nil, err
+	}
+
+	if _, ok := f.(interfaces.CallableFunc); !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+
+	bf, ok := f.(interfaces.BuildableFunc)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("not a BuildableFunc")
+	}
+	obj.fn = bf
+
+	return obj.fn.Build(typ)
+}
+
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *LookupFunc) Copy() interfaces.Func {
+	fn := &LookupFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		//init: obj.init, // likely gets overwritten anyways
+	}
+	if _, err := fn.Build(obj.Type); err != nil {
+		// ignore, since we just didn't set the type
+	}
+	return fn
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -135,7 +229,9 @@ func (obj *LookupFunc) Info() *interfaces.Info {
 	if obj.fn == nil {
 		return &interfaces.Info{
 			Pure: true,
-			Memo: false,
+			Memo: true,
+			Fast: true,
+			Spec: true,
 			Sig:  types.NewType("func(?1, ?2) ?3"), // func kind
 			Err:  obj.Validate(),
 		}
@@ -158,4 +254,17 @@ func (obj *LookupFunc) Stream(ctx context.Context) error {
 		return fmt.Errorf("function not built correctly")
 	}
 	return obj.fn.Stream(ctx)
+}
+
+// Call returns the result of this function.
+func (obj *LookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.fn == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	cf, ok := obj.fn.(interfaces.CallableFunc)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("not a CallableFunc")
+	}
+	return cf.Call(ctx, args)
 }

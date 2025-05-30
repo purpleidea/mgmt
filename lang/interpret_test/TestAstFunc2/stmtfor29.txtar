@@ -1,0 +1,22 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+$index = 42 # should be out of scope
+
+for $index, $value in $list {
+
+	class foo() {
+		test [$value + fmt.printf("%d", $index),] {}
+	}
+	include foo() # as included
+
+	#$s = fmt.printf("%s is %d", $included.result, $index)
+	#test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[a0]
+Vertex: test[b1]
+Vertex: test[c2]

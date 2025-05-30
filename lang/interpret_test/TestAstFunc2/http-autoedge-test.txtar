@@ -1,0 +1,37 @@
+-- main.mcl --
+# Create a test file to serve via HTTP.
+$testfile = "/tmp/mgmt-http-autoedge-test.txt"
+file $testfile {
+	content => "This is a test file for HTTP autoedge testing!",
+	state => $const.res.file.state.exists,
+}
+
+# Create an HTTP server.
+http:server ":8082" {
+	address => ":8082",
+}
+
+# Serve the test file.
+http:file "/test-autoedge" {
+	path => $testfile,
+}
+
+# Test with an explicit variable.
+$f2 = "/tmp/another-test-file.txt"
+file $f2 {
+	content => "i'm a cool file in /tmp\n",
+	state => $const.res.file.state.exists,
+}
+
+http:file "/file2" {
+	path => $f2,
+}
+
+-- OUTPUT --
+Edge: http:file[/file2] -> file[/tmp/another-test-file.txt] # http:file[/file2] -> file[/tmp/another-test-file.txt]
+Edge: http:file[/test-autoedge] -> file[/tmp/mgmt-http-autoedge-test.txt] # http:file[/test-autoedge] -> file[/tmp/mgmt-http-autoedge-test.txt]
+Vertex: file[/tmp/another-test-file.txt]
+Vertex: file[/tmp/mgmt-http-autoedge-test.txt]
+Vertex: http:file[/file2]
+Vertex: http:file[/test-autoedge]
+Vertex: http:server[:8082]

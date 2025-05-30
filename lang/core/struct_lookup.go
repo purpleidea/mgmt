@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -269,7 +269,9 @@ func (obj *StructLookupFunc) Info() *interfaces.Info {
 	}
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -335,4 +337,31 @@ func (obj *StructLookupFunc) Stream(ctx context.Context) error {
 			return nil
 		}
 	}
+}
+
+// Call returns the result of this function.
+func (obj *StructLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	st := args[0].(*types.StructValue)
+	field := args[1].Str()
+
+	if field == "" {
+		return nil, fmt.Errorf("received empty field")
+	}
+	// TODO: Is it a hack to grab this first value?
+	if obj.field == "" {
+		// This can happen at compile time too. Bonus!
+		obj.field = field // store first field
+	}
+	if field != obj.field {
+		return nil, fmt.Errorf("input field changed from: `%s`, to: `%s`", obj.field, field)
+	}
+	result, exists := st.Lookup(obj.field)
+	if !exists {
+		return nil, fmt.Errorf("could not lookup field: `%s` in struct", field)
+	}
+
+	return result, nil
 }

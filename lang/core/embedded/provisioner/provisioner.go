@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -524,6 +524,12 @@ func (obj *provisioner) Register(moduleName string) error {
 
 	// Build a few separately...
 	simple.ModuleRegister(moduleName, "cli_password", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false,
+		},
 		T: types.NewType("func() str"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
 			if obj.localArgs == nil {

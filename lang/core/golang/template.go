@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -86,7 +86,7 @@ type TemplateFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
-	result *string // last calculated output
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -202,8 +202,10 @@ func (obj *TemplateFunc) Info() *interfaces.Info {
 		sig = obj.sig() // helper
 	}
 	return &interfaces.Info{
-		Pure: true,
+		Pure: false, // contents of a template might not be pure
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -364,36 +366,69 @@ func (obj *TemplateFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			st := input.Struct()
-
-			tmpl := st[templateArgNameTemplate].Str()
-			vars, exists := st[templateArgNameVars]
-			if !exists {
-				vars = nil
-			}
-
-			result, err := obj.run(ctx, tmpl, vars)
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
 			if err != nil {
-				return err // no errwrap needed b/c helper func
+				return err
 			}
 
-			if obj.result != nil && *obj.result == result {
+			result, err := obj.Call(ctx, args)
+			if err != nil {
+				return err
+			}
+
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *TemplateFunc) Copy() interfaces.Func {
+	return &TemplateFunc{
+		Type:  obj.Type, // don't copy because we use this after unification
+		built: obj.built,
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	tmpl := args[0].Str()
+
+	var vars types.Value // nil
+	if len(args) == 2 {
+		vars = args[1]
+	}
+
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	result, err := obj.run(ctx, tmpl, vars)
+	if err != nil {
+		return nil, err // no errwrap needed b/c helper func
+	}
+	return &types.StrValue{
+		V: result,
+	}, nil
 }
 
 // safename renames the functions so they're valid inside the template. This is

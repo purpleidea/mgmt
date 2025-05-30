@@ -1,0 +1,65 @@
+import "value"
+
+http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+	#address => ":8080",	# you can override the name like this
+}
+
+# you can add a raw file like this...
+http:server:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+http:server:ui "/ui/" {
+	#path => "/ui/",	# we can override the name like this if needed
+
+	data => struct{
+		title => "mgmt http ui",
+		head => "", # XXX: type unification requires specifying all fields for now
+	},
+}
+
+$text1_id = "text1"
+$range1_id = "range1"
+$text1_val = if $ret1->ready {
+	$ret1->value
+} else {
+	"default" # some default
+}
+$range1_val = if $ret2->ready {
+	$ret2->value
+} else {
+	"2" # some default
+}
+http:server:ui:input $text1_id {
+	value => $text1_val,	# it passes back into itself!
+}
+
+http:server:ui:input $range1_id {
+	value => $range1_val,
+	type => "range://?min=0&max=5&step=1",
+	sort => "b",
+}
+
+Http:Server:Ui:Input[$text1_id].value -> Value[$text1_id].any
+
+value $text1_id {
+	any => "whatever",	# TODO: remove the temporary placeholder here
+	#any => "",	# XXX: remove any placeholder to see the bug when absent
+}
+value $range1_id {
+	any => "whatever",	# TODO: remove the temporary placeholder here
+	#any => "",	# XXX: remove any placeholder to see the bug when absent
+}
+
+$ret1 = value.get_str($text1_id)	# name of value resource
+$ret2 = value.get_str($range1_id)	# name of value resource
+
+test "get1" {
+	anotherstr => $ret1->value,
+	onlyshow => ["AnotherStr",], # displays nicer
+}
+
+test "get2" {
+	anotherstr => $ret2->value,
+	onlyshow => ["AnotherStr",], # displays nicer
+}

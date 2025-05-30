@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -55,12 +55,15 @@ func init() {
 	funcs.ModuleRegister(ModuleName, GetValFuncName, func() interfaces.Func { return &GetValFunc{} })
 }
 
+var _ interfaces.CallableFunc = &GetValFunc{}
+
 // GetValFunc is special function which returns the value of a given key in the
 // exposed world.
 type GetValFunc struct {
 	init *interfaces.Init
 
-	key string
+	key  string
+	args []types.Value
 
 	last   types.Value
 	result types.Value // last calculated output
@@ -94,6 +97,8 @@ func (obj *GetValFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		// output is a struct with two fields:
 		// value is the zero value if not exists. A bool for that in other field.
 		Sig: types.NewType(fmt.Sprintf("func(%s str) struct{%s str; %s bool}", getValArgNameKey, getValFieldNameValue, getValFieldNameExists)),
@@ -132,7 +137,13 @@ func (obj *GetValFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			key := input.Struct()[getValArgNameKey].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			key := args[0].Str()
 			if key == "" {
 				return fmt.Errorf("can't use an empty key")
 			}
@@ -169,7 +180,7 @@ func (obj *GetValFunc) Stream(ctx context.Context) error {
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.key)
 			}
 
-			result, err := obj.getValue(ctx) // get the value...
+			result, err := obj.Call(ctx, obj.args) // get the value...
 			if err != nil {
 				return err
 			}
@@ -193,14 +204,23 @@ func (obj *GetValFunc) Stream(ctx context.Context) error {
 	}
 }
 
-// getValue gets the value we're looking for.
-func (obj *GetValFunc) getValue(ctx context.Context) (types.Value, error) {
+// Call this function with the input args and return the value if it is possible
+// to do so at this time. This was previously getValue which gets the value
+// we're looking for.
+func (obj *GetValFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	key := args[0].Str()
 	exists := true // assume true
-	val, err := obj.init.World.StrGet(ctx, obj.key)
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	val, err := obj.init.World.StrGet(ctx, key)
 	if err != nil && obj.init.World.StrIsNotExist(err) {
 		exists = false // val doesn't exist
 	} else if err != nil {
-		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", obj.key)
+		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", key)
 	}
 
 	s := &types.StrValue{V: val}

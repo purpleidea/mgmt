@@ -1,0 +1,33 @@
+-- main.mcl --
+import "iter"
+import "golang"
+
+$fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
+	len($x)
+}
+
+$in1 = ["a", "bb", "ccc",]
+
+$out1 = iter.map($in1, $fn)
+
+$s = golang.template("out1: {{ . }}", $out1)
+
+test [$s,] {}
+-- OUTPUT --
+Edge: FuncValue -> map # function
+Edge: composite: []str -> map # inputs
+Edge: const: str("a") -> composite: []str # 0
+Edge: const: str("bb") -> composite: []str # 1
+Edge: const: str("ccc") -> composite: []str # 2
+Edge: const: str("out1: {{ . }}") -> template # template
+Edge: map -> template # vars
+Edge: template -> composite: []str # 0
+Vertex: FuncValue
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: const: str("a")
+Vertex: const: str("bb")
+Vertex: const: str("ccc")
+Vertex: const: str("out1: {{ . }}")
+Vertex: map
+Vertex: template

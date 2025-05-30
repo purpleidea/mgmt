@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -38,6 +38,7 @@ import (
 // the Sends method, and call the Send method in CheckApply via the Init API.
 type Sendable struct {
 	send interface{}
+	//sendIsActive bool // TODO: public?
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -63,6 +64,24 @@ func (obj *Sendable) Sent() interface{} {
 	return obj.send
 }
 
+// SendActive let's the resource know if it must send a value. This is usually
+// called during CheckApply, but it's probably safe to check it during Init as
+// well. This is the implementation of this function.
+// XXX: Not doing this for now, see the interface for more information.
+//func (obj *Sendable) SendActive() bool {
+//	return obj.sendIsActive
+//}
+
+// SendSetActive is used by the compiler to store the "SendActive" bool so that
+// it will later know if it will need to send or not. Only the engine should
+// call this function. This is the implementation of this function.
+// TODO: We could instead pass in the various edges we will be sending, and
+// store a map of those for the resource to know more precisely.
+// XXX: Not doing this for now, see the interface for more information.
+//func (obj *Sendable) SendSetActive(b bool) {
+//	obj.sendIsActive = b
+//}
+
 // Recvable contains a general implementation with some of the properties and
 // methods needed to implement receiving from resources.
 type Recvable struct {
@@ -72,7 +91,12 @@ type Recvable struct {
 	Bug5819 interface{} // XXX: workaround
 }
 
-// SetRecv is used to inject incoming values into the resource.
+// SetRecv is used to inject incoming values into the resource. More
+// specifically, it stores the mapping of what gets received from what, so that
+// later on, we know which resources should ask which other resources for the
+// values that they want to receive. Since this happens when we're building the
+// graph, and before the autogrouping step, we'll have pointers to the original,
+// ungrouped resources here, so that it will work even after they're grouped in!
 func (obj *Recvable) SetRecv(recv map[string]*engine.Send) {
 	//if obj.recv == nil {
 	//	obj.recv = make(map[string]*engine.Send)

@@ -62,7 +62,7 @@ status-quo of using your own etcd cluster is stable, and you can even
 use the embedded etcd server in standalone mode...
 
 * This means you can run `mgmt etcd` and get the standard etcd binary
-behviour that you'd get from running `etcd` normally. This makes it
+behaviour that you'd get from running `etcd` normally. This makes it
 easy to use both together since you only need to transport one binary
 around. (And maybe mgmt will do that for you!)
 

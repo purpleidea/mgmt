@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+
+$map1 = {0 => "a", 1 => "b", 2 => "c",}
+$map2 = {"x" => 42, "y" => 13, "z" => -4,}
+
+forkv $key1, $val1 in $map1 {
+	forkv $key2, $val2 in $map2 {
+
+		$s = fmt.printf("%s is %d", $val1, $val2)
+		test [$s,] {}
+	}
+}
+
+-- OUTPUT --
+Vertex: test[a is 42]
+Vertex: test[b is 42]
+Vertex: test[c is 42]
+Vertex: test[a is 13]
+Vertex: test[b is 13]
+Vertex: test[c is 13]
+Vertex: test[a is -4]
+Vertex: test[b is -4]
+Vertex: test[c is -4]

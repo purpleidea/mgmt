@@ -15,36 +15,42 @@ include foo(1)
 include foo(2)
 include foo(3)
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: FuncValue -> call # fn
-Edge: call -> composite: []str # 0
-Edge: call -> composite: []str # 0
-Edge: call -> composite: []str # 0
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: FuncValue
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
-Vertex: call
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: _operator -> printf: func(format str, a int, b int) str # b
+Edge: _operator -> printf: func(format str, a int, b int) str # b
+Edge: _operator -> printf: func(format str, a int, b int) str # b
+Edge: const: int(1) -> printf: func(format str, a int, b int) str # a
+Edge: const: int(13) -> _operator # b
+Edge: const: int(13) -> _operator # b
+Edge: const: int(13) -> _operator # b
+Edge: const: int(2) -> printf: func(format str, a int, b int) str # a
+Edge: const: int(3) -> printf: func(format str, a int, b int) str # a
+Edge: const: int(4) -> _operator # b
+Edge: const: int(4) -> _operator # b
+Edge: const: int(4) -> _operator # b
+Edge: const: int(42) -> _operator # a
+Edge: const: int(42) -> _operator # a
+Edge: const: int(42) -> _operator # a
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("test-%d-%d") -> printf: func(format str, a int, b int) str # format
+Edge: const: str("test-%d-%d") -> printf: func(format str, a int, b int) str # format
+Edge: const: str("test-%d-%d") -> printf: func(format str, a int, b int) str # format
+Edge: printf: func(format str, a int, b int) str -> composite: []str # 0
+Edge: printf: func(format str, a int, b int) str -> composite: []str # 0
+Edge: printf: func(format str, a int, b int) str -> composite: []str # 0
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
 Vertex: composite: []str
 Vertex: composite: []str
 Vertex: composite: []str
@@ -65,3 +71,6 @@ Vertex: const: str("+")
 Vertex: const: str("test-%d-%d")
 Vertex: const: str("test-%d-%d")
 Vertex: const: str("test-%d-%d")
+Vertex: printf: func(format str, a int, b int) str
+Vertex: printf: func(format str, a int, b int) str
+Vertex: printf: func(format str, a int, b int) str

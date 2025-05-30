@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"sync"
 
+	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
 )
@@ -48,6 +49,17 @@ func init() {
 
 // GAPI implements the main lang GAPI interface.
 type GAPI struct {
+	// Wait should be true if we don't use any existing (stale) deploys.
+	// This means that if you start an empty GAPI, then it will immediately
+	// try to look for and run any existing deploys that have been stored in
+	// the cluster that it has connected to. If this is true, then it will
+	// only start on the next deploy. To be honest, we should probably never
+	// wait, but this was accidentally how it was initially implemented, so
+	// we'll change the default and add this in as a flag for now. We may
+	// remove this in the future unless someone has a good reason for
+	// needing it.
+	Wait bool
+
 	data        *gapi.Data
 	initialized bool
 	closeChan   chan struct{}
@@ -57,11 +69,19 @@ type GAPI struct {
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
 // are any validation problems, you should return an error. If there is no
 // deploy, then you should return a nil deploy and a nil error.
-func (obj *GAPI) Cli(*gapi.Info) (*gapi.Deploy, error) {
+func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
+	args, ok := info.Args.(*cliUtil.EmptyArgs)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("could not convert to our struct")
+	}
+
 	return &gapi.Deploy{
 		Name: Name,
 		//Noop: false,
-		GAPI: &GAPI{},
+		GAPI: &GAPI{
+			Wait: args.Wait,
+		},
 	}, nil
 }
 

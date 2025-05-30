@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -54,7 +54,7 @@ func TestAddEdgeGraph1(t *testing.T) {
 
 	g.AddGraph(sub)
 
-	// expected (can re-use the same vertices)
+	// expected (can reuse the same vertices)
 	expected := &Graph{}
 	expected.AddEdge(v1, v3, e1)
 	expected.AddEdge(v2, v3, e2)
@@ -87,7 +87,7 @@ func TestAddEdgeVertexGraph1(t *testing.T) {
 
 	g.AddEdgeVertexGraph(v3, sub, edgeGenFn)
 
-	// expected (can re-use the same vertices)
+	// expected (can reuse the same vertices)
 	expected := &Graph{}
 	expected.AddEdge(v1, v3, e1)
 	expected.AddEdge(v2, v3, e2)
@@ -120,7 +120,7 @@ func TestAddEdgeGraphVertex1(t *testing.T) {
 
 	g.AddEdgeGraphVertex(sub, v3, edgeGenFn)
 
-	// expected (can re-use the same vertices)
+	// expected (can reuse the same vertices)
 	expected := &Graph{}
 	expected.AddEdge(v1, v3, e1)
 	expected.AddEdge(v2, v3, e2)
@@ -153,7 +153,7 @@ func TestAddEdgeVertexGraphLight1(t *testing.T) {
 
 	g.AddEdgeVertexGraphLight(v3, sub, edgeGenFn)
 
-	// expected (can re-use the same vertices)
+	// expected (can reuse the same vertices)
 	expected := &Graph{}
 	expected.AddEdge(v1, v3, e1)
 	expected.AddEdge(v2, v3, e2)
@@ -186,7 +186,7 @@ func TestAddEdgeGraphVertexLight1(t *testing.T) {
 
 	g.AddEdgeGraphVertexLight(sub, v3, edgeGenFn)
 
-	// expected (can re-use the same vertices)
+	// expected (can reuse the same vertices)
 	expected := &Graph{}
 	expected.AddEdge(v1, v3, e1)
 	expected.AddEdge(v2, v3, e2)

@@ -1,0 +1,19 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a", "b", "c",]
+
+for $i, $x in $list {
+
+	func foo($y) {
+		"hello" + $x + $y
+	}
+
+	$s = foo($x)
+
+	test [$s,] {}
+}
+-- OUTPUT --
+Vertex: test[helloaa]
+Vertex: test[hellobb]
+Vertex: test[hellocc]

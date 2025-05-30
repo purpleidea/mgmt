@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -64,8 +64,10 @@ func (obj *FactFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *FactFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false,
-		Memo: false,
+		Pure: obj.Fact.Info().Pure,
+		Memo: obj.Fact.Info().Memo,
+		Fast: obj.Fact.Info().Fast,
+		Spec: obj.Fact.Info().Spec,
 		Sig: &types.Type{
 			Kind: types.KindFunc,
 			// if Ord or Map are nil, this will panic things!
@@ -93,4 +95,16 @@ func (obj *FactFunc) Init(init *interfaces.Init) error {
 // Stream returns the changing values that this function has over time.
 func (obj *FactFunc) Stream(ctx context.Context) error {
 	return obj.Fact.Stream(ctx)
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *FactFunc) Call(ctx context.Context, _ []types.Value) (types.Value, error) {
+	//return obj.Fact.Call(ctx)
+
+	callableFact, ok := obj.Fact.(CallableFact)
+	if !ok {
+		return nil, fmt.Errorf("fact is not a CallableFact")
+	}
+
+	return callableFact.Call(ctx)
 }

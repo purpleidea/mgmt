@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -45,9 +45,20 @@ import (
 // RegisteredFuncs maps a function name to the corresponding function scaffold.
 var RegisteredFuncs = make(map[string]*Scaffold) // must initialize
 
+// Info holds some information about this function.
+type Info struct {
+	Pure bool // is the function pure? (can it be memoized?)
+	Memo bool // should the function be memoized? (false if too much output)
+	Fast bool // is the function slow? (avoid speculative execution)
+	Spec bool // can we speculatively execute it? (true for most)
+}
+
 // Scaffold holds the necessary data to build a (possibly polymorphic) function
 // with this API.
 type Scaffold struct {
+	// I is some general info about the function.
+	I *Info
+
 	// T is the type of the function. It can include unification variables.
 	// At a minimum, this must be a `func(?1) ?2` as a naked `?1` is not
 	// allowed. (TODO: Because of ArgGen.)
@@ -102,12 +113,23 @@ func Register(name string, scaffold *Scaffold) {
 		panic(fmt.Sprintf("could not locate function filename for %s", name))
 	}
 
+	funcInfo := &wrapped.Info{}
+	if scaffold.I != nil {
+		funcInfo = &wrapped.Info{
+			Pure: scaffold.I.Pure,
+			Memo: scaffold.I.Memo,
+			Fast: scaffold.I.Fast,
+			Spec: scaffold.I.Spec,
+		}
+	}
+
 	// register a copy in the main function database
 	funcs.Register(name, func() interfaces.Func {
 		return &Func{
 			Metadata: metadata,
 			WrappedFunc: &wrapped.Func{
-				Name: name,
+				Name:     name,
+				FuncInfo: funcInfo,
 				// NOTE: It might be more correct to Copy here,
 				// but we do the copy inside of ExprFunc.Copy()
 				// instead, so that the same type can be unified

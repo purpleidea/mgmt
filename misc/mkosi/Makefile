@@ -1,5 +1,5 @@
 # Mgmt
-# Copyright (C) 2013-2024+ James Shubin and the project contributors
+# Copyright (C) James Shubin and the project contributors
 # Written by James Shubin <james@shubin.ca> and the project contributors
 #
 # This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
-SHELL = /usr/bin/env bash
+SHELL = bash
 .PHONY: all clean
 
 default: all

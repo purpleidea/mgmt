@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -63,7 +63,8 @@ func init() {
 
 // CPUCountFact is a fact that returns the current CPU count.
 type CPUCountFact struct {
-	init *facts.Init
+	init   *facts.Init
+	result types.Value // last calculated output
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
@@ -75,6 +76,8 @@ func (obj *CPUCountFact) String() string {
 // Info returns static typing info about what the fact returns.
 func (obj *CPUCountFact) Info() *facts.Info {
 	return &facts.Info{
+		Pure:   false,
+		Memo:   false,
 		Output: types.NewType("int"),
 	}
 }
@@ -109,8 +112,6 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 	closeChan := make(chan struct{})     // channel to unblock selects in goroutine
 	defer close(closeChan)
 
-	var once bool // did we send at least once?
-
 	// wait for kernel to poke us about new device changes on the system
 	wg.Add(1)
 	go func() {
@@ -134,16 +135,10 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 
 	startChan := make(chan struct{})
 	close(startChan) // trigger the first event
-	var cpuCount, newCount int64 = 0, -1
 	for {
 		select {
 		case <-startChan:
 			startChan = nil // disable
-			newCount, err = getCPUCount()
-			if err != nil {
-				obj.init.Logf("Could not get initial CPU count. Setting to zero.")
-			}
-			// TODO: would we rather error instead of sending zero?
 
 		case event, ok := <-eventChan:
 			if !ok {
@@ -155,32 +150,44 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("received uevent SEQNUM: %s", event.uevent.Data["SEQNUM"])
 			}
-			if isCPUEvent(event.uevent) {
-				newCount, err = getCPUCount()
-				if err != nil {
-					obj.init.Logf("could not getCPUCount: %e", err)
-					continue
-				}
+			if !isCPUEvent(event.uevent) {
+				continue
 			}
+
 		case <-ctx.Done():
 			return nil
 		}
 
-		if once && newCount == cpuCount {
-			continue
+		result, err := obj.Call(ctx)
+		if err != nil {
+			return err
 		}
-		cpuCount = newCount
+
+		// if the result is still the same, skip sending an update...
+		if obj.result != nil && result.Cmp(obj.result) == nil {
+			continue // result didn't change
+		}
+		obj.result = result // store new result
 
 		select {
-		case obj.init.Output <- &types.IntValue{
-			V: cpuCount,
-		}:
-			once = true
-			// send
+		case obj.init.Output <- result:
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Call this fact and return the value if it is possible to do so at this time.
+func (obj *CPUCountFact) Call(ctx context.Context) (types.Value, error) {
+	count, err := getCPUCount() // TODO: ctx?
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not get CPU count")
+	}
+
+	return &types.IntValue{
+		V: int64(count),
+	}, nil
+
 }
 
 // getCPUCount looks in sysfs to get the number of CPUs that are online.

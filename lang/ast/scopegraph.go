@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -70,6 +70,11 @@ func (obj *StmtEdge) ScopeGraph(g *pgraph.Graph) {
 
 // ScopeGraph adds nodes and vertices to the supplied graph.
 func (obj *StmtIf) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+}
+
+// ScopeGraph adds nodes and vertices to the supplied graph.
+func (obj *StmtFor) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
 }
 
@@ -194,6 +199,17 @@ func (obj *ExprVar) ScopeGraph(g *pgraph.Graph) {
 // ScopeGraph adds nodes and vertices to the supplied graph.
 func (obj *ExprParam) ScopeGraph(g *pgraph.Graph) {
 	g.AddVertex(obj)
+}
+
+// ScopeGraph adds nodes and vertices to the supplied graph.
+func (obj *ExprIterated) ScopeGraph(g *pgraph.Graph) {
+	g.AddVertex(obj)
+	definition, ok := obj.Definition.(interfaces.ScopeGrapher)
+	if !ok {
+		panic("can't graph scope") // programming error
+	}
+	definition.ScopeGraph(g)
+	g.AddEdge(obj, obj.Definition, &pgraph.SimpleEdge{Name: "def"})
 }
 
 // ScopeGraph adds nodes and vertices to the supplied graph.

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -70,7 +70,9 @@ func LookupSubcommand(obj interface{}, st interface{}) string {
 }
 
 // EmptyArgs is the empty CLI parsing structure and type of the parsed result.
-type EmptyArgs struct{}
+type EmptyArgs struct {
+	Wait bool `arg:"--wait" help:"don't use any existing (stale) deploys"`
+}
 
 // LangArgs is the lang CLI parsing structure and type of the parsed result.
 type LangArgs struct {
@@ -161,10 +163,14 @@ type SetupPkgArgs struct {
 // SetupSvcArgs is the setup service CLI parsing structure and type of the
 // parsed result.
 type SetupSvcArgs struct {
-	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
-	Install    bool   `arg:"--install" help:"install the systemd mgmt service"`
-	Start      bool   `arg:"--start" help:"start the mgmt service"`
-	Enable     bool   `arg:"--enable" help:"enable the mgmt service"`
+	BinaryPath string   `arg:"--binary-path" help:"path to the binary"`
+	SSHURL     string   `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
+	Seeds      []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
+	NoServer   bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
+
+	Install bool `arg:"--install" help:"install the systemd mgmt service"`
+	Start   bool `arg:"--start" help:"start the mgmt service"`
+	Enable  bool `arg:"--enable" help:"enable the mgmt service"`
 }
 
 // SetupFirstbootArgs is the setup service CLI parsing structure and type of the

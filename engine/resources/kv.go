@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -94,7 +94,7 @@ type KVRes struct {
 	// functions like `getval`, require this to be false, since they're
 	// pulling values directly out of the same namespace that is shared by
 	// all nodes.
-	Mapped bool
+	Mapped bool `lang:"mapped" yaml:"mapped"`
 
 	// SkipLessThan causes the value to be updated as long as it is greater.
 	SkipLessThan bool `lang:"skiplessthan" yaml:"skiplessthan"`
@@ -209,10 +209,8 @@ func (obj *KVRes) Watch(ctx context.Context) error {
 
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
 	for {
 		select {
-		// NOTE: this part is very similar to the file resource code
 		case err, ok := <-ch:
 			if !ok { // channel shutdown
 				return nil
@@ -223,17 +221,12 @@ func (obj *KVRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("event!")
 			}
-			send = true
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return nil
 		}
 
-		// do all our event sending all together to avoid duplicate msgs
-		if send {
-			send = false
-			obj.init.Event() // notify engine of an event (this can block)
-		}
+		obj.init.Event() // notify engine of an event (this can block)
 	}
 }
 
@@ -294,12 +287,16 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	if val, exists := obj.init.Recv()["value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
-		obj.init.Logf("`value` was received!")
+		if obj.Value == nil {
+			obj.init.Logf("nil `value` was received!")
+		} else {
+			obj.init.Logf("`value` (%s) was received!", *obj.Value)
+		}
 	}
 
 	value, exists, err := obj.kvGet(ctx, obj.getKey())
 	if err != nil {
-		return false, errwrap.Wrapf(err, "error during get")
+		return false, errwrap.Wrapf(err, "error during kv get")
 	}
 	if exists && obj.Value != nil {
 		if value == *obj.Value {

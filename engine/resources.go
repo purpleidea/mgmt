@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -93,6 +93,12 @@ func RegisteredResourcesNames() []string {
 		kinds = append(kinds, k)
 	}
 	return kinds
+}
+
+// IsKind returns true if this is a valid resource kind.
+func IsKind(kind string) bool {
+	_, ok := registeredResources[kind]
+	return ok
 }
 
 // NewResource returns an empty resource object from a registered kind. It
@@ -274,8 +280,8 @@ func Stringer(res Res) string {
 // the resource only. This was formerly a string, but a struct is more precise.
 // The result is suitable as a unique map key.
 type ResPtrUID struct {
-	kind string
-	name string
+	Kind string
+	Name string
 }
 
 // PtrUID generates a ResPtrUID from a resource. The result is suitable as a
@@ -283,7 +289,7 @@ type ResPtrUID struct {
 func PtrUID(res Res) ResPtrUID {
 	// the use of "repr" is kind of arbitrary as long as it's unique
 	//return ResPtrUID(Repr(res.Kind(), res.Name()))
-	return ResPtrUID{kind: res.Kind(), name: res.Name()}
+	return ResPtrUID{Kind: res.Kind(), Name: res.Name()}
 }
 
 // Validate validates a resource by checking multiple aspects. This is the main
@@ -304,6 +310,12 @@ func Validate(res Res) error {
 	// This catches typos where the user meant to use ${var} interpolation.
 	if !res.MetaParams().Dollar && strings.HasPrefix(res.Name(), "$") {
 		return fmt.Errorf("the Res name starts with a $")
+	}
+
+	// Don't need to validate normally if hidden.
+	// XXX: Check if it's also Exported too? len(res.MetaParams.Export) > 0
+	if res.MetaParams().Hidden {
+		return nil
 	}
 
 	return res.Validate()
@@ -370,12 +382,20 @@ type CompatibleRes interface {
 	Merge(CompatibleRes) (CompatibleRes, error)
 }
 
-// CollectableRes is an interface for resources that support collection. It is
-// currently temporary until a proper API for all resources is invented.
-type CollectableRes interface {
+// ExportableRes allows the resource to have its own implementation of resource
+// encoding, so that it can send data over the wire differently. It's unlikely
+// that you will want to implement this interface for most scenarios. It may be
+// useful to limit private data exposure, large data sizes, and to add more info
+// to what would normally be shared.
+type ExportableRes interface {
 	Res
 
-	CollectPattern(string) // XXX: temporary until Res collection is more advanced
+	// ToB64 lets the resource provide an alternative implementation of the
+	// usual ResToB64 method. This lets the resource omit, add, or modify
+	// the parameter data before it goes out over the wire.
+	ToB64() (string, error)
+
+	// TODO: Do we want to add a FromB64 method for decoding the Resource?
 }
 
 // YAMLRes is a resource that supports creation by unmarshalling.

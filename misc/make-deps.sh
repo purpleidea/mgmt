@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # setup a simple golang environment
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
@@ -175,7 +175,7 @@ if [ -z "$LYCHEE" ]; then
 	LYCHEE_TMP='/tmp/'
 	LYCHEE_FILE="${LYCHEE_TMP}lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
 	wget "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -O "$LYCHEE_FILE"
-	tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
+	$sudo_command tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
 fi
 fold_end "Install miscellaneous tools"
 

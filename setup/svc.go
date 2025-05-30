@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/util"
@@ -87,10 +88,15 @@ func (obj *Svc) Validate() error {
 // Run performs the desired actions. This templates and installs a systemd
 // service and enables and starts it if so desired.
 func (obj *Svc) Run(ctx context.Context) error {
+	once := false
 	cmdNameSystemctl := "/usr/bin/systemctl"
 	opts := &util.SimpleCmdOpts{
 		Debug: obj.Debug,
 		Logf:  obj.Logf,
+	}
+
+	if obj.SetupSvcArgs.NoServer && len(obj.SetupSvcArgs.Seeds) == 0 {
+		return fmt.Errorf("--no-server can't be used with zero seeds")
 	}
 
 	if obj.SetupSvcArgs.Install {
@@ -99,10 +105,34 @@ func (obj *Svc) Run(ctx context.Context) error {
 			binaryPath = s
 		}
 
+		argv := []string{
+			binaryPath,
+			"run", // run command
+		}
+
+		if s := obj.SetupSvcArgs.SSHURL; s != "" {
+			// TODO: validate ssh url? Should be user@server:port
+			argv = append(argv, fmt.Sprintf("--ssh-url=%s", s))
+		}
+
+		if seeds := obj.SetupSvcArgs.Seeds; len(seeds) > 0 {
+			// TODO: validate each seed?
+			s := fmt.Sprintf("--seeds=%s", strings.Join(seeds, ","))
+			argv = append(argv, s)
+		}
+
+		if obj.SetupSvcArgs.NoServer {
+			argv = append(argv, "--no-server")
+			argv = append(argv, "--no-magic") // XXX: fix this workaround
+		}
+
+		argv = append(argv, "empty $OPTS")
+		execStart := strings.Join(argv, " ")
+
 		unit := &util.UnitData{
 			Description:   "Mgmt configuration management service",
 			Documentation: "https://github.com/purpleidea/mgmt/",
-			ExecStart:     fmt.Sprintf("%s run empty $OPTS", binaryPath),
+			ExecStart:     execStart,
 			RestartSec:    "5s",
 			Restart:       "always",
 			WantedBy:      []string{"multi-user.target"},
@@ -117,6 +147,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 			return err
 		}
 		obj.Logf("wrote file to: %s", unitPath)
+		once = true
 	}
 
 	if obj.SetupSvcArgs.Start {
@@ -124,6 +155,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 		if err := util.SimpleCmd(ctx, cmdNameSystemctl, cmdArgs, opts); err != nil {
 			return err
 		}
+		once = true
 	}
 
 	if obj.SetupSvcArgs.Enable {
@@ -131,7 +163,11 @@ func (obj *Svc) Run(ctx context.Context) error {
 		if err := util.SimpleCmd(ctx, cmdNameSystemctl, cmdArgs, opts); err != nil {
 			return err
 		}
+		once = true
 	}
 
+	if !once {
+		return fmt.Errorf("nothing done")
+	}
 	return nil
 }

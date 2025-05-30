@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ type function struct {
 	GolangPackage *golangPackage `yaml:"golangPackage"`
 	// GolangFunc is the name of the function in golang.
 	GolangFunc string `yaml:"golangFunc"`
-	// Errorful indicates wether the golang function can return an error
+	// Errorful indicates whether the golang function can return an error
 	// as second argument.
 	Errorful bool `yaml:"errorful"`
 	// Args is the list of the arguments of the function.
@@ -112,8 +112,7 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 func (obj *function) MakeGolangArgs() (string, error) {
 	var args []string
 	for i, a := range obj.Args {
-		input := fmt.Sprintf("input[%d]", i)
-		gol, err := a.ToGolang(input)
+		gol, err := a.ToGolang(fmt.Sprintf("args[%d]", i))
 		if err != nil {
 			return "", err
 		}

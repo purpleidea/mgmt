@@ -3,4 +3,4 @@ test "t1" {
 	stringptr => 42, # int, not str
 }
 -- OUTPUT --
-# err: errUnify: unify error with: int(42): type error: str != int
+# err: errUnify: type error: str != int: /main.mcl @ 2:2-2:17

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -223,7 +223,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	// methods called on it. Nothing else. It will _not_ call Commit or
 	// Reverse. It adds to the graph, and our Commit and Reverse operations
 	// are the ones that actually make the change.
-	outputFunc, err := newFuncValue.Call(obj.init.Txn, obj.ArgVertices)
+	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}

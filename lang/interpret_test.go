@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -52,6 +52,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/etcd"
+	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/funcs/dage"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -181,11 +182,19 @@ func TestAstFunc1(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
+			sources := map[string][]byte{}
+			sourceFinder := func(path string) ([]byte, error) {
+				if b, exists := sources[path]; exists {
+					return b, nil
+				}
+				return nil, os.ErrNotExist
+			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
+				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -236,43 +245,70 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failSetScope := false
 			failUnify := false
 			failGraph := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
+				t.Logf("errStr has length %d", len(errStr))
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -358,7 +394,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -398,6 +434,7 @@ func TestAstFunc1(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -413,7 +450,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -443,7 +480,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -482,7 +519,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -497,7 +534,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(interfaces.EmptyEnv()) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -505,7 +542,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -675,11 +712,19 @@ func TestAstFunc2(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
+			sources := map[string][]byte{}
+			sourceFinder := func(path string) ([]byte, error) {
+				if b, exists := sources[path]; exists {
+					return b, nil
+				}
+				return nil, os.ErrNotExist
+			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
+				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -730,9 +775,11 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failInterpolate := false
@@ -743,54 +790,82 @@ func TestAstFunc2(t *testing.T) {
 			failInterpret := false
 			failAutoEdge := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicInterpolate) {
+					errMagic = magicInterpolate
 					errStr = strings.TrimPrefix(expstr, magicInterpolate)
 					expstr = errStr
 					failInterpolate = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
 				if strings.HasPrefix(expstr, magicErrorStream) {
+					errMagic = magicErrorStream
 					errStr = strings.TrimPrefix(expstr, magicErrorStream)
 					expstr = errStr
 					failStream = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInterpret) {
+					errMagic = magicErrorInterpret
 					errStr = strings.TrimPrefix(expstr, magicErrorInterpret)
 					expstr = errStr
 					failInterpret = true
 				}
 				if strings.HasPrefix(expstr, magicErrorAutoEdge) {
+					errMagic = magicErrorAutoEdge
 					errStr = strings.TrimPrefix(expstr, magicErrorAutoEdge)
 					expstr = errStr
 					failAutoEdge = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -815,18 +890,31 @@ func TestAstFunc2(t *testing.T) {
 			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
-			world := &etcd.World{
-				//Hostname:       hostname,
-				//Client:         etcdClient,
+			var world engine.World
+			world = &etcd.World{
+				//Hostname: hostname,
+				Client: etcdClient.NewClientFromClient(nil), // stub
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
-				StandaloneFs: fs,                // used for static deploys
-				Debug:        testing.Verbose(), // set via the -test.v flag to `go test`
+				StandaloneFs: fs, // used for static deploys
+			}
+			worldInit := &engine.WorldInit{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
+			if err := world.Init(worldInit); err != nil {
+				t.Errorf("world Init failed: %+v", err)
+				return
+			}
+			defer func() {
+				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				if err != nil {
+					t.Errorf("close error: %+v", err)
+				}
+			}()
 
 			variables := map[string]interfaces.Expr{
 				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
@@ -899,7 +987,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -939,6 +1027,7 @@ func TestAstFunc2(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -954,7 +1043,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -976,7 +1065,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInterpolate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -999,7 +1088,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1063,7 +1152,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1082,8 +1171,29 @@ func TestAstFunc2(t *testing.T) {
 			// in implementation and before unification, and static
 			// once we've unified the specific resource.
 
+			// build the env
+			//fgraph := &pgraph.Graph{Name: "functionGraph"}
+			env := interfaces.EmptyEnv()
+			// XXX: Do we need to do something like this?
+			//for k, v := range scope.Variables {
+			//	g, builtinFunc, err := v.Graph(nil)
+			//	if err != nil {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: calling Graph on builtins errored: %+v", index, err)
+			//		return
+			//	}
+			//	fgraph.AddGraph(g)
+			//	env.Variables[k] = builtinFunc // XXX: Ask Sam (.Functions ???)
+			//}
+			//for k, closure := range scope.Functions {
+			//	env.Functions[k] = &interfaces.Closure{
+			//		Env: interfaces.EmptyEnv(),
+			//		Expr: closure.Expr, // XXX: Ask Sam
+			//	}
+			//}
+
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(env) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1091,7 +1201,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1265,7 +1375,7 @@ func TestAstFunc2(t *testing.T) {
 							t.Logf("test #%d: stream errored: %+v", index, err)
 							// Stream errors often have pointers in them, so don't compare for now.
 							//s := err.Error() // convert to string
-							//if s != expstr {
+							//if !foundErr(s) {
 							//	t.Errorf("test #%d: FAIL", index)
 							//	t.Errorf("test #%d: expected different error", index)
 							//	t.Logf("test #%d: err: %s", index, s)
@@ -1305,7 +1415,14 @@ func TestAstFunc2(t *testing.T) {
 			// run interpret!
 			table := funcs.Table() // map[interfaces.Func]types.Value
 
-			ograph, err := interpret.Interpret(iast, table)
+			interpreter := &interpret.Interpreter{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("interpret: "+format, v...)
+				},
+			}
+
+			ograph, err := interpreter.Interpret(iast, table)
 			if (!fail || !failInterpret) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
@@ -1313,7 +1430,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failInterpret && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1336,7 +1453,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			if failAutoEdge && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1495,11 +1612,19 @@ func TestAstFunc3(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
+			sources := map[string][]byte{}
+			sourceFinder := func(path string) ([]byte, error) {
+				if b, exists := sources[path]; exists {
+					return b, nil
+				}
+				return nil, os.ErrNotExist
+			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
+				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -1550,9 +1675,11 @@ func TestAstFunc3(t *testing.T) {
 			}
 
 			expstr := string(testOutput) // expected graph
+			expstrs := []string{}
 
 			// if the graph file has a magic error string, it's a failure
 			errStr := ""
+			errMagic := ""
 			failLexParse := false
 			failInit := false
 			failInterpolate := false
@@ -1563,54 +1690,82 @@ func TestAstFunc3(t *testing.T) {
 			failAutoEdge := false
 			failValidate := false
 			if strings.HasPrefix(expstr, magicError) {
+				expstrs = strings.Split(expstr, "\n")
+				for i := len(expstrs) - 1; i >= 0; i-- { // reverse
+					if strings.TrimSpace(expstrs[i]) == "" {
+						expstrs = append(expstrs[:i], expstrs[i+1:]...) // remove it (from the end)
+						continue
+					}
+					expstrs[i] = strings.TrimPrefix(expstrs[i], magicError) // trim the magic prefix off
+				}
 				errStr = strings.TrimPrefix(expstr, magicError)
 				expstr = errStr
 
 				if strings.HasPrefix(expstr, magicErrorLexParse) {
+					errMagic = magicErrorLexParse
 					errStr = strings.TrimPrefix(expstr, magicErrorLexParse)
 					expstr = errStr
 					failLexParse = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInit) {
+					errMagic = magicErrorInit
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
 				}
 				if strings.HasPrefix(expstr, magicInterpolate) {
+					errMagic = magicInterpolate
 					errStr = strings.TrimPrefix(expstr, magicInterpolate)
 					expstr = errStr
 					failInterpolate = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
+					errMagic = magicErrorSetScope
 					errStr = strings.TrimPrefix(expstr, magicErrorSetScope)
 					expstr = errStr
 					failSetScope = true
 				}
 				if strings.HasPrefix(expstr, magicErrorUnify) {
+					errMagic = magicErrorUnify
 					errStr = strings.TrimPrefix(expstr, magicErrorUnify)
 					expstr = errStr
 					failUnify = true
 				}
 				if strings.HasPrefix(expstr, magicErrorGraph) {
+					errMagic = magicErrorGraph
 					errStr = strings.TrimPrefix(expstr, magicErrorGraph)
 					expstr = errStr
 					failGraph = true
 				}
 				if strings.HasPrefix(expstr, magicErrorInterpret) {
+					errMagic = magicErrorInterpret
 					errStr = strings.TrimPrefix(expstr, magicErrorInterpret)
 					expstr = errStr
 					failInterpret = true
 				}
 				if strings.HasPrefix(expstr, magicErrorAutoEdge) {
+					errMagic = magicErrorAutoEdge
 					errStr = strings.TrimPrefix(expstr, magicErrorAutoEdge)
 					expstr = errStr
 					failAutoEdge = true
 				}
 				if strings.HasPrefix(expstr, magicErrorValidate) {
+					errMagic = magicErrorValidate
 					errStr = strings.TrimPrefix(expstr, magicErrorValidate)
 					expstr = errStr
 					failValidate = true
 				}
+			}
+			for i, x := range expstrs { // trim the magic prefix off
+				expstrs[i] = strings.TrimPrefix(x, errMagic)
+			}
+			foundErr := func(s string) bool {
+				for _, x := range expstrs {
+					if x == s {
+						return true // matched!
+					}
+				}
+				return false // unexpected
 			}
 
 			fail := errStr != ""
@@ -1635,18 +1790,31 @@ func TestAstFunc3(t *testing.T) {
 			}).Init()
 
 			// implementation of the World API (alternatives can be substituted in)
-			world := &etcd.World{
-				//Hostname:       hostname,
-				//Client:         etcdClient,
+			var world engine.World
+			world = &etcd.World{
+				//Hostname: hostname,
+				Client: etcdClient.NewClientFromClient(nil), // stub
 				//MetadataPrefix: /fs, // MetadataPrefix
 				//StoragePrefix:  "/storage", // StoragePrefix
 				// TODO: is this correct? (seems to work for testing)
-				StandaloneFs: fs,                // used for static deploys
-				Debug:        testing.Verbose(), // set via the -test.v flag to `go test`
+				StandaloneFs: fs, // used for static deploys
+			}
+			worldInit := &engine.WorldInit{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
+			if err := world.Init(worldInit); err != nil {
+				t.Errorf("world Init failed: %+v", err)
+				return
+			}
+			defer func() {
+				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				if err != nil {
+					t.Errorf("close error: %+v", err)
+				}
+			}()
 
 			variables := map[string]interfaces.Expr{
 				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
@@ -1719,7 +1887,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failLexParse && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1759,6 +1927,7 @@ func TestAstFunc3(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
+				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -1774,7 +1943,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInit && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1796,7 +1965,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInterpolate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1819,7 +1988,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failSetScope && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1883,7 +2052,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failUnify && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -1903,7 +2072,7 @@ func TestAstFunc3(t *testing.T) {
 			// once we've unified the specific resource.
 
 			// build the function graph
-			fgraph, err := iast.Graph()
+			fgraph, err := iast.Graph(interfaces.EmptyEnv()) // XXX: Ask Sam
 			if (!fail || !failGraph) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: functions failed with: %+v", index, err)
@@ -1911,7 +2080,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failGraph && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2105,7 +2274,14 @@ func TestAstFunc3(t *testing.T) {
 			// run interpret!
 			table := funcs.Table() // map[interfaces.Func]types.Value
 
-			ograph, err := interpret.Interpret(iast, table)
+			interpreter := &interpret.Interpreter{
+				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
+				Logf: func(format string, v ...interface{}) {
+					logf("interpret: "+format, v...)
+				},
+			}
+
+			ograph, err := interpreter.Interpret(iast, table)
 			if (!fail || !failInterpret) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpret failed with: %+v", index, err)
@@ -2113,7 +2289,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failInterpret && err != nil { // can't process graph if it's nil
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2137,7 +2313,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failAutoEdge && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)
@@ -2224,7 +2400,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			if failValidate && err != nil {
 				s := err.Error() // convert to string
-				if s != expstr {
+				if !foundErr(s) {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: expected different error", index)
 					t.Logf("test #%d: err: %s", index, s)

@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env -S bash -e
 # tests if commit message conforms to convention
 
 # library of utility functions
@@ -49,7 +49,7 @@ commit_title_regex='^\([a-z0-9]\(\(, \)\|[a-z0-9]\)*[a-z0-9]: \)\+[A-Z0-9][^:]\+
 # More than one char is required before :
 [[ $(echo "a: bar" | grep -c "$commit_title_regex") -eq 0 ]]
 
-# Run checks agains multiple :.
+# Run checks against multiple :.
 [[ $(echo "a: bar:" | grep -c "$commit_title_regex") -eq 0 ]]
 [[ $(echo "a: bar, fooX: Barfoo" | grep -c "$commit_title_regex") -eq 0 ]]
 [[ $(echo "a: bar, foo: barfoo foo: Nope" | grep -c "$commit_title_regex") -eq 0 ]]

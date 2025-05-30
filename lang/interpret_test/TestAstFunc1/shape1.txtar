@@ -1,0 +1,12 @@
+-- main.mcl --
+print ["a" + "b",] {}
+-- OUTPUT --
+Edge: _operator -> composite: []str # 0
+Edge: const: str("+") -> _operator # op
+Edge: const: str("a") -> _operator # a
+Edge: const: str("b") -> _operator # b
+Vertex: _operator
+Vertex: composite: []str
+Vertex: const: str("+")
+Vertex: const: str("a")
+Vertex: const: str("b")

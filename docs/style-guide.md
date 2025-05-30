@@ -129,9 +129,9 @@ For example, in a short string snippet you can use `s` instead of `myString`, as
 well as other common choices. `i` is a common `int` counter, `f` for files, `fn`
 for functions, `x` for something else and so on.
 
-### Variable re-use
+### Variable reuse
 
-Feel free to create and use new variables instead of attempting to re-use the
+Feel free to create and use new variables instead of attempting to reuse the
 same string. For example, if a function input arg is named `s`, you can use a
 new variable to receive the first computation result on `s` instead of storing
 it back into the original `s`. This avoids confusion if a different part of the
@@ -145,7 +145,7 @@ MyNotIdealFunc(s string, b bool) string {
 	if !b {
 		return s + "hey"
 	}
-	s = strings.Replace(s, "blah", "", -1) // not ideal (re-use of `s` var)
+	s = strings.Replace(s, "blah", "", -1) // not ideal (reuse of `s` var)
 	return s
 }
 
@@ -153,7 +153,7 @@ MyOkayFunc(s string, b bool) string {
 	if !b {
 		return s + "hey"
 	}
-	s2 := strings.Replace(s, "blah", "", -1) // doesn't re-use `s` variable
+	s2 := strings.Replace(s, "blah", "", -1) // doesn't reuse `s` variable
 	return s2
 }
 

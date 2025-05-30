@@ -1,0 +1,22 @@
+-- main.mcl --
+# FIXME: We'd instead love to do this during type unification with a callback or
+# similar, but at least for now we can handle some common cases.
+$bigmap = {
+	1 => {
+		42 => "thing1a",
+		13 => "thing1b",
+	},
+	2 => {
+		42 => "hello",	# pull out this!
+		13 => "thing2b",
+	},
+}
+
+$key = 2
+
+#$inner map{str: str} = $bigmap[$key] # does unify with the type hint!
+$inner = $bigmap[$key] # doesn't unify!
+
+test [$inner[42],] {}
+-- OUTPUT --
+Vertex: test[hello]

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -77,6 +77,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, GetFloatFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeFloat} })
 }
 
+var _ interfaces.CallableFunc = &GetFunc{}
+
 // GetFunc is special function which looks up the stored `Any` field in the
 // value resource that it gets it from. If it is initialized with a fixed Type
 // field, then it becomes a statically typed version that can only return keys
@@ -88,7 +90,8 @@ type GetFunc struct {
 
 	init *interfaces.Init
 
-	key string
+	key  string
+	args []types.Value
 
 	last   types.Value
 	result types.Value // last calculated output
@@ -178,6 +181,16 @@ func (obj *GetFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
+// Copy is implemented so that the type value is not lost if we copy this
+// function.
+func (obj *GetFunc) Copy() interfaces.Func {
+	return &GetFunc{
+		Type: obj.Type, // don't copy because we use this after unification
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
 // Validate makes sure we've built our struct properly. It is usually unused for
 // normal functions that users can use directly.
 func (obj *GetFunc) Validate() error {
@@ -193,6 +206,8 @@ func (obj *GetFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  sig,
 		Err:  obj.Validate(),
 	}
@@ -229,7 +244,13 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			key := input.Struct()[getArgNameKey].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			key := args[0].Str()
 			if key == "" {
 				return fmt.Errorf("can't use an empty key")
 			}
@@ -263,7 +284,7 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 			//	return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.key)
 			//}
 
-			result, err := obj.getValue(ctx) // get the value...
+			result, err := obj.Call(ctx, obj.args) // get the value...
 			if err != nil {
 				return err
 			}
@@ -287,8 +308,15 @@ func (obj *GetFunc) Stream(ctx context.Context) error {
 	}
 }
 
-// getValue gets the value we're looking for.
-func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
+// Call this function with the input args and return the value if it is possible
+// to do so at this time. This was previously getValue which gets the value
+// we're looking for.
+func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	key := args[0].Str()
+
 	typ, exists := obj.Info().Sig.Out.Map[getFieldNameValue] // type of value field
 	if !exists || typ == nil {
 		// programming error
@@ -303,9 +331,12 @@ func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
 	// step that might be needed if the value started out empty...
 	// TODO: We could even add a stored: bool field in the returned struct!
 	isReady := true // assume true
-	val, err := obj.init.Local.ValueGet(ctx, obj.key)
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	val, err := obj.init.Local.ValueGet(ctx, key)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", obj.key)
+		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", key)
 	}
 	if val == nil { // val doesn't exist
 		isReady = false
@@ -324,7 +355,7 @@ func (obj *GetFunc) getValue(ctx context.Context) (types.Value, error) {
 			// an str for example, this error happens... Do we want
 			// to: (1) coerce? -- no; (2) error? -- yep for now; (3)
 			// improve type unification? -- if it's possible, yes.
-			return nil, errwrap.Wrapf(err, "type mismatch, check type in Value[%s]", obj.key)
+			return nil, errwrap.Wrapf(err, "type mismatch, check type in Value[%s]", key)
 		}
 	}
 

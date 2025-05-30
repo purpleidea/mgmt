@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -84,7 +84,7 @@ func MaxCount(maxCount int) Option {
 	}
 }
 
-// ReuseLease specifies whether we should try and re-use the lease between runs.
+// ReuseLease specifies whether we should try and reuse the lease between runs.
 // Ordinarily it would get discarded with each new version (deploy) of the code.
 func ReuseLease(reuseLease bool) Option {
 	return func(so *schedulerOptions) {

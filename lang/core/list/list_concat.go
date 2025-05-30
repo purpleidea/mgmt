@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -158,13 +158,20 @@ func (obj *ListConcatFunc) Build(typ *types.Type) (*types.Type, error) {
 
 	obj.Func = &wrapped.Func{
 		Name: obj.String(),
+		FuncInfo: &wrapped.Info{
+			// TODO: dedup with below Info data
+			Pure: true,
+			Memo: true,
+			Fast: true,
+			Spec: true,
+		},
 		Type: typ, // .Copy(),
 	}
 
 	obj.Type = tList // list type
 	fn := &types.FuncValue{
 		T: typ,
-		V: obj.Function, // implementation
+		V: obj.Call, // implementation
 	}
 	obj.Fn = fn // inside wrapper.Func
 	//return obj.Fn.T, nil
@@ -183,12 +190,13 @@ func (obj *ListConcatFunc) Copy() interfaces.Func {
 	}
 }
 
-// Function is the actual implementation here. This is used in lieu of the
-// Stream function which we'd have these contents within.
-func (obj *ListConcatFunc) Function(ctx context.Context, input []types.Value) (types.Value, error) {
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ListConcatFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	values := []types.Value{}
 
-	for _, x := range input {
+	// TODO: Could speculation pass in non-lists here and cause a panic?
+	for _, x := range args {
 		values = append(values, x.List()...)
 	}
 
@@ -217,7 +225,9 @@ func (obj *ListConcatFunc) Validate() error {
 func (obj *ListConcatFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: true,
-		Memo: false,
+		Memo: true,
+		Fast: true,
+		Spec: true,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

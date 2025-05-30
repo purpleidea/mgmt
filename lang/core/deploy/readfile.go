@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -52,6 +52,8 @@ func init() {
 	funcs.ModuleRegister(ModuleName, ReadFileFuncName, func() interfaces.Func { return &ReadFileFunc{} }) // must register the func and name
 }
 
+var _ interfaces.DataFunc = &ReadFileFunc{}
+
 // ReadFileFunc is a function that reads the full contents from a file in our
 // deploy. The file contents can only change with a new deploy, so this is
 // static. Please note that this is different from the readfile function in the
@@ -61,8 +63,9 @@ type ReadFileFunc struct {
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
 
-	filename *string // the active filename
-	result   *string // last calculated output
+	args     []types.Value
+	filename *string     // the active filename
+	result   types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -96,6 +99,8 @@ func (obj *ReadFileFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // maybe false because the file contents can change
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", readFileArgNameFilename)),
 	}
 }
@@ -129,7 +134,13 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			}
 			obj.last = input // store for next
 
-			filename := input.Struct()[readFileArgNameFilename].Str()
+			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
+			if err != nil {
+				return err
+			}
+			obj.args = args
+
+			filename := args[0].Str()
 			// TODO: add validation for absolute path?
 			// TODO: add check for empty string
 			if obj.filename != nil && *obj.filename == filename {
@@ -137,48 +148,79 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			}
 			obj.filename = &filename
 
-			p := strings.TrimSuffix(obj.data.Base, "/")
-			if p == obj.data.Base { // didn't trim, so we fail
-				// programming error
-				return fmt.Errorf("no trailing slash on Base, got: `%s`", p)
-			}
-			path := p
-
-			if !strings.HasPrefix(*obj.filename, "/") {
-				return fmt.Errorf("filename was not absolute, got: `%s`", *obj.filename)
-				//path += "/" // be forgiving ?
-			}
-			path += *obj.filename
-
-			fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
+			result, err := obj.Call(ctx, obj.args)
 			if err != nil {
-				return errwrap.Wrapf(err, "can't load code from file system `%s`", obj.data.FsURI)
-			}
-			// this is relative to the module dir the func is in!
-			content, err := fs.ReadFile(path) // open the remote file system
-			// We could use it directly, but it feels like less correct.
-			//content, err := obj.data.Fs.ReadFile(path) // open the remote file system
-			if err != nil {
-				return errwrap.Wrapf(err, "can't read file `%s` (%s)", *obj.filename, path)
+				return err
 			}
 
-			result := string(content) // convert to string
-
-			if obj.result != nil && *obj.result == result {
+			// if the result is still the same, skip sending an update...
+			if obj.result != nil && result.Cmp(obj.result) == nil {
 				continue // result didn't change
 			}
-			obj.result = &result // store new result
+			obj.result = result // store new result
 
 		case <-ctx.Done():
 			return nil
 		}
 
 		select {
-		case obj.init.Output <- &types.StrValue{
-			V: *obj.result,
-		}:
+		case obj.init.Output <- obj.result: // send
+			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *ReadFileFunc) Copy() interfaces.Func {
+	return &ReadFileFunc{
+		init: obj.init, // likely gets overwritten anyways
+		data: obj.data, // needed because we don't call SetData twice
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	filename := args[0].Str()
+
+	if obj.data == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	p := strings.TrimSuffix(obj.data.Base, "/")
+	if p == obj.data.Base { // didn't trim, so we fail
+		// programming error
+		return nil, fmt.Errorf("no trailing slash on Base, got: `%s`", p)
+	}
+	path := p
+
+	if !strings.HasPrefix(filename, "/") {
+		return nil, fmt.Errorf("filename was not absolute, got: `%s`", filename)
+		//path += "/" // be forgiving ?
+	}
+	path += filename
+
+	if obj.init == nil || obj.data == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't load code from file system `%s`", obj.data.FsURI)
+	}
+	// this is relative to the module dir the func is in!
+	content, err := fs.ReadFile(path) // open the remote file system
+	// We could use it directly, but it feels like less correct.
+	//content, err := obj.data.Fs.ReadFile(path) // open the remote file system
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't read file `%s` (%s)", filename, path)
+	}
+
+	return &types.StrValue{
+		V: string(content), // convert to string
+	}, nil
 }

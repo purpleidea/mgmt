@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -91,6 +91,8 @@ func (obj *SystemFunc) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  types.NewType(fmt.Sprintf("func(%s str) str", systemArgNameCmd)),
 		Err:  obj.Validate(),
 	}

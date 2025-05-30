@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -40,6 +40,13 @@ import (
 
 func init() {
 	simple.ModuleRegister(ModuleName, "family", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() str"),
 		F: Family,
 	})
@@ -62,14 +69,35 @@ func init() {
 
 	// TODO: Create a family method that will return a giant struct.
 	simple.ModuleRegister(ModuleName, "is_family_redhat", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() bool"),
 		F: IsFamilyRedHat,
 	})
 	simple.ModuleRegister(ModuleName, "is_family_debian", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() bool"),
 		F: IsFamilyDebian,
 	})
 	simple.ModuleRegister(ModuleName, "is_family_archlinux", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
 		T: types.NewType("func() bool"),
 		F: IsFamilyArchLinux,
 	})

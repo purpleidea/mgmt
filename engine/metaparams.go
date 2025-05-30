@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -53,6 +53,8 @@ var DefaultMetaParams = &MetaParams{
 	Rewatch: false,
 	Realize: false, // true would be more awesome, but unexpected for users
 	Dollar:  false,
+	Hidden:  false,
+	Export:  []string{},
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -140,6 +142,33 @@ type MetaParams struct {
 	// interpolate a variable name. In the rare case when it's needed, you
 	// can disable that check with this meta param.
 	Dollar bool `yaml:"dollar"`
+
+	// Hidden means that this resource will not get executed on the resource
+	// graph on which it is defined. This can be used as a simple boolean
+	// switch, or, more commonly in combination with the Export meta param
+	// which specifies that the resource params are exported into the shared
+	// database. When this is true, it does not prevent export. In fact, it
+	// is commonly used in combination with Export. Using this option will
+	// still include it in the resource graph, but it will exist there in a
+	// special "mode" where it will not conflict with any other identically
+	// named resources. It can even be used as part of an edge or via a
+	// send/recv receiver. It can NOT be a sending vertex. These properties
+	// differentiate the use of this instead of simply wrapping a resource
+	// in an "if" statement. If it is hidden, then it does not need to pass
+	// the resource Validate method step.
+	Hidden bool `yaml:"hidden"`
+
+	// Export is a list of hostnames (and/or the special "*" entry) which if
+	// set, will mark this resource data as intended for export to those
+	// hosts. This does not prevent any users of the shared data storage
+	// from reading these values, so if you want to guarantee secrecy, use
+	// the encryption primitives. This only labels the data accordingly, so
+	// that other hosts can know what data is available for them to collect.
+	// The (kind, name, host) export triple must be unique from any given
+	// exporter. In other words, you may not export two different instances
+	// of a kind+name to the same host, the exports must not conflict. On
+	// resource collect, this parameter is not preserved.
+	Export []string `yaml:"export"`
 }
 
 // Cmp compares two AutoGroupMeta structs and determines if they're equivalent.
@@ -150,7 +179,7 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	// XXX: add a one way cmp like we used to have ?
 	//if obj.Noop != meta.Noop {
 	//	// obj is the existing res, res is the *new* resource
-	//	// if we go from no-noop -> noop, we can re-use the obj
+	//	// if we go from no-noop -> noop, we can reuse the obj
 	//	// if we go from noop -> no-noop, we need to regenerate
 	//	if obj.Noop { // asymmetrical
 	//		return fmt.Errorf("values for Noop are different") // going from noop to no-noop!
@@ -189,6 +218,12 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	if obj.Dollar != meta.Dollar {
 		return fmt.Errorf("values for Dollar are different")
 	}
+	if obj.Hidden != meta.Hidden {
+		return fmt.Errorf("values for Hidden are different")
+	}
+	if err := util.SortedStrSliceCompare(obj.Export, meta.Export); err != nil {
+		return errwrap.Wrapf(err, "values for Export are different")
+	}
 
 	return nil
 }
@@ -208,6 +243,13 @@ func (obj *MetaParams) Validate() error {
 		}
 	}
 
+	for _, s := range obj.Export {
+		if s == "" {
+			return fmt.Errorf("export is empty")
+		}
+	}
+	// TODO: Should we validate the export patterns?
+
 	return nil
 }
 
@@ -217,6 +259,11 @@ func (obj *MetaParams) Copy() *MetaParams {
 	if obj.Sema != nil {
 		sema = make([]string, len(obj.Sema))
 		copy(sema, obj.Sema)
+	}
+	export := []string{}
+	if obj.Export != nil {
+		export = make([]string, len(obj.Export))
+		copy(export, obj.Export)
 	}
 	return &MetaParams{
 		Noop:    obj.Noop,
@@ -230,6 +277,8 @@ func (obj *MetaParams) Copy() *MetaParams {
 		Rewatch: obj.Rewatch,
 		Realize: obj.Realize,
 		Dollar:  obj.Dollar,
+		Hidden:  obj.Hidden,
+		Export:  export,
 	}
 }
 

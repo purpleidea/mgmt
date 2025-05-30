@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -189,6 +189,10 @@ func (obj *Lang) Init(ctx context.Context) error {
 		LexParser:       parser.LexParse,
 		Downloader:      nil, // XXX: is this used here?
 		StrInterpolater: interpolate.StrInterpolate,
+		SourceFinder: func(string) ([]byte, error) {
+			// We're running a bundle as part of a deploy.
+			return nil, fmt.Errorf("not implemented") // XXX: read from the fs?
+		},
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
@@ -286,16 +290,23 @@ func (obj *Lang) Init(ctx context.Context) error {
 	// we assume that for some given code, the list of funcs doesn't change
 	// iow, we don't support variable, variables or absurd things like that
 	obj.graph = &pgraph.Graph{Name: "functionGraph"}
-	env := make(map[string]interfaces.Func)
-	for k, v := range scope.Variables {
-		g, builtinFunc, err := v.Graph(nil)
-		if err != nil {
-			return errwrap.Wrapf(err, "calling Graph on builtins")
-		}
-		obj.graph.AddGraph(g)
-		env[k] = builtinFunc
-	}
-	g, err := obj.ast.Graph() // build the graph of functions
+	env := interfaces.EmptyEnv()
+	// XXX: Do we need to do something like this?
+	//for k, v := range scope.Variables {
+	//	g, builtinFunc, err := v.Graph(nil)
+	//	if err != nil {
+	//		return errwrap.Wrapf(err, "calling Graph on builtins")
+	//	}
+	//	obj.graph.AddGraph(g)
+	//	env.Variables[k] = builtinFunc // XXX: Ask Sam (.Functions ???)
+	//}
+	//for k, v := range scope.Functions {
+	//	env.Functions[k] = &interfaces.Closure{
+	//		Env: interfaces.EmptyEnv(),
+	//		Expr: v,
+	//	}
+	//}
+	g, err := obj.ast.Graph(env) // build the graph of functions
 	if err != nil {
 		return errwrap.Wrapf(err, "could not generate function graph")
 	}
@@ -427,8 +438,16 @@ func (obj *Lang) Interpret() (*pgraph.Graph, error) {
 	obj.Logf("running interpret...")
 	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
 
+	interpreter := &interpret.Interpreter{
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			obj.Logf("interpret: "+format, v...)
+		},
+	}
+
 	// this call returns the graph
-	graph, err := interpret.Interpret(obj.ast, table)
+	graph, err := interpreter.Interpret(obj.ast, table)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not interpret")
 	}

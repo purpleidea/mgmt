@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -58,12 +58,12 @@ func init() {
 
 	//err error // TODO: if we ever match ERROR in the parser
 
-	bool    bool
-	str     string
-	int     int64 // this is the .int as seen in lexer.nex
-	float   float64
+	bool  bool
+	str   string
+	int   int64 // this is the .int as seen in lexer.nex
+	float float64
 
-	typ   *types.Type
+	typ *types.Type
 
 	stmts []interfaces.Stmt
 	stmt interfaces.Stmt
@@ -92,7 +92,7 @@ func init() {
 %token OPEN_CURLY CLOSE_CURLY
 %token OPEN_PAREN CLOSE_PAREN
 %token OPEN_BRACK CLOSE_BRACK
-%token IF ELSE
+%token IF ELSE FOR FORKV
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
@@ -104,6 +104,7 @@ func init() {
 %token CLASS_IDENTIFIER INCLUDE_IDENTIFIER
 %token IMPORT_IDENTIFIER AS_IDENTIFIER
 %token COMMENT ERROR
+%token COLLECT_IDENTIFIER
 %token PANIC_IDENTIFIER
 
 // precedence table
@@ -166,54 +167,84 @@ prog:
 			$$.stmt = &ast.StmtProg{
 				Body: stmts,
 			}
+			locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 		}
 	}
 ;
 stmt:
 	COMMENT
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtComment{
 			Value: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	bind
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	panic
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+|	collect
+	{
+		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	resource
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	edge
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			//ElseBranch: nil,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY ELSE OPEN_CURLY prog CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+	// iterate over lists
+	// `for $index, $value in $list { <body> }`
+|	FOR var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+	{
+		$$.stmt = &ast.StmtFor{
+			Index: $2.str, // no $ prefix
+			Value: $4.str, // no $ prefix
+			Expr:  $6.expr, // XXX: name this List ?
+			Body:  $8.stmt,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+	// iterate over maps
+	// `forkv $key, $val in $map { <body> }`
+|	FORKV var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
+	{
+		$$.stmt = &ast.StmtForKV{
+			Key:  $2.str, // no $ prefix
+			Val:  $4.str, // no $ prefix
+			Expr: $6.expr, // XXX: name this Map ?
+			Body: $8.stmt,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// this is the named version, iow, a user-defined function (statement)
 	// `func name() { <expr> }`
@@ -221,21 +252,22 @@ stmt:
 	// `func name(<arg>, <arg>) { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: &ast.ExprFunc{
-				Args: $4.args,
-				//Return: nil,
-				Body: $7.expr,
+				Title:  $2.str,
+				Args:   $4.args,
+				Return: nil,
+				Body:   $7.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `func name(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		fn := &ast.ExprFunc{
+			Title:  $2.str,
 			Args:   $4.args,
 			Return: $6.typ, // return type is known
 			Body:   $8.expr,
@@ -271,191 +303,192 @@ stmt:
 			Func: fn,
 			Type: typ, // sam says add the type here instead...
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `class name { <prog> }`
 |	CLASS_IDENTIFIER colon_identifier OPEN_CURLY prog CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: nil,
 			Body: $4.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `class name(<arg>) { <prog> }`
 	// `class name(<arg>, <arg>) { <prog> }`
 |	CLASS_IDENTIFIER colon_identifier OPEN_PAREN args CLOSE_PAREN OPEN_CURLY prog CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtClass{
 			Name: $2.str,
 			Args: $4.args,
 			Body: $7.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name`
 |	INCLUDE_IDENTIFIER dotted_identifier
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name(...)`
 |	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtInclude{
 			Name: $2.str,
 			Args: $4.exprs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name as foo`
 	// TODO: should we support: `include name as *`
 |	INCLUDE_IDENTIFIER dotted_identifier AS_IDENTIFIER IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtInclude{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name(...) as foo`
 	// TODO: should we support: `include name(...) as *`
 |	INCLUDE_IDENTIFIER dotted_identifier OPEN_PAREN call_args CLOSE_PAREN AS_IDENTIFIER IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtInclude{
 			Name:  $2.str,
 			Args:  $4.exprs,
 			Alias: $7.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name"`
 |	IMPORT_IDENTIFIER STRING
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtImport{
 			Name: $2.str,
 			//Alias: "",
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name" as alias`
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `import "name" as *`
 |	IMPORT_IDENTIFIER STRING AS_IDENTIFIER MULTIPLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtImport{
 			Name:  $2.str,
 			Alias: $4.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 /*
 	// resource bind
 |	rbind
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = $1.stmt
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 */
 ;
 expr:
 	BOOL
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprBool{
 			V: $1.bool,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	STRING
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprStr{
 			V: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	INTEGER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprInt{
 			V: $1.int,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	FLOAT
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprFloat{
 			V: $1.float,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	list
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: list could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	map
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: map could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	struct
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: struct could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	call
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: call could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	var
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: var could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	func
 	{
-		posLast(yylex, yyDollar) // our pos
 		// TODO: var could be squashed in here directly...
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	IF expr OPEN_CURLY expr CLOSE_CURLY ELSE OPEN_CURLY expr CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprIf{
 			Condition:  $2.expr,
 			ThenBranch: $4.expr,
 			ElseBranch: $8.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// parenthesis wrap an expression for precedence
 |	OPEN_PAREN expr CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = $2.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 list:
 	// `[42, 0, -13]`
 	OPEN_BRACK list_elements CLOSE_BRACK
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprList{
 			Elements: $2.exprs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 list_elements:
@@ -473,18 +506,18 @@ list_elements:
 list_element:
 	expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = $1.expr
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 map:
 	// `{"hello" => "there", "world" => "big",}`
 	OPEN_CURLY map_kvs CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprMap{
 			KVs: $2.mapKVs,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 map_kvs:
@@ -513,7 +546,6 @@ struct:
 	// `struct{answer => 0, truth => false, hello => "world",}`
 	STRUCT_IDENTIFIER OPEN_CURLY struct_fields CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprStruct{
 			Fields: $3.structFields,
 		}
@@ -546,18 +578,17 @@ call:
 	// iter.map(...)
 	dotted_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
 			//Var: false, // default
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// calling a function that's stored in a variable (a lambda)
 	// `$foo(4, "hey")` # call function value
 |	dotted_var_identifier OPEN_PAREN call_args CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: $1.str,
 			Args: $3.exprs,
@@ -565,24 +596,34 @@ call:
 			// prefix to the Name, but I felt this was more elegant.
 			Var: true, // lambda
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
+	// calling an inline function
+|	func OPEN_PAREN call_args CLOSE_PAREN
+	{
+		$$.expr = &ast.ExprCall{
+			Name: "", // anonymous!
+			Args: $3.exprs,
+			Anon: $1.expr,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr PLUS expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
-				&ast.ExprStr{          // operator first
-					V: $2.str,     // for PLUS this is a `+` character
+				&ast.ExprStr{      // operator first
+					V: $2.str, // for PLUS this is a `+` character
 				},
 				$1.expr,
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr MINUS expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -593,10 +634,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr MULTIPLY expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -607,10 +648,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr DIVIDE expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -621,10 +662,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr EQ expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -635,10 +676,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr NEQ expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -649,10 +690,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr LT expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -663,10 +704,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr GT expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -677,10 +718,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr LTE expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -691,10 +732,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr GTE expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -705,10 +746,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr AND expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -719,10 +760,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr OR expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -733,10 +774,10 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	NOT expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: operators.OperatorFuncName,
 			Args: []interfaces.Expr{
@@ -746,13 +787,13 @@ call:
 				$2.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup an index in a list or a key in a map
 	// lookup($foo, $key)
 	// `$foo[$key]` // no default specifier
 |	expr OPEN_BRACK expr CLOSE_BRACK
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: funcs.LookupFuncName,
 			Args: []interfaces.Expr{
@@ -761,13 +802,13 @@ call:
 				//$6.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup an index in a list or a key in a map with a default
 	// lookup_default($foo, $key, $default)
 	// `$foo[$key] || "default"`
 |	expr OPEN_BRACK expr CLOSE_BRACK DEFAULT expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: funcs.LookupDefaultFuncName,
 			Args: []interfaces.Expr{
@@ -776,13 +817,13 @@ call:
 				$6.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup a field in a struct
 	// _struct_lookup($foo, "field")
 	// $foo->field
 |	expr ARROW IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupFuncName,
 			Args: []interfaces.Expr{
@@ -793,13 +834,13 @@ call:
 				//$5.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup a field in a struct with a default
 	// _struct_lookup_optional($foo, "field", "default")
 	// $foo->field || "default"
 |	expr ARROW IDENTIFIER DEFAULT expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupOptionalFuncName,
 			Args: []interfaces.Expr{
@@ -810,10 +851,10 @@ call:
 				$5.expr, // the default
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 |	expr IN expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprCall{
 			Name: funcs.ContainsFuncName,
 			Args: []interfaces.Expr{
@@ -821,6 +862,7 @@ call:
 				$3.expr,
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 // list order gets us the position of the arg, but named params would work too!
@@ -846,10 +888,10 @@ call_args:
 var:
 	dotted_var_identifier
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprVar{
 			Name: $1.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 func:
@@ -859,17 +901,16 @@ func:
 	// `func(<arg>, <arg>) { <expr> }`
 	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY expr CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprFunc{
 			Args: $3.args,
 			//Return: nil,
 			Body: $6.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// `func(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY expr CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.expr = &ast.ExprFunc{
 			Args:   $3.args,
 			Return: $5.typ, // return type is known
@@ -899,6 +940,7 @@ func:
 				yylex.Error(fmt.Sprintf("%s: %+v", ErrParseSetType, err))
 			}
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 args:
@@ -939,17 +981,16 @@ bind:
 	// `$s = "hey"`
 	var_identifier EQUALS expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtBind{
 			Ident: $1.str,
 			Value: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `$x bool = true`
 	// `$x int = if true { 42 } else { 13 }`
 |	var_identifier type EQUALS expr
 	{
-		posLast(yylex, yyDollar) // our pos
 		var expr interfaces.Expr = $4.expr
 		// XXX: We still need to do this for now it seems...
 		if err := expr.SetType($2.typ); err != nil {
@@ -961,6 +1002,7 @@ bind:
 			Value: expr,
 			Type:  $2.typ, // sam says add the type here instead...
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 panic:
@@ -971,7 +1013,6 @@ panic:
 	//}
 	PANIC_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
 	{
-		posLast(yylex, yyDollar) // our pos
 		call := &ast.ExprCall{
 			Name: $1.str, // the function name
 			Args: $3.exprs,
@@ -990,6 +1031,47 @@ panic:
 			ThenBranch: res,
 			//ElseBranch: nil,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+	}
+;
+collect:
+	// `collect file "/tmp/hello" { ... }`
+	// `collect file ["/tmp/hello", ...,] { ... }`
+	// `collect file [struct{name => "/tmp/hello", host => "foo",}, ...,] { ... }`
+	COLLECT_IDENTIFIER resource
+	{
+		// A "collect" stmt is exactly a regular "res" statement, except
+		// it has the boolean "Collect" field set to true, and it also
+		// has a special "resource body" entry which accepts the special
+		// collected data from the function graph.
+		$$.stmt = $2.stmt // it's us now
+		kind := $2.stmt.(*ast.StmtRes).Kind
+		res := $$.stmt.(*ast.StmtRes)
+		res.Collect = true
+		// We are secretly adding a special field to the res contents,
+		// which receives all of the exported data so that we have it
+		// arrive in our function graph in the standard way. We'd need
+		// to have this data to be able to build the resources we want!
+		call := &ast.ExprCall{
+			// function name to lookup special values from that kind
+			Name: funcs.CollectFuncName,
+			Args: []interfaces.Expr{
+				&ast.ExprStr{      // magic operator first
+					V: kind,   // tell it what we're reading
+				},
+				// names to collect
+				// XXX: Can we copy the same AST nodes to here?
+				// XXX: Do I need to run .Copy() on them ?
+				// str, []str, or []struct{name str; host str}
+				res.Name, // expr (hopefully one of those types)
+			},
+		}
+		collect := &ast.StmtResCollect{ // special field
+			Kind:  kind, // might as well tell it directly
+			Value: call,
+		}
+		res.Contents = append(res.Contents, collect)
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 /* TODO: do we want to include this?
@@ -997,7 +1079,6 @@ panic:
 rbind:
 	var_identifier EQUALS resource
 	{
-		posLast(yylex, yyDollar) // our pos
 		// XXX: this kind of bind is different than the others, because
 		// it can only really be used for send->recv stuff, eg:
 		// foo.SomeString -> bar.SomeOtherString
@@ -1005,6 +1086,7 @@ rbind:
 			Ident: $1.str,
 			Value: $3.stmt,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
 */
@@ -1012,12 +1094,12 @@ resource:
 	// `file "/tmp/hello" { ... }` or `aws:ec2 "/tmp/hello" { ... }`
 	colon_identifier expr OPEN_CURLY resource_body CLOSE_CURLY
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtRes{
 			Kind:     $1.str,
 			Name:     $2.expr,
 			Contents: $4.resContents,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 resource_body:
@@ -1070,53 +1152,52 @@ resource_body:
 resource_field:
 	IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resField = &ast.StmtResField{
 			Field: $1.str,
 			Value: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resField)
 	}
 ;
 conditional_resource_field:
 	// content => $present ?: "hello",
 	IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resField = &ast.StmtResField{
 			Field:     $1.str,
 			Value:     $5.expr,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resField)
 	}
 ;
 resource_edge:
 	// Before => Test["t1"],
 	CAPITALIZED_IDENTIFIER ROCKET edge_half COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resEdge = &ast.StmtResEdge{
 			Property: $1.str,
 			EdgeHalf: $3.edgeHalf,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resEdge)
 	}
 ;
 conditional_resource_edge:
 	// Before => $present ?: Test["t1"],
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS edge_half COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.resEdge = &ast.StmtResEdge{
 			Property:  $1.str,
 			EdgeHalf:  $5.edgeHalf,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resEdge)
 	}
 ;
 resource_meta:
 	// Meta:noop => true,
 	CAPITALIZED_IDENTIFIER COLON IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1125,6 +1206,7 @@ resource_meta:
 			Property: $3.str,
 			MetaExpr: $5.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 conditional_resource_meta:
@@ -1141,13 +1223,13 @@ conditional_resource_meta:
 			MetaExpr:  $7.expr,
 			Condition: $5.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 resource_meta_struct:
 	// Meta => struct{meta => true, retry => 3,},
 	CAPITALIZED_IDENTIFIER ROCKET expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1156,13 +1238,13 @@ resource_meta_struct:
 			Property: $1.str,
 			MetaExpr: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 conditional_resource_meta_struct:
 	// Meta => $present ?: struct{poll => 60, sema => ["foo:1", "bar:3",],},
 	CAPITALIZED_IDENTIFIER ROCKET expr ELVIS expr COMMA
 	{
-		posLast(yylex, yyDollar) // our pos
 		if strings.ToLower($1.str) != strings.ToLower(ast.MetaField) {
 			// this will ultimately cause a parser error to occur...
 			yylex.Error(fmt.Sprintf("%s: %s", ErrParseResFieldInvalid, $1.str))
@@ -1172,6 +1254,7 @@ conditional_resource_meta_struct:
 			MetaExpr:  $5.expr,
 			Condition: $3.expr,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.resMeta)
 	}
 ;
 edge:
@@ -1180,16 +1263,15 @@ edge:
 	// Test["t1"] -> Test["t2"] -> Test["t3"] # chain or pair
 	edge_half_list
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtEdge{
 			EdgeHalfList: $1.edgeHalfList,
 			//Notify: false, // unused here
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// Test["t1"].foo_send -> Test["t2"].blah_recv # send/recv
 |	edge_half_sendrecv ARROW edge_half_sendrecv
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.stmt = &ast.StmtEdge{
 			EdgeHalfList: []*ast.StmtEdgeHalf{
 				$1.edgeHalf,
@@ -1197,6 +1279,7 @@ edge:
 			},
 			//Notify: false, // unused here, it is implied (i think)
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 ;
 edge_half_list:
@@ -1215,24 +1298,24 @@ edge_half:
 	// eg: Test["t1"]
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			//SendRecv: "", // unused
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.edgeHalf)
 	}
 ;
 edge_half_sendrecv:
 	// eg: Test["t1"].foo_send
 	capitalized_res_identifier OPEN_BRACK expr CLOSE_BRACK DOT IDENTIFIER
 	{
-		posLast(yylex, yyDollar) // our pos
 		$$.edgeHalf = &ast.StmtEdgeHalf{
 			Kind: $1.str,
 			Name: $3.expr,
 			SendRecv: $6.str,
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.edgeHalf)
 	}
 ;
 type:
@@ -1356,7 +1439,7 @@ type_struct_field:
 	IDENTIFIER type
 	{
 		posLast(yylex, yyDollar) // our pos
-		$$.arg = &interfaces.Arg{ // re-use the Arg struct
+		$$.arg = &interfaces.Arg{ // reuse the Arg struct
 			Name: $1.str,
 			Type: $2.typ,
 		}
@@ -1406,6 +1489,12 @@ undotted_identifier:
 	}
 	// a function could be named map()!
 |	MAP_IDENTIFIER
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.str = $1.str
+	}
+	// a function could be named collect.res()!
+|	COLLECT_IDENTIFIER
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $1.str
@@ -1486,7 +1575,21 @@ func cast(y yyLexer) *lexParseAST {
 	return x.(*lexParseAST)
 }
 
-// posLast pulls out the "last token" and does a pos with that. This is a hack!
+// locate should be called after creating AST nodes from lexer tokens to store
+// the positions of the involved tokens in the AST node.
+func locate(y yyLexer, first yySymType, last yySymType, node interface{}) {
+	pos(y, last)
+	// Only run Locate on nodes that look like they have not received
+	// locations yet otherwise the parser will come back and overwrite them
+	// with invalid ending positions.
+	if pn, ok := node.(interfaces.PositionableNode); !ok {
+		return
+	} else if !pn.IsSet() {
+		pn.Locate(first.row, first.col, last.row, last.col)
+	}
+}
+
+// posLast runs pos on the last token of the current stmt/expr.
 func posLast(y yyLexer, dollars []yySymType) {
 	// pick the last token in the set matched by the parser
 	pos(y, dollars[len(dollars)-1]) // our pos

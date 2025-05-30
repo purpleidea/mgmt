@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -45,8 +46,9 @@ import (
 	langUtil "github.com/purpleidea/mgmt/lang/util"
 	"github.com/purpleidea/mgmt/util"
 
-	"github.com/davecgh/go-spew/spew"
+	godiff "github.com/kylelemons/godebug/diff"
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/sanity-io/litter"
 )
 
 func TestLexParse0(t *testing.T) {
@@ -1742,7 +1744,8 @@ func TestLexParse0(t *testing.T) {
 				&ast.StmtFunc{
 					Name: "f1",
 					Func: &ast.ExprFunc{
-						Args: []*interfaces.Arg{},
+						Title: "f1",
+						Args:  []*interfaces.Arg{},
 						Body: &ast.ExprInt{
 							V: 42,
 						},
@@ -1763,6 +1766,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title:  "f2",
 			Args:   []*interfaces.Arg{},
 			Return: types.TypeInt,
 			Body: &ast.ExprCall{
@@ -1807,6 +1811,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title: "f3",
 			Args: []*interfaces.Arg{
 				{
 					Name: "a",
@@ -1858,6 +1863,7 @@ func TestLexParse0(t *testing.T) {
 	}
 	{
 		fn := &ast.ExprFunc{
+			Title: "f4",
 			Args: []*interfaces.Arg{
 				{
 					Name: "x",
@@ -2046,7 +2052,8 @@ func TestLexParse0(t *testing.T) {
 					Name: "funcgen",
 					// This is the outer function...
 					Func: &ast.ExprFunc{
-						Args: []*interfaces.Arg{},
+						Title: "funcgen",
+						Args:  []*interfaces.Arg{},
 						// This is the inner function...
 						Body: &ast.ExprFunc{
 							Args: []*interfaces.Arg{},
@@ -2221,6 +2228,36 @@ func TestLexParse0(t *testing.T) {
 			}
 			// double check because DeepEqual is different since the func exists
 
+			lo := &litter.Options{
+				//Compact: false,
+				StripPackageNames: true,
+				HidePrivateFields: true,
+				HideZeroValues:    true,
+				FieldExclusions:   regexp.MustCompile(`^(Textarea)$`),
+				//FieldFilter       func(reflect.StructField, reflect.Value) bool
+				//HomePackage       string
+				//Separator         string
+				DisablePointerReplacement: true,
+			}
+
+			// The litter package adds pointer comments everywhere,
+			// which make it not diff correctly. Clean them here!
+			pattern := regexp.MustCompile(`\ \/\/\ p[0-9]+$`) // the p0, p1 comments...
+			clean := func(s string) string {
+				lines := []string{}
+				for _, line := range strings.Split(s, "\n") {
+					s := pattern.ReplaceAllLiteralString(line, "")
+					lines = append(lines, s)
+				}
+				return strings.Join(lines, "\n")
+			}
+
+			lo1 := clean(lo.Sdump(exp))
+			lo2 := clean(lo.Sdump(xast))
+			if lo1 == lo2 { // simple diff
+				return
+			}
+
 			// more details, for tricky cases:
 			diffable := &pretty.Config{
 				Diffable:          true,
@@ -2228,18 +2265,22 @@ func TestLexParse0(t *testing.T) {
 				//PrintStringers: false, // always false!
 				//PrintTextMarshalers: false,
 				SkipZeroFields: true,
+				//Formatter: map[reflect.Type]interface{}{
+				//	reflect.TypeOf(ast.Textarea{}): func(x ast.Textarea) string {
+				//		return ""
+				//	},
+				//},
 			}
 			diff := diffable.Compare(exp, xast)
 			if diff == "" { // bonus
 				return
 			}
+			diff = godiff.Diff(lo1, lo2) // for printing
+
 			t.Errorf("test #%d: AST did not match expected", index)
 			// TODO: consider making our own recursive print function
-			t.Logf("test #%d:   actual: \n\n%s\n", index, spew.Sdump(xast))
-			t.Logf("test #%d: expected: \n\n%s", index, spew.Sdump(exp))
-
-			t.Logf("test #%d:   actual: \n\n%s\n", index, diffable.Sprint(xast))
-			t.Logf("test #%d: expected: \n\n%s", index, diffable.Sprint(exp))
+			t.Logf("test #%d:   actual: \n\n%s\n", index, lo1)
+			t.Logf("test #%d: expected: \n\n%s", index, lo2)
 			t.Logf("test #%d: diff:\n%s", index, diff)
 		})
 	}

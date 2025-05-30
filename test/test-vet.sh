@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # vet a few random things
 
 echo running "$0"

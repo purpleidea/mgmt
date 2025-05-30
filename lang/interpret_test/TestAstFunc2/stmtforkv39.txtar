@@ -1,0 +1,21 @@
+-- main.mcl --
+import "fmt"
+
+$map = {0 => "a", 1 => "b", 2 => "c",}
+
+class foo($x) {
+	$result = "hello " + fmt.printf("%d", $x)
+}
+
+forkv $key, $val in $map {
+
+	include foo($key) as included
+
+	$s = fmt.printf("%s is %d", $included.result, $key)
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello 0 is 0]
+Vertex: test[hello 1 is 1]
+Vertex: test[hello 2 is 2]

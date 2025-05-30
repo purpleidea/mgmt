@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -30,7 +30,6 @@
 package yamlgraph
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -170,8 +169,8 @@ func (obj *GAPI) Next() chan gapi.Next {
 			return
 		}
 		// FIXME: add timeout to context
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		//ctx, cancel := context.WithCancel(context.Background())
+		//defer cancel()
 
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
@@ -180,16 +179,17 @@ func (obj *GAPI) Next() chan gapi.Next {
 		if obj.data.NoStreamWatch {
 			watchChan = nil
 		} else {
-			var err error
-			watchChan, err = obj.data.World.ResWatch(ctx)
-			if err != nil {
-				next := gapi.Next{
-					Err:  errwrap.Wrapf(err, "%s: could not start watch", Name),
-					Exit: true, // exit, b/c programming error?
-				}
-				ch <- next
-				return
-			}
+			// XXX: disabled for now until someone ports to new API.
+			//var err error
+			//watchChan, err = obj.data.World.ResWatch(ctx)
+			//if err != nil {
+			//	next := gapi.Next{
+			//		Err:  errwrap.Wrapf(err, "%s: could not start watch", Name),
+			//		Exit: true, // exit, b/c programming error?
+			//	}
+			//	ch <- next
+			//	return
+			//}
 		}
 
 		for {

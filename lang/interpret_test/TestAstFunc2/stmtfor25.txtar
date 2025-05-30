@@ -1,0 +1,17 @@
+-- main.mcl --
+import "fmt"
+
+$list = ["a",]
+
+for $index, $value in $list {
+
+	func fn() {
+		"hello " + $value
+	}
+
+	$s = fn()
+	test [$s,] {}
+}
+
+-- OUTPUT --
+Vertex: test[hello a]

@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@ package ast
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -319,11 +321,134 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 		return expr.scope, nil
 	case *ExprVar:
 		return expr.scope, nil
+	//case *ExprParam:
+	//case *ExprIterated:
+	//case *ExprPoly:
+	//case *ExprTopLevel:
+	//case *ExprSingleton:
 	case *ExprIf:
 		return expr.scope, nil
 
 	default:
 		return nil, fmt.Errorf("unexpected: %+v", node)
+	}
+}
+
+// CheckParamScope ensures that only the specified ExprParams are free in the
+// expression. It is used for graph shape function speculation. This could have
+// been an addition to the interfaces.Expr interface, but since it's mostly
+// iteration, it felt cleaner like this.
+// TODO: Can we replace this with a call to Apply instead.
+func checkParamScope(node interfaces.Expr, freeVars map[interfaces.Expr]struct{}) error {
+	switch obj := node.(type) {
+
+	case *ExprBool:
+		return nil
+
+	case *ExprStr:
+		return nil
+
+	case *ExprInt:
+		return nil
+
+	case *ExprFloat:
+		return nil
+
+	case *ExprList:
+		for _, x := range obj.Elements {
+			if err := checkParamScope(x, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprMap:
+		for _, x := range obj.KVs {
+			if err := checkParamScope(x.Key, freeVars); err != nil {
+				return err
+			}
+			if err := checkParamScope(x.Val, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprStruct:
+		for _, x := range obj.Fields {
+			if err := checkParamScope(x.Value, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprFunc:
+		if obj.Body != nil {
+			newFreeVars := make(map[interfaces.Expr]struct{})
+			for k, v := range freeVars {
+				newFreeVars[k] = v
+			}
+			for _, param := range obj.params {
+				newFreeVars[param] = struct{}{}
+			}
+
+			if err := checkParamScope(obj.Body, newFreeVars); err != nil {
+				return err
+			}
+		}
+		// XXX: Do we need to do anything for obj.Function ?
+		// XXX: Do we need to do anything for obj.Values ?
+		return nil
+
+	case *ExprCall:
+		if obj.expr != nil {
+			if err := checkParamScope(obj.expr, freeVars); err != nil {
+				return err
+			}
+		}
+		for _, x := range obj.Args {
+			if err := checkParamScope(x, freeVars); err != nil {
+				return err
+			}
+		}
+		return nil
+
+	case *ExprVar:
+		// XXX: is this still correct?
+		target := obj.scope.Variables[obj.Name]
+		return checkParamScope(target, freeVars)
+
+	case *ExprParam:
+		if _, exists := freeVars[obj]; !exists {
+			return fmt.Errorf("the body uses parameter $%s", obj.Name)
+		}
+		return nil
+
+	case *ExprIterated:
+		return checkParamScope(obj.Definition, freeVars) // XXX: is this what we want?
+
+	case *ExprPoly:
+		panic("checkParamScope(ExprPoly): should not happen, ExprVar should replace ExprPoly with a copy of its definition before calling checkParamScope")
+
+	case *ExprTopLevel:
+		return checkParamScope(obj.Definition, freeVars)
+
+	case *ExprSingleton:
+		return checkParamScope(obj.Definition, freeVars)
+
+	case *ExprIf:
+		if err := checkParamScope(obj.Condition, freeVars); err != nil {
+			return err
+		}
+		if err := checkParamScope(obj.ThenBranch, freeVars); err != nil {
+			return err
+		}
+		if err := checkParamScope(obj.ElseBranch, freeVars); err != nil {
+			return err
+		}
+		return nil
+
+	default:
+		return fmt.Errorf("unexpected: %+v", node)
 	}
 }
 
@@ -337,9 +462,52 @@ func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
 		return trueCallee(x.Definition)
 	case *ExprSingleton:
 		return trueCallee(x.Definition)
+	case *ExprIterated:
+		return trueCallee(x.Definition)
+	case *ExprPoly: // XXX: Did we want this one added too?
+		return trueCallee(x.Definition)
+
 	default:
 		return apparentCallee
 	}
+}
+
+// findExprPoly is a helper used in SetScope.
+func findExprPoly(apparentCallee interfaces.Expr) *ExprPoly {
+	switch x := apparentCallee.(type) {
+	case *ExprTopLevel:
+		return findExprPoly(x.Definition)
+	case *ExprSingleton:
+		return findExprPoly(x.Definition)
+	case *ExprIterated:
+		return findExprPoly(x.Definition)
+	case *ExprPoly:
+		return x // found it!
+	default:
+		return nil // not found!
+	}
+}
+
+// newExprParam is a helper function to create an ExprParam with the internal
+// key set to the pointer of the thing we're creating.
+func newExprParam(name string, typ *types.Type) *ExprParam {
+	expr := &ExprParam{
+		Name: name,
+		typ:  typ,
+	}
+	expr.envKey = expr
+	return expr
+}
+
+// newExprIterated is a helper function to create an ExprIterated with the
+// internal key set to the pointer of the thing we're creating.
+func newExprIterated(name string, definition interfaces.Expr) *ExprIterated {
+	expr := &ExprIterated{
+		Name:       name,
+		Definition: definition,
+	}
+	expr.envKey = expr
+	return expr
 }
 
 // variableScopeFeedback logs some messages about what is actually in scope so
@@ -392,4 +560,157 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 	for _, name := range names {
 		logf("$%s(...)", name)
 	}
+}
+
+// Textarea stores the coordinates of a statement or expression in the form of a
+// starting line/column and ending line/column.
+type Textarea struct {
+	// debug represents if we're running in debug mode or not.
+	debug bool
+
+	// logf is a logger which should be used.
+	logf func(format string, v ...interface{})
+
+	// sf is the SourceFinder function implementation that maps a filename
+	// to the source.
+	sf interfaces.SourceFinderFunc
+
+	// path is the full path/filename where this text area exists.
+	path string
+
+	// This data is zero-based. (Eg: first line of file is 0)
+	startLine   int // first
+	startColumn int // left
+	endLine     int // last
+	endColumn   int // right
+
+	isSet bool
+
+	// Bug5819 works around issue https://github.com/golang/go/issues/5819
+	Bug5819 interface{} // XXX: workaround
+}
+
+// Setup is used during AST initialization in order to store in each AST node
+// the name of the source file from which it was generated.
+func (obj *Textarea) Setup(data *interfaces.Data) {
+	obj.debug = data.Debug
+	obj.logf = data.Logf
+	obj.sf = data.SourceFinder
+	obj.path = data.AbsFilename()
+}
+
+// IsSet returns if the position was already set with Locate already.
+func (obj *Textarea) IsSet() bool {
+	return obj.isSet
+}
+
+// Locate is used by the parser to store the token positions in AST nodes. The
+// path will be filled during AST node initialization usually, because the
+// parser does not know the name of the file it is processing.
+func (obj *Textarea) Locate(line int, col int, endline int, endcol int) {
+	obj.startLine = line
+	obj.startColumn = col
+	obj.endLine = endline
+	obj.endColumn = endcol
+	obj.isSet = true
+}
+
+// Pos returns the starting line/column of an AST node.
+func (obj *Textarea) Pos() (int, int) {
+	return obj.startLine, obj.startColumn
+}
+
+// End returns the end line/column of an AST node.
+func (obj *Textarea) End() (int, int) {
+	return obj.endLine, obj.endColumn
+}
+
+// Path returns the name of the source file that holds the code for an AST node.
+func (obj *Textarea) Path() string {
+	return obj.path
+}
+
+// Filename returns the printable filename that we'd like to display. It tries
+// to return a relative version if possible.
+func (obj *Textarea) Filename() string {
+	if obj.path == "" {
+		return "<unknown>" // TODO: should this be <stdin> ?
+	}
+
+	wd, _ := os.Getwd() // ignore error since "" would just pass through
+	wd += "/"           // it's a dir
+	if s, err := util.RemoveBasePath(obj.path, wd); err == nil {
+		return s
+	}
+
+	return obj.path
+}
+
+// Byline gives a succinct representation of the Textarea, but is useful only in
+// debugging. In order to generate pretty error messages, see HighlightText.
+func (obj *Textarea) Byline() string {
+	// We convert to 1-based for user display.
+	return fmt.Sprintf("%s @ %d:%d-%d:%d", obj.Filename(), obj.startLine+1, obj.startColumn+1, obj.endLine+1, obj.endColumn+1)
+}
+
+// HighlightText generates a generic description that just visually indicates
+// part of the line described by a Textarea. If the coordinates that are passed
+// span multiple lines, don't show those lines, but just a description of the
+// area. If it can't generate a valid snippet, then it returns the empty string.
+func (obj *Textarea) HighlightText() string {
+	b, err := obj.sf(obj.path) // source finder!
+	if err != nil {
+		return ""
+	}
+	contents := string(b)
+
+	result := &strings.Builder{}
+
+	result.WriteString(obj.Byline())
+
+	lines := strings.Split(contents, "\n")
+	if len(lines) < obj.endLine-1 {
+		// XXX: out of bounds?
+		return ""
+	}
+
+	result.WriteString("\n\n")
+
+	if obj.startLine == obj.endLine {
+		line := lines[obj.startLine] + "\n"
+		text := strings.TrimLeft(line, " \t")
+		indent := strings.TrimSuffix(line, text)
+		offset := len(indent)
+
+		result.WriteString(line)
+		result.WriteString(indent)
+		result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
+		// TODO: add on the width of the second element as well
+		result.WriteString(strings.Repeat("^", obj.endColumn-obj.startColumn+1))
+		result.WriteString("\n")
+
+		return result.String()
+	}
+
+	line := lines[obj.startLine] + "\n"
+	text := strings.TrimLeft(line, " \t")
+	indent := strings.TrimSuffix(line, text)
+	offset := len(indent)
+
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
+	result.WriteString("^ from here ...\n")
+
+	line = lines[obj.endLine] + "\n"
+	text = strings.TrimLeft(line, " \t")
+	indent = strings.TrimSuffix(line, text)
+	offset = len(indent)
+
+	result.WriteString(line)
+	result.WriteString(indent)
+	result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
+	result.WriteString("^ ... to here\n")
+
+	return result.String()
 }

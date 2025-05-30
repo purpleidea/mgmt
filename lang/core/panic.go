@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -39,6 +39,12 @@ import (
 
 func init() {
 	simple.Register("panic", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false, // n/a
+			Memo: false,
+			Fast: true,
+			Spec: false, // important!
+		},
 		T: types.NewType("func(x ?1) bool"), // ?1 is bool or str
 		C: simple.TypeMatch([]string{
 			"func(x bool) bool",

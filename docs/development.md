@@ -28,8 +28,9 @@ required for running the _test_ suite.
 
 ### Build
 
-* `golang` 1.21 or higher (required, available in some distros and distributed
-as a binary officially by [golang.org](https://golang.org/dl/))
+* A modern `golang` version. The version available in the current Fedora
+releases is usually supported. This is also distributed as a binary officially
+by [golang.org](https://golang.org/dl/).
 
 ### Runtime
 
@@ -138,7 +139,7 @@ easy as copying one of the files in [`test/shell/`](/test/shell) and adapting
 it.
 
 This test suite won't run by default (unless when on CI server) and needs to be
-called explictly using:
+called explicitly using:
 
 ```
 make test-shell

@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+
+$list1 = ["a", "b", "c",]
+$list2 = [42, 13, -4,]
+
+for $index1, $value1 in $list1 {
+	for $index2, $value2 in $list2 {
+
+		$s = fmt.printf("%s is %d", $value1, $value2)
+		test [$s,] {}
+	}
+}
+
+-- OUTPUT --
+Vertex: test[a is 42]
+Vertex: test[b is 42]
+Vertex: test[c is 42]
+Vertex: test[a is 13]
+Vertex: test[b is 13]
+Vertex: test[c is 13]
+Vertex: test[a is -4]
+Vertex: test[b is -4]
+Vertex: test[c is -4]

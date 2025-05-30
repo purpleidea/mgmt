@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -40,18 +40,29 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
-// RegisteredFacts is a global map of all possible facts which can be used. You
+const (
+	// ErrCantSpeculate is an error that explains that we can't speculate
+	// when trying to Call a function. This often gets called by the Value()
+	// method of the Expr. This can be useful if we want to distinguish
+	// between "something is broken" and "I just can't produce a value at
+	// this time", which can be identified and skipped over. If it's the
+	// former, then it's okay to error early and shut everything down since
+	// we know this function is never going to work the way it's called.
+	ErrCantSpeculate = funcs.ErrCantSpeculate
+)
+
+// registeredFacts is a global map of all possible facts which can be used. You
 // should never touch this map directly. Use methods like Register instead.
-var RegisteredFacts = make(map[string]func() Fact) // must initialize
+var registeredFacts = make(map[string]struct{}) // must initialize
 
 // Register takes a fact and its name and makes it available for use. It is
 // commonly called in the init() method of the fact at program startup. There is
 // no matching Unregister function.
 func Register(name string, fn func() Fact) {
-	if _, ok := RegisteredFacts[name]; ok {
+	if _, ok := registeredFacts[name]; ok {
 		panic(fmt.Sprintf("a fact named %s is already registered", name))
 	}
-	f := fn()
+	f := fn() // don't wrap this more than once!
 
 	metadata, err := funcs.GetFunctionMetadata(f)
 	if err != nil {
@@ -61,12 +72,12 @@ func Register(name string, fn func() Fact) {
 	//gob.Register(fn())
 	funcs.Register(name, func() interfaces.Func { // implement in terms of func interface
 		return &FactFunc{
-			Fact: f,
+			Fact: fn(), // this MUST be a fresh/unique pointer!
 
 			Metadata: metadata,
 		}
 	})
-	RegisteredFacts[name] = fn
+	registeredFacts[name] = struct{}{}
 }
 
 // ModuleRegister is exactly like Register, except that it registers within a
@@ -79,6 +90,10 @@ func ModuleRegister(module, name string, fn func() Fact) {
 // used for static analysis and type checking. If you break this contract, you
 // might cause a panic.
 type Info struct {
+	Pure   bool        // is the function pure? (can it be memoized?)
+	Memo   bool        // should the function be memoized? (false if too much output)
+	Fast   bool        // is the function fast? (avoid speculative execution)
+	Spec   bool        // can we speculatively execute it? (true for most)
 	Output *types.Type // output value type (must not change over time!)
 	Err    error       // did this fact validate?
 }
@@ -106,4 +121,14 @@ type Fact interface {
 	Info() *Info
 	Init(*Init) error
 	Stream(context.Context) error
+}
+
+// CallableFact is a function that takes no args, and that can be called
+// statically if we want to do it speculatively or from a resource.
+type CallableFact interface {
+	Fact // implement everything in Fact but add the additional requirements
+
+	// Call this fact and return the value if it is possible to do so at
+	// this time.
+	Call(ctx context.Context) (types.Value, error)
 }

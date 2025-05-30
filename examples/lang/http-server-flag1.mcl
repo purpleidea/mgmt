@@ -1,0 +1,66 @@
+# example of dual flag resource autogrouping+send/recv into http:server
+
+# mkdir -p '/tmp/testing/.ssh/' -m 700 && ssh-keygen -N '' -t 'ed25519' -f '/tmp/testing/.ssh/id_ed25519'
+
+# run mgmt...
+
+# /usr/bin/curl --data-urlencode 'done=true' --data-urlencode 'password=sha1TODO' --data-urlencode 'sshtype=ssh-ed25519' --data-urlencode "val2=$(cut -d ' ' -f 2 '/tmp/testing/.ssh/id_ed25519.pub')" --data-urlencode 'sshcomment=root@foo' -o - 'http://localhost:9090/action/done/mac=some_mac'
+
+import "fmt"
+import "value"
+
+$name1 = "foo"
+$name2 = "bar"
+$some_key = "some_mac"
+
+$key1 = "done"
+$key2 = "sshkey"
+
+http:server ":9090" {
+}
+
+http:server:file "/file1" {
+	data => "hello, world, i'm file1 and i don't exist on disk!\n",
+}
+
+http:server:flag "${name1}" {
+	key => "${key1}",
+	path => "/action/done/mac=${some_key}",
+	#mapped => {$str_true => $str_true, $str_false => $str_false,},
+}
+kv "${name1}" {
+	key => $name1,
+}
+value "${name1}" {
+	#any => true,	# bool
+}
+Http:Server:Flag["${name1}"].value -> Kv["${name1}"].value
+Http:Server:Flag["${name1}"].value -> Value["${name1}"].any
+
+
+#$st_val1 = value.get_bool($name1)
+$st_val1 = value.get_str($name1)
+$val1 = $st_val1->ready and $st_val1->value == "true" # export this value to parent scope
+
+http:server:flag "${name2}" {
+	key => "${key2}", # different key!
+	path => "/action/done/mac=${some_key}", # same path
+}
+kv "${name2}" {
+	key => $name2,
+}
+value "${name2}" {
+	#any => true,	# bool
+}
+Http:Server:Flag["${name2}"].value -> Kv["${name2}"].value
+Http:Server:Flag["${name2}"].value -> Value["${name2}"].any
+
+#$st_val2 = value.get_bool($name2)
+$st_val2 = value.get_str($name2)
+$val2 = $st_val2->value # possibly empty at the start
+
+
+file "/tmp/testing/info" {
+	state => "exists",
+	content => fmt.printf("val1: %t\nval2: %s\n", $val1, $val2),
+}

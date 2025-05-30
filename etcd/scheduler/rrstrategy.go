@@ -1,5 +1,5 @@
 // Mgmt
-// Copyright (C) 2013-2024+ James Shubin and the project contributors
+// Copyright (C) James Shubin and the project contributors
 // Written by James Shubin <james@shubin.ca> and the project contributors
 //
 // This program is free software: you can redistribute it and/or modify
@@ -72,7 +72,7 @@ func (obj *rrStrategy) Schedule(hostnames map[string]string, opts *schedulerOpti
 		}
 	}
 
-	// remove any hosts we previouly knew about from the list
+	// remove any hosts we previously knew about from the list
 	for ix := len(obj.hosts) - 1; ix >= 0; ix-- {
 		if !util.StrInList(obj.hosts[ix], sortedHosts) {
 			// delete entry at this index

@@ -143,8 +143,8 @@ func (obj *World) hostKeyCallback() (ssh.HostKeyCallback, error) {
 	return knownhosts.New(p)
 }
 
-// Init runs first.
-func (obj *World) Init(init *engine.WorldInit) error {
+// Connect runs first.
+func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 	obj.init = init
 	obj.cleanups = []func() error{}
 
@@ -310,11 +310,11 @@ func (obj *World) Init(init *engine.WorldInit) error {
 		StandaloneFs:   obj.StandaloneFs,
 		GetURI:         obj.GetURI,
 	}
-	if err := obj.World.Init(init); err != nil {
+	if err := obj.World.Connect(ctx, init); err != nil {
 		return errwrap.Append(obj.cleanup(), err)
 	}
 	obj.cleanups = append(obj.cleanups, func() error {
-		e := obj.World.Close()
+		e := obj.World.Cleanup()
 		if obj.init.Debug && e != nil {
 			obj.init.Logf("world close error: %+v", e)
 		}
@@ -337,7 +337,7 @@ func (obj *World) cleanup() error {
 	return errs
 }
 
-// Close runs last.
-func (obj *World) Close() error {
+// CLeanup runs last.
+func (obj *World) Cleanup() error {
 	return obj.cleanup()
 }

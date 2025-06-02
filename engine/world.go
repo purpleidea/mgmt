@@ -54,11 +54,11 @@ type WorldInit struct {
 // GAPI to store state and exchange information throughout the cluster. It is
 // the interface each machine uses to communicate with the rest of the world.
 type World interface { // TODO: is there a better name for this interface?
-	// Init sets things up and is called once before any other methods.
-	Init(*WorldInit) error
+	// Connect sets things up and is called once before any other methods.
+	Connect(context.Context, *WorldInit) error
 
-	// Close does some cleanup and is the last method that is ever called.
-	Close() error
+	// Cleanup does some cleanup and is the last method that is ever called.
+	Cleanup() error
 
 	FsWorld
 

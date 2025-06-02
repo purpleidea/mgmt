@@ -78,8 +78,8 @@ type World struct {
 	cleanups []func() error
 }
 
-// Init runs first.
-func (obj *World) Init(init *engine.WorldInit) error {
+// Connect runs first.
+func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 	obj.init = init
 
 	obj.client = obj.Client // legacy default
@@ -135,8 +135,8 @@ func (obj *World) cleanup() error {
 	return errs
 }
 
-// Close runs last.
-func (obj *World) Close() error {
+// Cleanup runs last.
+func (obj *World) Cleanup() error {
 	return obj.cleanup()
 }
 

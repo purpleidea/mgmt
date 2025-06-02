@@ -640,11 +640,11 @@ func (obj *Main) Run() error {
 			obj.Logf("world: etcd: "+format, v...)
 		},
 	}
-	if err := world.Init(worldInit); err != nil {
-		return errwrap.Wrapf(err, "world Init failed")
+	if err := world.Connect(exitCtx, worldInit); err != nil {
+		return errwrap.Wrapf(err, "world Connect failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(world.Close(), "world Close failed")
+		err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
 		if err != nil {
 			// TODO: cause the final exit code to be non-zero?
 			Logf("close error: %+v", err)

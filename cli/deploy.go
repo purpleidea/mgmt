@@ -230,11 +230,11 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 			Logf("world: etcd: "+format, v...)
 		},
 	}
-	if err := world.Init(worldInit); err != nil {
-		return false, errwrap.Wrapf(err, "world Init failed")
+	if err := world.Connect(ctx, worldInit); err != nil {
+		return false, errwrap.Wrapf(err, "world Connect failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(world.Close(), "world Close failed")
+		err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
 		if err != nil {
 			// TODO: cause the final exit code to be non-zero?
 			Logf("close error: %+v", err)

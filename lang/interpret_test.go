@@ -905,12 +905,12 @@ func TestAstFunc2(t *testing.T) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
-			if err := world.Init(worldInit); err != nil {
-				t.Errorf("world Init failed: %+v", err)
+			if err := world.Connect(context.TODO(), worldInit); err != nil {
+				t.Errorf("world Connect failed: %+v", err)
 				return
 			}
 			defer func() {
-				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
 				if err != nil {
 					t.Errorf("close error: %+v", err)
 				}
@@ -1805,12 +1805,12 @@ func TestAstFunc3(t *testing.T) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
-			if err := world.Init(worldInit); err != nil {
-				t.Errorf("world Init failed: %+v", err)
+			if err := world.Connect(context.TODO(), worldInit); err != nil {
+				t.Errorf("world Connect failed: %+v", err)
 				return
 			}
 			defer func() {
-				err := errwrap.Wrapf(world.Close(), "world Close failed")
+				err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
 				if err != nil {
 					t.Errorf("close error: %+v", err)
 				}

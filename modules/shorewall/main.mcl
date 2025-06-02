@@ -381,6 +381,21 @@ class firewall:rule($name, $st) {
 	}
 }
 
+class firewall:bulkrules($name, $st) {
+	include rule_base
+
+	$content = $st->content
+	# TODO: prepend a comment?
+
+	file "${vardir}rules.d/${name}.rule" {
+		state => $const.res.file.state.exists,
+		content => $content,
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=",
+	}
+}
+
 class firewall:stoppedrule_base() {
 	file "${vardir}stoppedrules.d/" {
 		state => $const.res.file.state.exists,
@@ -481,17 +496,49 @@ class firewall:snat($name, $st) {
 	print "snat: ${name}" {}
 	include snat_base
 
+	$rule = $st->rule || "" # entire rule contents OR use the below values
+
 	$action = $st->action # "MASQUERADE" usually
 	$source = $st->source # list of ip/cidr
 	$dest = $st->dest
+	$proto = $st->proto || "" # protocol
+	# TODO: port doesn't support ranges atm
+	$port = $st->port || 0
 	$comment = $st->comment || ""
 
 	$valid_source = strings.join($source, ",")
 
+	$valid_proto = if $proto == "" {
+		"-"
+	} else {
+		"${proto}"
+	}
+
+	# TODO: type switch here if we ever support doing that
+	$valid_port = if $port == 0 {
+		"-"
+	} else {
+		fmt.printf("%d", $port)
+	}
+
+	# TODO: tabs for beautifying, replace with a padding function eventually.
+	$full_rule = if $proto == "" and $port == 0 {
+		"${action}\t${valid_source}\t\t${dest}"
+	} else {
+		"${action}\t${valid_source}\t\t${dest}\t\t${valid_proto}\t${valid_port}"
+	}
+
+	$valid_rule = if $rule == "" {
+		$full_rule
+	} else {
+		$rule
+	}
+
 	$tmpl = struct{
-		action => "${action}",
-		source => "${valid_source}",
-		dest => "${dest}",
+		rule => "${valid_rule}",
+		#action => "${action}",
+		#source => "${valid_source}",
+		#dest => "${dest}",
 		comment => "${comment}",
 	}
 	file "${vardir}snat.d/${name}.snat" {

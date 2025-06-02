@@ -7,4 +7,6 @@
 #	{{ .comment }}
 #
 {{ end -}}
-{{ .action }}		{{ .source }}	{{ .dest }}
+{{ if .rule -}}
+{{ .rule }}
+{{ end -}}

@@ -121,6 +121,91 @@ Name=${dev}
 	}
 }
 
+# networkd_dhcp sets up a dhcp client with systemd-networkd.
+class networkd_dhcp($dev, $st) {
+	$dns = $st->dns || ["8.8.8.8",]
+
+	file "/etc/systemd/network/${dev}-dhcp.network" {
+		state => "exists",
+		content => "
+[Match]
+Name=${dev}
+
+[Network]
+DHCP=yes
+{{ range .dns -}}
+DNS={{ . }}
+{{ end -}}
+#UseGateway=false
+
+[DHCP]
+UseDNS=false
+RouteMetric=100
+",
+		mode => "u=rw,go=r",
+		owner => "root",
+		group => "root",
+
+		Notify => Svc["systemd-networkd"],
+	}
+
+	svc "systemd-networkd" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
+# networkd_static sets up a static ip address with systemd-networkd.
+class networkd_static($dev, $st) {
+	$cidr = $st->cidr # cidr
+	$ip = net.cidr_to_ip($cidr)
+	$prefix = net.cidr_to_prefix($cidr)
+	#$router = $st->router || ""
+	$dns = $st->dns || ["8.8.8.8",]
+	#$vips []str = $st->vips || [] # []cidr
+
+	$tmpl =
+"
+[Match]
+Name=${dev}
+
+[Network]
+Address=${ip}/${prefix}
+{{ range .dns -}}
+DNS={{ . }}
+{{ end -}}
+#UseGateway=false
+
+[Address]
+RouteMetric=101
+
+[Route]
+Metric=1001
+#Gateway=
+#Destination=0.0.0.0/0
+"
+
+	$args = struct{
+		#dev => $dev,
+		dns => $dns,
+	}
+
+	file "/etc/systemd/network/${dev}-static.network" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
+		mode => "u=rw,go=r",
+		owner => "root",
+		group => "root",
+
+		Notify => Svc["systemd-networkd"],
+	}
+
+	svc "systemd-networkd" {
+		state => "running",
+		startup => "enabled",
+	}
+}
+
 # network_manager_dhcp sets up a dhcp client with network manager.
 # NOTE: To see what it's using run: `nmcli -f name,uuid,filename connection`.
 class network_manager_dhcp($st) {

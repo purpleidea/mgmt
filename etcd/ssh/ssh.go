@@ -218,9 +218,10 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		}
 		auth, err := obj.sshKeyAuth(p)
 		if err != nil {
-			obj.init.Logf("can't get auth from: %s", p)
+			//obj.init.Logf("can't get auth from: %s", p) // misleading
 			continue
 		}
+		obj.init.Logf("found auth option in: %s", p)
 		auths = append(auths, auth)
 	}
 	if len(auths) == 0 {

@@ -173,7 +173,6 @@ class router($st) {
 		action => "MASQUERADE",
 		source => ["${loc_network}",], # ip/cidr of the LOC network, eg: 192.168.100.0/24
 		dest => "NET_IF",
-		log => true,
 	})
 
 	include firewall.stoppedrule("loc-all", struct{
@@ -187,7 +186,15 @@ class router($st) {
 		dest => "LOC_IF",
 	})
 
-	include firewall.rule("ssh-from-loc-to-fw", struct{
+	include firewall.rule("000-invalid-net-all-tcp", struct{
+		action => "Invalid(DROP)",
+		source => "net",
+		dest => "all",
+		proto => "tcp",
+		comment => "Don't allow connection pickup from the net",
+	})
+
+	include firewall.rule("111-accept-ssh-loc-fw", struct{
 		action => "SSH(ACCEPT)",
 		source => "loc",
 		dest => "$FW",
@@ -196,13 +203,33 @@ class router($st) {
 		comment => "local administration",
 	})
 
-	include firewall.rule("ssh-from-net-to-fw", struct{
+	include firewall.rule("111-accept-ssh-net-fw", struct{
 		action => "SSH(ACCEPT)",
 		source => "net",
 		dest => "$FW",
 		#proto => "",
 		#port => "",
 		comment => "remote administration",
+	})
+
+	include firewall.rule("997-drop-ping-net-fw", struct{
+		action => "Ping(DROP)",
+		source => "net",
+		dest => "$FW",
+		comment => "Drop Ping from the \"bad\" net zone and prevent your log from being flooded.",
+	})
+
+	include firewall.rule("998-accept-icmp-fw-loc", struct{
+		action => "ACCEPT",
+		source => "$FW",
+		dest => "loc",
+		proto => "icmp",
+	})
+	include firewall.rule("999-accept-icmp-fw-net", struct{
+		action => "ACCEPT",
+		source => "$FW",
+		dest => "net",
+		proto => "icmp",
 	})
 }
 

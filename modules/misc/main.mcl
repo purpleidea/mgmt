@@ -121,6 +121,59 @@ Name=${dev}
 	}
 }
 
+# network_manager_dhcp sets up a dhcp client with network manager.
+# NOTE: To see what it's using run: `nmcli -f name,uuid,filename connection`.
+class network_manager_dhcp($st) {
+	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	$mac = $st->mac || ""
+	$dev = $st->dev || "eth0"
+
+	$dns = $st->dns || ["8.8.8.8",]
+	$dns_str = strings.join($dns, ";") # the line also ends with a semicolon
+	$tmpl =
+"
+[connection]
+id=${dev}
+{{ if .uuid -}}
+uuid={{ .uuid }}
+{{ end -}}
+type=ethernet
+interface-name=${dev}
+autoconnect=true
+
+[ipv4]
+{{ if .dns -}}
+dns=${dns_str};
+{{ end -}}
+dns-search=
+may-fail=false
+method=auto
+
+[ethernet]
+{{ if .mac -}}
+mac-address={{ .mac }}
+{{ end -}}
+"
+
+	$args = struct{
+		uuid => $uuid,
+		mac => $mac,
+		dns => $dns,
+	}
+
+	file "/etc/NetworkManager/system-connections/${dev}.nmconnection" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
+		mode => "u=rw,go=",
+		owner => "root",
+
+		Notify => Svc["NetworkManager"],
+	}
+
+	svc "NetworkManager" {
+	}
+}
+
 # network_manager_static sets up a static ip address with network manager.
 # NOTE: To see what it's using run: `nmcli -f name,uuid,filename connection`.
 class network_manager_static($st) {

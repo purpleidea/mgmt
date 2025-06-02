@@ -73,6 +73,21 @@ firewall --enabled --service=mdns
 #	partitioning
 #
 # TODO: add more magic partitioning schemes
+
+%pre --interpreter=/bin/bash
+# detect all USB disks using udevadm (we want to ignore ipxe disks for example)
+usb_disks=$(for dev in /sys/block/sd*; do
+	devname=$(basename "$dev")
+	if udevadm info --query=property --name=/dev/$devname | grep -q '^ID_BUS=usb'; then
+		echo -n "$devname"
+	fi
+done | paste -sd, -)
+
+# Output the ignoredisk directive to a temporary file.
+echo "ignoredisk --drives=${usb_disks}" > /tmp/ignoredisk.ks
+%end
+%include /tmp/ignoredisk.ks
+
 zerombr
 clearpart --all --initlabel --disklabel={{ if .bios }}msdos{{ else }}gpt{{ end }}
 {{ if eq .part "btrfs" -}}

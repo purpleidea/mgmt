@@ -38,10 +38,12 @@ class router($st) {
 	$net_dev = $st->net_dev || "eth0"
 	$net_mac = $st->net_mac
 
+	#$net_uuid = $st->net_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+
 	$loc_dev = $st->loc_dev || ""
 	$loc_mac = $st->loc_mac || ""
 
-	$loc_uuid = $st->loc_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	#$loc_uuid = $st->loc_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
 	$loc_network = $st->loc_network # cidr
 
 	$loc_ip = $st->loc_ip || net.cidr_to_first($loc_network) # no cidr
@@ -50,19 +52,42 @@ class router($st) {
 	$loc_range = $st->loc_range || struct{start => "", end => "",} # struct with start, end fields
 	$dns = $st->dns
 
+	svc "NetworkManager" {
+		state => "stopped",
+		startup => "disabled",
+	}
+
 	include misc.network_rename($net_mac, $net_dev)
 	if $loc_dev != "" and $loc_mac != "" {
 		include misc.network_rename($loc_mac, $loc_dev)
 	}
 
-	if $loc_dev != "" {
-		$prefix = net.cidr_to_prefix($loc_network)
-		include misc.network_manager_static(struct{
-			uuid => $loc_uuid,
-			dev => $loc_dev, # formerly enp0s2
-			cidr => "${loc_ip}/${prefix}",
+	if $net_dev != "" {
+		# XXX: should we specify DNS here?
+		include misc.networkd_dhcp($net_dev, struct{
 			dns => $dns,
 		})
+		#include misc.network_manager_dhcp(struct{
+		#	uuid => $net_uuid,
+		#	dev => $net_dev,
+		#	mac => $net_mac,
+		#	dns => $dns,
+		#})
+	}
+
+	if $loc_dev != "" {
+		$prefix = net.cidr_to_prefix($loc_network)
+		include misc.networkd_static($net_dev, struct{
+			cidr => "${loc_ip}/${prefix}",
+			#dns => $dns,
+		})
+		#include misc.network_manager_static(struct{
+		#	uuid => $loc_uuid,
+		#	dev => $loc_dev, # formerly enp0s2
+		#	mac => $loc_mac,
+		#	cidr => "${loc_ip}/${prefix}",
+		#	dns => $dns,
+		#})
 	}
 
 	include purpleidea.base() # adds some utility packages

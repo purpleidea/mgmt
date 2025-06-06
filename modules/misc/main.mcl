@@ -27,12 +27,14 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
+import "fmt"
 import "golang"
 import "golang/strings" as golang_strings
 import "iter"
 import "local"
 import "net"
 import "os"
+import "strings"
 import "world/collect"
 
 # ssh_keygen creates an ssh key pair in the user's home directory if the private
@@ -357,5 +359,29 @@ class systemd_daemon_reload($name) {
 		# NOTE: We grep since find doesn't return a useful return code.
 		ifcmd => "/usr/bin/test ! -e '${mtime_file}' || /usr/bin/find /lib/systemd/system/ /etc/systemd/system/ -type f -name '*.service' -newer '${mtime_file}' | /usr/bin/grep -q .",
 		ifshell => "/usr/bin/bash",
+	}
+}
+
+# Instead of running `dnf copr enable purpleidea/foo` you can use
+# `purpleidea/foo` as the $name here to accomplish the same thing.
+class copr_enable($name) {
+	# example: sudo dnf copr enable gsauthof/dracut-sshd
+	# /etc/yum.repos.d/_copr:copr.fedorainfracloud.org:gsauthof:dracut-sshd.repo
+	$sp = strings.split($name, "/")
+	$user = $sp[0]
+	$repo = $sp[1]
+	$p = fmt.printf("/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:%s:%s.repo", $user, $repo)
+
+	# TODO: If we wanted to be more thorough, we could template the file
+	# instead or running this copr enable command.
+	exec "dnf-copr-enable-${name}" {
+		cmd => "/usr/bin/dnf",
+		args => [
+			"copr",
+			"enable",
+			"${name}",
+		],
+		creates => $p,
+		user => "root",
 	}
 }

@@ -53,6 +53,8 @@ const (
 // The arguments are connected to the received FuncValues in such a way that
 // CallFunc emits the result of applying the function to the arguments.
 type CallFunc struct {
+	interfaces.Textarea
+
 	Type     *types.Type // the type of the result of applying the function
 	FuncType *types.Type // the type of the function
 	EdgeName string      // name of the edge used

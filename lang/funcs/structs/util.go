@@ -45,6 +45,8 @@ import (
 // which is implemented by &ConstFunc{}.
 func FuncValueToConstFunc(fv *full.FuncValue) interfaces.Func {
 	return &ConstFunc{
+		//Textarea: ???, // XXX: add me!
+
 		Value:    fv,
 		NameHint: "FuncValue",
 	}

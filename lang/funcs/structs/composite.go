@@ -48,6 +48,8 @@ const (
 // value as a stream that depends on those inputs. It helps the list, map, and
 // struct's that fulfill the Expr interface but expressing a Func method.
 type CompositeFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // this is the type of the composite value we hold
 	Len  int         // length of list or map (if used)
 

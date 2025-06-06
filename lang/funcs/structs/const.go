@@ -44,6 +44,8 @@ const (
 
 // ConstFunc is a function that returns the constant value passed to Value.
 type ConstFunc struct {
+	interfaces.Textarea
+
 	Value    types.Value
 	NameHint string
 

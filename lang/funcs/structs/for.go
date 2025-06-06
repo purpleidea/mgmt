@@ -51,6 +51,8 @@ const (
 // build a subgraph that processes each element, and in doing so we get a larger
 // function graph. This is rebuilt as necessary if the input list changes.
 type ForFunc struct {
+	interfaces.Textarea
+
 	IndexType *types.Type
 	ValueType *types.Type
 

@@ -45,6 +45,8 @@ const (
 // IfFunc is a function that passes through the value of the correct branch
 // based on the conditional value it gets.
 type IfFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // this is the type of the if expression output we hold
 
 	init   *interfaces.Init

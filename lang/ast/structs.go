@@ -3960,6 +3960,8 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		extendedEnv.Variables[obj.indexParam.envKey] = &interfaces.FuncSingleton{
 			MakeFunc: func() (*pgraph.Graph, interfaces.Func, error) {
 				f := &structs.ConstFunc{
+					Textarea: obj.Textarea, // XXX: advance by `for ` chars?
+
 					Value: &types.IntValue{
 						V: int64(index),
 					},
@@ -4022,6 +4024,8 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	// Add a vertex for the list passing itself.
 	edgeName := structs.ForFuncArgNameList
 	forFunc := &structs.ForFunc{
+		Textarea: obj.Textarea,
+
 		IndexType: obj.indexParam.typ,
 		ValueType: obj.valueParam.typ,
 
@@ -4522,6 +4526,8 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	// Add a vertex for the map passing itself.
 	edgeName := structs.ForKVFuncArgNameMap
 	forKVFunc := &structs.ForKVFunc{
+		Textarea: obj.Textarea,
+
 		KeyType: obj.keyParam.typ,
 		ValType: obj.valParam.typ,
 
@@ -7415,6 +7421,8 @@ func (obj *ExprBool) Check(typ *types.Type) ([]*interfaces.UnificationInvariant,
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprBool) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
+		Textarea: obj.Textarea,
+
 		Value: &types.BoolValue{V: obj.V},
 	}, nil
 }
@@ -7612,6 +7620,8 @@ func (obj *ExprStr) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprStr) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
+		Textarea: obj.Textarea,
+
 		Value: &types.StrValue{V: obj.V},
 	}, nil
 }
@@ -7765,6 +7775,8 @@ func (obj *ExprInt) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, 
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprInt) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
+		Textarea: obj.Textarea,
+
 		Value: &types.IntValue{V: obj.V},
 	}, nil
 }
@@ -7920,6 +7932,8 @@ func (obj *ExprFloat) Check(typ *types.Type) ([]*interfaces.UnificationInvariant
 // Func returns the reactive stream of values that this expression produces.
 func (obj *ExprFloat) Func() (interfaces.Func, error) {
 	return &structs.ConstFunc{
+		Textarea: obj.Textarea,
+
 		Value: &types.FloatValue{V: obj.V},
 	}, nil
 }
@@ -8231,6 +8245,8 @@ func (obj *ExprList) Func() (interfaces.Func, error) {
 
 	// composite func (list, map, struct)
 	return &structs.CompositeFunc{
+		Textarea: obj.Textarea,
+
 		Type: typ,
 		Len:  len(obj.Elements),
 	}, nil
@@ -8683,6 +8699,8 @@ func (obj *ExprMap) Func() (interfaces.Func, error) {
 
 	// composite func (list, map, struct)
 	return &structs.CompositeFunc{
+		Textarea: obj.Textarea,
+
 		Type: typ, // the key/val types are known via this type
 		Len:  len(obj.KVs),
 	}, nil
@@ -9120,6 +9138,8 @@ func (obj *ExprStruct) Func() (interfaces.Func, error) {
 
 	// composite func (list, map, struct)
 	return &structs.CompositeFunc{
+		Textarea: obj.Textarea,
+
 		Type: typ,
 	}, nil
 }
@@ -10980,6 +11000,8 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 	// Add a vertex for the call itself.
 	edgeName := structs.CallFuncArgNameFunction
 	callFunc := &structs.CallFunc{
+		Textarea: obj.Textarea,
+
 		Type:        obj.typ,
 		FuncType:    ftyp,
 		EdgeName:    edgeName,
@@ -12686,6 +12708,8 @@ func (obj *ExprIf) Func() (interfaces.Func, error) {
 	}
 
 	return &structs.IfFunc{
+		Textarea: obj.Textarea,
+
 		Type: typ, // this is the output type of the expression
 	}, nil
 }

@@ -51,6 +51,8 @@ const (
 // build a subgraph that processes each key and val, and in doing so we get a
 // larger function graph. This is rebuilt as necessary if the input map changes.
 type ForKVFunc struct {
+	interfaces.Textarea
+
 	KeyType *types.Type
 	ValType *types.Type
 

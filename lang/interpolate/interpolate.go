@@ -55,7 +55,8 @@ const (
 	UseOptimizedConcat = true
 )
 
-// StrInterpolate interpolates a string and returns the representative AST.
+// StrInterpolate interpolates a string and returns the representative AST. If
+// there was nothing to interpolate, this returns (nil, nil).
 func StrInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	if data.Debug {
 		data.Logf("interpolating: %s", str)
@@ -68,11 +69,23 @@ func StrInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (int
 }
 
 // RagelInterpolate interpolates a string and returns the representative AST. It
-// uses the ragel parser to perform the string interpolation.
+// uses the ragel parser to perform the string interpolation. If there was
+// nothing to interpolate, this returns (nil, nil).
 func RagelInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
 	sequence, err := Parse(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "parser failed")
+	}
+
+	// If we didn't find anything of value, we got an empty string...
+	if len(sequence) == 0 && str == "" { // be doubly sure...
+		return nil, nil // pass through, nothing changed
+	}
+
+	if len(sequence) == 1 {
+		if x, ok := sequence[0].(Literal); ok && x.Value == str {
+			return nil, nil // pass through, nothing changed
+		}
 	}
 
 	exprs := []interfaces.Expr{}
@@ -93,14 +106,6 @@ func RagelInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (i
 		default:
 			return nil, fmt.Errorf("unknown term (%T): %+v", t, t)
 		}
-	}
-
-	// If we didn't find anything of value, we got an empty string...
-	if len(sequence) == 0 && str == "" { // be doubly sure...
-		expr := &ast.ExprStr{
-			V: "",
-		}
-		exprs = append(exprs, expr)
 	}
 
 	// The parser produces non-optimal results where two strings are next to

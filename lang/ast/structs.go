@@ -7527,7 +7527,8 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if result == nil {
+	// a nil result means unchanged, string didn't need interpolating done
+	if result == nil { // we still copy since Interpolate always "copies"
 		return &ExprStr{
 			Textarea: obj.Textarea,
 			data:     obj.data,

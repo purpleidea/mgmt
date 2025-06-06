@@ -189,9 +189,9 @@ func (obj *Lang) Init(ctx context.Context) error {
 		LexParser:       parser.LexParse,
 		Downloader:      nil, // XXX: is this used here?
 		StrInterpolater: interpolate.StrInterpolate,
-		SourceFinder: func(string) ([]byte, error) {
+		SourceFinder: func(p string) ([]byte, error) {
 			// We're running a bundle as part of a deploy.
-			return nil, fmt.Errorf("not implemented") // XXX: read from the fs?
+			return output.FS.ReadFile(p)
 		},
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?

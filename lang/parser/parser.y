@@ -56,6 +56,9 @@ func init() {
 	row int
 	col int
 
+	endRow int
+	endCol int
+
 	//err error // TODO: if we ever match ERROR in the parser
 
 	bool  bool
@@ -1568,11 +1571,10 @@ func pos(y yyLexer, dollar yySymType) {
 	return
 }
 
-// cast is used to pull out the parser run-specific struct we store our AST in.
-// this is usually called in the parser.
-func cast(y yyLexer) *lexParseAST {
-	x := y.(*Lexer).parseResult
-	return x.(*lexParseAST)
+// posLast runs pos on the last token of the current stmt/expr.
+func posLast(y yyLexer, dollars []yySymType) {
+	// pick the last token in the set matched by the parser
+	pos(y, dollars[len(dollars)-1]) // our pos
 }
 
 // locate should be called after creating AST nodes from lexer tokens to store
@@ -1585,14 +1587,16 @@ func locate(y yyLexer, first yySymType, last yySymType, node interface{}) {
 	if pn, ok := node.(interfaces.PositionableNode); !ok {
 		return
 	} else if !pn.IsSet() {
-		pn.Locate(first.row, first.col, last.row, last.col)
+		//fmt.Printf("LOCATE(%v): %v, %v, %v, %v\n", node, first.row, first.col, last.endRow, last.endCol)
+		pn.Locate(first.row, first.col, last.endRow, last.endCol)
 	}
 }
 
-// posLast runs pos on the last token of the current stmt/expr.
-func posLast(y yyLexer, dollars []yySymType) {
-	// pick the last token in the set matched by the parser
-	pos(y, dollars[len(dollars)-1]) // our pos
+// cast is used to pull out the parser run-specific struct we store our AST in.
+// this is usually called in the parser.
+func cast(y yyLexer) *lexParseAST {
+	x := y.(*Lexer).parseResult
+	return x.(*lexParseAST)
 }
 
 // cast is used to pull out the parser run-specific struct we store our AST in.
@@ -1605,8 +1609,17 @@ func (yylex *Lexer) cast() *lexParseAST {
 func (yylex *Lexer) pos(lval *yySymType) {
 	lval.row = yylex.Line()
 	lval.col = yylex.Column()
-	// TODO: we could use: `s := yylex.Text()` to calculate a delta length!
-	//log.Printf("lexer: %d x %d", lval.row, lval.col)
+
+	// use: `yylex.Text()` to calculate a delta length!
+	text := yylex.Text()
+	lines := strings.Split(text, "\n")
+
+	lval.endRow = lval.row + len(lines) - 1 // add delta lines
+	if len(lines) > 1 {
+		lval.endCol = len(lines[len(lines)-1])  // add pos of last line
+	} else {
+		lval.endCol = lval.col + len(text) // moved over this many chars
+	}
 }
 
 // Error is the error handler which gets called on a parsing error.

@@ -5,4 +5,4 @@ $name = ["a", "bb", "ccc",]
 test "${name}" {} # must fail
 
 -- OUTPUT --
-# err: errUnify: type error: str != list: /main.mcl @ 4:1-4:17
+# err: errUnify: type error: str != list: /main.mcl @ 4:1-4:18

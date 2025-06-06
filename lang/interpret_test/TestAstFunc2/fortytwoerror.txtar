@@ -15,4 +15,4 @@ test ["x",] {
 	float32 => $b,
 }
 -- OUTPUT --
-# err: errUnify: type error: int != float: /main.mcl @ 10:6-10:22
+# err: errUnify: type error: int != float: /main.mcl @ 10:6-10:25

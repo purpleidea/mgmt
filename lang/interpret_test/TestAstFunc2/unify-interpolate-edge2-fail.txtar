@@ -7,4 +7,4 @@ test "test" {}
 Test["test"] -> Test["${name}"] # must fail
 
 -- OUTPUT --
-# err: errUnify: type error: str != list: /main.mcl @ 6:17-6:31
+# err: errUnify: type error: str != list: /main.mcl @ 6:17-6:32

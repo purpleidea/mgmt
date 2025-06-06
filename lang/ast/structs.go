@@ -4637,6 +4637,8 @@ func (obj *StmtProg) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *StmtProg) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.Textarea.Setup(data)
+
 	obj.importProgs = []*StmtProg{}
 	obj.importFiles = []string{}
 	obj.nodeOrder = []interfaces.Stmt{}
@@ -7243,6 +7245,7 @@ func (obj *StmtComment) Apply(fn func(interfaces.Node) error) error { return fn(
 // Init initializes this branch of the AST, and returns an error if it fails to
 // validate.
 func (obj *StmtComment) Init(data *interfaces.Data) error {
+	//obj.data = data
 	obj.Textarea.Setup(data)
 
 	return nil
@@ -9344,6 +9347,7 @@ func (obj *ExprFunc) Apply(fn func(interfaces.Node) error) error {
 // validate.
 func (obj *ExprFunc) Init(data *interfaces.Data) error {
 	obj.data = data // TODO: why is this sometimes nil?
+	obj.Textarea.Setup(data)
 
 	// validate that we're using *only* one correct representation
 	a := obj.Body != nil
@@ -11166,6 +11170,7 @@ func (obj *ExprVar) Apply(fn func(interfaces.Node) error) error { return fn(obj)
 // validate.
 func (obj *ExprVar) Init(data *interfaces.Data) error {
 	obj.data = data
+	obj.Textarea.Setup(data)
 
 	return langUtil.ValidateVarName(obj.Name)
 }

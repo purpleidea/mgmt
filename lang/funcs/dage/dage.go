@@ -1290,9 +1290,10 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 
 				for value := range node.output { // read from channel
 					if value == nil {
-						// bug!
-						obj.Logf("func `%s` got nil value", node)
-						panic("got nil value")
+						// bug in implementation of that func!
+						s := fmt.Sprintf("func `%s` sent nil value", node)
+						obj.Logf(s)
+						panic(s)
 					}
 
 					obj.tableMutex.RLock()

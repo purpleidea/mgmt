@@ -1,8 +1,8 @@
 import "fmt"
-import "golang/strings"
+import "golang/strings" as golang_strings
 
 $l = ["a", "b", "c",]
-$joined = strings.join($l, ", ")
+$joined = golang_strings.join($l, ", ")
 
 print "debug" {
 	msg => "${joined}",

@@ -31,7 +31,7 @@ import "deploy"
 import "fmt"
 import "golang"
 import "local"
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "os"
 
 class server($st) {
@@ -146,7 +146,7 @@ class server:subnet($name, $st) {
 		netmask => "${netmask}",
 		broadcast => "${broadcast}",
 		router => "${router}", # TODO: support multiple
-		dns => strings.join($dns, ", "),
+		dns => golang_strings.join($dns, ", "),
 		range => $valid_range,
 		#nextserver => "${nextserver}",
 		#filename => "${filename}",
@@ -206,7 +206,7 @@ class server:host($name, $st) {
 	$tmpl = struct{
 		name => "${name}",
 		macaddress => "${macaddress}",
-		valid_fixedaddress => strings.join($fixedaddress, ","),
+		valid_fixedaddress => golang_strings.join($fixedaddress, ","),
 		#fixedaddress => $fixedaddress, # TODO: when it's a list
 		hostname => "${hostname}",
 		nextserver => "${nextserver}",

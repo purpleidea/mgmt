@@ -31,7 +31,7 @@ import "deploy"
 import "fmt"
 import "golang"
 import "local"
-import "golang/strings"
+import "golang/strings" as golang_strings
 
 
 # Class prepare adds some common things you probably want to run when using this
@@ -199,7 +199,7 @@ class firewall:interface($name, $zone, $st) {
 	print "interface: ${name}" {}
 	include interface_base
 
-	$interface = $st->interface || (strings.to_upper($zone) + "_IF") # eg: NET_IF
+	$interface = $st->interface || (golang_strings.to_upper($zone) + "_IF") # eg: NET_IF
 	$physical = $st->physical || $name
 	$options []str = $st->options || [] # TODO: add option validation?
 	$comment = $st->comment || ""
@@ -328,14 +328,14 @@ class firewall:rule($name, $st) {
 	#$original = $st->original || [] # TODO
 	$comment = $st->comment || ""
 
-	$source_ips_joined = strings.join($source_ips, ",")
+	$source_ips_joined = golang_strings.join($source_ips, ",")
 	$valid_source = if $source_ips_joined == "" {
 		"${source}"
 	} else {
 		"${source}:${source_ips_joined}"
 	}
 
-	$dest_ips_joined = strings.join($dest_ips, ",")
+	$dest_ips_joined = golang_strings.join($dest_ips, ",")
 	$valid_dest = if $dest_ips_joined == "" {
 		"${dest}"
 	} else {
@@ -506,7 +506,7 @@ class firewall:snat($name, $st) {
 	$port = $st->port || 0
 	$comment = $st->comment || ""
 
-	$valid_source = strings.join($source, ",")
+	$valid_source = golang_strings.join($source, ",")
 
 	$valid_proto = if $proto == "" {
 		"-"

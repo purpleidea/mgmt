@@ -1,7 +1,7 @@
 -- metadata.yaml --
 #files: "files/"	# these are some extra files we can use (is the default)
 -- main.mcl --
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "deploy"
 import "second.mcl"
 
@@ -31,8 +31,8 @@ if $x2 != $second.x2 {
 }
 
 # hide the newlines from our output
-test [strings.trim_space($x1),] {}
-test [strings.trim_space($x2),] {}
+test [golang_strings.trim_space($x1),] {}
+test [golang_strings.trim_space($x2),] {}
 -- second.mcl --
 import "deploy"
 

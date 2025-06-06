@@ -1,7 +1,7 @@
 -- metadata.yaml --
 #files: "files/"	# these are some extra files we can use (is the default)
 -- main.mcl --
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "deploy"
 
 $f1 = "/files/file1"
@@ -19,7 +19,7 @@ if $x1 != deploy.readfile($f1) {
 }
 
 # hide the newlines from our output
-test [strings.trim_space($x1),] {}
+test [golang_strings.trim_space($x1),] {}
 -- files/file1 --
 This is file1 in the files/ folder.
 -- OUTPUT --

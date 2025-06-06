@@ -32,7 +32,6 @@
 
 import "fmt"
 import "os"
-import "golang/strings"
 import "embedded/provisioner" # embedded import
 
 # TODO: get all of the values first from the cli config file, and then a webui

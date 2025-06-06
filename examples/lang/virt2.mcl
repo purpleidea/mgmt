@@ -2,10 +2,10 @@
 
 import "fmt"
 import "os"
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "example"
 
-$input = example.str2int(strings.trim_space(os.readfile("/tmp/cpu-count")))
+$input = example.str2int(golang_strings.trim_space(os.readfile("/tmp/cpu-count")))
 $count = if $input > 8 {
 	8
 } else {

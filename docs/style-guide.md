@@ -256,6 +256,15 @@ like: `import "https://github.com/purpleidea/mgmt-banana/"` and namespace it as
 `import "https://github.com/purpleidea/mgmt-banana/" as tomato` or something
 similar.
 
+### Imports
+
+When importing "golang" modules such as "golang/strings" it's recommended to use
+the `import "golang/strings" as golang_strings` format. This is to avoid
+confusion with the normal core package you get from `import "strings"`.
+
+In the long-term, we expect to remove the `"golang/"` namespace when our own
+standard library is complete enough.
+
 ### Licensing
 
 We believe that sharing code helps reduce unnecessary re-invention, so that we

@@ -1,4 +1,4 @@
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "list"
 
 $l1 = ["a", "b", "c", "d", "e", "f", "g",]
@@ -10,7 +10,7 @@ $l6 = ["y", "zed",]
 
 $l = list.concat($l1, $l2, $l3, $l4, $l5, $l6)
 
-$joined = strings.join($l, "-")
+$joined = golang_strings.join($l, "-")
 
 print "alphabet" {
 	msg => "${joined}",

@@ -94,13 +94,15 @@ func RagelInterpolate(str string, textarea *interfaces.Textarea, data *interface
 		switch t := term.(type) {
 		case Literal:
 			expr := &ast.ExprStr{
-				V: t.Value,
+				Textarea: *textarea, // XXX: until we re-calculate
+				V:        t.Value,
 			}
 			exprs = append(exprs, expr)
 
 		case Variable:
 			expr := &ast.ExprVar{
-				Name: t.Name,
+				Textarea: *textarea, // XXX: until we re-calculate
+				Name:     t.Name,
 			}
 			exprs = append(exprs, expr)
 		default:

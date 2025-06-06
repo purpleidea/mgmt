@@ -6828,6 +6828,9 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 
 	stmt, exists := scope.Classes[obj.Name]
 	if !exists {
+		if obj.data.Debug || true { // TODO: leave this on permanently?
+			classScopeFeedback(scope, obj.data.Logf)
+		}
 		err := fmt.Errorf("class `%s` does not exist in this scope", obj.Name)
 		return highlightHelper(obj, obj.data.Logf, err)
 	}

@@ -562,6 +562,21 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 	}
 }
 
+// classScopeFeedback logs some messages about what is actually in scope so that
+// the user gets a hint about what's going on. This is useful for catching bugs
+// in our programming or in user code!
+func classScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+	logf("classes in scope:")
+	names := []string{}
+	for name := range scope.Classes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		logf("class %s", name)
+	}
+}
+
 // highlightHelper give the user better file/line number feedback.
 func highlightHelper(node interfaces.Node, logf func(format string, v ...interface{}), err error) error {
 	displayer, ok := node.(interfaces.TextDisplayer)

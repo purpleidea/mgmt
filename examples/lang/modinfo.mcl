@@ -1,0 +1,11 @@
+import "os"
+
+$s = if os.modinfo_loaded("r8169") { # buggy module
+	"you might have a buggy network card module"
+} else {
+	"you aren't using r8169"
+}
+
+print "modinfo" {
+	msg => $s,
+}

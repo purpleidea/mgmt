@@ -562,6 +562,19 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 	}
 }
 
+// highlightHelper give the user better file/line number feedback.
+func highlightHelper(node interfaces.Node, logf func(format string, v ...interface{}), err error) error {
+	displayer, ok := node.(interfaces.TextDisplayer)
+	if ok {
+		if highlight := displayer.HighlightText(); highlight != "" {
+			logf("%s: %s", err.Error(), highlight)
+		}
+		//return fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
+	}
+
+	return err
+}
+
 // Textarea stores the coordinates of a statement or expression in the form of a
 // starting line/column and ending line/column.
 type Textarea struct {

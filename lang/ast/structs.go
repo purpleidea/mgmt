@@ -6828,7 +6828,8 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 
 	stmt, exists := scope.Classes[obj.Name]
 	if !exists {
-		return fmt.Errorf("class `%s` does not exist in this scope", obj.Name)
+		err := fmt.Errorf("class `%s` does not exist in this scope", obj.Name)
+		return highlightHelper(obj, obj.data.Logf, err)
 	}
 	class, ok := stmt.(*StmtClass)
 	if !ok {
@@ -10468,7 +10469,8 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				if obj.data.Debug || true { // TODO: leave this on permanently?
 					lambdaScopeFeedback(obj.scope, obj.data.Logf)
 				}
-				return fmt.Errorf("lambda `$%s` does not exist in this scope", prefixedName)
+				err := fmt.Errorf("lambda `$%s` does not exist in this scope", prefixedName)
+				return highlightHelper(obj, obj.data.Logf, err)
 			}
 			target = f
 		}
@@ -10484,7 +10486,8 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 			if obj.data.Debug || true { // TODO: leave this on permanently?
 				functionScopeFeedback(obj.scope, obj.data.Logf)
 			}
-			return fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
+			err := fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
+			return highlightHelper(obj, obj.data.Logf, err)
 		}
 		target = f
 	}
@@ -11232,7 +11235,8 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 		if obj.data.Debug || true { // TODO: leave this on permanently?
 			variableScopeFeedback(obj.scope, obj.data.Logf)
 		}
-		return fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
+		err := fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
+		return highlightHelper(obj, obj.data.Logf, err)
 	}
 
 	obj.scope.Variables[obj.Name] = target
@@ -11292,7 +11296,8 @@ func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	// lookup value from scope
 	expr, exists := obj.scope.Variables[obj.Name]
 	if !exists {
-		return nil, nil, fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+		err := fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
+		return nil, nil, highlightHelper(obj, obj.data.Logf, err)
 	}
 
 	// This child call to Infer is an outlier to the common pattern where

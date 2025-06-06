@@ -168,12 +168,13 @@ func (obj *Textarea) HighlightText() string {
 		result.WriteString(indent)
 		result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
 		// TODO: add on the width of the second element as well
-		result.WriteString(strings.Repeat("^", obj.endColumn-obj.startColumn+1))
+		result.WriteString(strings.Repeat("^", obj.endColumn-obj.startColumn))
 		result.WriteString("\n")
 
 		return result.String()
 	}
 
+	// XXX: the below code might be buggy, write some tests and check it...
 	line := lines[obj.startLine] + "\n"
 	text := strings.TrimLeft(line, " \t")
 	indent := strings.TrimSuffix(line, text)
@@ -191,7 +192,7 @@ func (obj *Textarea) HighlightText() string {
 
 	result.WriteString(line)
 	result.WriteString(indent)
-	result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
+	result.WriteString(strings.Repeat(" ", obj.endColumn-offset-1)) // -1 because it's the space before the caret
 	result.WriteString("^ ... to here\n")
 
 	return result.String()

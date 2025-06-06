@@ -1259,7 +1259,15 @@ func (obj *Engine) Run(ctx context.Context) (reterr error) {
 					obj.statsMutex.Unlock()
 				}
 				if runErr != nil {
-					obj.Logf("Erroring func `%s`: %+v", node, runErr)
+					err := fmt.Errorf("func `%s` errored: %+v", node, runErr)
+					displayer, ok := node.Func.(interfaces.TextDisplayer)
+					if ok {
+						if highlight := displayer.HighlightText(); highlight != "" {
+							obj.Logf("%s: %s", err.Error(), highlight)
+						}
+					}
+
+					obj.Logf("%s", err.Error())
 					// send to a aggregate channel
 					// the first to error will cause ag to
 					// shutdown, so make sure we can exit...

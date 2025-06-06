@@ -135,6 +135,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 			ExecStart:     execStart,
 			RestartSec:    "5s",
 			Restart:       "always",
+			LimitNOFILE:   16384,
 			WantedBy:      []string{"multi-user.target"},
 		}
 		unitData, err := unit.Template()

@@ -62,6 +62,9 @@ type UnitData struct {
 	// Restart is the restart policy. Usually you want "always".
 	Restart string
 
+	// LimitNOFILE is the max number of files this process can open.
+	LimitNOFILE uint
+
 	// RemainAfterExit can be set to true to make it look like the service
 	// is still active if it exits successfully.
 	RemainAfterExit bool
@@ -109,6 +112,9 @@ func (obj *UnitData) Template() (string, error) {
 	}
 	if obj.Restart != "" {
 		data += fmt.Sprintf("Restart=%s\n", obj.Restart)
+	}
+	if obj.LimitNOFILE > 0 {
+		data += fmt.Sprintf("LimitNOFILE=%d\n", obj.LimitNOFILE)
 	}
 
 	if obj.RemainAfterExit {

@@ -28,7 +28,7 @@
 # additional permission.
 
 import "golang"
-import "golang/strings"
+import "golang/strings" as golang_strings
 import "iter"
 import "local"
 import "net"
@@ -214,7 +214,7 @@ class network_manager_dhcp($st) {
 	$dev = $st->dev || "eth0"
 
 	$dns = $st->dns || ["8.8.8.8",]
-	$dns_str = strings.join($dns, ";") # the line also ends with a semicolon
+	$dns_str = golang_strings.join($dns, ";") # the line also ends with a semicolon
 	$tmpl =
 "
 [connection]
@@ -272,7 +272,7 @@ class network_manager_static($st) {
 	$dns = $st->dns || ["8.8.8.8",]
 	$vips []str = $st->vips || [] # []cidr
 
-	$dns_str = strings.join($dns, ";") # the line also ends with a semicolon
+	$dns_str = golang_strings.join($dns, ";") # the line also ends with a semicolon
 	$tmpl =
 "
 [connection]

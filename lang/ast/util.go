@@ -31,7 +31,6 @@ package ast
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -41,7 +40,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -588,157 +586,4 @@ func highlightHelper(node interfaces.Node, logf func(format string, v ...interfa
 	}
 
 	return err
-}
-
-// Textarea stores the coordinates of a statement or expression in the form of a
-// starting line/column and ending line/column.
-type Textarea struct {
-	// debug represents if we're running in debug mode or not.
-	debug bool
-
-	// logf is a logger which should be used.
-	logf func(format string, v ...interface{})
-
-	// sf is the SourceFinder function implementation that maps a filename
-	// to the source.
-	sf interfaces.SourceFinderFunc
-
-	// path is the full path/filename where this text area exists.
-	path string
-
-	// This data is zero-based. (Eg: first line of file is 0)
-	startLine   int // first
-	startColumn int // left
-	endLine     int // last
-	endColumn   int // right
-
-	isSet bool
-
-	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
-}
-
-// Setup is used during AST initialization in order to store in each AST node
-// the name of the source file from which it was generated.
-func (obj *Textarea) Setup(data *interfaces.Data) {
-	obj.debug = data.Debug
-	obj.logf = data.Logf
-	obj.sf = data.SourceFinder
-	obj.path = data.AbsFilename()
-}
-
-// IsSet returns if the position was already set with Locate already.
-func (obj *Textarea) IsSet() bool {
-	return obj.isSet
-}
-
-// Locate is used by the parser to store the token positions in AST nodes. The
-// path will be filled during AST node initialization usually, because the
-// parser does not know the name of the file it is processing.
-func (obj *Textarea) Locate(line int, col int, endline int, endcol int) {
-	obj.startLine = line
-	obj.startColumn = col
-	obj.endLine = endline
-	obj.endColumn = endcol
-	obj.isSet = true
-}
-
-// Pos returns the starting line/column of an AST node.
-func (obj *Textarea) Pos() (int, int) {
-	return obj.startLine, obj.startColumn
-}
-
-// End returns the end line/column of an AST node.
-func (obj *Textarea) End() (int, int) {
-	return obj.endLine, obj.endColumn
-}
-
-// Path returns the name of the source file that holds the code for an AST node.
-func (obj *Textarea) Path() string {
-	return obj.path
-}
-
-// Filename returns the printable filename that we'd like to display. It tries
-// to return a relative version if possible.
-func (obj *Textarea) Filename() string {
-	if obj.path == "" {
-		return "<unknown>" // TODO: should this be <stdin> ?
-	}
-
-	wd, _ := os.Getwd() // ignore error since "" would just pass through
-	wd += "/"           // it's a dir
-	if s, err := util.RemoveBasePath(obj.path, wd); err == nil {
-		return s
-	}
-
-	return obj.path
-}
-
-// Byline gives a succinct representation of the Textarea, but is useful only in
-// debugging. In order to generate pretty error messages, see HighlightText.
-func (obj *Textarea) Byline() string {
-	// We convert to 1-based for user display.
-	return fmt.Sprintf("%s @ %d:%d-%d:%d", obj.Filename(), obj.startLine+1, obj.startColumn+1, obj.endLine+1, obj.endColumn+1)
-}
-
-// HighlightText generates a generic description that just visually indicates
-// part of the line described by a Textarea. If the coordinates that are passed
-// span multiple lines, don't show those lines, but just a description of the
-// area. If it can't generate a valid snippet, then it returns the empty string.
-func (obj *Textarea) HighlightText() string {
-	b, err := obj.sf(obj.path) // source finder!
-	if err != nil {
-		return ""
-	}
-	contents := string(b)
-
-	result := &strings.Builder{}
-
-	result.WriteString(obj.Byline())
-
-	lines := strings.Split(contents, "\n")
-	if len(lines) < obj.endLine-1 {
-		// XXX: out of bounds?
-		return ""
-	}
-
-	result.WriteString("\n\n")
-
-	if obj.startLine == obj.endLine {
-		line := lines[obj.startLine] + "\n"
-		text := strings.TrimLeft(line, " \t")
-		indent := strings.TrimSuffix(line, text)
-		offset := len(indent)
-
-		result.WriteString(line)
-		result.WriteString(indent)
-		result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
-		// TODO: add on the width of the second element as well
-		result.WriteString(strings.Repeat("^", obj.endColumn-obj.startColumn+1))
-		result.WriteString("\n")
-
-		return result.String()
-	}
-
-	line := lines[obj.startLine] + "\n"
-	text := strings.TrimLeft(line, " \t")
-	indent := strings.TrimSuffix(line, text)
-	offset := len(indent)
-
-	result.WriteString(line)
-	result.WriteString(indent)
-	result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
-	result.WriteString("^ from here ...\n")
-
-	line = lines[obj.endLine] + "\n"
-	text = strings.TrimLeft(line, " \t")
-	indent = strings.TrimSuffix(line, text)
-	offset = len(indent)
-
-	result.WriteString(line)
-	result.WriteString(indent)
-	result.WriteString(strings.Repeat(" ", obj.startColumn-offset))
-	result.WriteString("^ ... to here\n")
-
-	return result.String()
 }

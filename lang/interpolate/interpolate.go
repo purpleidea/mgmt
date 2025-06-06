@@ -57,21 +57,21 @@ const (
 
 // StrInterpolate interpolates a string and returns the representative AST. If
 // there was nothing to interpolate, this returns (nil, nil).
-func StrInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func StrInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.Data) (interfaces.Expr, error) {
 	if data.Debug {
 		data.Logf("interpolating: %s", str)
 	}
 
 	if UseHilInterpolation {
-		return HilInterpolate(str, pos, data)
+		return HilInterpolate(str, textarea, data)
 	}
-	return RagelInterpolate(str, pos, data)
+	return RagelInterpolate(str, textarea, data)
 }
 
 // RagelInterpolate interpolates a string and returns the representative AST. It
 // uses the ragel parser to perform the string interpolation. If there was
 // nothing to interpolate, this returns (nil, nil).
-func RagelInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func RagelInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.Data) (interfaces.Expr, error) {
 	sequence, err := Parse(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "parser failed")
@@ -125,13 +125,14 @@ func RagelInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (i
 
 // HilInterpolate interpolates a string and returns the representative AST. This
 // particular implementation uses the hashicorp hil library and syntax to do so.
-func HilInterpolate(str string, pos *interfaces.Pos, data *interfaces.Data) (interfaces.Expr, error) {
+func HilInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.Data) (interfaces.Expr, error) {
 	var line, column int = -1, -1
 	var filename string
-	if pos != nil {
-		line = pos.Line
-		column = pos.Column
-		filename = pos.Filename
+	if textarea != nil {
+		startLine, startColumn := textarea.Pos() // zero based
+		line = startLine
+		column = startColumn
+		filename = textarea.Filename() // TODO: .Path() instead?
 	}
 	hilPos := hilast.Pos{
 		Line:     line,

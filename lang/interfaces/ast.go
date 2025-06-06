@@ -231,7 +231,7 @@ type Data struct {
 	// StrInterpolater is a function that needs to get passed in to run the
 	// string interpolation. This is passed in this way to avoid dependency
 	// cycles.
-	StrInterpolater func(string, *Pos, *Data) (Expr, error)
+	StrInterpolater func(string, *Textarea, *Data) (Expr, error)
 
 	// SourceFinder is a function that returns the contents of a source file
 	// when requested by filename. This data is used to annotate error

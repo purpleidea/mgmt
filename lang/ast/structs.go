@@ -7495,14 +7495,6 @@ func (obj *ExprStr) Init(data *interfaces.Data) error {
 // which need interpolation. If any are found, it returns a larger AST which has
 // a function which returns a string as its root. Otherwise it returns itself.
 func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
-	pos := &interfaces.Pos{
-		// XXX: populate this?
-		// column/line number, starting at 1
-		//Column: -1, // TODO
-		//Line: -1, // TODO
-		//Filename: "", // optional source filename, if known
-	}
-
 	data := &interfaces.Data{
 		// TODO: add missing fields here if/when needed
 		Fs:       obj.data.Fs,
@@ -7526,7 +7518,7 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		},
 	}
 
-	result, err := obj.data.StrInterpolater(obj.V, pos, data)
+	result, err := obj.data.StrInterpolater(obj.V, &obj.Textarea, data)
 	if err != nil {
 		return nil, err
 	}

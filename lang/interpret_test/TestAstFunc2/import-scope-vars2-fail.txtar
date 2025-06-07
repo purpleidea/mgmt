@@ -11,4 +11,4 @@ $x = "this is x.mcl"
 import "x.mcl" as f
 $y = $f.x + " and this is y.mcl"
 -- OUTPUT --
-# err: errSetScope: var `$g.x` does not exist in this scope
+# err: errSetScope: var `$g.x` does not exist in this scope: /main.mcl @ 3:6-3:14

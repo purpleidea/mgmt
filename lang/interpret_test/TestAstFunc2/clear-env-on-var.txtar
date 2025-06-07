@@ -7,4 +7,4 @@ $f = func($x) {
 $name = $f("foo")
 test "${name}" {}
 -- OUTPUT --
-# err: errSetScope: var `$x` does not exist in this scope
+# err: errSetScope: var `$x` does not exist in this scope: /main.mcl @ 1:8-1:9

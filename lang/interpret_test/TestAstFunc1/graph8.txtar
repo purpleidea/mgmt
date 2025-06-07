@@ -6,4 +6,4 @@ if true {
 	$b = true
 }
 -- OUTPUT --
-# err: errSetScope: var `$b` does not exist in this scope
+# err: errSetScope: var `$b` does not exist in this scope: /main.mcl @ 2:4-2:5

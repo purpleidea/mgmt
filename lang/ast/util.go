@@ -574,16 +574,3 @@ func classScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...i
 		logf("class %s", name)
 	}
 }
-
-// highlightHelper give the user better file/line number feedback.
-func highlightHelper(node interfaces.Node, logf func(format string, v ...interface{}), err error) error {
-	displayer, ok := node.(interfaces.TextDisplayer)
-	if ok {
-		if highlight := displayer.HighlightText(); highlight != "" {
-			logf("%s: %s", err.Error(), highlight)
-		}
-		//return fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
-	}
-
-	return err
-}

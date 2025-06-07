@@ -14,4 +14,4 @@ class c1($b) {
 include c1 as i1
 include i1.inner
 -- OUTPUT --
-# err: errSetScope: class `c1` expected 1 args but got 0
+# err: errSetScope: class `c1` expected 1 args but got 0: /main.mcl @ 13:1-13:17

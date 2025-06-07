@@ -143,6 +143,10 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 				obj.Logf("%s: %s", err.Error(), highlight)
 			}
 			return nil, fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
+
+			// XXX: when we have fully populated all the position
+			// information, we could replace the above code with:
+			//return nil, interfaces.HighlightHelper(x.Node, obj.Logf, err)
 		}
 		if obj.Debug {
 			e1, e2 := unificationUtil.Extract(x.Expect), unificationUtil.Extract(x.Actual)
@@ -165,7 +169,9 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 
 		// TODO: collect all of these errors and return them together?
 		if t1.HasUni() { // || t2.HasUni()
-			return nil, fmt.Errorf("expr: %s is ambiguous: %s", x.Expr, u(t1))
+			err := fmt.Errorf("expr: %s is ambiguous: %s", x.Expr, u(t1))
+			return nil, interfaces.HighlightHelper(x.Node, obj.Logf, err)
+
 		}
 
 		//if err := t1.Cmp(t2); err != nil { // for development/debugging

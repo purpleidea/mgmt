@@ -11,4 +11,4 @@ include funcgen1
 $x1 = fun1()	# not funcgen1.fun1 since it's *not* an import!
 test "${x1}" {}	# hi
 -- OUTPUT --
-# err: errSetScope: func `fun1` does not exist in this scope
+# err: errSetScope: func `fun1` does not exist in this scope: /main.mcl @ 10:7-10:13

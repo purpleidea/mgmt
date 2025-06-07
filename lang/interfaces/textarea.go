@@ -197,3 +197,16 @@ func (obj *Textarea) HighlightText() string {
 
 	return result.String()
 }
+
+// HighlightHelper gives the user better file/line number feedback.
+func HighlightHelper(node Node, logf func(format string, v ...interface{}), err error) error {
+	displayer, ok := node.(TextDisplayer)
+	if !ok {
+		return err
+	}
+
+	if highlight := displayer.HighlightText(); highlight != "" {
+		logf("%s: %s", err.Error(), highlight)
+	}
+	return fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
+}

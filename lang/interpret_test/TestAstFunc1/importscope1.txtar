@@ -16,4 +16,4 @@ class xclass {
 	}
 }
 -- OUTPUT --
-# err: errSetScope: func `os.is_family_debian` does not exist in this scope
+# err: errSetScope: func `os.is_family_debian` does not exist in this scope: /second.mcl @ 5:12-5:33

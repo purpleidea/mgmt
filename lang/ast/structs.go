@@ -6854,7 +6854,7 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 			classScopeFeedback(scope, obj.data.Logf)
 		}
 		err := fmt.Errorf("class `%s` does not exist in this scope", obj.Name)
-		return highlightHelper(obj, obj.data.Logf, err)
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 	class, ok := stmt.(*StmtClass)
 	if !ok {
@@ -6863,7 +6863,8 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 
 	// Is it even possible for the signatures to not match?
 	if len(class.Args) != len(obj.Args) {
-		return fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(class.Args), len(obj.Args))
+		err := fmt.Errorf("class `%s` expected %d args but got %d", obj.Name, len(class.Args), len(obj.Args))
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	if obj.class != nil {
@@ -10514,7 +10515,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 					lambdaScopeFeedback(obj.scope, obj.data.Logf)
 				}
 				err := fmt.Errorf("lambda `$%s` does not exist in this scope", prefixedName)
-				return highlightHelper(obj, obj.data.Logf, err)
+				return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 			target = f
 		}
@@ -10531,7 +10532,7 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				functionScopeFeedback(obj.scope, obj.data.Logf)
 			}
 			err := fmt.Errorf("func `%s` does not exist in this scope", prefixedName)
-			return highlightHelper(obj, obj.data.Logf, err)
+			return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 		}
 		target = f
 	}
@@ -11284,7 +11285,7 @@ func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 			variableScopeFeedback(obj.scope, obj.data.Logf)
 		}
 		err := fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
-		return highlightHelper(obj, obj.data.Logf, err)
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	obj.scope.Variables[obj.Name] = target
@@ -11345,7 +11346,7 @@ func (obj *ExprVar) Infer() (*types.Type, []*interfaces.UnificationInvariant, er
 	expr, exists := obj.scope.Variables[obj.Name]
 	if !exists {
 		err := fmt.Errorf("var `%s` does not exist in this scope", obj.Name)
-		return nil, nil, highlightHelper(obj, obj.data.Logf, err)
+		return nil, nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	// This child call to Infer is an outlier to the common pattern where

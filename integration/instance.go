@@ -261,11 +261,10 @@ func (obj *Instance) Run(seeds []*Instance) error {
 				return fmt.Errorf("instance `%s` has not started yet", instance.Hostname)
 			}
 			urls = append(urls, instance.clientURL)
+
+			s := fmt.Sprintf("--seeds=%s", instance.clientURL)
+			cmdArgs = append(cmdArgs, s)
 		}
-		s := fmt.Sprintf("--seeds=%s", urls[0])
-		// TODO: we could just add all the seeds instead...
-		//s := fmt.Sprintf("--seeds=%s", strings.Join(urls, ","))
-		cmdArgs = append(cmdArgs, s)
 	}
 	if obj.EtcdServer {
 		cmdArgs = append(cmdArgs, "--no-server")

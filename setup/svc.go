@@ -115,9 +115,9 @@ func (obj *Svc) Run(ctx context.Context) error {
 			argv = append(argv, fmt.Sprintf("--ssh-url=%s", s))
 		}
 
-		if seeds := obj.SetupSvcArgs.Seeds; len(seeds) > 0 {
+		for _, seed := range obj.SetupSvcArgs.Seeds {
 			// TODO: validate each seed?
-			s := fmt.Sprintf("--seeds=%s", strings.Join(seeds, ","))
+			s := fmt.Sprintf("--seeds=%s", seed)
 			argv = append(argv, s)
 		}
 

@@ -574,8 +574,14 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 				"--enable", // start on first boot!
 				fmt.Sprintf("--binary-path=%s", m),
 				"--no-server", // TODO: hardcode this for now
-				fmt.Sprintf("--seeds=%s", strings.Join(obj.Seeds, ",")),
+				//fmt.Sprintf("--seeds=%s", strings.Join(obj.Seeds, ",")),
 			}
+			for _, seed := range obj.Seeds {
+				// TODO: validate each seed?
+				s := fmt.Sprintf("--seeds=%s", seed)
+				setupSvc = append(setupSvc, s)
+			}
+
 			setupSvcCmd := strings.Join(setupSvc, " ")
 			args := []string{"--run-command", setupSvcCmd} // cmd must be a single string
 			cmdArgs = append(cmdArgs, args...)

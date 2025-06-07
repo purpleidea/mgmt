@@ -163,10 +163,12 @@ type SetupPkgArgs struct {
 // SetupSvcArgs is the setup service CLI parsing structure and type of the
 // parsed result.
 type SetupSvcArgs struct {
-	BinaryPath string   `arg:"--binary-path" help:"path to the binary"`
-	SSHURL     string   `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
-	Seeds      []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
-	NoServer   bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
+	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
+	SSHURL     string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
+	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
+
+	Seeds    []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
+	NoServer bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
 
 	Install bool `arg:"--install" help:"install the systemd mgmt service"`
 	Start   bool `arg:"--start" help:"start the mgmt service"`

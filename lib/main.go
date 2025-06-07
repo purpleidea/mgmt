@@ -157,6 +157,11 @@ type Config struct {
 	// setup for things to work.
 	SSHURL string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 
+	// SSHHostKey is the key part (which is already base64 encoded) from a
+	// known_hosts file, representing the host we're connecting to. If this
+	// is specified, then it overrides looking for it in the URL.
+	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
+
 	// Seeds are the list of default etcd client endpoints. If empty, it
 	// will startup a new server.
 	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
@@ -620,6 +625,7 @@ func (obj *Main) Run() error {
 	if obj.SSHURL != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
 			URL:            obj.SSHURL,
+			HostKey:        obj.SSHHostKey,
 			Seeds:          obj.Seeds,
 			NS:             NS,
 			MetadataPrefix: MetadataPrefix,

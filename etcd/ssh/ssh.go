@@ -32,6 +32,7 @@ package ssh
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -53,20 +54,33 @@ import (
 )
 
 const (
-	defaultUser                  = "root"
-	defaultSSHPort        uint16 = 22
-	defaultEtcdPort       uint16 = 2379 // TODO: get this from etcd pkg
-	defaultIDRsaPath             = "~/.ssh/id_rsa"
-	defaultIDEd25519Path         = "~/.ssh/id_ed25519"
-	defaultKnownHostsPath        = "~/.ssh/known_hosts"
+	defaultUser                       = "root"
+	defaultSSHPort             uint16 = 22
+	defaultSSHHostKeyFieldName        = "hostkey" // querystring field name
+	defaultEtcdPort            uint16 = 2379      // TODO: get this from etcd pkg
+	defaultIDRsaPath                  = "~/.ssh/id_rsa"
+	defaultIDEd25519Path              = "~/.ssh/id_ed25519"
+	defaultKnownHostsPath             = "~/.ssh/known_hosts"
 )
 
 // World is an implementation of the world API for etcd over SSH.
 type World struct {
 	// URL is the ssh server to connect to. Use the format, james@server:22
 	// or similar. From there, we connect to each of the etcd Seeds, so the
-	// ip's should be relative to this server.
+	// ip's should be relative to this server. If you pass in a ?hostkey=
+	// query string parameter, you can specify a base64, known_hosts key to
+	// use for confirmation that you're connecting to the right host.
+	// Without this, it will look in your ~/.ssh/known_hosts file which may
+	// not necessarily exist yet, and without it connection is impossible.
+	// You can find the key by running the ssh-keyscan command. It can also
+	// be read from the HostKey parameter, which avoids you needing to
+	// urlencode it here.
 	URL string
+
+	// HostKey is the key part (which is already base64 encoded) from a
+	// known_hosts file, representing the host we're connecting to. If this
+	// is specified, then it overrides looking for it in the URL.
+	HostKey string
 
 	// SSHID is the path to the ~/.ssh/id_rsa or ~/.ssh/id_ed25519 to use
 	// for auth. If you omit this then this will look for your private key
@@ -126,21 +140,60 @@ func (obj *World) sshKeyAuth(sshID string) (ssh.AuthMethod, error) {
 	return ssh.PublicKeys(signer), nil
 }
 
-// hostKeyCallback is a helper function to get the ssh callback function needed.
-func (obj *World) hostKeyCallback() (ssh.HostKeyCallback, error) {
-	// TODO: consider allowing a user-specified path in the future
-	s := defaultKnownHostsPath // "~/.ssh/known_hosts"
-
-	// expand strings of the form: ~james/.ssh/known_hosts
-	p, err := util.ExpandHome(s)
+// knownHostsKey takes a known_hosts key entry (just the base64 key part) and
+// turns it into the ssh.PublicKey needed for hostKeyCallback. This excerpt was
+// taken from: x/crypto/ssh:keys.go:func parseAuthorizedKey
+func (obj *World) knownHostsKey(hostkey string) (ssh.PublicKey, error) {
+	key := make([]byte, base64.StdEncoding.DecodedLen(len(hostkey)))
+	n, err := base64.StdEncoding.Decode(key, []byte(hostkey))
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "can't find home directory")
+		// Make it easier to spot this common error...
+		s := err.Error()
+		m := "illegal base64 data at input byte "
+		if strings.HasPrefix(s, m) {
+			if d, e := strconv.Atoi(s[len(m):]); e == nil {
+				obj.init.Logf("error: %v", err)
+				obj.init.Logf("host key: %s", hostkey)
+				obj.init.Logf("location: %s^", strings.Repeat(" ", d))
+			}
+		}
+		return nil, err
 	}
-	if p == "" {
-		return nil, fmt.Errorf("empty path specified")
-	}
+	key = key[:n]
+	return ssh.ParsePublicKey(key)
+}
 
-	return knownhosts.New(p)
+// hostKeyCallback is a helper function to get the ssh callback function needed.
+// func (obj *World) hostKeyCallback() (ssh.HostKeyCallback, error) {
+func (obj *World) hostKeyCallback(hostkey ssh.PublicKey) ssh.HostKeyCallback {
+	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+
+		// First try our one known key if it exists.
+		if hostkey != nil {
+			fn := ssh.FixedHostKey(hostkey)
+			if fn(hostname, remote, key) == nil {
+				return nil // found it!
+			}
+		}
+
+		// TODO: consider allowing a user-specified path in the future
+		s := defaultKnownHostsPath // "~/.ssh/known_hosts"
+
+		// expand strings of the form: ~james/.ssh/known_hosts
+		p, err := util.ExpandHome(s)
+		if err != nil {
+			return errwrap.Wrapf(err, "can't find home directory for known_hosts file")
+		}
+		if p == "" {
+			return fmt.Errorf("empty known_hosts path specified")
+		}
+
+		fn, err := knownhosts.New(p)
+		if err != nil {
+			return err
+		}
+		return fn(hostname, remote, key)
+	}
 }
 
 // Connect runs first.
@@ -198,6 +251,20 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		port = s
 	}
 
+	// TODO: Should we read out a list of these, one for each key type?
+	base64Key := u.Query().Get(defaultSSHHostKeyFieldName) // urlencode me!
+	if obj.HostKey != "" {                                 // override
+		base64Key = obj.HostKey
+	}
+	var pubKey ssh.PublicKey // known hosts key
+	if base64Key != "" {
+		k, err := obj.knownHostsKey(base64Key)
+		if err != nil {
+			return errwrap.Wrapf(err, "invalid known_hosts key")
+		}
+		pubKey = k
+	}
+
 	addr := fmt.Sprintf("%s:%s", hostname, port)
 
 	auths := []ssh.AuthMethod{}
@@ -228,17 +295,12 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		return fmt.Errorf("no auth options available")
 	}
 
-	hostKeyCallback, err := obj.hostKeyCallback()
-	if err != nil {
-		return err
-	}
-
 	// SSH connection configuration
 	sshConfig := &ssh.ClientConfig{
 		User: user,
 		Auth: auths,
 		//HostKeyCallback: ssh.InsecureIgnoreHostKey(), // testing
-		HostKeyCallback: hostKeyCallback,
+		HostKeyCallback: obj.hostKeyCallback(pubKey),
 	}
 
 	obj.init.Logf("ssh: %s@%s", user, addr)

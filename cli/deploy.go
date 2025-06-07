@@ -63,6 +63,11 @@ type DeployArgs struct {
 	// setup for things to work.
 	SSHURL string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 
+	// SSHHostKey is the key part (which is already base64 encoded) from a
+	// known_hosts file, representing the host we're connecting to. If this
+	// is specified, then it overrides looking for it in the URL.
+	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
+
 	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	Noop  bool     `arg:"--noop" help:"globally force all resources into no-op mode"`
 	Sema  int      `arg:"--sema" default:"-1" help:"globally add a semaphore to all resources with this lock count"`
@@ -210,9 +215,10 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 	if obj.SSHURL != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
-			URL:   obj.SSHURL,
-			Seeds: obj.Seeds,
-			NS:    lib.NS,
+			URL:     obj.SSHURL,
+			HostKey: obj.SSHHostKey,
+			Seeds:   obj.Seeds,
+			NS:      lib.NS,
 			//MetadataPrefix: lib.MetadataPrefix,
 			//StoragePrefix:  lib.StoragePrefix,
 			//StandaloneFs: ???.DeployFs, // used for static deploys

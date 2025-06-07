@@ -63,7 +63,7 @@ type DeployArgs struct {
 	// setup for things to work.
 	SSHURL string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 
-	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
+	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 	Noop  bool     `arg:"--noop" help:"globally force all resources into no-op mode"`
 	Sema  int      `arg:"--sema" default:"-1" help:"globally add a semaphore to all resources with this lock count"`
 	NoGit bool     `arg:"--no-git" help:"don't look at git commit id for safe deploys"`

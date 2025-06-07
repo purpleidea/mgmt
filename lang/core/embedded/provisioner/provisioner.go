@@ -89,7 +89,7 @@ type localArgs struct {
 	Router *string `arg:"--router" help:"router ip for this machine with cidr" func:"cli_router"` // eg: 192.168.42.1/24
 
 	// DNS are the list of upstream DNS servers to use during this process.
-	DNS []string `arg:"--dns" help:"upstream dns servers to use" func:"cli_dns"` // eg: ["8.8.8.8", "1.1.1.1"]
+	DNS []string `arg:"--dns,separate" help:"upstream dns servers to use" func:"cli_dns"` // eg: ["8.8.8.8", "1.1.1.1"]
 
 	// Prefix is a directory to store some provisioner specific state such
 	// as cached distro packages. It can be safely deleted. If you don't
@@ -165,7 +165,7 @@ type localArgs struct {
 	// Packages are a list of additional distro packages to install. It's up
 	// to the user to make sure they exist and don't conflict with each
 	// other or the base installation packages.
-	Packages []string `arg:"--packages" help:"list of additional distro packages to install (comma separated)" func:"cli_packages"`
+	Packages []string `arg:"--packages,separate" help:"list of additional distro packages to install" func:"cli_packages"`
 
 	// HandoffCode specifies that we want to handoff to this machine with a
 	// static code deploy bolus. This is useful for isolated, one-time runs.

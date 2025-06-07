@@ -159,24 +159,24 @@ type Config struct {
 
 	// Seeds are the list of default etcd client endpoints. If empty, it
 	// will startup a new server.
-	Seeds []string `arg:"--seeds,env:MGMT_SEEDS" help:"default etcd client endpoints"`
+	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 
 	// ClientURLs are a list of URLs to listen on for client traffic. Ports
 	// 2379 and 4001 are common.
-	ClientURLs []string `arg:"--client-urls,env:MGMT_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
+	ClientURLs []string `arg:"--client-urls,separate,env:MGMT_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
 
 	// ServerURLs are a list of URLs to listen on for server (peer) traffic.
 	// Ports 2380 and 7001 are common. Etcd now uses --peer-urls instead.
-	ServerURLs []string `arg:"--server-urls,env:MGMT_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
+	ServerURLs []string `arg:"--server-urls,separate,env:MGMT_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
 	// AdvertiseClientURLs are a list of URLs to advertise for client
 	// traffic. Ports 2379 and 4001 are common.
-	AdvertiseClientURLs []string `arg:"--advertise-client-urls,env:MGMT_ADVERTISE_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
+	AdvertiseClientURLs []string `arg:"--advertise-client-urls,separate,env:MGMT_ADVERTISE_CLIENT_URLS" help:"list of URLs to listen on for client traffic"`
 
 	// AdvertiseServerURLs are a list of URLs to advertise for server (peer)
 	// traffic. Ports 2380 and 7001 are common. Etcd now uses
 	// --advertise-peer-urls instead.
-	AdvertiseServerURLs []string `arg:"--advertise-server-urls,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
+	AdvertiseServerURLs []string `arg:"--advertise-server-urls,separate,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
 	// IdealClusterSize is the ideal number of server peers in cluster. This
 	// value is only read by the initial server.

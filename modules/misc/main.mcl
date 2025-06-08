@@ -385,6 +385,7 @@ class copr_enable($name) {
 	exec "dnf-copr-enable-${name}" {
 		cmd => "/usr/bin/dnf",
 		args => [
+			"-y",
 			"copr",
 			"enable",
 			"${name}",

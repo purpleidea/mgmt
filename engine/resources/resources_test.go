@@ -810,9 +810,9 @@ func TestResources2(t *testing.T) {
 		}
 		return resCheckApplyError(res, expCheckOK, errOK)
 	}
-	// resCleanup runs CLeanup on the res.
+	// resCleanup runs Cleanup on the res.
 	resCleanup := func(res engine.Res) func() error {
-		// run CLeanup
+		// run Cleanup
 		return func() error {
 			return res.Cleanup()
 		}

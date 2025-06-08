@@ -566,7 +566,7 @@ func (obj *World) cleanup() error {
 	return errs
 }
 
-// CLeanup runs last.
+// Cleanup runs last.
 func (obj *World) Cleanup() error {
 	return obj.cleanup()
 }

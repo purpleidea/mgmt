@@ -127,7 +127,6 @@ class firewall:zone_base() {
 
 # NOTE: the firewall type is added automatically by this module
 class firewall:zone($name, $st) {
-	print "zone: ${name}" {}
 	# XXX: document why this is named zone_base instead of base:zone_base or
 	# change the compiler to use the second version?
 	include zone_base
@@ -205,7 +204,6 @@ class firewall:interface_base() {
 }
 
 class firewall:interface($name, $zone, $st) {
-	print "interface: ${name}" {}
 	include interface_base
 
 	$interface = $st->interface || (golang_strings.to_upper($zone) + "_IF") # eg: NET_IF
@@ -267,7 +265,6 @@ class firewall:policy_base() {
 }
 
 class firewall:policy($name, $st) {
-	print "policy: ${name}" {}
 	include policy_base
 
 	$source = $st->source
@@ -330,7 +327,6 @@ class firewall:rule_base() {
 }
 
 class firewall:rule($name, $st) {
-	print "rule: ${name}" {}
 	include rule_base
 
 	$rule = $st->rule || "" # entire rule contents OR use the below values
@@ -455,7 +451,6 @@ class firewall:stoppedrule_base() {
 }
 
 class firewall:stoppedrule($name, $st) {
-	print "stoppedrule: ${name}" {}
 	include stoppedrule_base
 
 	$rule = $st->rule || "" # entire rule contents OR use the below values
@@ -524,7 +519,6 @@ class firewall:snat_base() {
 }
 
 class firewall:snat($name, $st) {
-	print "snat: ${name}" {}
 	include snat_base
 
 	$rule = $st->rule || "" # entire rule contents OR use the below values
@@ -619,7 +613,6 @@ class firewall:params_base() {
 }
 
 class firewall:params($name, $st) {
-	print "params: ${name}" {}
 	include params_base
 
 	# TODO: add params

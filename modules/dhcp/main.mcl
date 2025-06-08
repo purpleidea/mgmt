@@ -118,7 +118,6 @@ class server:subnet_base() {
 }
 
 class server:subnet($name, $st) {
-	print "subnet: ${name}" {}
 	include subnet_base
 
 	# TODO: We could compute many defaults from a single network CIDR.
@@ -193,7 +192,6 @@ class server:host_base() {
 }
 
 class server:host($name, $st) {
-	print "host: ${name}" {}
 	include host_base
 
 	$macaddress = $st->macaddress

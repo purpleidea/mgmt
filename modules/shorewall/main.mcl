@@ -72,6 +72,7 @@ class firewall() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
 	}
 
 	svc "shorewall" {
@@ -118,6 +119,9 @@ class firewall:zone_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}zones.header"],
+		Depend => File["${vardir}zones.d/"],
 	}
 }
 
@@ -160,6 +164,8 @@ class firewall:zone($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}zones.d/"],
 	}
 }
 
@@ -192,6 +198,9 @@ class firewall:interface_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}interfaces.header"],
+		Depend => File["${vardir}interfaces.d/"],
 	}
 }
 
@@ -217,6 +226,8 @@ class firewall:interface($name, $zone, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}interfaces.d/"],
 	}
 }
 
@@ -249,6 +260,9 @@ class firewall:policy_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}policy.header"],
+		Depend => File["${vardir}policy.d/"],
 	}
 }
 
@@ -275,6 +289,8 @@ class firewall:policy($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}policy.d/"],
 	}
 }
 
@@ -307,6 +323,9 @@ class firewall:rule_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}rules.header"],
+		Depend => File["${vardir}rules.d/"],
 	}
 }
 
@@ -378,6 +397,8 @@ class firewall:rule($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}rules.d/"],
 	}
 }
 
@@ -393,6 +414,8 @@ class firewall:bulkrules($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}rules.d/"],
 	}
 }
 
@@ -425,6 +448,9 @@ class firewall:stoppedrule_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}stoppedrules.header"],
+		Depend => File["${vardir}stoppedrules.d/"],
 	}
 }
 
@@ -457,6 +483,8 @@ class firewall:stoppedrule($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}stoppedrules.d/"],
 	}
 }
 
@@ -489,6 +517,9 @@ class firewall:snat_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}snat.header"],
+		Depend => File["${vardir}snat.d/"],
 	}
 }
 
@@ -547,6 +578,8 @@ class firewall:snat($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}snat.d/"],
 	}
 }
 
@@ -579,6 +612,9 @@ class firewall:params_base() {
 		mode => "u=rw,go=",
 
 		Notify => Svc["shorewall"],
+		Depend => File["/etc/shorewall/"],
+		Depend => File["${vardir}params.header"],
+		Depend => File["${vardir}params.d/"],
 	}
 }
 

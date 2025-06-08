@@ -127,9 +127,8 @@ Name=${dev}
 class networkd_dhcp($dev, $st) {
 	$dns = $st->dns || ["8.8.8.8",]
 
-	file "/etc/systemd/network/${dev}-dhcp.network" {
-		state => "exists",
-		content => "
+	$tmpl =
+"
 [Match]
 Name=${dev}
 
@@ -143,7 +142,16 @@ DNS={{ . }}
 [DHCP]
 UseDNS=false
 RouteMetric=100
-",
+"
+
+	$args = struct{
+		#dev => $dev,
+		dns => $dns,
+	}
+
+	file "/etc/systemd/network/${dev}-dhcp.network" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
 		mode => "u=rw,go=r",
 		owner => "root",
 		group => "root",

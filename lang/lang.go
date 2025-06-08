@@ -312,8 +312,9 @@ func (obj *Lang) Init(ctx context.Context) error {
 	}
 	obj.graph.AddGraph(g)
 
+	obj.Logf("building function graph took: %s", time.Since(timing))
+	obj.Logf("function graph: %+v", obj.graph)
 	if obj.Debug {
-		obj.Logf("function graph: %+v", obj.graph)
 		obj.graph.Logf(obj.Logf) // log graph output with this logger...
 		//if err := obj.graph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
 		//	return errwrap.Wrapf(err, "writing graph failed")
@@ -336,7 +337,6 @@ func (obj *Lang) Init(ctx context.Context) error {
 	if err := obj.funcs.Setup(); err != nil {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
-	obj.Logf("function setup took: %s", time.Since(timing))
 
 	obj.streamChan = obj.funcs.Stream() // after obj.funcs.Setup runs
 
@@ -351,12 +351,15 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 	runCtx, cancel := context.WithCancel(context.Background()) // Don't inherit from parent
 	defer cancel()
 
+	var timing time.Time
+
 	//obj.Logf("function engine validating...")
 	//if err := obj.funcs.Validate(); err != nil {
 	//	return errwrap.Wrapf(err, "validate error with func engine")
 	//}
 
 	obj.Logf("function engine starting...")
+	timing = time.Now()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -393,6 +396,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 		}
 	}()
 
+	obj.Logf("function engine starting took: %s", time.Since(timing))
 	// wait for some activity
 	obj.Logf("stream...")
 

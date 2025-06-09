@@ -576,6 +576,7 @@ class base:host($name, $config) {
 	$provision_default = $config->provision || false # false is safest!
 
 	$handoff_type = $config->handoff || ""
+	$handoff_exec = $config->handoff_exec || ""
 	$handoff_code = $config->handoff_code || ""
 	$handoff_module_path = $config->handoff_module_path || ""
 	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"))
@@ -756,28 +757,35 @@ class base:host($name, $config) {
 	panic($handoff_type != "" and len($handoff_packages) == 0)
 	#$handoff_packages_string = golang_strings.join($handoff_packages, " ")
 
+	$sshkey_flag = "sshkey"
+	$sshkey_type = "ed25519" # TODO: support other options
+	$sshkey_path = "/root/.ssh/id_${sshkey_type}"
+	$setup_sshkey = "mkdir -p '/root/.ssh/' -m 700 && ssh-keygen -N '' -t '${sshkey_type}' -f '${sshkey_path}'" # non-interactive
+	# Setting up the known_hosts file isn't needed since that can be done on
+	# the first run of mgmt, and the initial key can come in from --ssh-url.
+
 	$handoff_binary = if $handoff_type == "" {
 		""
 	} else {
 		# Copy over the actual mgmt binary. This enables a lot below...
 		"/usr/bin/wget -O '${handoff_binary_path}' 'http://${router_ip}:${http_port_str}/mgmt/binary' && /usr/bin/chmod u+x '${handoff_binary_path}'"
 	}
-	$handoff_cpcode = if $handoff_type == "" {
-		""
-	} else {
+	$handoff_cpcode = if $handoff_type == "code" {
 		# Download a tar ball of our code.
 		# TODO: Alternate mechanisms of getting the code are possible.
-		if $handoff_code != "" {
+		if $mac != "" {
 			"/usr/bin/wget -O /root/mgmt-deploy.tar.gz 'http://${router_ip}:${http_port_str}/mgmt/deploy-${provision_key}.tar.gz' && /usr/bin/mkdir '${deploy_dir}' && /usr/bin/tar -xf /root/mgmt-deploy.tar.gz --directory '${deploy_dir}'"
 		} else {
 			"/usr/bin/wget -O /root/mgmt-deploy.tar.gz 'http://${router_ip}:${http_port_str}/mgmt/deploy.tar.gz' && /usr/bin/mkdir '${deploy_dir}' && /usr/bin/tar -xf /root/mgmt-deploy.tar.gz --directory '${deploy_dir}'"
 		}
-	}
-	$handoff_service = if $handoff_type == "" {
-		""
 	} else {
+		""
+	}
+	$handoff_service = if $handoff_type == "code" { # TODO: maybe add it in other scenarios
 		# Setup the mgmt service, which starts on firstboot.
 		"${handoff_binary_path} setup svc --binary-path='${handoff_binary_path}' --install --enable"
+	} else {
+		""
 	}
 	$handoff_firstboot = if $handoff_type == "" {
 		""
@@ -785,24 +793,28 @@ class base:host($name, $config) {
 		# Setup the firstboot service itself.
 		"${handoff_binary_path} setup firstboot --binary-path='${handoff_binary_path}' --mkdir --install --enable --scripts-dir='${firstboot_scripts_dir}' --done-dir='${firstboot_done_dir}'"
 	}
-	$handoff_deploy = if $handoff_type == "" {
-		""
+
+	$handoff_firstboot_exec = if $handoff_type == "exec" and $handoff_exec != "" {
+		# Add a script that will run by our firstboot service on boot.
+		# This usually just runs mgmt over the network to etcd.
+		"echo '#!/usr/bin/env bash' > ${firstboot_scripts_dir}mgmt-exec.sh && echo 'ulimit -n 16384' >> ${firstboot_scripts_dir}mgmt-exec.sh && echo '${handoff_exec}' >> ${firstboot_scripts_dir}mgmt-exec.sh && chmod u+x ${firstboot_scripts_dir}mgmt-exec.sh"
 	} else {
+		""
+	}
+
+	$handoff_firstboot_code = if $handoff_type == "code" {
 		# Add a script that will run by our firstboot service on boot.
 		# It seems that the deploy will hang until mgmt is started...
 		# NOTE: We need to add the $handoff_code arg the same way it was
 		# passed into the provisioner. It's just now in a deploy subdir.
 		# If it's a dir, then this becomes the empty strings.
-		# XXX: The deploy could instead happen over the network to etcd.
-		"echo '#!/usr/bin/env bash' > ${firstboot_scripts_dir}mgmt-deploy.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-deploy.sh && chmod u+x ${firstboot_scripts_dir}mgmt-deploy.sh"
+		"echo '#!/usr/bin/env bash' > ${firstboot_scripts_dir}mgmt-code.sh && echo '${handoff_binary_path} deploy lang --seeds=http://127.0.0.1:2379 --no-git --module-path=${deploy_dir_modules} ${deploy_dir}${handoff_code_chunk}' >> ${firstboot_scripts_dir}mgmt-code.sh && chmod u+x ${firstboot_scripts_dir}mgmt-code.sh"
+	} else {
+		""
 	}
 
 	# TODO: Do we want to signal an http:server:flag if we're a "default" host?
-	$provisioning_done = if $provision_key == "default" {
-		""
-	} else {
-		"/usr/bin/wget --post-data 'done=true&password=sha1TODO' -O - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'"
-	}
+	$provisioning_done = "/usr/bin/curl --data-urlencode 'done=true' --data-urlencode 'password=sha1TODO' --data-urlencode 'sshtype=ssh-${sshkey_type}' --data-urlencode \"${sshkey_flag}=\$(cut -d ' ' -f 2 '${sshkey_path}.pub')\" --data-urlencode 'sshcomment=root@${handoff_hostname}' -o - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'"
 
 	$http_kickstart_template = struct{
 		comment => "hello!",
@@ -836,11 +848,13 @@ class base:host($name, $config) {
 		#],
 		hostname => $handoff_hostname,
 		post => [
+			$setup_sshkey, # setup the ssh key
 			$handoff_binary, # copy over the binary
 			$handoff_cpcode, # copy over a bundle of code
 			$handoff_service, # install a service for mgmt
 			$handoff_firstboot, # install firstboot service
-			$handoff_deploy, # install a firstboot script to deploy
+			$handoff_firstboot_exec, # install a firstboot script to exec
+			$handoff_firstboot_code, # install a firstboot script to deploy
 			$provisioning_done, # send a done signal back here
 		],
 	}
@@ -871,20 +885,40 @@ class base:host($name, $config) {
 
 	##$str_true = convert.format_bool(true)
 	##$str_false = convert.format_bool(false)
-	#http:server:flag "${name}" {
-	#	key => "done",
-	#	path => "/action/done/mac=${provision_key}",
-	#	#mapped => {$str_true => $str_true, $str_false => $str_false,},
-	#}
-	#kv "${name}" {
-	#	key => $provision_key,
-	#}
-	#value "${provision_key}" {
-	#	#any => true,	# bool
-	#}
-	#Http:Flag["${name}"].value -> Kv["${name}"].value
-	#Http:Flag["${name}"].value -> Value["${provision_key}"].any
-	##$st_provisioned = value.get_bool($provision_key)
+	http:server:flag "${name}-done" {
+		key => "done",
+		path => "/action/done/mac=${provision_key}",
+		#mapped => {$str_true => $str_true, $str_false => $str_false,},
+	}
+	http:server:flag "${name}-sshkey" {
+		key => "${sshkey_flag}",
+		path => "/action/done/mac=${provision_key}",
+	}
+
+	# TODO: rename the names of kv and value here?
+	kv "${name}-done" {
+		key => $provision_key,
+	}
+	value "${name}-done" {
+		#any => true,	# bool
+	}
+	kv "${name}-sshkey" {
+		key => $provision_key,
+	}
+	value "${name}-sshkey" {
+		#any => "",
+	}
+
+	Http:Server:Flag["${name}-done"].value -> Kv["${name}-done"].value
+	Http:Server:Flag["${name}-done"].value -> Value["${name}-done"].any
+	Http:Server:Flag["${name}-sshkey"].value -> Kv["${name}-sshkey"].value
+	Http:Server:Flag["${name}-sshkey"].value -> Value["${name}-sshkey"].any
+
+	#$st_provisioned = value.get_bool($provision_key)
 	#$st_provisioned = value.get_str($provision_key)
-	#$provisioned = $st_provisioned->ready and $st_provisioned->value == "true" # export this value to parent scope
+	$st_done = value.get_str("${name}-done")
+	$provisioned = $st_done->ready and $st_done->value == "true" # export this value to parent scope
+
+	$st_sshkey = value.get_str("${name}-sshkey")
+	$sshkey = $st_sshkey->value # export this value to parent scope
 }

@@ -167,6 +167,10 @@ type localArgs struct {
 	// other or the base installation packages.
 	Packages []string `arg:"--packages,separate" help:"list of additional distro packages to install" func:"cli_packages"`
 
+	// HandoffExec specifies that we want to handoff to this machine by
+	// running a single exec on firstboot. Usually an `mgmt run` command.
+	HandoffExec string `arg:"--handoff-exec" help:"exec command to run on firstboot" func:"cli_handoff_exec"` // eg: mgmt run ...
+
 	// HandoffCode specifies that we want to handoff to this machine with a
 	// static code deploy bolus. This is useful for isolated, one-time runs.
 	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/

@@ -59,10 +59,14 @@ $distro = provisioner.cli_distro()
 $version = provisioner.cli_version()
 $arch = provisioner.cli_arch()
 $uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
-$handoff = if provisioner.cli_handoff_code() == "" { # TODO: check other types
-	""
+$handoff = if provisioner.cli_handoff_code() != "" { # TODO: check other types
+	"code"
 } else {
-	"code" # some non-empty word
+	if provisioner.cli_handoff_exec() != "" { # TODO: check other types
+		"exec"
+	} else {
+		""
+	}
 }
 include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	#repo => $repo.uid, # type unification performance is very slow here
@@ -76,6 +80,7 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	packages => provisioner.cli_packages(),
 	#provision => true,	# default if unspecified
 	handoff => $handoff, # alternatively some code word or querystring
+	handoff_exec => provisioner.cli_handoff_exec(),
 	#handoff_code => "/etc/mgmt/", # one way to do it
 	handoff_code => provisioner.cli_handoff_code(),
 	handoff_module_path => provisioner.cli_handoff_module_path(),
@@ -85,6 +90,6 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 
 #if $host0.provisioned {
 #	print "provisioned" {
-#		msg => fmt.printf("%s is provisioned!", $host0.name),
+#		msg => fmt.printf("%s has ssh key: %s", $host0.name, $host0.sshkey),
 #	}
 #}

@@ -347,6 +347,13 @@ On a Debian machine you might want to run:
 apt install libvirt-dev libaugeas-dev
 ```
 
+
+On an Arch machine you might want to run:
+
+```
+pacman -S libvirt augeas
+```
+
 ### Why do function names inside of templates include underscores?
 
 The golang template library which we use to implement the golang.template() func

@@ -77,7 +77,7 @@ class router($st) {
 
 	if $loc_dev != "" {
 		$prefix = net.cidr_to_prefix($loc_network)
-		include misc.networkd_static($net_dev, struct{
+		include misc.networkd_static($loc_dev, struct{
 			cidr => "${loc_ip}/${prefix}",
 			#dns => $dns,
 		})

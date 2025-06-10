@@ -69,7 +69,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chappjc/logrus-prefix v0.0.0-20180227015900-3a1d64819adb // indirect
-	github.com/cloudflare/circl v1.5.0 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect

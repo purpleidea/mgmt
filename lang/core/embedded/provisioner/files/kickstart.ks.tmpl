@@ -93,11 +93,11 @@ fi
 zerombr
 clearpart --all --initlabel --disklabel={{ if .bios }}msdos{{ else }}gpt{{ end }}
 {{ if eq .part "btrfs" -}}
-autopart --type=btrfs --noswap
+autopart --type=btrfs --noswap --nohome
 {{- else if eq .part "plain" -}}
-autopart --type=plain
+autopart --type=plain --nohome
 {{- else -}}
-autopart --type=plain
+autopart --type=plain --nohome
 {{- end }}
 
 #

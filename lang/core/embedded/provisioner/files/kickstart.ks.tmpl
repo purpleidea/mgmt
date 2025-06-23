@@ -90,15 +90,36 @@ fi
 %end
 %include /tmp/ignoredisk.ks
 
+# XXX: We use --passphrase="password" as a temp password since "" doesn't work!
 zerombr
 clearpart --all --initlabel --disklabel={{ if .bios }}msdos{{ else }}gpt{{ end }}
 {{ if eq .part "btrfs" -}}
-autopart --type=btrfs --noswap --nohome
+autopart --type=btrfs --noswap --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
 {{- else if eq .part "plain" -}}
-autopart --type=plain --nohome
+autopart --type=plain --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
 {{- else -}}
-autopart --type=plain --nohome
+autopart --type=plain --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
 {{- end }}
+
+{{ if .luks -}}
+%post --interpreter=/bin/bash --log /root/post_partitioning.log --erroronfail
+# This runs in our chroot, so this file is /mnt/sysimage/etc/crypttab to the OS.
+
+# Assume only one LUKS root device for now.
+LUKS_DEV=$(blkid -t TYPE=crypto_LUKS -o device --list-one)
+echo -n 'password' > /tmp/password
+echo -n '' > /tmp/empty
+# Get cryptsetup to set this to an empty password! (This was hard.)
+#cryptsetup luksAddKey --new-key-slot=1 --force-password --key-file=/tmp/password $LUKS_DEV /tmp/empty
+cryptsetup luksChangeKey --key-slot=0 --force-password --key-file=/tmp/password $LUKS_DEV /tmp/empty
+
+# Add the try-empty-password option to boot non-interactively.
+sed -i '/^luks-/ s/$/,try-empty-password=true/' /etc/crypttab
+
+dracut --force --regenerate-all
+#update-initramfs -u # on debian (I think)
+%end
+{{ end -}}
 
 #
 #	repositories

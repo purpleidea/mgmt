@@ -568,6 +568,7 @@ class base:host($name, $config) {
 	panic(len($password) != 0 and len($password) != 106) # length of salted password
 
 	$part = $config->part || ""	# partitioning scheme
+	$luks = $config->luks || true	# enable luks encryption
 
 	$empty_list_str []str = []	# need an explicit type on empty list definition
 	$packages = $config->packages || $empty_list_str
@@ -826,6 +827,7 @@ class base:host($name, $config) {
 		password => $password,	# salted
 		bios => $bios,
 		part => $part,
+		luks => true, # set empty password
 		flavour => $flavour,
 		url => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
 		repos => {

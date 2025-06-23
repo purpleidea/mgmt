@@ -162,6 +162,12 @@ type localArgs struct {
 	// use the `plain` scheme.
 	Part string `arg:"--part" help:"partitioning scheme, read manual for details" func:"cli_part"` // eg: empty string for plain
 
+	// LUKS specifies that we're encrypting the volumes, and using an empty
+	// password! This is done so that you can non-interactively boot for the
+	// first time and run your automation tool. You should set the password
+	// after first boot, either manually or with automation tooling!
+	LUKS bool `arg:"--luks" default:"true" help:"add an empty LUKS password (change it after first boot)" func:"cli_luks"`
+
 	// Packages are a list of additional distro packages to install. It's up
 	// to the user to make sure they exist and don't conflict with each
 	// other or the base installation packages.

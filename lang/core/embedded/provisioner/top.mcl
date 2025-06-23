@@ -77,6 +77,7 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	bios => provisioner.cli_bios(), # false or absent means use uefi
 	password => provisioner.cli_password(),	# openssl passwd -6
 	part => provisioner.cli_part(),
+	luks => provisioner.cli_luks(),
 	packages => provisioner.cli_packages(),
 	#provision => true,	# default if unspecified
 	handoff => $handoff, # alternatively some code word or querystring

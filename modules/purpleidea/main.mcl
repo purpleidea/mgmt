@@ -43,6 +43,7 @@ class base() {
 			"nethogs",
 			"net-tools", # for netstat
 			"nmap",
+			"openssl",
 			"psmisc", # for pstree
 			"screen",
 			"socat",
@@ -67,6 +68,7 @@ class base() {
 			"nethogs",
 			"net-tools", # for netstat
 			"nmap",
+			"openssl",
 			"psmisc", # for pstree
 			"screen",
 			"socat",

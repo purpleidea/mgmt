@@ -50,6 +50,8 @@ class base() {
 		owner => "root",
 		group => "lp", # TODO: debian?
 		mode => "u=rwx,go=rx", # dir
+
+		Before => Svc["cups"],
 	}
 
 	file "/etc/cups/printers.conf" {
@@ -64,6 +66,9 @@ class base() {
 
 		Before => Exec["restorecon"],
 		Notify => Svc["cups"],
+		Before => Svc["cups"],
+		Depend => File["${vardir}printers.conf.header"],
+		Depend => File["${vardir}printers.d/"],
 	}
 
 	exec "restorecon" {
@@ -72,6 +77,7 @@ class base() {
 		# XXX: or even better, instead of snippets which exec mgmt stuff, they turn into pure golang equivalents...
 		#ifcmd => "mgmt:changed /etc/cups/", # XXX: implement this
 		#watchcmd => "mgmt:dir /etc/cups/", # XXX: implement this
+		Depend => File["/etc/cups/printers.conf"],
 	}
 
 	svc "cups" {
@@ -145,6 +151,8 @@ class base:printer($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Depend => File["${vardir}printers.d/"],
 	}
 
 	file "/etc/cups/ppd/${name}.ppd" {
@@ -158,6 +166,7 @@ class base:printer($name, $st) {
 
 		Before => Exec["restorecon"],
 		Notify => Svc["cups"],
+		Depend => File["/etc/cups/"], # ppd folder comes from package
 	}
 
 	if $default {

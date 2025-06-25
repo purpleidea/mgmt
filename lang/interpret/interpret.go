@@ -291,7 +291,14 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table map[interfaces.Func
 
 	// ensure that we have a DAG!
 	if _, err := graph.TopologicalSort(); err != nil {
-		// TODO: print information on the cycles
+		errNotAcyclic, ok := err.(*pgraph.ErrNotAcyclic)
+		if !ok {
+			return nil, err // programming error
+		}
+		obj.Logf("%s", err)
+		for _, vertex := range errNotAcyclic.Cycle {
+			obj.Logf("* %s", vertex)
+		}
 		return nil, errwrap.Wrapf(err, "resource graph has cycles")
 	}
 

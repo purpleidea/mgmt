@@ -31,7 +31,6 @@
 package pgraph
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -40,7 +39,15 @@ import (
 )
 
 // ErrNotAcyclic specifies that a particular graph was not found to be a dag.
-var ErrNotAcyclic = errors.New("not a dag")
+type ErrNotAcyclic struct {
+	Cycle []Vertex
+}
+
+// Error lets this satisfy the error interface.
+func (obj *ErrNotAcyclic) Error() string {
+	//return fmt.Sprintf("not a dag: %v", obj.Cycle)
+	return "not a dag"
+}
 
 // Graph is the graph structure in this library. The graph abstract data type
 // (ADT) is defined as follows:
@@ -667,13 +674,73 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 		if in > 0 {
 			for n := range g.adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, ErrNotAcyclic
+					cycle := g.findCycleDFS(c)
+					if len(cycle) == 0 {
+						// Hopefully this doesn't happen!
+						return nil, fmt.Errorf("programming error")
+					}
+					return nil, &ErrNotAcyclic{Cycle: cycle}
 				}
 			}
 		}
 	}
 
 	return L, nil
+}
+
+// findCycleDFS is a helper for the TopologicalSort functions.
+// XXX: A professional should look over this function and try and find issues.
+func (g *Graph) findCycleDFS(start Vertex) []Vertex {
+	visited := make(map[Vertex]bool)
+	stack := make(map[Vertex]bool)
+	var path []Vertex
+	var result []Vertex
+	found := false
+
+	var dfs func(Vertex) bool
+	dfs = func(v Vertex) bool {
+		if found {
+			return true
+		}
+		visited[v] = true
+		stack[v] = true
+		path = append(path, v)
+
+		for n := range g.adjacency[v] {
+			if !visited[n] {
+				if dfs(n) {
+					return true
+				}
+			} else if stack[n] {
+				// cycle detected
+				idx := len(path) - 1
+				for idx >= 0 && path[idx] != n {
+					idx--
+				}
+				if idx >= 0 {
+					result = append([]Vertex{}, path[idx:]...)
+					result = append(result, n) // close the cycle
+					found = true
+					return true
+				}
+			}
+		}
+
+		stack[v] = false
+		path = path[:len(path)-1]
+		return false
+	}
+
+	// run DFS from all potentially cyclic nodes
+	for v := range g.adjacency {
+		if !visited[v] {
+			if dfs(v) {
+				break
+			}
+		}
+	}
+
+	return result
 }
 
 // DeterministicTopologicalSort returns the sort of graph vertices in a stable
@@ -731,7 +798,12 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 		if in > 0 {
 			for n := range g.adjacency[c] {
 				if remaining[n] > 0 {
-					return nil, ErrNotAcyclic
+					cycle := g.findCycleDFS(c)
+					if len(cycle) == 0 {
+						// Hopefully this doesn't happen!
+						return nil, fmt.Errorf("programming error")
+					}
+					return nil, &ErrNotAcyclic{Cycle: cycle}
 				}
 			}
 		}

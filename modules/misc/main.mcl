@@ -41,19 +41,26 @@ import "world/collect"
 # key doesn't exist.
 # TODO: add more parameters such as key size and type in the future
 class ssh_keygen($user) {
+	include ssh_keygen_type($user, "ed25519")
+}
+
+# $type is rsa or ed25519
+class ssh_keygen_type($user, $type) {
 	panic($user == "") # panic if $user is empty
+	panic($type == "") # panic if $type is empty
+	panic($type != "rsa" and $type != "ed25519") # panic if $type is invalid
 	$p = os.expand_home("~${user}/") # eg: ~james/
 	exec "ssh-keygen-${user}" {
 		cmd => "/usr/bin/ssh-keygen",
 		args => [
-		        "-t", "rsa", # type
-		        "-f", "${p}.ssh/id_rsa", # private key file
+		        "-t", "${type}", # type
+		        "-f", "${p}.ssh/id_${type}", # private key file
 		        "-N", "", # empty password
 		],
-		creates => "${p}.ssh/id_rsa",
+		creates => "${p}.ssh/id_${type}",
 		user => $user,
 
-		Before => File["${p}.ssh/id_rsa"],
+		Before => File["${p}.ssh/id_${type}"],
 	}
 	# This also serves as a "handle" so that other resources can depend on
 	# this file getting created before they run.
@@ -62,15 +69,17 @@ class ssh_keygen($user) {
 		mode => "u=rwx,go=",
 		owner => $user,
 	}
-	file "${p}.ssh/id_rsa" {
+	file "${p}.ssh/id_${type}" {
 		mode => "u=rw,go=",
 		owner => $user,
+
+		Depend => File["${p}.ssh/"],
 	}
 
 	line "${user}@${hostname}" {
 		#file => "", # specified on collect
 		#state => "exists", # specified on collect
-		content => os.readfilewait("${p}.ssh/id_rsa.pub"),
+		content => os.readfilewait("${p}.ssh/id_${type}.pub"),
 
 		Meta:hidden => true,
 		Meta:export => ["*",],

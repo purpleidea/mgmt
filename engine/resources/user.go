@@ -35,6 +35,7 @@ import (
 	"io"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -127,6 +128,11 @@ func (obj *UserRes) Validate() error {
 			}
 		}
 	}
+
+	if obj.HomeDir != nil && !strings.HasSuffix(*obj.HomeDir, "/") {
+		return fmt.Errorf("the HomeDir should end with a slash")
+	}
+
 	return nil
 }
 
@@ -223,7 +229,21 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		if obj.GID != nil && int(*obj.GID) != intGID {
 			usercheck = false
 		}
-		if obj.HomeDir != nil && *obj.HomeDir != usr.HomeDir {
+
+		// The usermod function will error trying to change /home/james
+		// to /home/james/ when he's logged in, *AND* it won't actually
+		// update the string in the /etc/passwd file during normal exec
+		// of the function. To avoid all this cmp these two identically.
+		cmpHomeDir := func(h1, h2 string) error {
+			if h1 == h2 {
+				return nil
+			}
+			if filepath.Clean(h1) == filepath.Clean(h2) {
+				return nil
+			}
+			return fmt.Errorf("did not match")
+		}
+		if obj.HomeDir != nil && cmpHomeDir(*obj.HomeDir, usr.HomeDir) != nil {
 			usercheck = false
 		}
 		if obj.Shell != nil && *obj.Shell != shell {

@@ -464,6 +464,56 @@ func TestTopoSort2(t *testing.T) {
 	}
 }
 
+func TestTopoSort3(t *testing.T) {
+	G, _ := NewGraph("g11")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	v5 := NV("v5")
+	v6 := NV("v6")
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+	e5 := NE("e5")
+	e6 := NE("e6")
+	G.AddEdge(v1, v2, e1)
+	G.AddEdge(v2, v3, e2)
+	G.AddEdge(v3, v4, e3)
+	G.AddEdge(v4, v5, e4)
+	G.AddEdge(v5, v6, e5)
+	G.AddEdge(v4, v2, e6) // cycle
+
+	G.ExecGraphviz("/tmp/g.dot")
+
+	_, err := G.TopologicalSort()
+	if err == nil {
+		t.Errorf("topological sort passed, but graph is cyclic")
+		return
+	}
+	errNotAcyclic, ok := err.(*ErrNotAcyclic)
+	if !ok {
+		t.Errorf("wrong kind of error, got: %v", err)
+		return
+	}
+	cycle := errNotAcyclic.Cycle
+
+	t.Logf("cycle: %v", cycle)
+	if len(cycle) < 2 {
+		t.Errorf("cycle is too short")
+	}
+	cycle1 := []Vertex{v2, v3, v4, v2}
+	cycle2 := []Vertex{v3, v4, v2, v3}
+	cycle3 := []Vertex{v4, v2, v3, v4}
+	b1 := reflect.DeepEqual(cycle, cycle1)
+	b2 := reflect.DeepEqual(cycle, cycle2)
+	b3 := reflect.DeepEqual(cycle, cycle3)
+	if !b1 && !b2 && !b3 {
+		t.Errorf("cycle didn't match")
+	}
+}
+
 // empty
 func TestReachability0(t *testing.T) {
 	{

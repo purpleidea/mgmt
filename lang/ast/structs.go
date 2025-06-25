@@ -1820,7 +1820,7 @@ func (obj *StmtResField) TypeCheck(kind string) ([]*interfaces.UnificationInvari
 
 	typExpr, exists := typMap[obj.Field]
 	if !exists {
-		return nil, fmt.Errorf("field `%s` does not exist in `%s`", obj.Field, kind)
+		return nil, fmt.Errorf("field `%s` does not exist in `%s` resource", obj.Field, kind)
 	}
 	if typExpr == nil {
 		// possible programming error

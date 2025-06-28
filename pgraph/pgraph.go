@@ -440,14 +440,10 @@ func (g *Graph) Logf(logf func(format string, v ...interface{})) {
 // IncomingGraphVertices returns an array (slice) of all directed vertices to
 // vertex v (??? -> v). OKTimestamp should probably use this.
 func (g *Graph) IncomingGraphVertices(v Vertex) []Vertex {
-	// TODO: we might be able to implement this differently by reversing
-	// the Adjacency graph and then looping through it again...
 	var s []Vertex
 	for k := range g.adjacency { // reverse paths
-		for w := range g.adjacency[k] {
-			if w == v {
-				s = append(s, k)
-			}
+		if _, exists := g.adjacency[k][v]; exists {
+			s = append(s, k)
 		}
 	}
 	return s

@@ -114,7 +114,7 @@ func (obj *ChannelBasedSourceFunc) Stream(ctx context.Context) error {
 	}
 }
 
-// XXX: Is is correct to implement this here for this particular function?
+// XXX: Is it correct to implement this here for this particular function?
 // XXX: tricky since this really receives input from a secret channel...
 // XXX: ADD A MUTEX AROUND READING obj.last ???
 //func (obj *ChannelBasedSourceFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {

@@ -30,6 +30,7 @@
 package puppet
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -76,8 +77,8 @@ type GAPI struct {
 	puppetConf  string
 	data        *gapi.Data
 	initialized bool
-	closeChan   chan struct{}
 	wg          sync.WaitGroup
+	err         error
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -239,7 +240,6 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		}
 	}
 
-	obj.closeChan = make(chan struct{})
 	obj.initialized = true
 	return nil
 }
@@ -251,8 +251,8 @@ func (obj *GAPI) Info() *gapi.InfoResult {
 	}
 }
 
-// Graph returns a current Graph.
-func (obj *GAPI) Graph() (*pgraph.Graph, error) {
+// graph returns a current Graph.
+func (obj *GAPI) graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
 		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
@@ -268,21 +268,29 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 }
 
 // Next returns nil errors every time there could be a new graph.
-func (obj *GAPI) Next() chan gapi.Next {
+func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 	puppetChan := func() <-chan time.Time { // helper function
 		return time.Tick(time.Duration(obj.refreshInterval()) * time.Second)
 	}
 	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
+		defer obj.cleanup()
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
+			err := fmt.Errorf("%s: GAPI is not initialized", Name)
 			next := gapi.Next{
-				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
+				Err:  err,
 				Exit: true, // exit, b/c programming error?
 			}
-			ch <- next
+			select {
+			case ch <- next:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
+				return
+			}
+			obj.err = err
 			return
 		}
 		startChan := make(chan struct{}) // start signal
@@ -304,24 +312,34 @@ func (obj *GAPI) Next() chan gapi.Next {
 				if !ok { // the channel closed!
 					return
 				}
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
 				return
 			}
 
-			obj.data.Logf("generating new graph...")
 			if obj.data.NoStreamWatch {
 				pChan = nil
 			} else {
 				pChan = puppetChan() // TODO: okay to update interval in case it changed?
 			}
+
+			obj.data.Logf("generating new graph...")
+			g, err := obj.graph()
+			if err != nil {
+				obj.err = err
+				return
+			}
+
 			next := gapi.Next{
+				Graph: g,
 				//Exit: true, // TODO: for permanent shutdown!
 				Err: nil,
 			}
 			select {
 			case ch <- next: // trigger a run (send a msg)
 			// unblock if we exit while waiting to send!
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
 				return
 			}
 		}
@@ -329,8 +347,15 @@ func (obj *GAPI) Next() chan gapi.Next {
 	return ch
 }
 
-// Close shuts down the Puppet GAPI.
-func (obj *GAPI) Close() error {
+// Err will contain the last error when Next shuts down. It waits for all the
+// running processes to exit before it returns.
+func (obj *GAPI) Err() error {
+	obj.wg.Wait()
+	return obj.err
+}
+
+// cleanup cleans up the Puppet GAPI.
+func (obj *GAPI) cleanup() error {
 	if !obj.initialized {
 		return fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
@@ -347,7 +372,6 @@ func (obj *GAPI) Close() error {
 		os.Remove(obj.puppetConf)
 	}
 
-	close(obj.closeChan)
 	obj.wg.Wait()
 	obj.initialized = false // closed = true
 	return nil

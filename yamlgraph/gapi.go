@@ -30,6 +30,7 @@
 package yamlgraph
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -60,6 +61,7 @@ type GAPI struct {
 	initialized bool
 	closeChan   chan struct{}
 	wg          sync.WaitGroup // sync group for tunnel go routines
+	err         error
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -120,8 +122,8 @@ func (obj *GAPI) Info() *gapi.InfoResult {
 	}
 }
 
-// Graph returns a current Graph.
-func (obj *GAPI) Graph() (*pgraph.Graph, error) {
+// graph returns a current Graph.
+func (obj *GAPI) graph() (*pgraph.Graph, error) {
 	if !obj.initialized {
 		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
@@ -154,23 +156,27 @@ func (obj *GAPI) Graph() (*pgraph.Graph, error) {
 }
 
 // Next returns nil errors every time there could be a new graph.
-func (obj *GAPI) Next() chan gapi.Next {
+func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
+			err := fmt.Errorf("%s: GAPI is not initialized", Name)
 			next := gapi.Next{
-				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
+				Err:  err,
 				Exit: true, // exit, b/c programming error?
 			}
-			ch <- next
+			select {
+			case ch <- next:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
+				return
+			}
+			obj.err = err
 			return
 		}
-		// FIXME: add timeout to context
-		//ctx, cancel := context.WithCancel(context.Background())
-		//defer cancel()
 
 		startChan := make(chan struct{}) // start signal
 		close(startChan)                 // kick it off!
@@ -203,12 +209,19 @@ func (obj *GAPI) Next() chan gapi.Next {
 				if !ok {
 					return
 				}
-			case <-obj.closeChan:
+			case <-ctx.Done():
 				return
 			}
 
 			obj.data.Logf("generating new graph...")
+			g, err := obj.graph()
+			if err != nil {
+				obj.err = err
+				return
+			}
+
 			next := gapi.Next{
+				Graph: g,
 				//Exit: true, // TODO: for permanent shutdown!
 				Err: err,
 			}
@@ -219,7 +232,7 @@ func (obj *GAPI) Next() chan gapi.Next {
 				//	return
 				//}
 			// unblock if we exit while waiting to send!
-			case <-obj.closeChan:
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -227,13 +240,9 @@ func (obj *GAPI) Next() chan gapi.Next {
 	return ch
 }
 
-// Close shuts down the yamlgraph GAPI.
-func (obj *GAPI) Close() error {
-	if !obj.initialized {
-		return fmt.Errorf("%s: GAPI is not initialized", Name)
-	}
-	close(obj.closeChan)
+// Err will contain the last error when Next shuts down. It waits for all the
+// running processes to exit before it returns.
+func (obj *GAPI) Err() error {
 	obj.wg.Wait()
-	obj.initialized = false // closed = true
-	return nil
+	return obj.err
 }

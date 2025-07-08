@@ -77,7 +77,6 @@ type GAPI struct {
 	Data *lang.Data
 
 	lang   *lang.Lang // lang struct
-	wgRun  *sync.WaitGroup
 	ctx    context.Context
 	cancel func()
 	reterr error
@@ -86,8 +85,8 @@ type GAPI struct {
 	// can not be used inside the Cli(...) method.
 	data        *gapi.Data
 	initialized bool
-	closeChan   chan struct{}
 	wg          *sync.WaitGroup // sync group for tunnel go routines
+	err         error
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -511,17 +510,9 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		return fmt.Errorf("the InputURI param must be specified")
 	}
 	obj.data = data // store for later
-	obj.closeChan = make(chan struct{})
 	obj.wg = &sync.WaitGroup{}
 	obj.initialized = true
-	return nil
-}
 
-// LangInit is a wrapper around the lang Init method.
-func (obj *GAPI) LangInit(ctx context.Context) error {
-	if obj.lang != nil {
-		return nil // already ran init, close first!
-	}
 	if obj.InputURI == "-" {
 		return fmt.Errorf("stdin passthrough is not supported at this time")
 	}
@@ -548,39 +539,11 @@ func (obj *GAPI) LangInit(ctx context.Context) error {
 			obj.data.Logf(Name+": "+format, v...)
 		},
 	}
-	if err := lang.Init(ctx); err != nil {
+	if err := lang.Init(context.TODO()); err != nil { // XXX: CTX?
 		return errwrap.Wrapf(err, "can't init the lang")
 	}
 	obj.lang = lang // once we can't fail, store the struct...
 
-	// XXX: I'm certain I've probably got a deadlock or race somewhere here
-	// or in lib/main.go so we'll fix it with an API fixup and rewrite soon
-	obj.wgRun = &sync.WaitGroup{}
-	obj.ctx, obj.cancel = context.WithCancel(context.Background())
-	obj.wgRun.Add(1)
-	go func() {
-		defer obj.wgRun.Done()
-		obj.reterr = obj.lang.Run(obj.ctx)
-		if obj.reterr == nil {
-			return
-		}
-		// XXX: Temporary extra logging for catching bugs!
-		obj.data.Logf(Name+": %+v", obj.reterr)
-	}()
-
-	return nil
-}
-
-// LangClose is a wrapper around the lang Close method.
-func (obj *GAPI) LangClose() error {
-	if obj.lang != nil {
-		obj.cancel()
-		obj.wgRun.Wait()
-		err := obj.lang.Cleanup()
-		err = errwrap.Append(err, obj.reterr)             // from obj.lang.Run
-		obj.lang = nil                                    // clear it to avoid double closing
-		return errwrap.Wrapf(err, "can't close the lang") // nil passthrough
-	}
 	return nil
 }
 
@@ -591,33 +554,21 @@ func (obj *GAPI) Info() *gapi.InfoResult {
 	}
 }
 
-// Graph returns a current Graph.
-func (obj *GAPI) Graph() (*pgraph.Graph, error) {
-	if !obj.initialized {
-		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
-	}
-
-	g, err := obj.lang.Interpret()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "%s: interpret error", Name)
-	}
-
-	return g, nil
-}
-
 // Next returns nil errors every time there could be a new graph.
-func (obj *GAPI) Next() chan gapi.Next {
-	// TODO: This ctx stuff is temporary until we improve the Next() API.
-	ctx, cancel := context.WithCancel(context.Background())
+func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
+	ch := make(chan gapi.Next)
+
 	obj.wg.Add(1)
 	go func() {
+		defer obj.lang.Cleanup() // after everyone closes
+		defer obj.wg.Wait()      // wait before cleanup
 		defer obj.wg.Done()
-		select {
-		case <-obj.closeChan:
-			cancel() // close the ctx to unblock type unification
-		}
+		err := obj.lang.Run(ctx)
+		// XXX: Temporary extra logging for catching bugs!
+		obj.data.Logf(Name+": %+v", err)
+		obj.err = err
 	}()
-	ch := make(chan gapi.Next)
+
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
@@ -629,99 +580,38 @@ func (obj *GAPI) Next() chan gapi.Next {
 			}
 			select {
 			case ch <- next:
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
 			}
 			return
 		}
-		startChan := make(chan struct{}) // start signal
-		close(startChan)                 // kick it off!
 
-		streamChan := make(<-chan error)
-		//defer obj.LangClose() // close any old lang
+		streamChan := obj.lang.Stream(ctx)
 
 		var ok bool
 		for {
-			var err error
-			var langSwap bool // do we need to swap the lang object?
+			var graph *pgraph.Graph
 			select {
-			// TODO: this should happen in ConfigWatch instead :)
-			case <-startChan: // kick the loop once at start
-				startChan = nil // disable
-				err = nil       // set nil as the message to send
-				langSwap = true
-
-			case err, ok = <-streamChan: // a variable changed
+			case graph, ok = <-streamChan: // a variable changed
 				if !ok { // the channel closed!
 					return
 				}
 
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
 				return
 			}
 			obj.data.Logf("generating new graph...")
 
-			// skip this to pass through the err if present
-			// XXX: redo this old garbage code
-			if langSwap && err == nil {
-				obj.data.Logf("swap!")
-				// run up to these three but fail on err
-				if e := obj.LangClose(); e != nil { // close any old lang
-					err = e // pass through the err
-				} else if e := obj.LangInit(ctx); e != nil { // init the new one!
-					err = e // pass through the err
-
-					// Always run LangClose after LangInit
-					// when done. This is currently needed
-					// because we should tell the lang obj
-					// to shut down all the running facts.
-					if e := obj.LangClose(); e != nil {
-						err = errwrap.Append(err, e) // list of errors
-					}
-				} else {
-
-					if obj.data.NoStreamWatch { // TODO: do we want to allow this for the lang?
-						obj.data.Logf("warning: language will not stream")
-						// send only one event
-						limitChan := make(chan error)
-						obj.wg.Add(1)
-						go func() {
-							defer obj.wg.Done()
-							defer close(limitChan)
-							select {
-							// only one
-							case err, ok := <-obj.lang.Stream():
-								if !ok {
-									return
-								}
-								select {
-								case limitChan <- err:
-								case <-obj.closeChan:
-									return
-								}
-							case <-obj.closeChan:
-								return
-							}
-						}()
-						streamChan = limitChan
-					} else {
-						// stream for lang events
-						streamChan = obj.lang.Stream() // update stream
-					}
-					continue // wait for stream to trigger
-				}
-			}
-
 			next := gapi.Next{
-				Exit: err != nil, // TODO: do we want to shutdown?
-				Err:  err,
+				Graph: graph,
 			}
 			select {
 			case ch <- next: // trigger a run (send a msg)
-				if err != nil {
-					return
-				}
+
 			// unblock if we exit while waiting to send!
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
 				return
 			}
 		}
@@ -729,14 +619,9 @@ func (obj *GAPI) Next() chan gapi.Next {
 	return ch
 }
 
-// Close shuts down the lang GAPI.
-func (obj *GAPI) Close() error {
-	if !obj.initialized {
-		return fmt.Errorf("%s: GAPI is not initialized", Name)
-	}
-	close(obj.closeChan)
+// Err will contain the last error when Next shuts down. It waits for all the
+// running processes to exit before it returns.
+func (obj *GAPI) Err() error {
 	obj.wg.Wait()
-	obj.LangClose()         // close lang, esp. if blocked in Stream() wait
-	obj.initialized = false // closed = true
-	return nil
+	return obj.err
 }

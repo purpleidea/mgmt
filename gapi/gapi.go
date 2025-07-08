@@ -31,6 +31,7 @@
 package gapi
 
 import (
+	"context"
 	"encoding/gob"
 	"fmt"
 
@@ -111,6 +112,9 @@ type Data struct {
 
 // Next describes the particular response the GAPI implementer wishes to emit.
 type Next struct {
+	// Graph returns the current resource graph.
+	Graph *pgraph.Graph
+
 	// FIXME: the Fast pause parameter should eventually get replaced with a
 	// "SwitchMethod" parameter or similar that instead lets the implementer
 	// choose between fast pause, slow pause, and interrupt. Interrupt could
@@ -144,18 +148,11 @@ type GAPI interface {
 	// Info returns some data about the GAPI implementation.
 	Info() *InfoResult
 
-	// Graph returns the most recent pgraph. This is called by the engine on
-	// every event from Next().
-	Graph() (*pgraph.Graph, error)
+	// Next returns a stream of events. Each next event contains a resource
+	// graph.
+	Next(ctx context.Context) chan Next
 
-	// Next returns a stream of switch events. The engine will run Graph()
-	// to build a new graph after every Next event.
-	// TODO: add context for shutting down to the input and change Close to Cleanup
-	Next() chan Next
-
-	// Close shuts down the GAPI. It asks the GAPI to close, and must cause
-	// Next() to unblock even if is currently blocked and waiting to send a
-	// new event.
-	// TODO: change Close to Cleanup
-	Close() error
+	// Err will contain the last error when Next shuts down. It waits for
+	// all the running processes to exit before it returns.
+	Err() error
 }

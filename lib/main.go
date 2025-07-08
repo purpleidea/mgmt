@@ -703,6 +703,10 @@ func (obj *Main) Run() error {
 			// The GAPI should always kick off an event on Next() at
 			// startup when (and if) it indeed has a graph to share!
 			fastPause := false
+
+			var next gapi.Next // active GAPI next struct
+			var ok bool
+
 			select {
 			case deploy, ok := <-deployChan:
 				if !ok { // channel closed
@@ -711,10 +715,6 @@ func (obj *Main) Run() error {
 
 					if gapiImpl != nil { // currently running...
 						gapiChan = nil
-						if err := gapiImpl.Close(); err != nil {
-							err = errwrap.Wrapf(err, "the gapi closed poorly")
-							Logf("deploy: gapi: final close failed: %+v", err)
-						}
 					}
 
 					if started {
@@ -741,10 +741,6 @@ func (obj *Main) Run() error {
 
 				if gapiImpl != nil { // currently running...
 					gapiChan = nil
-					if err := gapiImpl.Close(); err != nil {
-						err = errwrap.Wrapf(err, "the gapi closed poorly")
-						Logf("deploy: gapi: close failed: %+v", err)
-					}
 				}
 				gapiImpl = gapiObj // copy it to active
 
@@ -770,17 +766,18 @@ func (obj *Main) Run() error {
 				if err := gapiImpl.Init(data); err != nil {
 					Logf("gapi: init failed: %+v", err)
 					// TODO: consider running previous GAPI?
-				} else {
-					if obj.Debug {
-						Logf("gapi: next...")
-					}
-					// this must generate at least one event for it to work
-					gapiChan = gapiImpl.Next() // stream of graph switch events!
-					gapiInfoResult = gapiImpl.Info()
+					continue
 				}
+
+				if obj.Debug {
+					Logf("gapi: next...")
+				}
+				// this must generate at least one event for it to work
+				gapiChan = gapiImpl.Next(exitCtx) // stream of graph switch events!
+				gapiInfoResult = gapiImpl.Info()
 				continue
 
-			case next, ok := <-gapiChan:
+			case next, ok = <-gapiChan:
 				if !ok { // channel closed
 					if obj.Debug {
 						Logf("gapi exited")
@@ -819,11 +816,7 @@ func (obj *Main) Run() error {
 
 			// make the graph from yaml, lib, puppet->yaml, or mcl!
 			timing = time.Now()
-			newGraph, err := gapiImpl.Graph() // generate graph!
-			if err != nil {
-				Logf("error creating new graph: %+v", err)
-				continue
-			}
+			newGraph := next.Graph // get graph!
 			Logf("new graph took: %s", time.Since(timing))
 			if obj.Debug {
 				Logf("new graph: %+v", newGraph)
@@ -1012,10 +1005,6 @@ func (obj *Main) Run() error {
 				// block gapi until a newDeploy comes in...
 				if gapiImpl != nil { // currently running...
 					gapiChan = nil
-					if err := gapiImpl.Close(); err != nil {
-						err = errwrap.Wrapf(err, "the gapi closed poorly")
-						Logf("deploy: gapi: close failed: %+v", err)
-					}
 				}
 				continue // stay paused
 			}

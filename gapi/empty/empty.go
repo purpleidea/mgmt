@@ -30,6 +30,7 @@
 package empty
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -62,8 +63,8 @@ type GAPI struct {
 
 	data        *gapi.Data
 	initialized bool
-	closeChan   chan struct{}
 	wg          *sync.WaitGroup // sync group for tunnel go routines
+	err         error
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -91,7 +92,6 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		return fmt.Errorf("already initialized")
 	}
 	obj.data = data // store for later
-	obj.closeChan = make(chan struct{})
 	obj.wg = &sync.WaitGroup{}
 	obj.initialized = true
 	return nil
@@ -104,64 +104,58 @@ func (obj *GAPI) Info() *gapi.InfoResult {
 	}
 }
 
-// Graph returns a current Graph.
-func (obj *GAPI) Graph() (*pgraph.Graph, error) {
-	if !obj.initialized {
-		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
-	}
-
-	obj.data.Logf("generating empty graph...")
-	g, err := pgraph.NewGraph("empty")
-	if err != nil {
-		return nil, err
-	}
-
-	return g, nil
-}
-
 // Next returns nil errors every time there could be a new graph.
-func (obj *GAPI) Next() chan gapi.Next {
+func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 	ch := make(chan gapi.Next)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
+			err := fmt.Errorf("%s: GAPI is not initialized", Name)
 			next := gapi.Next{
-				Err:  fmt.Errorf("%s: GAPI is not initialized", Name),
+				Err:  err,
 				Exit: true, // exit, b/c programming error?
 			}
 			select {
 			case ch <- next:
-			case <-obj.closeChan:
+			case <-ctx.Done():
+				obj.err = ctx.Err()
+				return
 			}
+			obj.err = err
+			return
+		}
+
+		obj.data.Logf("generating empty graph...")
+		g, err := pgraph.NewGraph("empty")
+		if err != nil {
+			obj.err = err
 			return
 		}
 
 		// send only one event
 		next := gapi.Next{
-			Exit: false,
-			Err:  nil,
+			Graph: g,
+			Exit:  false,
+			Err:   nil,
 		}
 		select {
 		case ch <- next: // trigger a run (send a msg)
 			// pass
 
 		// unblock if we exit while waiting to send!
-		case <-obj.closeChan:
+		case <-ctx.Done():
+			obj.err = ctx.Err()
 			return
 		}
 	}()
 	return ch
 }
 
-// Close shuts down the lang GAPI.
-func (obj *GAPI) Close() error {
-	if !obj.initialized {
-		return fmt.Errorf("%s: GAPI is not initialized", Name)
-	}
-	close(obj.closeChan)
+// Err will contain the last error when Next shuts down. It waits for all the
+// running processes to exit before it returns.
+func (obj *GAPI) Err() error {
 	obj.wg.Wait()
-	obj.initialized = false // closed = true
-	return nil
+	return obj.err
 }

@@ -363,7 +363,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"outputElem1" -> "outputListFunc"
 	//	"outputElem2" -> "outputListFunc"
 	//
-	//	"outputListFunc" -> "subgraphOutput"
+	//	"outputListFunc" -> "mapSubgraphOutput"
 	// }
 
 	const channelBasedSinkFuncArgNameEdgeName = structs.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
@@ -377,7 +377,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	obj.outputChan = make(chan types.Value)
 	subgraphOutput := &structs.ChannelBasedSinkFunc{
-		Name:     "subgraphOutput",
+		Name:     "mapSubgraphOutput",
 		Target:   obj,
 		EdgeName: channelBasedSinkFuncArgNameEdgeName,
 		Chan:     obj.outputChan,

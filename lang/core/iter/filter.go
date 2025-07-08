@@ -314,7 +314,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"filterCombineList0" -> "outputListFunc"
 	//	"filterCombineList1" -> "outputListFunc"
 	//	"filterCombineList2" -> "outputListFunc"
-	//	"outputListFunc" -> "subgraphOutput"
+	//	"outputListFunc" -> "filterSubgraphOutput"
 	// }
 	const channelBasedSinkFuncArgNameEdgeName = structs.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
 
@@ -333,7 +333,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// create the new subgraph
 	obj.outputChan = make(chan types.Value)
 	subgraphOutput := &structs.ChannelBasedSinkFunc{
-		Name:     "subgraphOutput",
+		Name:     "filterSubgraphOutput",
 		Target:   obj,
 		EdgeName: channelBasedSinkFuncArgNameEdgeName,
 		Chan:     obj.outputChan,

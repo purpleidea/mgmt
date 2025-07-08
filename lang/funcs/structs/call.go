@@ -212,7 +212,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	//   ArgVertices[1] -> ...
 	//   ArgVertices[2] -> ...
 	//
-	//   outputFunc -> "subgraphOutput"
+	//   outputFunc -> "callSubgraphOutput"
 	// }
 
 	// delete the old subgraph
@@ -233,7 +233,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	obj.outputChan = make(chan types.Value)
 	edgeName := ChannelBasedSinkFuncArgName
 	subgraphOutput := &ChannelBasedSinkFunc{
-		Name:     "subgraphOutput",
+		Name:     "callSubgraphOutput",
 		Target:   obj,
 		EdgeName: edgeName,
 		Chan:     obj.outputChan,

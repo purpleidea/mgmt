@@ -37,7 +37,6 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
-	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -74,7 +73,7 @@ type Interpreter struct {
 // requires an AST, and the table of values required to populate that AST. Type
 // unification, and earlier steps should obviously be run first so that you can
 // actually get a useful resource graph out of this instead of an error!
-func (obj *Interpreter) Interpret(ast interfaces.Stmt, table map[interfaces.Func]types.Value) (*pgraph.Graph, error) {
+func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (*pgraph.Graph, error) {
 
 	// build the kind,name -> res mapping
 	obj.lookup = make(map[engine.ResPtrUID]engine.Res)

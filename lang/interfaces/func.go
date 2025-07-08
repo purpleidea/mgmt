@@ -44,6 +44,9 @@ import (
 // FuncSig is the simple signature that is used throughout our implementations.
 type FuncSig = func(context.Context, []types.Value) (types.Value, error)
 
+// Table is the type of language table fields.
+type Table = map[Func]types.Value
+
 // GraphSig is the simple signature that is used throughout our implementations.
 // TODO: Rename this?
 type GraphSig = func(Txn, []Func) (Func, error)

@@ -94,7 +94,7 @@ type Stmt interface {
 	// Output returns the output that this "program" produces. This output
 	// is what is used to build the output graph. It requires the input
 	// table of values that are used to populate each function.
-	Output(map[Func]types.Value) (*Output, error)
+	Output(Table) (*Output, error)
 }
 
 // Expr represents an expression in the language. Expr implementations must have

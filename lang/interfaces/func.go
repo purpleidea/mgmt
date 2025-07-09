@@ -39,6 +39,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 )
 
 // FuncSig is the simple signature that is used throughout our implementations.
@@ -421,7 +422,9 @@ type Txn interface {
 }
 
 // StructToCallableArgs transforms the single value, graph representation of the
-// callable values into a linear, standard args list.
+// callable values into a linear, standard args list. The reverse of this
+// function is CallableArgsToStruct, with the caveat that this call looses any
+// argument names that there might have been.
 func StructToCallableArgs(st types.Value) ([]types.Value, error) {
 	args := []types.Value{}
 	if st == nil { // for functions that take no args
@@ -448,4 +451,37 @@ func StructToCallableArgs(st types.Value) ([]types.Value, error) {
 		args = append(args, v)
 	}
 	return args, nil
+}
+
+// CallableArgsToStruct transforms the list of args, call representation of the
+// graph represenation into a standard single struct value. Note, this is not
+// the exact reverse operation of StructToCallableArgs because the arg names are
+// lost when performing that operation.
+func CallableArgsToStruct(args []types.Value) (types.Value, error) {
+	m := make(map[string]*types.Type, len(args))
+	ord := []string{}
+	v := make(map[string]types.Value, len(args))
+	for i, arg := range args {
+		s := util.NumToAlpha(i) // invent an arg name
+		m[s] = arg.Type()
+		ord = append(ord, s)
+		v[s] = arg
+	}
+
+	si := &types.Type{
+		// input to functions are structs
+		Kind: types.KindStruct,
+		Map:  m,
+		Ord:  ord,
+	}
+	st := types.NewStruct(si)
+	st.V = v // pass it in directly to avoid the below second iteration...
+	//for i, value := range args {
+	//	arg := ord[i]
+	//	if err := st.Set(arg, value); err != nil {
+	//		return nil, err
+	//	}
+	//}
+
+	return st, nil
 }

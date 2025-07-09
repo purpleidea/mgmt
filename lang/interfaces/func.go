@@ -45,7 +45,17 @@ import (
 type FuncSig = func(context.Context, []types.Value) (types.Value, error)
 
 // Table is the type of language table fields.
-type Table = map[Func]types.Value
+type Table map[Func]types.Value
+
+// Copy duplicates this map from Func pointer to types.Value. It does not deep
+// copy the contained keys or values.
+func (obj Table) Copy() Table {
+	cp := make(Table, len(obj))
+	for k, v := range obj {
+		cp[k] = v
+	}
+	return cp
+}
 
 // GraphSig is the simple signature that is used throughout our implementations.
 // TODO: Rename this?

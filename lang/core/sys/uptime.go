@@ -31,9 +31,11 @@ package coresys
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -45,60 +47,86 @@ const (
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, UptimeFuncName, func() facts.Fact { return &UptimeFact{} })
+	funcs.ModuleRegister(ModuleName, UptimeFuncName, func() interfaces.Func { return &Uptime{} })
 }
 
-// UptimeFact is a fact which returns the current uptime of your system.
-type UptimeFact struct {
-	init *facts.Init
+// Uptime is a fact which returns the current uptime of your system.
+type Uptime struct {
+	init *interfaces.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *UptimeFact) String() string {
+func (obj *Uptime) String() string {
 	return UptimeFuncName
 }
 
+// Validate makes sure we've built our struct properly.
+func (obj *Uptime) Validate() error {
+	return nil
+}
+
 // Info returns some static info about itself.
-func (obj *UptimeFact) Info() *facts.Info {
-	return &facts.Info{
-		Pure:   false,
-		Memo:   false,
-		Output: types.TypeInt,
+func (obj *Uptime) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() int"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *UptimeFact) Init(init *facts.Init) error {
+func (obj *Uptime) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *UptimeFact) Stream(ctx context.Context) error {
+func (obj *Uptime) Stream(ctx context.Context) error {
 	defer close(obj.init.Output)
-	ticker := time.NewTicker(time.Duration(1) * time.Second)
 
-	startChan := make(chan struct{})
-	close(startChan)
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
+
+	ticker := time.NewTicker(time.Duration(1) * time.Second)
 	defer ticker.Stop()
+
+	// streams must generate an initial event on startup
+	// even though ticker will send one, we want to be faster to first event
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
+
 	for {
 		select {
 		case <-startChan:
-			startChan = nil
+			startChan = nil // disable
+
 		case <-ticker.C:
 			// send
+
 		case <-ctx.Done():
 			return nil
 		}
 
-		result, err := obj.Call(ctx)
+		result, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
 
 		select {
 		case obj.init.Output <- result:
+
 		case <-ctx.Done():
 			return nil
 		}
@@ -106,7 +134,7 @@ func (obj *UptimeFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *UptimeFact) Call(ctx context.Context) (types.Value, error) {
+func (obj *Uptime) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	uptime, err := uptime() // TODO: add ctx?
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not read uptime value")

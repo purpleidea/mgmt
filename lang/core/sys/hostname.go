@@ -34,7 +34,8 @@ import (
 	"fmt"
 
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
@@ -54,43 +55,58 @@ const (
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, HostnameFuncName, func() facts.Fact { return &HostnameFact{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, HostnameFuncName, func() interfaces.Func { return &Hostname{} }) // must register the fact and name
 }
 
-// HostnameFact is a function that returns the hostname.
+// Hostname is a function that returns the hostname.
 // TODO: support hostnames that change in the future.
-type HostnameFact struct {
-	init *facts.Init
+type Hostname struct {
+	init *interfaces.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *HostnameFact) String() string {
+func (obj *Hostname) String() string {
 	return HostnameFuncName
 }
 
-// Validate makes sure we've built our struct properly. It is usually unused for
-// normal facts that users can use directly.
-//func (obj *HostnameFact) Validate() error {
-//	return nil
-//}
+// Validate makes sure we've built our struct properly.
+func (obj *Hostname) Validate() error {
+	return nil
+}
 
 // Info returns some static info about itself.
-func (obj *HostnameFact) Info() *facts.Info {
-	return &facts.Info{
-		Output: types.NewType("str"),
+func (obj *Hostname) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() str"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *HostnameFact) Init(init *facts.Init) error {
+func (obj *Hostname) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
 // Stream returns the single value that this fact has, and then closes.
-func (obj *HostnameFact) Stream(ctx context.Context) error {
+func (obj *Hostname) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // signal that we're done sending
+
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
 
 	recurse := false // single file
 	recWatcher, err := recwatch.NewRecWatcher("/etc/hostname", recurse)
@@ -120,12 +136,13 @@ func (obj *HostnameFact) Stream(ctx context.Context) error {
 	bus.Signal(signals)
 
 	// streams must generate an initial event on startup
+	// XXX: recwatcher should eventually provide this for us
 	startChan := make(chan struct{}) // start signal
 	close(startChan)                 // kick it off!
 
 	for {
 		select {
-		case <-startChan: // kick the loop once at start
+		case <-startChan:
 			startChan = nil // disable
 
 		case _, ok := <-signals:
@@ -149,7 +166,7 @@ func (obj *HostnameFact) Stream(ctx context.Context) error {
 		}
 
 		// NOTE: We ask the actual machine instead of using obj.init.Hostname
-		value, err := obj.Call(ctx)
+		value, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -157,6 +174,7 @@ func (obj *HostnameFact) Stream(ctx context.Context) error {
 		select {
 		case obj.init.Output <- value:
 			// pass
+
 		case <-ctx.Done():
 			return nil
 		}
@@ -164,7 +182,7 @@ func (obj *HostnameFact) Stream(ctx context.Context) error {
 }
 
 // Call returns the result of this function.
-func (obj *HostnameFact) Call(ctx context.Context) (types.Value, error) {
+func (obj *Hostname) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	conn, err := util.SystemBusPrivateUsable()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "failed to connect to the private system bus")
@@ -183,7 +201,7 @@ func (obj *HostnameFact) Call(ctx context.Context) (types.Value, error) {
 	}, nil
 }
 
-func (obj *HostnameFact) getHostnameProperty(object dbus.BusObject, property string) (string, error) {
+func (obj *Hostname) getHostnameProperty(object dbus.BusObject, property string) (string, error) {
 	propertyObject, err := object.GetProperty("org.freedesktop.hostname1." + property)
 	if err != nil {
 		return "", errwrap.Wrapf(err, "failed to get org.freedesktop.hostname1.%s", property)

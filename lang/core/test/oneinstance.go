@@ -31,10 +31,12 @@ package coretest
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -92,29 +94,29 @@ func init() {
 	oneInstanceGMutex = &sync.Mutex{}
 	oneInstanceHMutex = &sync.Mutex{}
 
-	facts.ModuleRegister(ModuleName, OneInstanceAFuncName, func() facts.Fact {
-		return &OneInstanceFact{
+	funcs.ModuleRegister(ModuleName, OneInstanceAFuncName, func() interfaces.Func {
+		return &OneInstance{
 			Name:  OneInstanceAFuncName,
 			Mutex: oneInstanceAMutex,
 			Flag:  &oneInstanceAFlag,
 		}
 	}) // must register the fact and name
-	facts.ModuleRegister(ModuleName, OneInstanceCFuncName, func() facts.Fact {
-		return &OneInstanceFact{
+	funcs.ModuleRegister(ModuleName, OneInstanceCFuncName, func() interfaces.Func {
+		return &OneInstance{
 			Name:  OneInstanceCFuncName,
 			Mutex: oneInstanceCMutex,
 			Flag:  &oneInstanceCFlag,
 		}
 	})
-	facts.ModuleRegister(ModuleName, OneInstanceEFuncName, func() facts.Fact {
-		return &OneInstanceFact{
+	funcs.ModuleRegister(ModuleName, OneInstanceEFuncName, func() interfaces.Func {
+		return &OneInstance{
 			Name:  OneInstanceEFuncName,
 			Mutex: oneInstanceEMutex,
 			Flag:  &oneInstanceEFlag,
 		}
 	})
-	facts.ModuleRegister(ModuleName, OneInstanceGFuncName, func() facts.Fact {
-		return &OneInstanceFact{
+	funcs.ModuleRegister(ModuleName, OneInstanceGFuncName, func() interfaces.Func {
+		return &OneInstance{
 			Name:  OneInstanceGFuncName,
 			Mutex: oneInstanceGMutex,
 			Flag:  &oneInstanceGFlag,
@@ -138,7 +140,7 @@ func init() {
 			oneInstanceBMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
-		D: &OneInstanceFact{},
+		D: &OneInstance{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceDFuncName, &simple.Scaffold{
 		I: &simple.Info{
@@ -157,7 +159,7 @@ func init() {
 			oneInstanceDMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
-		D: &OneInstanceFact{},
+		D: &OneInstance{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceFFuncName, &simple.Scaffold{
 		I: &simple.Info{
@@ -176,7 +178,7 @@ func init() {
 			oneInstanceFMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
-		D: &OneInstanceFact{},
+		D: &OneInstance{},
 	})
 	simple.ModuleRegister(ModuleName, OneInstanceHFuncName, &simple.Scaffold{
 		I: &simple.Info{
@@ -195,7 +197,7 @@ func init() {
 			oneInstanceHMutex.Unlock()
 			return &types.StrValue{V: msg}, nil
 		},
-		D: &OneInstanceFact{},
+		D: &OneInstance{},
 	})
 }
 
@@ -218,11 +220,11 @@ var (
 	oneInstanceHMutex *sync.Mutex
 )
 
-// OneInstanceFact is a fact which flips a bool repeatedly. This is an example
-// fact and is not meant for serious computing. This would be better served by a
-// flip function which you could specify an interval for.
-type OneInstanceFact struct {
-	init *facts.Init
+// OneInstance is a fact which flips a bool repeatedly. This is an example fact
+// and is not meant for serious computing. This would be better served by a flip
+// function which you could specify an interval for.
+type OneInstance struct {
+	init *interfaces.Init
 
 	Name  string
 	Mutex *sync.Mutex
@@ -231,25 +233,28 @@ type OneInstanceFact struct {
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *OneInstanceFact) String() string {
+func (obj *OneInstance) String() string {
 	return obj.Name
 }
 
-// Validate makes sure we've built our struct properly. It is usually unused for
-// normal facts that users can use directly.
-//func (obj *OneInstanceFact) Validate() error {
-//	return nil
-//}
+// Validate makes sure we've built our struct properly.
+func (obj *OneInstance) Validate() error {
+	return nil
+}
 
 // Info returns some static info about itself.
-func (obj *OneInstanceFact) Info() *facts.Info {
-	return &facts.Info{
-		Output: types.NewType("str"),
+func (obj *OneInstance) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() str"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *OneInstanceFact) Init(init *facts.Init) error {
+func (obj *OneInstance) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.init.Logf("Init of `%s` @ %p", obj.Name, obj)
 
@@ -264,17 +269,30 @@ func (obj *OneInstanceFact) Init(init *facts.Init) error {
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *OneInstanceFact) Stream(ctx context.Context) error {
+func (obj *OneInstance) Stream(ctx context.Context) error {
 	obj.init.Logf("Stream of `%s` @ %p", obj.Name, obj)
 	defer close(obj.init.Output) // always signal when we're done
 
-	result, err := obj.Call(ctx)
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
+
+	result, err := obj.Call(ctx, nil)
 	if err != nil {
 		return err
 	}
 
 	select {
 	case obj.init.Output <- result:
+
 	case <-ctx.Done():
 		return nil
 	}
@@ -283,7 +301,7 @@ func (obj *OneInstanceFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *OneInstanceFact) Call(ctx context.Context) (types.Value, error) {
+func (obj *OneInstance) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: msg,
 	}, nil

@@ -27,76 +27,111 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coretest
+package coreexample
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 const (
-	// FastCountFuncName is the name this fact is registered as. It's still
-	// a Func Name because this is the name space the fact is actually
-	// using.
-	FastCountFuncName = "fastcount"
+	// FlipFlopFuncName is the name this fact is registered as. It's still a
+	// Func Name because this is the name space the fact is actually using.
+	FlipFlopFuncName = "flipflop"
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, FastCountFuncName, func() facts.Fact { return &FastCountFact{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, FlipFlopFuncName, func() interfaces.Func { return &FlipFlop{} }) // must register the fact and name
 }
 
-// FastCountFact is a fact that counts up as fast as possible from zero forever.
-type FastCountFact struct {
-	init *facts.Init
-
+// FlipFlop is a fact which flips a bool repeatedly. This is an example fact and
+// is not meant for serious computing. This would be better served by a flip
+// function which you could specify an interval for.
+type FlipFlop struct {
+	init  *interfaces.Init
 	mutex *sync.Mutex
-	count int
+	value bool
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *FastCountFact) String() string {
-	return FastCountFuncName
+func (obj *FlipFlop) String() string {
+	return FlipFlopFuncName
 }
 
-// Validate makes sure we've built our struct properly. It is usually unused for
-// normal facts that users can use directly.
-//func (obj *FastCountFact) Validate() error {
-//	return nil
-//}
+// Validate makes sure we've built our struct properly.
+func (obj *FlipFlop) Validate() error {
+	return nil
+}
 
 // Info returns some static info about itself.
-func (obj *FastCountFact) Info() *facts.Info {
-	return &facts.Info{
-		Pure:   false,
-		Memo:   false,
-		Output: types.NewType("int"),
+func (obj *FlipFlop) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() bool"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *FastCountFact) Init(init *facts.Init) error {
+func (obj *FlipFlop) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *FastCountFact) Stream(ctx context.Context) error {
+func (obj *FlipFlop) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
+
+	// TODO: don't hard code 5 sec interval
+	ticker := time.NewTicker(time.Duration(5) * time.Second)
+	defer ticker.Stop()
+
 	// streams must generate an initial event on startup
+	// even though ticker will send one, we want to be faster to first event
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
+
 	for {
-		result, err := obj.Call(ctx)
+		select {
+		case <-startChan:
+			startChan = nil // disable
+
+		case <-ticker.C: // received the timer event
+			// pass
+
+		case <-ctx.Done():
+			return nil
+		}
+
+		result, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
 
 		obj.mutex.Lock()
-		obj.count++
+		obj.value = !obj.value // flip it
 		obj.mutex.Unlock()
 
 		select {
@@ -109,14 +144,14 @@ func (obj *FastCountFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *FastCountFact) Call(ctx context.Context) (types.Value, error) {
+func (obj *FlipFlop) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	if obj.mutex == nil {
-		return nil, facts.ErrCantSpeculate
+		return nil, funcs.ErrCantSpeculate
 	}
 	obj.mutex.Lock() // TODO: could be a read lock
-	count := obj.count
+	value := obj.value
 	obj.mutex.Unlock()
-	return &types.IntValue{
-		V: int64(count),
+	return &types.BoolValue{
+		V: value,
 	}, nil
 }

@@ -33,13 +33,15 @@ package coresys
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/socketset"
@@ -58,32 +60,39 @@ const (
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, CPUCountFuncName, func() facts.Fact { return &CPUCountFact{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, CPUCountFuncName, func() interfaces.Func { return &CPUCount{} }) // must register the fact and name
 }
 
-// CPUCountFact is a fact that returns the current CPU count.
-type CPUCountFact struct {
-	init   *facts.Init
+// CPUCount is a fact that returns the current CPU count.
+type CPUCount struct {
+	init   *interfaces.Init
 	result types.Value // last calculated output
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *CPUCountFact) String() string {
+func (obj *CPUCount) String() string {
 	return CPUCountFuncName
 }
 
+// Validate makes sure we've built our struct properly.
+func (obj *CPUCount) Validate() error {
+	return nil
+}
+
 // Info returns static typing info about what the fact returns.
-func (obj *CPUCountFact) Info() *facts.Info {
-	return &facts.Info{
-		Pure:   false,
-		Memo:   false,
-		Output: types.NewType("int"),
+func (obj *CPUCount) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() int"),
 	}
 }
 
-// Init runs startup code for this fact and sets the facts.Init variable.
-func (obj *CPUCountFact) Init(init *facts.Init) error {
+// Init runs startup code for this fact.
+func (obj *CPUCount) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
@@ -91,8 +100,20 @@ func (obj *CPUCountFact) Init(init *facts.Init) error {
 // Stream returns the changing values that this fact has over time. It will
 // first poll sysfs to get the initial cpu count, and then receives UEvents from
 // the kernel as CPUs are added/removed.
-func (obj CPUCountFact) Stream(ctx context.Context) error {
+func (obj CPUCount) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // signal when we're done
+
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
 
 	ss, err := socketset.NewSocketSet(rtmGrps, socketFile, unix.NETLINK_KOBJECT_UEVENT)
 	if err != nil {
@@ -118,6 +139,8 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 		defer wg.Done()
 		defer close(eventChan)
 		for {
+			// XXX: This does *not* generate an initial event on
+			// startup, so instead, use startChan below...
 			uevent, err := ss.ReceiveUEvent() // calling Shutdown will stop this from blocking
 			if obj.init.Debug {
 				obj.init.Logf("sending uevent SEQNUM: %s", uevent.Data["SEQNUM"])
@@ -133,8 +156,9 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 		}
 	}()
 
-	startChan := make(chan struct{})
-	close(startChan) // trigger the first event
+	// streams must generate an initial event on startup
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
 	for {
 		select {
 		case <-startChan:
@@ -158,7 +182,7 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		result, err := obj.Call(ctx)
+		result, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
@@ -171,6 +195,7 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 
 		select {
 		case obj.init.Output <- result:
+
 		case <-ctx.Done():
 			return nil
 		}
@@ -178,7 +203,7 @@ func (obj CPUCountFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *CPUCountFact) Call(ctx context.Context) (types.Value, error) {
+func (obj *CPUCount) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	count, err := getCPUCount() // TODO: ctx?
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not get CPU count")

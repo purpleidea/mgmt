@@ -27,91 +27,96 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coresys
+package coretest
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"sync"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// LoadFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
-	LoadFuncName = "load"
-
-	loadSignature = "struct{x1 float; x5 float; x15 float}"
+	// FastCountFuncName is the name this fact is registered as. It's still
+	// a Func Name because this is the name space the fact is actually
+	// using.
+	FastCountFuncName = "fastcount"
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, LoadFuncName, func() facts.Fact { return &LoadFact{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, FastCountFuncName, func() interfaces.Func { return &FastCount{} }) // must register the fact and name
 }
 
-// LoadFact is a fact which returns the current system load.
-type LoadFact struct {
-	init *facts.Init
+// FastCount is a fact that counts up as fast as possible from zero forever.
+type FastCount struct {
+	init *interfaces.Init
+
+	mutex *sync.Mutex
+	count int
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *LoadFact) String() string {
-	return LoadFuncName
+func (obj *FastCount) String() string {
+	return FastCountFuncName
 }
 
-// Validate makes sure we've built our struct properly. It is usually unused for
-// normal facts that users can use directly.
-//func (obj *LoadFact) Validate() error {
-//	return nil
-//}
+// Validate makes sure we've built our struct properly.
+func (obj *FastCount) Validate() error {
+	return nil
+}
 
 // Info returns some static info about itself.
-func (obj *LoadFact) Info() *facts.Info {
-	return &facts.Info{
-		Pure:   false,
-		Memo:   false,
-		Output: types.NewType(loadSignature),
+func (obj *FastCount) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() int"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *LoadFact) Init(init *facts.Init) error {
+func (obj *FastCount) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *LoadFact) Stream(ctx context.Context) error {
+func (obj *FastCount) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
 
-	// it seems the different values only update once every 5
-	// seconds, so that's as often as we need to refresh this!
-	// TODO: lookup this value if it's something configurable
-	ticker := time.NewTicker(time.Duration(5) * time.Second)
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
 
 	// streams must generate an initial event on startup
-	startChan := make(chan struct{}) // start signal
-	close(startChan)                 // kick it off!
-	defer ticker.Stop()
 	for {
-		select {
-		case <-startChan: // kick the loop once at start
-			startChan = nil // disable
-		case <-ticker.C: // received the timer event
-			// pass
-		case <-ctx.Done():
-			return nil
-		}
-
-		result, err := obj.Call(ctx)
+		result, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
 
+		obj.mutex.Lock()
+		obj.count++
+		obj.mutex.Unlock()
+
 		select {
 		case obj.init.Output <- result:
+
 		case <-ctx.Done():
 			return nil
 		}
@@ -119,18 +124,14 @@ func (obj *LoadFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *LoadFact) Call(ctx context.Context) (types.Value, error) {
-	x1, x5, x15, err := load()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not read load values")
+func (obj *FastCount) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if obj.mutex == nil {
+		return nil, funcs.ErrCantSpeculate
 	}
-
-	st := types.NewStruct(types.NewType(loadSignature))
-	for k, v := range map[string]float64{"x1": x1, "x5": x5, "x15": x15} {
-		if err := st.Set(k, &types.FloatValue{V: v}); err != nil {
-			return nil, errwrap.Wrapf(err, "struct could not set key: `%s`", k)
-		}
-	}
-
-	return st, nil
+	obj.mutex.Lock() // TODO: could be a read lock
+	count := obj.count
+	obj.mutex.Unlock()
+	return &types.IntValue{
+		V: int64(count),
+	}, nil
 }

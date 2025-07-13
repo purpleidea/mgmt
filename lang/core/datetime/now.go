@@ -27,90 +27,107 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coreexample
+package coredatetime
 
 import (
 	"context"
-	"sync"
+	"fmt"
 	"time"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 const (
-	// FlipFlopFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
-	FlipFlopFuncName = "flipflop"
+	// NowFuncName is the name this fact is registered as. It's still a Func
+	// Name because this is the name space the fact is actually using.
+	NowFuncName = "now"
 )
 
 func init() {
-	facts.ModuleRegister(ModuleName, FlipFlopFuncName, func() facts.Fact { return &FlipFlopFact{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, NowFuncName, func() interfaces.Func { return &Now{} }) // must register the fact and name
 }
 
-// FlipFlopFact is a fact which flips a bool repeatedly. This is an example fact
-// and is not meant for serious computing. This would be better served by a flip
-// function which you could specify an interval for.
-type FlipFlopFact struct {
-	init  *facts.Init
-	mutex *sync.Mutex
-	value bool
+// Now is a fact which returns the current date and time.
+type Now struct {
+	init *interfaces.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *FlipFlopFact) String() string {
-	return FlipFlopFuncName
+func (obj *Now) String() string {
+	return NowFuncName
 }
 
-// Validate makes sure we've built our struct properly. It is usually unused for
-// normal facts that users can use directly.
-//func (obj *FlipFlopFact) Validate() error {
-//	return nil
-//}
+// Validate makes sure we've built our struct properly.
+func (obj *Now) Validate() error {
+	return nil
+}
 
 // Info returns some static info about itself.
-func (obj *FlipFlopFact) Info() *facts.Info {
-	return &facts.Info{
-		Output: types.NewType("bool"),
+func (obj *Now) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // non-constant facts can't be pure!
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() int"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *FlipFlopFact) Init(init *facts.Init) error {
+func (obj *Now) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
 // Stream returns the changing values that this fact has over time.
-func (obj *FlipFlopFact) Stream(ctx context.Context) error {
+func (obj *Now) Stream(ctx context.Context) error {
 	defer close(obj.init.Output) // always signal when we're done
-	// TODO: don't hard code 5 sec interval
-	ticker := time.NewTicker(time.Duration(5) * time.Second)
+
+	// We always wait for our initial event to start.
+	select {
+	case _, ok := <-obj.init.Input:
+		if ok {
+			return fmt.Errorf("unexpected input")
+		}
+		obj.init.Input = nil
+
+	case <-ctx.Done():
+		return nil
+	}
+
+	// XXX: this might be an interesting fact to write because:
+	// 1) will the sleeps from the ticker be in sync with the second ticker?
+	// 2) if we care about a less precise interval (eg: minute changes) can
+	// we set this up so it doesn't tick as often? -- Yes (make this a function or create a limit function to wrap this)
+	// 3) is it best to have a delta timer that wakes up before it's needed
+	// and calculates how much longer to sleep for?
+	ticker := time.NewTicker(time.Duration(1) * time.Second)
+	defer ticker.Stop()
 
 	// streams must generate an initial event on startup
+	// even though ticker will send one, we want to be faster to first event
 	startChan := make(chan struct{}) // start signal
 	close(startChan)                 // kick it off!
-	defer ticker.Stop()
+
 	for {
 		select {
-		case <-startChan: // kick the loop once at start
+		case <-startChan:
 			startChan = nil // disable
+
 		case <-ticker.C: // received the timer event
 			// pass
+
 		case <-ctx.Done():
 			return nil
 		}
 
-		result, err := obj.Call(ctx)
+		result, err := obj.Call(ctx, nil)
 		if err != nil {
 			return err
 		}
-
-		obj.mutex.Lock()
-		obj.value = !obj.value // flip it
-		obj.mutex.Unlock()
 
 		select {
 		case obj.init.Output <- result:
@@ -122,14 +139,8 @@ func (obj *FlipFlopFact) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *FlipFlopFact) Call(ctx context.Context) (types.Value, error) {
-	if obj.mutex == nil {
-		return nil, facts.ErrCantSpeculate
-	}
-	obj.mutex.Lock() // TODO: could be a read lock
-	value := obj.value
-	obj.mutex.Unlock()
-	return &types.BoolValue{
-		V: value,
+func (obj *Now) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	return &types.IntValue{ // seconds since 1970...
+		V: time.Now().Unix(), // .UTC() not necessary
 	}, nil
 }

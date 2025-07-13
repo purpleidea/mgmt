@@ -35,22 +35,25 @@ import (
 	"context"
 	"testing"
 
-	"github.com/purpleidea/mgmt/lang/funcs/facts"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func TestSimple(t *testing.T) {
-	fact := &CPUCountFact{}
+	fact := &CPUCount{}
 
+	input := make(chan types.Value)
+	close(input) // kick it off!
 	output := make(chan types.Value)
-	err := fact.Init(&facts.Init{
+	err := fact.Init(&interfaces.Init{
+		Input:  input,
 		Output: output,
 		Logf: func(format string, v ...interface{}) {
-			t.Logf("cpucount_fact_test: "+format, v...)
+			t.Logf("cpucount_test: "+format, v...)
 		},
 	})
 	if err != nil {
-		t.Errorf("could not init CPUCountFact")
+		t.Errorf("could not init CPUCount")
 		return
 	}
 

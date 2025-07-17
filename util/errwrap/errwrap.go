@@ -31,6 +31,8 @@
 package errwrap
 
 import (
+	"context"
+
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 )
@@ -70,6 +72,42 @@ func Join(errs []error) error {
 		reterr = Append(reterr, e)
 	}
 	return reterr
+}
+
+// WithoutContext passes through an error if it's nil or is a normal error. If
+// it is a multierror, then it removes all errors of context cancellation unless
+// that's all there is. If there's one error remaining, it returns that.
+// Otherwise it returns a new multierror with what's left.
+func WithoutContext(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	multiErr, ok := err.(*multierror.Error)
+	if !ok {
+		return err
+	}
+
+	if len(multiErr.Errors) == 0 {
+		return err // unexpected
+	}
+
+	errs := []error{}
+	for _, e := range multiErr.Errors {
+		if e == context.Canceled {
+			continue // remove
+		}
+		errs = append(errs, e)
+	}
+
+	if len(errs) == 0 {
+		return context.Canceled
+	}
+	//if len(errs) == 1 {
+	//	return errs[0]
+	//}
+
+	return Join(errs)
 }
 
 // String returns a string representation of the error. In particular, if the

@@ -32,6 +32,7 @@
 package errwrap
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -160,6 +161,148 @@ func TestJoinErr10(t *testing.T) {
 	var err3 error // nil
 	if reterr := Join([]error{err1, err2, err3}); reterr != nil {
 		t.Errorf("expected nil result")
+	}
+}
+
+func TestWithoutContext1(t *testing.T) {
+	if reterr := WithoutContext(nil); reterr != nil {
+		t.Errorf("expected nil result")
+	}
+}
+
+func TestWithoutContext2(t *testing.T) {
+	err := fmt.Errorf("err")
+	if reterr := WithoutContext(err); reterr != err {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext3(t *testing.T) {
+	err := context.Canceled
+	if reterr := WithoutContext(err); reterr != err {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext4(t *testing.T) {
+	err1 := fmt.Errorf("err")
+	err2 := context.Canceled
+	err := Append(err1, err2)
+	if reterr := WithoutContext(err); reterr != err1 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext5(t *testing.T) {
+	err1 := context.Canceled
+	err2 := fmt.Errorf("err")
+	err := Append(err1, err2)
+	if reterr := WithoutContext(err); reterr != err2 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext6(t *testing.T) {
+	err1 := context.Canceled
+	err2 := context.Canceled
+	err := Append(err1, err2)
+	if reterr := WithoutContext(err); reterr != err1 {
+		t.Errorf("expected err")
+	}
+	if reterr := WithoutContext(err); reterr != err2 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext7(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := fmt.Errorf("err2")
+	err := Append(err1, err2)
+	if reterr := WithoutContext(err); reterr.Error() != err.Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext8(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := fmt.Errorf("err2")
+	err3 := fmt.Errorf("err3")
+	err := Join([]error{err1, err2, err3})
+	if reterr := WithoutContext(err); reterr.Error() != err.Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext9(t *testing.T) {
+	err1 := context.Canceled
+	err2 := fmt.Errorf("err2")
+	err3 := fmt.Errorf("err3")
+	err := Join([]error{err1, err2, err3})
+	exp := Join([]error{nil, err2, err3})
+	if reterr := WithoutContext(err); reterr.Error() != exp.Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext10(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := context.Canceled
+	err3 := fmt.Errorf("err3")
+	err := Join([]error{err1, err2, err3})
+	exp := Join([]error{err1, nil, err3})
+	if reterr := WithoutContext(err); reterr.Error() != exp.Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext11(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := fmt.Errorf("err2")
+	err3 := context.Canceled
+	err := Join([]error{err1, err2, err3})
+	exp := Join([]error{err1, err2, nil})
+	if reterr := WithoutContext(err); reterr.Error() != exp.Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext12(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := context.Canceled
+	err3 := context.Canceled
+	err := Join([]error{err1, err2, err3})
+	if reterr := WithoutContext(err); reterr != err1 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext13(t *testing.T) {
+	err1 := context.Canceled
+	err2 := fmt.Errorf("err2")
+	err3 := context.Canceled
+	err := Join([]error{err1, err2, err3})
+	if reterr := WithoutContext(err); reterr != err2 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext14(t *testing.T) {
+	err1 := context.Canceled
+	err2 := context.Canceled
+	err3 := fmt.Errorf("err3")
+	err := Join([]error{err1, err2, err3})
+	if reterr := WithoutContext(err); reterr != err3 {
+		t.Errorf("expected err")
+	}
+}
+
+func TestWithoutContext15(t *testing.T) {
+	err1 := context.Canceled
+	err2 := context.Canceled
+	err3 := context.Canceled
+	err := Join([]error{err1, err2, err3})
+	if reterr := WithoutContext(err); reterr != context.Canceled {
+		t.Errorf("expected err")
 	}
 }
 

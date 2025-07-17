@@ -454,15 +454,28 @@ func StructToCallableArgs(st types.Value) ([]types.Value, error) {
 }
 
 // CallableArgsToStruct transforms the list of args, call representation of the
-// graph represenation into a standard single struct value. Note, this is not
+// graph representation into a standard single struct value. Note, this is not
 // the exact reverse operation of StructToCallableArgs because the arg names are
 // lost when performing that operation.
 func CallableArgsToStruct(args []types.Value) (types.Value, error) {
+	fn := func(i int) (string, error) {
+		return util.NumToAlpha(i), nil
+	}
+	return CallableArgsToStructNamed(args, fn)
+}
+
+// CallableArgsToStructNamed transforms the list of args, call representation of
+// the graph representation into a standard single struct value. This takes an
+// input function which can be used to pick the arg names.
+func CallableArgsToStructNamed(args []types.Value, fn func(int) (string, error)) (types.Value, error) {
 	m := make(map[string]*types.Type, len(args))
 	ord := []string{}
 	v := make(map[string]types.Value, len(args))
 	for i, arg := range args {
-		s := util.NumToAlpha(i) // invent an arg name
+		s, err := fn(i) // util.NumToAlpha(i) // invent an arg name
+		if err != nil {
+			return nil, err
+		}
 		m[s] = arg.Type()
 		ord = append(ord, s)
 		v[s] = arg
@@ -484,4 +497,17 @@ func CallableArgsToStruct(args []types.Value) (types.Value, error) {
 	//}
 
 	return st, nil
+}
+
+// CallableArgsToStructNamedOrd transforms the list of args, call representation
+// of the graph representation into a standard single struct value. This takes a
+// list (the "Ord" value typically) which can be used to pick the arg names.
+func CallableArgsToStructNamedOrd(args []types.Value, ord []string) (types.Value, error) {
+	fn := func(i int) (string, error) {
+		if i < 0 || i >= len(ord) {
+			return "", fmt.Errorf("arg %d not in list, have: %d", i, len(ord))
+		}
+		return ord[i], nil
+	}
+	return CallableArgsToStructNamed(args, fn)
 }

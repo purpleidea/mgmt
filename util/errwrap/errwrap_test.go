@@ -77,6 +77,92 @@ func TestAppendErr3(t *testing.T) {
 	}
 }
 
+func TestJoinErr1(t *testing.T) {
+	if reterr := Join(nil); reterr != nil {
+		t.Errorf("expected nil result")
+	}
+}
+
+func TestJoinErr2(t *testing.T) {
+	if reterr := Join([]error{}); reterr != nil {
+		t.Errorf("expected nil result")
+	}
+}
+
+func TestJoinErr3(t *testing.T) {
+	err := fmt.Errorf("err")
+	if reterr := Join([]error{err}); reterr != err {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr4(t *testing.T) {
+	err := fmt.Errorf("err")
+	if reterr := Join([]error{err, nil}); reterr != err {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr5(t *testing.T) {
+	err := fmt.Errorf("err")
+	if reterr := Join([]error{nil, err}); reterr != err {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr6(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := fmt.Errorf("err2")
+	if reterr := Join([]error{err1, err2}); reterr.Error() != Append(err1, err2).Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr7(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	err2 := fmt.Errorf("err2")
+	err3 := fmt.Errorf("err3")
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(err1, Append(err2, err3)).Error() {
+		t.Errorf("expected err")
+	}
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(Append(err1, err2), err3).Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr8(t *testing.T) {
+	err1 := fmt.Errorf("err1")
+	var err2 error // nil
+	err3 := fmt.Errorf("err3")
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(err1, Append(err2, err3)).Error() {
+		t.Errorf("expected err")
+	}
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(Append(err1, err2), err3).Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr9(t *testing.T) {
+	var err1 error // nil
+	var err2 error // nil
+	err3 := fmt.Errorf("err3")
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(err1, Append(err2, err3)).Error() {
+		t.Errorf("expected err")
+	}
+	if reterr := Join([]error{err1, err2, err3}); reterr.Error() != Append(Append(err1, err2), err3).Error() {
+		t.Errorf("expected err")
+	}
+}
+
+func TestJoinErr10(t *testing.T) {
+	var err1 error // nil
+	var err2 error // nil
+	var err3 error // nil
+	if reterr := Join([]error{err1, err2, err3}); reterr != nil {
+		t.Errorf("expected nil result")
+	}
+}
+
 func TestString1(t *testing.T) {
 	var err error
 	if String(err) != "" {

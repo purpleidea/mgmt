@@ -57,6 +57,21 @@ func Append(reterr, err error) error {
 	return multierror.Append(reterr, err)
 }
 
+// Join takes a list of errors and combines them into a multierror with Append.
+func Join(errs []error) error {
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+	var reterr error
+	for _, e := range errs {
+		reterr = Append(reterr, e)
+	}
+	return reterr
+}
+
 // String returns a string representation of the error. In particular, if the
 // error is nil, it returns an empty string instead of panicking.
 func String(err error) string {

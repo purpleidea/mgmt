@@ -21,7 +21,8 @@ test [$lambda("hello"),] {}
 Edge: FuncValue -> if # a
 Edge: FuncValue -> if # b
 Edge: _operator -> if # c
-Edge: call -> composite: []str # 0
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> composite: []str # 0
 Edge: const: int(0) -> _operator # b
 Edge: const: int(10) -> _operator # a
 Edge: const: str(">") -> _operator # op
@@ -30,6 +31,7 @@ Vertex: FuncValue
 Vertex: FuncValue
 Vertex: _operator
 Vertex: call
+Vertex: callSubgraphOutput
 Vertex: composite: []str
 Vertex: const: int(0)
 Vertex: const: int(10)

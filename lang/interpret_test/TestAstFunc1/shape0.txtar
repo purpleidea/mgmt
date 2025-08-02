@@ -13,11 +13,13 @@ $z = apply($add1, 1)
 test [fmt.printf("%d", $z),] {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
-Edge: call -> printf: func(format str, a int) str # a
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> printf: func(format str, a int) str # a
 Edge: const: str("%d") -> printf: func(format str, a int) str # format
 Edge: printf: func(format str, a int) str -> composite: []str # 0
 Vertex: FuncValue
 Vertex: call
+Vertex: callSubgraphOutput
 Vertex: composite: []str
 Vertex: const: int(1)
 Vertex: const: str("%d")

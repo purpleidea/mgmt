@@ -11000,20 +11000,36 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 
 	// Add a vertex for the call itself.
 	edgeName := structs.CallFuncArgNameFunction
+	edgeNameDummy := structs.OutputFuncDummyArgName
+
+	callSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+		Textarea: obj.Textarea,
+		Name:     "callSubgraphOutput",
+		Type:     obj.typ,
+		EdgeName: structs.OutputFuncArgName,
+	}
+	graph.AddVertex(callSubgraphOutput)
+
 	callFunc := &structs.CallFunc{
 		Textarea: obj.Textarea,
 
-		Type:        obj.typ,
-		FuncType:    ftyp,
-		EdgeName:    edgeName,
-		ArgVertices: argFuncs,
+		Type:         obj.typ,
+		FuncType:     ftyp,
+		EdgeName:     edgeName,
+		ArgVertices:  argFuncs,
+		OutputVertex: callSubgraphOutput,
 	}
 	graph.AddVertex(callFunc)
+
 	graph.AddEdge(funcValueFunc, callFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
 	})
 
-	return graph, callFunc, nil
+	graph.AddEdge(callFunc, callSubgraphOutput, &interfaces.FuncEdge{
+		Args: []string{edgeNameDummy},
+	})
+
+	return graph, callSubgraphOutput, nil
 }
 
 // funcValueFunc is a helper function to make the code more readable. This was

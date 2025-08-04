@@ -12716,59 +12716,75 @@ func (obj *ExprIf) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, e
 	return interfaces.GenericCheck(obj, typ)
 }
 
-// Func returns a function which returns the correct branch based on the ever
-// changing conditional boolean input.
-func (obj *ExprIf) Func() (interfaces.Func, error) {
-	typ, err := obj.Type()
-	if err != nil {
-		return nil, err
-	}
-
-	return &structs.IfFunc{
-		Textarea: obj.Textarea,
-
-		Type: typ, // this is the output type of the expression
-	}, nil
-}
-
 // Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This particular if expression doesn't do anything clever here
-// other than adding in both branches of the graph. Since we're functional, this
-// shouldn't have any ill effects.
-// XXX: is this completely true if we're running technically impure, but safe
-// built-in functions on both branches? Can we turn off half of this?
+// includes the condition produced by this node, and the appropriate edges of
+// that. The then or else side of the graph is added at runtime based on the
+// value of the condition.
+// TODO: If we know the condition is static, generate only that side statically.
 func (obj *ExprIf) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
 	graph, err := pgraph.NewGraph("if")
 	if err != nil {
 		return nil, nil, err
 	}
-	function, err := obj.Func()
+
+	typ, err := obj.Type()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	exprs := map[string]interfaces.Expr{
-		"c": obj.Condition,
-		"a": obj.ThenBranch,
-		"b": obj.ElseBranch,
-	}
-	for _, argName := range []string{"c", "a", "b"} { // deterministic order
-		x := exprs[argName]
-		g, f, err := x.Graph(env)
-		if err != nil {
-			return nil, nil, err
-		}
-		graph.AddGraph(g)
+	// XXX: can we speculate if it's static?
 
-		edge := &interfaces.FuncEdge{Args: []string{argName}}
-		graph.AddEdge(f, function, edge) // branch -> if
+	g, f, err := obj.Condition.Graph(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g)
+
+	thenGraph, thenFunc, err := obj.ThenBranch.Graph(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	elseGraph, elseFunc, err := obj.ElseBranch.Graph(env)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return graph, function, nil
+	edgeName := structs.ExprIfFuncArgNameCondition
+	edgeNameDummy := structs.OutputFuncDummyArgName
+
+	exprIfSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+		Textarea: obj.Textarea,
+		Name:     "exprIfSubgraphOutput",
+		Type:     obj.typ,
+		EdgeName: structs.OutputFuncArgName,
+	}
+	graph.AddVertex(exprIfSubgraphOutput)
+
+	function := &structs.ExprIfFunc{
+		Textarea: obj.Textarea,
+
+		Type: typ, // this is the output type of the expression
+
+		EdgeName: edgeName,
+
+		ThenGraph: thenGraph,
+		ElseGraph: elseGraph,
+
+		ThenFunc: thenFunc,
+		ElseFunc: elseFunc,
+
+		OutputVertex: exprIfSubgraphOutput,
+	}
+	graph.AddVertex(function)
+
+	edge := &interfaces.FuncEdge{Args: []string{edgeName}}
+	graph.AddEdge(f, function, edge) // condition -> exprif
+
+	graph.AddEdge(function, exprIfSubgraphOutput, &interfaces.FuncEdge{
+		Args: []string{edgeNameDummy},
+	})
+
+	return graph, exprIfSubgraphOutput, nil
 }
 
 // SetValue here is a no-op, because algorithmically when this is called from

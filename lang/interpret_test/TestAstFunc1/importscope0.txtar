@@ -16,11 +16,9 @@ class xclass {
 	}
 }
 -- OUTPUT --
-Edge: const: str("bbb") -> if # a
-Edge: const: str("ccc") -> if # b
-Edge: os.is_family_debian -> if # c
-Vertex: const: str("bbb")
-Vertex: const: str("ccc")
+Edge: exprif -> exprIfSubgraphOutput # dummy
+Edge: os.is_family_debian -> exprif # condition
 Vertex: const: str("hello")
-Vertex: if
+Vertex: exprIfSubgraphOutput
+Vertex: exprif
 Vertex: os.is_family_debian

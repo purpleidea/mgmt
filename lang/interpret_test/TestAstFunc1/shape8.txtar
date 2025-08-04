@@ -18,17 +18,14 @@ $lambda = if $gt(10, 0) { # must be a const, otherwise this is a dynamic graph
 
 test [$lambda("hello"),] {}
 -- OUTPUT --
-Edge: FuncValue -> if # a
-Edge: FuncValue -> if # b
-Edge: _operator -> if # c
+Edge: _operator -> exprif # condition
 Edge: call -> callSubgraphOutput # dummy
 Edge: callSubgraphOutput -> composite: []str # 0
 Edge: const: int(0) -> _operator # b
 Edge: const: int(10) -> _operator # a
 Edge: const: str(">") -> _operator # op
-Edge: if -> call # fn
-Vertex: FuncValue
-Vertex: FuncValue
+Edge: exprIfSubgraphOutput -> call # fn
+Edge: exprif -> exprIfSubgraphOutput # dummy
 Vertex: _operator
 Vertex: call
 Vertex: callSubgraphOutput
@@ -37,4 +34,5 @@ Vertex: const: int(0)
 Vertex: const: int(10)
 Vertex: const: str(">")
 Vertex: const: str("hello")
-Vertex: if
+Vertex: exprIfSubgraphOutput
+Vertex: exprif

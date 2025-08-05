@@ -1,0 +1,28 @@
+-- main.mcl --
+# This code produces a DAG which is not a tree.
+$x = "hi"
+
+func foo($a) {
+	$a + $x + "there"
+}
+
+$out = foo($x) + $x
+
+test "${out}" {}
+-- OUTPUT --
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("hi") -> _operator # a, b
+Edge: const: str("hi") -> _operator # b
+Edge: const: str("there") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("hi")
+Vertex: const: str("there")

@@ -127,6 +127,13 @@ const (
 	// XXX: not implemented
 	AllowUserDefinedPolyFunc = false
 
+	// AllowSpeculation will simplify the function graph shape considerably
+	// at the expense of a generally small amount of overhead during compile
+	// time. It's mostly recommended that this is set to true, but it is
+	// sometimes made false when debugging scenarios containing the extended
+	// graph shape using CallFunc and other similar function call nodes.
+	AllowSpeculation = true
+
 	// RequireStrictModulePath can be set to true if you wish to ignore any
 	// of the metadata parent path searching. By default that is allowed,
 	// unless it is disabled per module with ParentPathBlock. This option is
@@ -10958,7 +10965,7 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 	//exprFunc, ok := obj.expr.(*ExprFunc)
 	// XXX: Does this need to be .Pure for it to be allowed?
 	//canSpeculate := !ok || exprFunc.function == nil || (exprFunc.function.Info().Fast && exprFunc.function.Info().Spec)
-	canSpeculate := true // XXX: use the magic Info fields?
+	canSpeculate := AllowSpeculation // XXX: use the magic Info fields?
 	exprValue, err := obj.expr.Value()
 	exprFuncValue, ok := exprValue.(*full.FuncValue)
 	if err == nil && ok && canSpeculate {

@@ -210,17 +210,19 @@ func (obj *CallFunc) Stream(ctx context.Context) error {
 }
 
 func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
-	// Create a subgraph which looks as follows. Most of the nodes are
-	// elided because we don't know which nodes the FuncValues will create.
+	// Create a subgraph which looks as follows.
 	//
 	// digraph {
-	//   ArgVertices[0] -> ...
-	//   ArgVertices[1] -> ...
-	//   ArgVertices[2] -> ...
+	//   ArgVertices[0] -> "fn" # spawned
+	//   ArgVertices[1] -> "fn" # spawned
+	//   ArgVertices[2] -> "fn" # spawned
 	//
-	//   outputFunc -> "callSubgraphOutput"
+	//   "fn" -> "callSubgraphOutput" # spawned
+	//
+	//   "FuncValue" -> "CallFunc" # fn
+	//   "CallFunc" -> "callSubgraphOutput" # dummy
+	//   "callSubgraphOutput" -> downstream
 	// }
-	// XXX
 
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {

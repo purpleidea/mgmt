@@ -912,34 +912,35 @@ func (obj *EmbdEtcd) Run() error {
 	go func() {
 		defer obj.wg.Done()
 		defer close(obj.errExit2) // multi-signal for errChan close op
-		if obj.chooser == nil {
-			return
-		}
-
-		// wait till we're connected
-		select {
-		case <-obj.connectSignal:
-		case <-exitCtx.Done():
-			return // run exited early
-		}
-
-		p := obj.NS + ChooserPath
-		c, err := obj.MakeClientFromNamespace(p)
-		if err != nil {
-			obj.err(errwrap.Wrapf(err, "error during chooser init"))
-			return
-		}
-		if err := obj.chooser.Connect(exitCtx, c); err != nil {
-			obj.err(errwrap.Wrapf(err, "error during chooser connect"))
-			return
-		}
-
-		ch, err := obj.chooser.Watch()
-		if err != nil {
-			obj.err(errwrap.Wrapf(err, "error running chooser watch"))
-			return
-		}
-		chooserChan = ch // watch it
+		// XXX: disable the chooser to avoid a race, this is deprecated
+		//if obj.chooser == nil {
+		//	return
+		//}
+		//
+		//// wait till we're connected
+		//select {
+		//case <-obj.connectSignal:
+		//case <-exitCtx.Done():
+		//	return // run exited early
+		//}
+		//
+		//p := obj.NS + ChooserPath
+		//c, err := obj.MakeClientFromNamespace(p)
+		//if err != nil {
+		//	obj.err(errwrap.Wrapf(err, "error during chooser init"))
+		//	return
+		//}
+		//if err := obj.chooser.Connect(exitCtx, c); err != nil {
+		//	obj.err(errwrap.Wrapf(err, "error during chooser connect"))
+		//	return
+		//}
+		//
+		//ch, err := obj.chooser.Watch()
+		//if err != nil {
+		//	obj.err(errwrap.Wrapf(err, "error running chooser watch"))
+		//	return
+		//}
+		//chooserChan = ch // watch it XXX: RACE WRITE
 	}()
 	defer func() {
 		if obj.chooser == nil {
@@ -1134,7 +1135,7 @@ func (obj *EmbdEtcd) Run() error {
 						continue
 					}
 
-				case chooserEvent, ok := <-chooserChan:
+				case chooserEvent, ok := <-chooserChan: // XXX: RACE READ
 					if !ok {
 						obj.Logf("got chooser shutdown...")
 						chooserChan = nil // done here!

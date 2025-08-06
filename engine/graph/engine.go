@@ -75,6 +75,7 @@ type Engine struct {
 	graph     *pgraph.Graph
 	nextGraph *pgraph.Graph
 	state     map[pgraph.Vertex]*State
+	tlock     *sync.RWMutex                     // lock around state map
 	waits     map[pgraph.Vertex]*sync.WaitGroup // wg for the Worker func
 	wlock     *sync.Mutex                       // lock around waits map
 
@@ -116,6 +117,7 @@ func (obj *Engine) Init() error {
 	}
 
 	obj.state = make(map[pgraph.Vertex]*State)
+	obj.tlock = &sync.RWMutex{}
 	obj.waits = make(map[pgraph.Vertex]*sync.WaitGroup)
 	obj.wlock = &sync.Mutex{}
 
@@ -345,7 +347,9 @@ func (obj *Engine) Commit() error {
 
 		// delete to free up memory from old graphs
 		fn := func() error {
+			obj.tlock.Lock()
 			delete(obj.state, vertex)
+			obj.tlock.Unlock()
 			delete(obj.waits, vertex)
 			return nil
 		}

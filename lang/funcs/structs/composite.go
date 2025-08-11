@@ -292,13 +292,16 @@ func (obj *CompositeFunc) Call(ctx context.Context, args []types.Value) (types.V
 		}
 
 	case types.KindMap:
+		count := 0
 		for i, arg := range args {
 			if i%2 == 0 {
-				key1 := fmt.Sprintf("key:%d", i)
+				key1 := fmt.Sprintf("key:%d", count)
 				st.V[key1] = arg
 			} else {
-				key2 := fmt.Sprintf("val:%d", i)
+				key2 := fmt.Sprintf("val:%d", count)
 				st.V[key2] = arg
+
+				count++ // increment for next even number
 			}
 		}
 

@@ -109,6 +109,8 @@ func NewClientFromNamespaceStr(client *etcd.Client, ns string) *Simple {
 		method: methodClient, // similar enough to this one to share it!
 		wg:     &sync.WaitGroup{},
 
+		namespace: ns, // XXX: should we add this here?
+
 		client: client, // store for GetClient()
 		kv:     kv,
 		w:      w,
@@ -146,6 +148,8 @@ func NewClientFromSimple(client interfaces.Client, ns string) *Simple {
 		method: methodNamespace,
 		wg:     &sync.WaitGroup{},
 
+		namespace: client.GetNamespace(), // XXX: should we add this here?
+
 		client: client.GetClient(), // store for GetClient()
 		kv:     kv,
 		w:      w,
@@ -154,10 +158,12 @@ func NewClientFromSimple(client interfaces.Client, ns string) *Simple {
 
 // NewClientFromNamespace builds a new simple client by taking an existing set
 // of interface API's that we might use.
-func NewClientFromNamespace(client *etcd.Client, kv etcd.KV, w etcd.Watcher) *Simple {
+func NewClientFromNamespace(client *etcd.Client, kv etcd.KV, w etcd.Watcher, ns string) *Simple {
 	return &Simple{
 		method: methodNamespace,
 		wg:     &sync.WaitGroup{},
+
+		namespace: ns, // in case someone wants to read what our ns is.
 
 		client: client, // store for GetClient()
 		kv:     kv,
@@ -291,6 +297,12 @@ func (obj *Simple) Close() error {
 // upstream API's that don't support passing in KV and Watcher instead.
 func (obj *Simple) GetClient() *etcd.Client {
 	return obj.client
+}
+
+// GetNamespace returns the namespace prefix we use for all keys. This is needed
+// whenever we use the client manually.
+func (obj *Simple) GetNamespace() string {
+	return obj.namespace
 }
 
 // Set runs a set operation. If you'd like more information about whether a

@@ -66,6 +66,8 @@ type WatcherInfo struct {
 // EmbdEtcd.MakeClient and client.Simple implement this.
 type Client interface {
 	GetClient() *etcd.Client
+	GetNamespace() string
+
 	Set(ctx context.Context, key, value string, opts ...etcd.OpOption) error
 	Get(ctx context.Context, path string, opts ...etcd.OpOption) (map[string]string, error)
 	Del(ctx context.Context, path string, opts ...etcd.OpOption) (int64, error)

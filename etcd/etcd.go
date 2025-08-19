@@ -1464,7 +1464,7 @@ func (obj *EmbdEtcd) MakeClient() (interfaces.Client, error) {
 func (obj *EmbdEtcd) MakeClientFromNamespace(ns string) (interfaces.Client, error) {
 	kv := namespace.NewKV(obj.etcd.KV, ns)
 	w := namespace.NewWatcher(obj.etcd.Watcher, ns)
-	c := client.NewClientFromNamespace(obj.etcd, kv, w)
+	c := client.NewClientFromNamespace(obj.etcd, kv, w, ns)
 	if err := c.Init(); err != nil {
 		return nil, err
 	}

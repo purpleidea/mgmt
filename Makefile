@@ -230,7 +230,10 @@ build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum | lang resour
 	@# If you need to run `go mod tidy` then this can trigger.
 	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
-	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+	@# XXX: leave race detector on by default for now. For production
+	@# builds, we can consider turning it off for performance improvements.
+	@# XXX: ./mgmt run --tmp-prefix lang something_fast.mcl > /tmp/race 2>&1 # search for "WARNING: DATA RACE"
+	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) -race -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 # to use this you might want to run something like:

@@ -37,6 +37,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -245,7 +246,7 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 
 	mutex := &sync.Mutex{}
 	var campaignClose chan struct{}
-	var campaignRunning bool
+	campaignRunning := &atomic.Bool{}
 	// goroutine to vote for someone as scheduler! each participant must be
 	// able to run this or nobody will be around to vote if others are down
 	campaignFunc := func() {
@@ -363,18 +364,18 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 				//}
 				if elected != hostname { // not me!
 					// start up the campaign function
-					if !campaignRunning {
+					if !campaignRunning.Load() {
 						campaignClose = make(chan struct{})
 						campaignFunc() // run
-						campaignRunning = true
+						campaignRunning.Store(true)
 					}
 					continue // someone else does the scheduling...
 				} else { // campaigning while i am it loops fast
 					// shutdown the campaign function
-					if campaignRunning {
+					if campaignRunning.Load() { // XXX: RACE READ
 						close(campaignClose)
 						wg.Wait()
-						campaignRunning = false
+						campaignRunning.Store(false)
 					}
 				}
 
@@ -559,10 +560,10 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 	leaderResult, err := election.Leader(ctx)
 	if err == concurrency.ErrElectionNoLeader {
 		// start up the campaign function
-		if !campaignRunning {
+		if !campaignRunning.Load() {
 			campaignClose = make(chan struct{})
-			campaignFunc() // run
-			campaignRunning = true
+			campaignFunc()              // run
+			campaignRunning.Store(true) // XXX: RACE WRITE
 		}
 	}
 	if options.debug {

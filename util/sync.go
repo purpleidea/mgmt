@@ -138,7 +138,7 @@ func (obj *EasyExit) Done(err error) {
 	}
 	if err != nil {
 		// TODO: we could add a mutex, and turn this into a multierr
-		obj.err = err
+		obj.err = err // use the mutex to prevent a race on this write
 	}
 	obj.once.Do(func() { close(obj.exit) })
 }
@@ -173,7 +173,9 @@ func (obj *EasyExit) Error() error {
 	case <-obj.exit:
 	}
 	obj.wg.Wait() // wait for cleanup
-	return obj.err
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	return obj.err // use the mutex to prevent a race on this read
 }
 
 // SubscribedSignal represents a synchronized read signal. It doesn't need to be

@@ -599,6 +599,50 @@ func (obj *Base) Func() interface{} {
 //	return nil
 //}
 
+// NilValue represents a nil value. It should be used only in rare situations.
+type NilValue struct {
+	Base
+}
+
+// NewNil creates a new nil value.
+func NewNil() *NilValue { return &NilValue{} }
+
+// String returns a visual representation of this value.
+func (obj *NilValue) String() string {
+	return "nil"
+}
+
+// Type returns the type data structure that represents this type.
+func (obj *NilValue) Type() *Type { return NewType("nil") }
+
+// Less compares to value and returns true if we're smaller. This panics if the
+// two types aren't the same. This always returns false for nil.
+func (obj *NilValue) Less(v Value) bool {
+	return false // they're the same
+}
+
+// Cmp returns an error if this value isn't the same as the arg passed in.
+func (obj *NilValue) Cmp(val Value) error {
+	if obj == nil || val == nil {
+		return fmt.Errorf("cannot cmp to nil")
+	}
+	if err := obj.Type().Cmp(val.Type()); err != nil {
+		return errwrap.Wrapf(err, "cannot cmp types")
+	}
+
+	return nil
+}
+
+// Copy returns a copy of this value.
+func (obj *NilValue) Copy() Value {
+	return &NilValue{}
+}
+
+// Value returns the raw value of this type.
+func (obj *NilValue) Value() interface{} {
+	return nil
+}
+
 // BoolValue represents a boolean value.
 type BoolValue struct {
 	Base

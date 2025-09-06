@@ -51,6 +51,7 @@ const (
 
 // Basic types defined here as a convenience for use with Type.Cmp(X).
 var (
+	TypeNil     = NewType("nil")
 	TypeBool    = NewType("bool")
 	TypeStr     = NewType("str")
 	TypeInt     = NewType("int")
@@ -384,6 +385,10 @@ func NewType(s string) *Type {
 // return a type with correctly unified unification variables.
 func newType(s string, table map[uint]*Elem) *Type {
 	switch s {
+	case "nil":
+		return &Type{
+			Kind: KindNil,
+		}
 	case "bool":
 		return &Type{
 			Kind: KindBool,
@@ -683,6 +688,8 @@ func (obj *Type) New() Value {
 		panic("malformed type")
 	}
 	switch obj.Kind {
+	case KindNil:
+		return NewNil()
 	case KindBool:
 		return NewBool()
 	case KindStr:
@@ -717,6 +724,8 @@ func (obj *Type) String() string {
 // helper function that is used by the real String function.
 func (obj *Type) string(table map[*Elem]uint) string {
 	switch obj.Kind {
+	case KindNil:
+		return "nil"
 	case KindBool:
 		return "bool"
 	case KindStr:
@@ -840,6 +849,8 @@ func (obj *Type) cmp(typ *Type, table1, table2 map[*Elem]uint) error {
 		return fmt.Errorf("base kind does not match (%+v != %+v)", obj.Kind, typ.Kind)
 	}
 	switch obj.Kind {
+	case KindNil:
+		return nil
 	case KindBool:
 		return nil
 	case KindStr:
@@ -1124,6 +1135,8 @@ func (obj *Type) HasVariant() bool {
 		return false
 	}
 	switch obj.Kind {
+	case KindNil:
+		return false
 	case KindBool:
 		return false
 	case KindStr:
@@ -1212,6 +1225,8 @@ func (obj *Type) HasUni() bool {
 	}
 
 	switch obj.Kind {
+	case KindNil:
+		return false
 	case KindBool:
 		return false
 	case KindStr:
@@ -1330,6 +1345,8 @@ func (obj *Type) ComplexCmp(typ *Type) (string, error) {
 
 	// only container types are left to match...
 	switch obj.Kind {
+	case KindNil:
+		return "", nil // regular cmp
 	case KindBool:
 		return "", nil // regular cmp
 	case KindStr:

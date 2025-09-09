@@ -1688,7 +1688,7 @@ func TestResources2(t *testing.T) {
 			fileAbsent(d2f1),
 			fileAbsent(d2f2),
 			fileAbsent(d2f3),
-			fileExists(p2, false), // ensure it's a file XXX !!!
+			fileExists(p2, false), // ensure it's a file
 			fileExists(p3, true),  // ensure it's a dir
 			fileExists(p4, false),
 			resCheckApply(r1, true), // it's already good

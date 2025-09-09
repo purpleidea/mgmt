@@ -34,7 +34,8 @@ function simplify-gocase() {
 
 function token-coloncheck() {
 	# add quotes to avoid matching three X's
-	if grep -Ei "[\/]+[\/]+[ ]*(T"'O''D'"O[^:]|F"'I''X''M'"E[^:]|X"'X'"X[^:])" "$1"; then
+	#if grep -Ei "[\/]+[\/]+[ ]*(T"'O''D'"O[^:]|F"'I''X''M'"E[^:]|X"'X'"X[^:])" "$1"; then
+	if grep -Ei "[\/]+[\/]+[\ 0-9a-zA-Z_@\*\?\'\(\)\{\}-]*(T"'O''D'"O[^:]|F"'I''X''M'"E[^:]|X"'X'"X[^:])" "$1"; then # not perfect
 		return 1	# tokens must end with a colon
 	fi
 	# tokens must be upper case

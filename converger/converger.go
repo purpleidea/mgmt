@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/purpleidea/mgmt/util"
@@ -129,6 +130,8 @@ func (obj *Coordinator) Register() *UID {
 		timeout: obj.timeout, // copy the timeout here
 		//id: obj.lastid,
 		//name: fmt.Sprintf("%d", obj.lastid), // some default
+
+		isConverged: &atomic.Bool{},
 
 		poke: obj.poke,
 
@@ -421,7 +424,7 @@ type UID struct {
 	// for per-UID timeouts too.
 	timeout int
 	// isConverged stores the convergence state of this particular UID.
-	isConverged bool
+	isConverged *atomic.Bool
 
 	// poke stores a reference to the main poke function.
 	poke func()
@@ -443,14 +446,14 @@ func (obj *UID) Unregister() {
 
 // IsConverged reports whether this UID is converged or not.
 func (obj *UID) IsConverged() bool {
-	return obj.isConverged
+	return obj.isConverged.Load()
 }
 
 // SetConverged sets the convergence state of this UID. This is used by the
 // running timer if one is started. The timer will overwrite any value set by
 // this method.
 func (obj *UID) SetConverged(isConverged bool) {
-	obj.isConverged = isConverged
+	obj.isConverged.Store(isConverged)
 	obj.poke() // notify of change
 }
 

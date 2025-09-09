@@ -82,6 +82,18 @@ def filter_chunk(chunk):
 
 	return True
 
+def filter_chunk2(chunk):
+	lines = chunk.split("\n")
+	if len(lines) < 2:
+		return False
+
+	for i in range(len(lines)):
+		line = lines[i]
+		if line.startswith("github.com/purpleidea/mgmt/"):
+			return True
+
+	return False
+
 chunks = []
 for i in range(start+1, len(lines)):
 	line = lines[i]
@@ -106,7 +118,9 @@ print("found %d chunks" % len(chunks))
 count = 0
 for i in range(len(chunks)):
 	chunk = chunks[i]
-	if not filter_chunk(chunk):
+	#if not filter_chunk(chunk): # this version stopped working
+	#	continue
+	if not filter_chunk2(chunk):
 		continue
 
 	print(">>> chunk %d:" % i)

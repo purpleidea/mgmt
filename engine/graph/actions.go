@@ -376,7 +376,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 			// so that the graph doesn't go on running forever until
 			// it's completely done. This is an optional feature and
 			// we can select it via ^C on user exit or via the GAPI.
-			if obj.fastPause {
+			if obj.fastPause.Load() {
 				obj.Logf("%s: fast pausing, poke skipped", res)
 				continue
 			}

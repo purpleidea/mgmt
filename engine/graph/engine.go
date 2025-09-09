@@ -37,6 +37,7 @@ import (
 	"os"
 	"path"
 	"sync"
+	"sync/atomic"
 
 	"github.com/purpleidea/mgmt/converger"
 	"github.com/purpleidea/mgmt/engine"
@@ -88,7 +89,7 @@ type Engine struct {
 	wg *sync.WaitGroup // wg for the whole engine (only used for close)
 
 	paused    bool // are we paused?
-	fastPause bool
+	fastPause *atomic.Bool
 	isClosing bool // are we shutting down?
 }
 
@@ -130,6 +131,7 @@ func (obj *Engine) Init() error {
 	obj.wg = &sync.WaitGroup{}
 
 	obj.paused = true // start off true, so we can Resume after first Commit
+	obj.fastPause = &atomic.Bool{}
 
 	obj.Exporter = &Exporter{
 		World: obj.World,
@@ -502,7 +504,7 @@ func (obj *Engine) Resume() error {
 // poke. In general this is only called when you're trying to hurry up the exit.
 // XXX: Not implemented
 func (obj *Engine) SetFastPause() {
-	obj.fastPause = true
+	obj.fastPause.Store(true)
 }
 
 // Pause the active, running graph.
@@ -515,7 +517,7 @@ func (obj *Engine) Pause(fastPause bool) error {
 		return fmt.Errorf("already paused")
 	}
 
-	obj.fastPause = fastPause
+	obj.fastPause.Store(fastPause)
 	topoSort, _ := obj.graph.TopologicalSort()
 	for _, vertex := range topoSort { // squeeze out the events...
 		// The Event is sent to an unbuffered channel, so this event is
@@ -528,7 +530,7 @@ func (obj *Engine) Pause(fastPause bool) error {
 	obj.paused = true
 
 	// we are now completely paused...
-	obj.fastPause = false // reset
+	obj.fastPause.Store(false) // reset
 	return nil
 }
 

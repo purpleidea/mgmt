@@ -435,10 +435,10 @@ Start:
 
 				// Node we pull from should be newer epoch than us!
 				if node.epoch >= fromNode.epoch {
-					if obj.Debug {
-						obj.Logf("inner epoch skip: %p %v", f, f)
-						//obj.Logf("inner epoch skip: NODE(%p is %d): %v FROM(%p is %d) %v", f, node.epoch, f, ff, fromNode.epoch, ff)
-					}
+					//if obj.Debug {
+					//	obj.Logf("inner epoch skip: %p %v", f, f)
+					//	//obj.Logf("inner epoch skip: NODE(%p is %d): %v FROM(%p is %d) %v", f, node.epoch, f, ff, fromNode.epoch, ff)
+					//}
 					// Don't set non-valid here because if
 					// we have *two* FuncValue's that both
 					// interrupt, the first one will happen,
@@ -447,18 +447,25 @@ Start:
 					// when the full graph is ready here, we
 					// would skip because of this bool!
 					//valid = false // don't do this!
-					continue Iterate
+
+					// The mistake in this check is that if
+					// *any* of the incoming edges are not
+					// ready, then we skip it all. But one
+					// may not even be built yet. So it's a
+					// mess. So at least for now, use the
+					// below "is nil" check instead.
+					//continue Iterate
 				}
 
 				value := fromNode.result
 				if value == nil {
 					//if valid { // must be a programming err!
-					panic(fmt.Sprintf("unexpected nil node result from: %s", ff))
+					//panic(fmt.Sprintf("unexpected nil node result from: %s", ff))
 					//}
 					// We're reading from a node which got
 					// skipped because it didn't have all of
 					// its edges yet. (or a programming bug)
-					//continue Iterate
+					continue Iterate
 					// The fromNode epoch check above should
 					// make this additional check redundant.
 				}

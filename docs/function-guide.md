@@ -177,65 +177,68 @@ func (obj *FooFunc) Init(init *interfaces.Init) error {
 }
 ```
 
+### Call
+
+Call is run when you want to return a new value from the function. It takes the
+input arguments to the function.
+
+#### Example
+
+```golang
+func (obj *FooFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	return &types.StrValue{ // Our type system "str" (string) value.
+		V: strconv.FormatInt(args[0].Int(), 10), // a golang string
+	}, nil
+}
+```
+
 ### Stream
 
 ```golang
 Stream(context.Context) error
 ```
 
-`Stream` is where the real _work_ is done. This method is started by the
-language function engine. It will run this function while simultaneously sending
-it values on the `Input` channel. It will only send a complete set of input
-values. You should send a value to the output channel when you have decided that
-one should be produced. Make sure to only use input values of the expected type
-as declared in the `Info` struct, and send values of the similarly declared
-appropriate return type. Failure to do so will may result in a panic and
-sadness. You must shutdown if the input context cancels. You must close the
-`Output` channel if you are done generating new values and/or when you shutdown.
+`Stream` is where any evented work is done. This method is started by the
+function engine. It will run this function once. It should call the
+`obj.init.Event()` method when it believes the function engine should run
+`Call()` again.
+
+Implementing this is not required if you don't have events.
+
+If the `ctx` closes, you must shutdown as soon as possible.
 
 #### Example
 
 ```golang
-// Stream returns the single value that was generated and then closes.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *FooFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	var result string
+
+	ticker := time.NewTicker(time.Duration(1) * time.Second)
+	defer ticker.Stop()
+
+	// streams must generate an initial event on startup
+	// even though ticker will send one, we want to be faster to first event
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
+
 	for {
 		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
+		case <-startChan:
+			startChan = nil // disable
 
-			ix := input.Struct()["a"].Int()
-			if ix < 0 {
-				return fmt.Errorf("we can't deal with negatives")
-			}
-
-			result = fmt.Sprintf("the input is: %d", ix)
+		case <-ticker.C: // received the timer event
+			// pass
 
 		case <-ctx.Done():
 			return nil
 		}
 
-		select {
-		case obj.init.Output <- &types.StrValue{
-			V: result,
-		}:
-
-		case <-ctx.Done():
-			return nil
+		if err := obj.init.Event(ctx); err != nil {
+			return err
 		}
 	}
 }
 ```
-
-As you can see, we read our inputs from the `input` channel, and write to the
-`output` channel. Our code is careful to never block or deadlock, and can always
-exit if a close signal is requested. It also cleans up after itself by closing
-the `output` channel when it is done using it. This is done easily with `defer`.
-If it notices that the `input` channel closes, then it knows that no more input
-values are coming and it can consider shutting down early.
 
 ## Further considerations
 

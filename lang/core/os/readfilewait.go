@@ -62,15 +62,13 @@ func init() {
 // will eventually be deprecated when the function graph error system is stable.
 type ReadFileWaitFunc struct {
 	init *interfaces.Init
-	last types.Value // last value received to use for diff
 
 	recWatcher *recwatch.RecWatcher
 	events     chan error // internal events
 	wg         *sync.WaitGroup
 
-	args     []types.Value
+	input    chan string // stream of inputs
 	filename *string     // the active filename
-	result   types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -108,6 +106,7 @@ func (obj *ReadFileWaitFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ReadFileWaitFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan string)
 	obj.events = make(chan error)
 	obj.wg = &sync.WaitGroup{}
 	return nil
@@ -115,8 +114,8 @@ func (obj *ReadFileWaitFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	defer close(obj.events)      // clean up for fun
+	//defer close(obj.input)  // if we close, this is a race with the sender
+	defer close(obj.events) // clean up for fun
 	defer obj.wg.Wait()
 	defer func() {
 		if obj.recWatcher != nil {
@@ -126,24 +125,21 @@ func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 	}()
 	for {
 		select {
-		case input, ok := <-obj.init.Input:
+		case filename, ok := <-obj.input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			filename := input.Struct()[readFileWaitArgNameFilename].Str()
-			// TODO: add validation for absolute path?
-			// TODO: add check for empty string
 			if obj.filename != nil && *obj.filename == filename {
+				//select {
+				//case obj.ack <- struct{}{}:
+				//case <-ctx.Done():
+				//	// don't block here on shutdown
+				//	return
+				//default:
+				//	// pass, in case we didn't Call()
+				//}
 				continue // nothing changed
 			}
 			obj.filename = &filename
@@ -194,6 +190,17 @@ func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 						}
 					}
 
+					// XXX: should we send an ACK event to
+					// Call() right here? This should ideally
+					// be from the Startup event of recWatcher
+					//select {
+					//case obj.ack <- struct{}{}:
+					//case <-ctx.Done():
+					//	// don't block here on shutdown
+					//	return
+					//default:
+					//	// pass, in case we didn't Call()
+					//}
 					select {
 					case obj.events <- err:
 						// send event...
@@ -215,37 +222,12 @@ func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 				return errwrap.Wrapf(err, "error event received")
 			}
 
-			if obj.last == nil {
-				continue // still waiting for input values
-			}
-
-			args, err := interfaces.StructToCallableArgs(obj.last) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			result, err := obj.Call(ctx, obj.args)
-			if err != nil {
+			if err := obj.init.Event(ctx); err != nil { // send event
 				return err
 			}
 
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
 		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-
-		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
@@ -258,6 +240,30 @@ func (obj *ReadFileWaitFunc) Call(ctx context.Context, args []types.Value) (type
 	}
 	filename := args[0].Str()
 
+	// TODO: add validation for absolute path?
+	// TODO: add check for empty string
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	// Tell the Stream what we're watching now... This doesn't block because
+	// Stream should always be ready to consume unless it's closing down...
+	// If it dies, then a ctx closure should come soon.
+	select {
+	case obj.input <- filename:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	// XXX: Should we make sure the Stream is ready before we continue here?
+	//select {
+	//case <-obj.ack:
+	//	// received
+	//case <-ctx.Done():
+	//	return nil, ctx.Err()
+	//}
+
 	// read file...
 	content, err := os.ReadFile(filename)
 	if err != nil && !os.IsNotExist(err) { // ignore file not found errors
@@ -269,6 +275,23 @@ func (obj *ReadFileWaitFunc) Call(ctx context.Context, args []types.Value) (type
 	//}
 
 	return &types.StrValue{
-		V: s,
+		V: s, // convert to string
 	}, nil
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *ReadFileWaitFunc) Cleanup(ctx context.Context) error {
+	// Even if the filename stops changing, we never shutdown Stream because
+	// those file contents may change. Theoretically if someone sends us an
+	// empty string, and then it shuts down we could close.
+	//if obj.filename == "" { // we require obj.ack to not have a race here
+	//	close(obj.exit) // add a channel into that Stream
+	//}
+	return nil
+}
+
+// Done is a message from the engine to tell us that no more Call's are coming.
+func (obj *ReadFileWaitFunc) Done() error {
+	close(obj.input) // At this point we know obj.input won't be used.
+	return nil
 }

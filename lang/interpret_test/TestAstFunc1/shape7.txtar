@@ -28,9 +28,12 @@ $s = golang.template("out1: {{ . }}", $out1)
 
 test [$lambda($s),] {}
 -- OUTPUT --
-Edge: FuncValue -> map # function
+Edge: FuncValue -> call # fn
+Edge: FuncValue -> call # fn
 Edge: _operator -> composite: []str # 0
-Edge: composite: []str -> map # inputs
+Edge: call -> callSubgraphOutput # dummy
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> _operator # a
 Edge: const: str("!") -> _operator # b
 Edge: const: str("+") -> _operator # op
 Edge: const: str("a") -> composite: []str # 0
@@ -38,11 +41,14 @@ Edge: const: str("bb") -> composite: []str # 1
 Edge: const: str("ccc") -> composite: []str # 2
 Edge: const: str("dddd") -> composite: []str # 3
 Edge: const: str("eeeee") -> composite: []str # 4
-Edge: const: str("out1: {{ . }}") -> template # template
-Edge: map -> template # vars
-Edge: template -> _operator # a
+Vertex: FuncValue
+Vertex: FuncValue
 Vertex: FuncValue
 Vertex: _operator
+Vertex: call
+Vertex: call
+Vertex: callSubgraphOutput
+Vertex: callSubgraphOutput
 Vertex: composite: []str
 Vertex: composite: []str
 Vertex: const: str("!")
@@ -53,5 +59,3 @@ Vertex: const: str("ccc")
 Vertex: const: str("dddd")
 Vertex: const: str("eeeee")
 Vertex: const: str("out1: {{ . }}")
-Vertex: map
-Vertex: template

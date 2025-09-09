@@ -31,7 +31,6 @@ package coredatetime
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -82,22 +81,8 @@ func (obj *Now) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *Now) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // always signal when we're done
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	// XXX: this might be an interesting fact to write because:
 	// 1) will the sleeps from the ticker be in sync with the second ticker?
 	// 2) if we care about a less precise interval (eg: minute changes) can
@@ -124,16 +109,8 @@ func (obj *Now) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		result, err := obj.Call(ctx, nil)
-		if err != nil {
+		if err := obj.init.Event(ctx); err != nil {
 			return err
-		}
-
-		select {
-		case obj.init.Output <- result:
-
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }

@@ -315,53 +315,6 @@ func (obj *PrintfFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *PrintfFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-
-			result, err := obj.Call(ctx, args)
-			if err != nil {
-				return err
-			}
-
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 // Copy is implemented so that the obj.Type value is not lost if we copy this
 // function.
 func (obj *PrintfFunc) Copy() interfaces.Func {

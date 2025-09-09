@@ -12,8 +12,8 @@ test "t1" {
 	stringptr => $x,
 }
 -- OUTPUT --
+Edge: const: bool(true) -> stmtif # condition
 Vertex: const: bool(true)
 Vertex: const: str("hello")
 Vertex: const: str("t1")
-Vertex: const: str("t2")
-Vertex: const: str("world")
+Vertex: stmtif

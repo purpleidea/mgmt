@@ -13,8 +13,8 @@ $threshold = 1.5	# change me if you like
 
 # simple hysteresis implementation
 $h1 = $theload > $threshold
-$h2 = history($theload, 1) > $threshold
-$h3 = history($theload, 2) > $threshold
+$h2 = history($theload, 1000) > $threshold
+$h3 = history($theload, 2000) > $threshold
 $unload = $h1 or $h2 or $h3
 
 virt "mgmt1" {

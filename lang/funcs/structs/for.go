@@ -61,6 +61,8 @@ type ForFunc struct {
 	AppendToIterBody func(innerTxn interfaces.Txn, index int, value interfaces.Func) error
 	ClearIterBody    func(length int)
 
+	ArgVertices []interfaces.Func // only one expected
+
 	init *interfaces.Init
 
 	lastInputListLength int // remember the last input list length
@@ -86,6 +88,10 @@ func (obj *ForFunc) Validate() error {
 		return fmt.Errorf("must specify an edge name")
 	}
 
+	if len(obj.ArgVertices) != 1 {
+		return fmt.Errorf("function did not receive shape information")
+	}
+
 	return nil
 }
 
@@ -96,8 +102,8 @@ func (obj *ForFunc) Info() *interfaces.Info {
 	if obj.IndexType != nil && obj.ValueType != nil { // don't panic if called speculatively
 		// XXX: Improve function engine so it can return no value?
 		//typ = types.NewType(fmt.Sprintf("func(%s []%s)", obj.EdgeName, obj.ValueType)) // returns nothing
-		// XXX: Temporary float type to prove we're dropping the output since we don't use it.
-		typ = types.NewType(fmt.Sprintf("func(%s []%s) float", obj.EdgeName, obj.ValueType))
+		// dummy type to prove we're dropping the output since we don't use it.
+		typ = types.NewType(fmt.Sprintf("func(%s []%s) nil", obj.EdgeName, obj.ValueType))
 	}
 
 	return &interfaces.Info{
@@ -112,98 +118,8 @@ func (obj *ForFunc) Info() *interfaces.Info {
 func (obj *ForFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.lastInputListLength = -1
+
 	return nil
-}
-
-// Stream takes an input struct in the format as described in the Func and Graph
-// methods of the Expr, and returns the actual expected value as a stream based
-// on the changing inputs to that value.
-func (obj *ForFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-
-	// A Func to send input lists to the subgraph. The Txn.Erase() call
-	// ensures that this Func is not removed when the subgraph is recreated,
-	// so that the function graph can propagate the last list we received to
-	// the subgraph.
-	inputChan := make(chan types.Value)
-	subgraphInput := &ChannelBasedSourceFunc{
-		Name:   "subgraphInput",
-		Source: obj,
-		Chan:   inputChan,
-		Type:   obj.listType(),
-	}
-	obj.init.Txn.AddVertex(subgraphInput)
-	if err := obj.init.Txn.Commit(); err != nil {
-		return errwrap.Wrapf(err, "commit error in Stream")
-	}
-	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
-	defer func() {
-		close(inputChan)
-		obj.init.Txn.Reverse()
-		obj.init.Txn.DeleteVertex(subgraphInput)
-		obj.init.Txn.Commit()
-	}()
-
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // block looping back here
-				//canReceiveMoreListValues = false
-				// We don't ever shutdown here, since even if we
-				// don't get more lists, that last list value is
-				// still propagating inside of the subgraph and
-				// so we don't want to shutdown since that would
-				// reverse the txn which we only do at the very
-				// end on graph shutdown.
-				continue
-			}
-
-			forList, exists := input.Struct()[obj.EdgeName]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
-			}
-
-			// If the length of the input list has changed, then we
-			// need to replace the subgraph with a new one that has
-			// that many "tentacles". Basically the shape of the
-			// graph depends on the length of the list. If we get a
-			// brand new list where each value is different, but
-			// the length is the same, then we can just flow new
-			// values into the list and we don't need to change the
-			// graph shape! Changing the graph shape is more
-			// expensive, so we don't do it when not necessary.
-			n := len(forList.List())
-
-			//if forList.Cmp(obj.lastForList) != nil // don't!
-			if n != obj.lastInputListLength {
-				//obj.lastForList = forList
-				obj.lastInputListLength = n
-				// replaceSubGraph uses the above two values
-				if err := obj.replaceSubGraph(subgraphInput); err != nil {
-					return errwrap.Wrapf(err, "could not replace subgraph")
-				}
-			}
-
-			// send the new input list to the subgraph
-			select {
-			case inputChan <- forList:
-			case <-ctx.Done():
-				return nil
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- &types.FloatValue{
-			V: 42.0, // XXX: temporary
-		}:
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
@@ -253,4 +169,42 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 func (obj *ForFunc) listType() *types.Type {
 	return types.NewType(fmt.Sprintf("[]%s", obj.ValueType))
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ForFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	forList := args[0]
+	n := len(forList.List())
+
+	// If the length of the input list has changed, then we need to replace
+	// the subgraph with a new one that has that many "tentacles". Basically
+	// the shape of the graph depends on the length of the list. If we get a
+	// brand new list where each value is different, but the length is the
+	// same, then we can just flow new values into the list and we don't
+	// need to change the graph shape! Changing the graph shape is more
+	// expensive, so we don't do it when not necessary.
+	if n != obj.lastInputListLength {
+		subgraphInput := obj.ArgVertices[0]
+
+		//obj.lastForList = forList
+		obj.lastInputListLength = n
+		// replaceSubGraph uses the above two values
+		if err := obj.replaceSubGraph(subgraphInput); err != nil {
+			return nil, errwrap.Wrapf(err, "could not replace subgraph")
+		}
+
+		return nil, interfaces.ErrInterrupt
+	}
+
+	// send dummy value to the output
+	return types.NewNil(), nil // dummy value
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *ForFunc) Cleanup(ctx context.Context) error {
+	return obj.init.Txn.Reverse()
 }

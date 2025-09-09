@@ -13,6 +13,10 @@ test "${out}" {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: call -> callSubgraphOutput # dummy
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> call # fn
 Vertex: FuncValue
 Vertex: call
+Vertex: call
+Vertex: callSubgraphOutput
 Vertex: callSubgraphOutput

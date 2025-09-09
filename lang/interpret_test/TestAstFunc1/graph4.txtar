@@ -4,4 +4,6 @@ if $b {
 }
 $b = true
 -- OUTPUT --
+Edge: const: bool(true) -> stmtif # condition
 Vertex: const: bool(true)
+Vertex: stmtif

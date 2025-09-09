@@ -31,7 +31,6 @@ package coretest
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -265,38 +264,6 @@ func (obj *OneInstance) Init(init *interfaces.Init) error {
 	b := true
 	obj.Flag = &b
 	obj.Mutex.Unlock()
-	return nil
-}
-
-// Stream returns the changing values that this fact has over time.
-func (obj *OneInstance) Stream(ctx context.Context) error {
-	obj.init.Logf("Stream of `%s` @ %p", obj.Name, obj)
-	defer close(obj.init.Output) // always signal when we're done
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
-	result, err := obj.Call(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	select {
-	case obj.init.Output <- result:
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	return nil
 }
 

@@ -35,89 +35,60 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// ExprIfFuncName is the unique name identifier for this function.
-	ExprIfFuncName = "exprif"
+	// StmtIfFuncName is the unique name identifier for this function.
+	StmtIfFuncName = "stmtif"
 
-	// ExprIfFuncArgNameCondition is the name for the edge which connects
-	// the input condition to ExprIfFunc.
-	ExprIfFuncArgNameCondition = "condition"
+	// StmtIfFuncArgNameCondition is the name for the edge which connects
+	// the input condition to StmtIfFunc.
+	StmtIfFuncArgNameCondition = "condition"
 )
 
-// ExprIfFunc is a function that passes through the value of the correct branch
-// based on the conditional value it gets.
-type ExprIfFunc struct {
+// StmtIfFunc is a function that builds the correct body based on the
+// conditional value it gets.
+type StmtIfFunc struct {
 	interfaces.Textarea
-
-	Type *types.Type // this is the type of the if expression output we hold
 
 	EdgeName string // name of the edge used
 
-	ThenGraph *pgraph.Graph
-	ElseGraph *pgraph.Graph
+	// Env is the captured environment from when Graph for StmtIf was built.
+	Env *interfaces.Env
 
-	ThenFunc interfaces.Func
-	ElseFunc interfaces.Func
+	// Then is the Stmt for the "then" branch. We do *not* want this to be a
+	// *pgraph.Graph, as we actually need to call Graph(env) ourself during
+	// runtime to get the correct subgraph out of that appropriate branch.
+	Then interfaces.Stmt
 
-	OutputVertex interfaces.Func
+	// Else is the Stmt for the "else" branch. See "Then" for more details.
+	Else interfaces.Stmt
 
-	init *interfaces.Init
-	last *bool // last value received to use for diff
+	init         *interfaces.Init
+	last         *bool // last value received to use for diff
+	needsReverse bool
 }
 
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
-func (obj *ExprIfFunc) String() string {
-	return ExprIfFuncName
+func (obj *StmtIfFunc) String() string {
+	return StmtIfFuncName
 }
 
 // Validate tells us if the input struct takes a valid form.
-func (obj *ExprIfFunc) Validate() error {
-	if obj.Type == nil {
-		return fmt.Errorf("must specify a type")
-	}
-
+func (obj *StmtIfFunc) Validate() error {
 	if obj.EdgeName == "" {
 		return fmt.Errorf("must specify an edge name")
-	}
-
-	if obj.ThenFunc == nil {
-		return fmt.Errorf("must specify a then func")
-	}
-	if obj.ElseFunc == nil {
-		return fmt.Errorf("must specify an else func")
-	}
-
-	t1 := obj.ThenFunc.Info().Sig.Out
-	t2 := obj.ElseFunc.Info().Sig.Out
-	if err := t1.Cmp(t2); err != nil {
-		return errwrap.Wrapf(err, "types of exprif branches must match")
-	}
-
-	if obj.OutputVertex == nil {
-		return fmt.Errorf("the output vertex is missing")
 	}
 
 	return nil
 }
 
 // Info returns some static info about itself.
-func (obj *ExprIfFunc) Info() *interfaces.Info {
-	var typ *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
-		typ = &types.Type{
-			Kind: types.KindFunc, // function type
-			Map: map[string]*types.Type{
-				ExprIfFuncArgNameCondition: types.TypeBool, // conditional must be a boolean
-			},
-			Ord: []string{ExprIfFuncArgNameCondition}, // conditional
-			Out: obj.Type,                             // result type must match
-		}
-	}
+func (obj *StmtIfFunc) Info() *interfaces.Info {
+	// dummy type to prove we're dropping the output since we don't use it.
+	typ := types.NewType(fmt.Sprintf("func(%s bool) nil", obj.EdgeName))
 
 	return &interfaces.Info{
 		Pure: true,
@@ -127,38 +98,41 @@ func (obj *ExprIfFunc) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this if expression function.
-func (obj *ExprIfFunc) Init(init *interfaces.Init) error {
+// Init runs some startup code for this if statement function.
+func (obj *StmtIfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
-func (obj *ExprIfFunc) replaceSubGraph(b bool) error {
-	// delete the old subgraph
-	if err := obj.init.Txn.Reverse(); err != nil {
-		return errwrap.Wrapf(err, "could not Reverse")
+func (obj *StmtIfFunc) replaceSubGraph(b bool) error {
+	if obj.needsReverse { // not on the first run
+		// delete the old subgraph
+		if err := obj.init.Txn.Reverse(); err != nil {
+			return errwrap.Wrapf(err, "could not Reverse")
+		}
 	}
+	obj.needsReverse = true
 
-	var f interfaces.Func
-	if b {
-		obj.init.Txn.AddGraph(obj.ThenGraph)
-		f = obj.ThenFunc
-	} else {
-		obj.init.Txn.AddGraph(obj.ElseGraph)
-		f = obj.ElseFunc
+	if b && obj.Then != nil {
+		g, err := obj.Then.Graph(obj.Env)
+		if err != nil {
+			return err
+		}
+		obj.init.Txn.AddGraph(g)
 	}
-
-	// create the new subgraph
-	edgeName := OutputFuncArgName
-	edge := &interfaces.FuncEdge{Args: []string{edgeName}}
-	obj.init.Txn.AddVertex(f)
-	obj.init.Txn.AddEdge(f, obj.OutputVertex, edge)
+	if !b && obj.Else != nil {
+		g, err := obj.Else.Graph(obj.Env)
+		if err != nil {
+			return err
+		}
+		obj.init.Txn.AddGraph(g)
+	}
 
 	return obj.init.Txn.Commit()
 }
 
 // Call this func and return the value if it is possible to do so at this time.
-func (obj *ExprIfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+func (obj *StmtIfFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("not enough args")
 	}
@@ -180,6 +154,10 @@ func (obj *ExprIfFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 }
 
 // Cleanup runs after that function was removed from the graph.
-func (obj *ExprIfFunc) Cleanup(ctx context.Context) error {
+func (obj *StmtIfFunc) Cleanup(ctx context.Context) error {
+	if !obj.needsReverse { // not needed if we never replaced graph
+		return nil
+	}
+
 	return obj.init.Txn.Reverse()
 }

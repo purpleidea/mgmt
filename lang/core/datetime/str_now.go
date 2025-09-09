@@ -27,70 +27,73 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package coresys
+package coredatetime
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
-	// LoadFuncName is the name this fact is registered as. It's still a
+	// StrNowFuncName is the name this fact is registered as. It's still a
 	// Func Name because this is the name space the fact is actually using.
-	LoadFuncName = "load"
-
-	loadSignature = "struct{x1 float; x5 float; x15 float}"
+	StrNowFuncName = "str_now"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, LoadFuncName, func() interfaces.Func { return &Load{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, StrNowFuncName, func() interfaces.Func { return &StrNow{} }) // must register the fact and name
 }
 
-// Load is a fact which returns the current system load.
-type Load struct {
+// StrNow is a fact which returns the current date and time.
+type StrNow struct {
 	init *interfaces.Init
 }
 
 // String returns a simple name for this fact. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
-func (obj *Load) String() string {
-	return LoadFuncName
+func (obj *StrNow) String() string {
+	return NowFuncName
 }
 
 // Validate makes sure we've built our struct properly.
-func (obj *Load) Validate() error {
+func (obj *StrNow) Validate() error {
 	return nil
 }
 
 // Info returns some static info about itself.
-func (obj *Load) Info() *interfaces.Info {
+func (obj *StrNow) Info() *interfaces.Info {
 	return &interfaces.Info{
 		Pure: false, // non-constant facts can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
-		Sig:  types.NewType(fmt.Sprintf("func() %s", loadSignature)),
+		Sig:  types.NewType("func() str"),
 	}
 }
 
 // Init runs some startup code for this fact.
-func (obj *Load) Init(init *interfaces.Init) error {
+func (obj *StrNow) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
-// Stream starts a mainloop and runs Event when it's time to Call() again.
-func (obj *Load) Stream(ctx context.Context) error {
-	// it seems the different values only update once every 5
-	// seconds, so that's as often as we need to refresh this!
-	// TODO: lookup this value if it's something configurable
-	ticker := time.NewTicker(time.Duration(5) * time.Second)
+// Stream returns the changing values that this fact has over time.
+func (obj *StrNow) Stream(ctx context.Context) error {
+	// XXX: this might be an interesting fact to write because:
+	// 1) will the sleeps from the ticker be in sync with the second ticker?
+	// 2) if we care about a less precise interval (eg: minute changes) can
+	// we set this up so it doesn't tick as often? -- Yes (make this a function or create a limit function to wrap this)
+	// 3) is it best to have a delta timer that wakes up before it's needed
+	// and calculates how much longer to sleep for?
+	ticker := time.NewTicker(time.Duration(1) * time.Second)
+	//ticker := time.NewTicker(time.Duration(1) * time.Millisecond)
+	//ticker := time.NewTicker(time.Duration(1) * time.Microsecond)
+	//ticker := time.NewTicker(time.Duration(1) * time.Nanosecond)
 	defer ticker.Stop()
 
 	// streams must generate an initial event on startup
@@ -117,18 +120,11 @@ func (obj *Load) Stream(ctx context.Context) error {
 }
 
 // Call this fact and return the value if it is possible to do so at this time.
-func (obj *Load) Call(ctx context.Context, args []types.Value) (types.Value, error) {
-	x1, x5, x15, err := load()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not read load values")
-	}
-
-	st := types.NewStruct(types.NewType(loadSignature))
-	for k, v := range map[string]float64{"x1": x1, "x5": x5, "x15": x15} {
-		if err := st.Set(k, &types.FloatValue{V: v}); err != nil {
-			return nil, errwrap.Wrapf(err, "struct could not set key: `%s`", k)
-		}
-	}
-
-	return st, nil
+func (obj *StrNow) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	return &types.StrValue{ // seconds since 1970 as a string...
+		V: strconv.FormatInt(time.Now().Unix(), 10), // .UTC() not necessary
+		//V: strconv.FormatInt(time.Now().UnixMilli(), 10), // .UTC() not necessary
+		//V: strconv.FormatInt(time.Now().UnixMicro(), 10), // .UTC() not necessary
+		//V: strconv.FormatInt(time.Now().UnixNano(), 10), // .UTC() not necessary
+	}, nil
 }

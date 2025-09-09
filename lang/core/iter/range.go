@@ -47,7 +47,6 @@ const (
 	RangeFuncName = "range"
 )
 
-var _ interfaces.CallableFunc = &RangeFunc{}
 var _ interfaces.BuildableFunc = &RangeFunc{}
 
 // RangeFunc is a function that ranges over elements on a list according to
@@ -173,49 +172,6 @@ func (obj *RangeFunc) Info() *interfaces.Info {
 func (obj *RangeFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
-}
-
-// Stream returns the changing values that this func has over time.
-func (obj *RangeFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // closing the sender
-
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // we don't have more inputs
-			}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // nothing has changed, skip it
-			}
-			obj.last = input // storing the input for comparison
-
-			args, err := interfaces.StructToCallableArgs(input)
-			if err != nil {
-				return err
-			}
-
-			result, err := obj.Call(ctx, args)
-			if err != nil {
-				return err
-			}
-
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // if the result didn't change, we don't need to update
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // sending new result
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 // Call returns the result of this function.

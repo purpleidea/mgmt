@@ -79,6 +79,7 @@ type GAPI struct {
 	initialized bool
 	wg          sync.WaitGroup
 	err         error
+	errMutex    *sync.Mutex // guards err
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -240,6 +241,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		}
 	}
 
+	obj.errMutex = &sync.Mutex{}
 	obj.initialized = true
 	return nil
 }
@@ -287,10 +289,10 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 			select {
 			case ch <- next:
 			case <-ctx.Done():
-				obj.err = ctx.Err()
+				obj.errAppend(ctx.Err())
 				return
 			}
-			obj.err = err
+			obj.errAppend(err)
 			return
 		}
 		startChan := make(chan struct{}) // start signal
@@ -313,7 +315,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 					return
 				}
 			case <-ctx.Done():
-				obj.err = ctx.Err()
+				obj.errAppend(ctx.Err())
 				return
 			}
 
@@ -326,7 +328,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 			obj.data.Logf("generating new graph...")
 			g, err := obj.graph()
 			if err != nil {
-				obj.err = err
+				obj.errAppend(err)
 				return
 			}
 
@@ -339,7 +341,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 			case ch <- next: // trigger a run (send a msg)
 			// unblock if we exit while waiting to send!
 			case <-ctx.Done():
-				obj.err = ctx.Err()
+				obj.errAppend(ctx.Err())
 				return
 			}
 		}
@@ -375,4 +377,11 @@ func (obj *GAPI) cleanup() error {
 	obj.wg.Wait()
 	obj.initialized = false // closed = true
 	return nil
+}
+
+// errAppend is a simple helper function.
+func (obj *GAPI) errAppend(err error) {
+	obj.errMutex.Lock()
+	obj.err = errwrap.Append(obj.err, err)
+	obj.errMutex.Unlock()
 }

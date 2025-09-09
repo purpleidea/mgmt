@@ -55,20 +55,15 @@ func init() {
 	funcs.ModuleRegister(ModuleName, GetValFuncName, func() interfaces.Func { return &GetValFunc{} })
 }
 
-var _ interfaces.CallableFunc = &GetValFunc{}
+var _ interfaces.StreamableFunc = &GetValFunc{}
 
 // GetValFunc is special function which returns the value of a given key in the
 // exposed world.
 type GetValFunc struct {
 	init *interfaces.Init
 
-	key  string
-	args []types.Value
-
-	last   types.Value
-	result types.Value // last calculated output
-
-	watchChan chan error
+	input chan string // stream of inputs
+	key   *string     // the active key
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -109,66 +104,53 @@ func (obj *GetValFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *GetValFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.watchChan = make(chan error) // XXX: sender should close this, but did I implement that part yet???
+	obj.input = make(chan string)
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *GetValFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // important so that we cleanup the watch when exiting
+
+	watchChan := make(chan error) // XXX: sender should close this, but did I implement that part yet???
+
 	for {
 		select {
 		// TODO: should this first chan be run as a priority channel to
 		// avoid some sort of glitch? is that even possible? can our
 		// hostname check with reality (below) fix that?
-		case input, ok := <-obj.init.Input:
+		case key, ok := <-obj.input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			key := args[0].Str()
-			if key == "" {
-				return fmt.Errorf("can't use an empty key")
-			}
-			if obj.init.Debug {
-				obj.init.Logf("key: %s", key)
+			if obj.key != nil && *obj.key == key {
+				continue // nothing changed
 			}
 
 			// TODO: support changing the key over time...
-			if obj.key == "" {
-				obj.key = key // store it
+			if obj.key == nil {
+				obj.key = &key // store
 				var err error
 				//  Don't send a value right away, wait for the
 				// first ValueWatch startup event to get one!
-				obj.watchChan, err = obj.init.World.StrWatch(ctx, obj.key) // watch for var changes
+				watchChan, err = obj.init.World.StrWatch(ctx, key) // watch for var changes
 				if err != nil {
 					return err
 				}
-
-			} else if obj.key != key {
-				return fmt.Errorf("can't change key, previously: `%s`", obj.key)
+				continue // we get values on the watch chan, not here!
 			}
 
-			continue // we get values on the watch chan, not here!
+			if *obj.key == key {
+				continue // skip duplicates
+			}
 
-		case err, ok := <-obj.watchChan:
+			// *obj.key != key
+			return fmt.Errorf("can't change key, previously: `%s`", *obj.key)
+
+		case err, ok := <-watchChan:
 			if !ok { // closed
 				// XXX: if we close, perhaps the engine is
 				// switching etcd hosts and we should retry?
@@ -177,27 +159,13 @@ func (obj *GetValFunc) Stream(ctx context.Context) error {
 				return nil
 			}
 			if err != nil {
-				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.key)
+				return errwrap.Wrapf(err, "channel watch failed on `%s`", *obj.key)
 			}
 
-			result, err := obj.Call(ctx, obj.args) // get the value...
-			if err != nil {
+			if err := obj.init.Event(ctx); err != nil { // send event
 				return err
 			}
 
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
 		case <-ctx.Done():
 			return nil
 		}
@@ -213,9 +181,25 @@ func (obj *GetValFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 	}
 	key := args[0].Str()
 	exists := true // assume true
+	if key == "" {
+		return nil, fmt.Errorf("can't use an empty key")
+	}
+
+	// Check before we send to a chan where we'd need Stream to be running.
 	if obj.init == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
+
+	if obj.init.Debug {
+		obj.init.Logf("key: %s", key)
+	}
+
+	select {
+	case obj.input <- key:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
 	val, err := obj.init.World.StrGet(ctx, key)
 	if err != nil && obj.init.World.StrIsNotExist(err) {
 		exists = false // val doesn't exist

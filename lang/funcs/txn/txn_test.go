@@ -39,6 +39,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/funcs/ref"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 )
@@ -136,11 +137,11 @@ type testNullFunc struct {
 	name string
 }
 
-func (obj *testNullFunc) String() string               { return obj.name }
-func (obj *testNullFunc) Info() *interfaces.Info       { return nil }
-func (obj *testNullFunc) Validate() error              { return nil }
-func (obj *testNullFunc) Init(*interfaces.Init) error  { return nil }
-func (obj *testNullFunc) Stream(context.Context) error { return nil }
+func (obj *testNullFunc) String() string                                           { return obj.name }
+func (obj *testNullFunc) Info() *interfaces.Info                                   { return nil }
+func (obj *testNullFunc) Validate() error                                          { return nil }
+func (obj *testNullFunc) Init(*interfaces.Init) error                              { return nil }
+func (obj *testNullFunc) Call(context.Context, []types.Value) (types.Value, error) { return nil, nil }
 
 func TestTxn1(t *testing.T) {
 	graph, err := pgraph.NewGraph("test")
@@ -153,6 +154,7 @@ func TestTxn1(t *testing.T) {
 
 	graphTxn := &GraphTxn{
 		GraphAPI: testGraphAPI,
+		Post:     func() error { return nil },
 		Lock:     mutex.Lock,
 		Unlock:   mutex.Unlock,
 		RefCount: (&ref.Count{}).Init(),
@@ -496,6 +498,7 @@ func TestTxnTable(t *testing.T) {
 
 			graphTxn := &GraphTxn{
 				GraphAPI: testGraphAPI,
+				Post:     func() error { return nil },
 				Lock:     mutex.Lock,
 				Unlock:   mutex.Unlock,
 				RefCount: (&ref.Count{}).Init(),

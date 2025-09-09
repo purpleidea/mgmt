@@ -301,7 +301,13 @@ func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*schedu
 	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.init.Logf))
 
 	path := fmt.Sprintf(schedulerPathFmt, namespace)
-	return scheduler.Schedule(obj.client.GetClient(), path, obj.init.Hostname, modifiedOpts...)
+	return scheduler.Schedule(obj.client, path, obj.init.Hostname, modifiedOpts...)
+}
+
+// Scheduled gets the scheduled results without participating.
+func (obj *World) Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error) {
+	path := fmt.Sprintf(schedulerPathFmt, namespace)
+	return scheduler.Scheduled(ctx, obj.client, path)
 }
 
 // URI returns the current FS URI.

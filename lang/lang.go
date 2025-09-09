@@ -106,10 +106,14 @@ type Lang struct {
 	funcs *dage.Engine    // function event engine
 	graph *pgraph.Graph   // function graph
 
-	streamChan <-chan error // signals a new graph can be created or problem
+	streamChan chan *pgraph.Graph // stream of new graphs
 	//streamBurst bool // should we try and be bursty with the stream events?
 
-	wg *sync.WaitGroup
+	interpreter *interpret.Interpreter
+
+	wg       *sync.WaitGroup
+	err      error
+	errMutex *sync.Mutex // guards err
 }
 
 // Init initializes the lang struct, and starts up the initial input parsing.
@@ -338,51 +342,46 @@ func (obj *Lang) Init(ctx context.Context) error {
 		return errwrap.Wrapf(err, "init error with func engine")
 	}
 
-	obj.streamChan = obj.funcs.Stream() // after obj.funcs.Setup runs
+	//obj.Logf("function engine validating...")
+	//if err := obj.funcs.Validate(); err != nil {
+	//	return errwrap.Wrapf(err, "validate error with func engine")
+	//}
+
+	obj.streamChan = make(chan *pgraph.Graph)
+
+	obj.interpreter = &interpret.Interpreter{
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			// TODO: is this a sane prefix to use here?
+			obj.Logf("interpret: "+format, v...)
+		},
+	}
+
+	obj.wg = &sync.WaitGroup{}
+	obj.errMutex = &sync.Mutex{}
 
 	return nil
 }
 
 // Run kicks off the function engine. Use the context to shut it down.
 func (obj *Lang) Run(ctx context.Context) (reterr error) {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	defer obj.wg.Wait()
 
-	runCtx, cancel := context.WithCancel(context.Background()) // Don't inherit from parent
+	ctx, cancel := context.WithCancel(ctx) // wrap parent
 	defer cancel()
 
-	var timing time.Time
-
-	//obj.Logf("function engine validating...")
-	//if err := obj.funcs.Validate(); err != nil {
-	//	return errwrap.Wrapf(err, "validate error with func engine")
-	//}
-
-	obj.Logf("function engine starting...")
-	timing = time.Now()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := obj.funcs.Run(runCtx); err == nil {
-			reterr = errwrap.Append(reterr, err)
-		}
-		// Run() should only error if not a dag I think...
-	}()
-
-	<-obj.funcs.Started() // wait for startup (will not block forever)
+	//<-obj.funcs.Started() // wait for startup (will not block forever)
 
 	// Sanity checks for graph size.
-	if count := obj.funcs.NumVertices(); count != 0 {
-		return fmt.Errorf("expected empty graph on start, got %d vertices", count)
-	}
-	defer func() {
-		if count := obj.funcs.NumVertices(); count != 0 {
-			err := fmt.Errorf("expected empty graph on exit, got %d vertices", count)
-			reterr = errwrap.Append(reterr, err)
-		}
-	}()
-	defer wg.Wait()
-	defer cancel() // now cancel Run only after Reverse and Free are done!
+	//if count := obj.funcs.NumVertices(); count != 0 {
+	//	return fmt.Errorf("expected empty graph on start, got %d vertices", count)
+	//}
+	//defer func() {
+	//	if count := obj.funcs.NumVertices(); count != 0 {
+	//		err := fmt.Errorf("expected empty graph on exit, got %d vertices", count)
+	//		reterr = errwrap.Append(reterr, err)
+	//	}
+	//}()
 
 	txn := obj.funcs.Txn()
 	defer txn.Free() // remember to call Free()
@@ -396,70 +395,98 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 		}
 	}()
 
-	obj.Logf("function engine starting took: %s", time.Since(timing))
+	//obj.Logf("function engine starting took: %s", time.Since(timing))
 	// wait for some activity
 	obj.Logf("stream...")
 
-	// print some stats if the engine takes too long to startup
-	if EngineStartupStatsTimeout > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	tableChan := obj.funcs.Stream() // after obj.funcs.Setup runs
+
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		defer close(obj.streamChan)
+		defer cancel() // if this loop errors, it should cancel and err
+
+		var table interfaces.Table
+		var ok bool
+		for {
 			select {
-			case <-obj.funcs.Loaded(): // funcs are now loaded!
-			case <-time.After(time.Duration(EngineStartupStatsTimeout) * time.Second):
-				obj.Logf("stats...")
-				obj.Logf("%s", obj.funcs.Stats())
+			case table, ok = <-tableChan:
+				if !ok {
+					return
+				}
+
 			case <-ctx.Done():
+				obj.errAppend(ctx.Err())
+				return
 			}
-		}()
-	}
 
-	select {
-	case <-ctx.Done():
-	}
+			// this call returns the graph
+			// XXX: add a ctx?
+			graph, err := obj.interpreter.Interpret(obj.ast, table)
+			if err != nil {
+				e := errwrap.Wrapf(err, "could not interpret")
+				obj.errAppend(e)
+				return
+			}
 
-	return nil
+			select {
+			case obj.streamChan <- graph:
+
+			case <-ctx.Done():
+				obj.errAppend(ctx.Err())
+				return
+			}
+		}
+	}()
+
+	// print some stats if the engine takes too long to startup
+	//if EngineStartupStatsTimeout > 0 {
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//		select {
+	//		case <-obj.funcs.Loaded(): // funcs are now loaded!
+	//		case <-time.After(time.Duration(EngineStartupStatsTimeout) * time.Second):
+	//			obj.Logf("stats...")
+	//			obj.Logf("%s", obj.funcs.Stats())
+	//		case <-ctx.Done():
+	//		}
+	//	}()
+	//}
+
+	obj.Logf("function engine starting...")
+
+	err := obj.funcs.Run(ctx)
+	// When run terminates, inspect the "official" error first.
+	if err := obj.funcs.Err(); err != nil {
+		return err
+	}
+	return err // If we got this far, return whatever Run did.
 }
 
-// Stream returns a channel of graph change requests or errors. These are
-// usually sent when a func output changes.
-func (obj *Lang) Stream() <-chan error {
+// Stream returns a channel of resource graphs. This changes when a func output
+// changes.
+func (obj *Lang) Stream(ctx context.Context) <-chan *pgraph.Graph {
 	return obj.streamChan
 }
 
-// Interpret runs the interpreter and returns a graph and corresponding error.
-func (obj *Lang) Interpret() (*pgraph.Graph, error) {
-	select {
-	case <-obj.funcs.Loaded(): // funcs are now loaded!
-		// pass
-	default:
-		// if this is hit, someone probably called this too early!
-		// it should only be called in response to a stream event!
-		return nil, fmt.Errorf("funcs aren't loaded yet")
-	}
-
-	obj.Logf("running interpret...")
-	table := obj.funcs.Table() // map[pgraph.Vertex]types.Value
-
-	interpreter := &interpret.Interpreter{
-		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
-			// TODO: is this a sane prefix to use here?
-			obj.Logf("interpret: "+format, v...)
-		},
-	}
-
-	// this call returns the graph
-	graph, err := interpreter.Interpret(obj.ast, table)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not interpret")
-	}
-
-	return graph, nil // return a graph
+// Err will contain the last error when Stream shuts down. It waits for all the
+// running processes to exit before it returns.
+func (obj *Lang) Err() error {
+	obj.wg.Wait()
+	return obj.err
 }
 
 // Cleanup cleans up and frees memory and resources after everything is done.
 func (obj *Lang) Cleanup() error {
-	return obj.funcs.Cleanup()
+	//return obj.funcs.Cleanup() // not implemented atm
+	return nil
+}
+
+// errAppend is a simple helper function.
+func (obj *Lang) errAppend(err error) {
+	obj.errMutex.Lock()
+	obj.err = errwrap.Append(obj.err, err)
+	obj.errMutex.Unlock()
 }

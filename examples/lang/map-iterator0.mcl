@@ -1,14 +1,22 @@
 import "golang"
 import "iter"
 
+#import "fmt"
+#import "datetime"
+#$str_now = fmt.printf("%d", datetime.now())
+
 $fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
-	len($x)
+	#len($x)
+	#$x + $str_now
+	#$x + fmt.printf("%d:%d", len($x), datetime.now())
+	$x
 }
 
 $in1 = ["a", "bb", "ccc", "dddd", "eeeee",]
 
 $out1 = iter.map($in1, $fn)
 
-$t1 = golang.template("out1: {{ . }}", $out1)
+#$t1 = golang.template("out1: {{ . }}", $out1)
 
-test [$t1,] {}
+print $out1 {}
+#print [$t1,] {}

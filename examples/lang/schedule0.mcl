@@ -1,24 +1,32 @@
+# test with:
+# time ./mgmt run --hostname h1 --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
+# time ./mgmt run --hostname h2 --seeds=http://127.0.0.1:2379 --no-server --no-magic --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
+# time ./mgmt run --hostname h3 --seeds=http://127.0.0.1:2379 --no-server --no-magic --tmp-prefix --no-pgp lang examples/lang/schedule0.mcl
+# kill h2 (should see h1 and h3 pick [h1, h3] instead)
+# restart h2 (should see [h1, h3] as before)
+# kill h3 (should see h1 and h2 pick [h1, h2] instead)
+# restart h3 (should see [h1, h2] as before)
+# kill h3
+# kill h2
+# kill h1... all done!
+
 import "golang"
-import "sys"
 import "world"
 
-# here are all the possible options:
-#$opts = struct{strategy => "rr", max => 3, reuse => false, ttl => 10,}
+$ns = "xsched" # some unique string
 
-# although an empty struct is valid too:
-#$opts = struct{}
+# This node wishes to be included in the scheduled set. These are the options...
+schedule "${ns}" {
+	strategy => "rr",
+	max => 2,
+	#reuse => false,
+	ttl => 10,
+}
 
-# we'll just use a smaller subset today:
-$opts = struct{strategy => "rr", max => 2, ttl => 10,}
+# See the scheduled selection for a particular namespace:
+$set = world.schedule($ns)
 
-# schedule in a particular namespace with options:
-$set = world.schedule("xsched", $opts)
-
-# and if you want, you can omit the options entirely:
-#$set = world.schedule("xsched")
-
-$host = sys.hostname()
-file "/tmp/mgmt/scheduled-${host}" {
+file "/tmp/mgmt/scheduled-${hostname}" {
 	state => $const.res.file.state.exists,
 	content => golang.template("set: {{ . }}\n", $set),
 }

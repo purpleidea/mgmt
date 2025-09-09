@@ -69,7 +69,7 @@ func NewFunc(t *types.Type) *FuncValue {
 	if t.Kind != types.KindFunc {
 		return nil // sanity check
 	}
-	v := func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error) {
+	v := func(interfaces.Txn, []interfaces.Func, interfaces.Func) (interfaces.Func, error) {
 		return nil, fmt.Errorf("nil function") // TODO: is this correct?
 	}
 	f := func(context.Context, []types.Value) (types.Value, error) {
@@ -170,6 +170,6 @@ func (obj *FuncValue) CallWithValues(ctx context.Context, args []types.Value) (t
 }
 
 // CallWithFuncs calls the function with the provided txn and func args.
-func (obj *FuncValue) CallWithFuncs(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
-	return obj.V(txn, args)
+func (obj *FuncValue) CallWithFuncs(txn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
+	return obj.V(txn, args, out)
 }

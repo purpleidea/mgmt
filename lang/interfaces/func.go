@@ -60,7 +60,7 @@ func (obj Table) Copy() Table {
 
 // GraphSig is the simple signature that is used throughout our implementations.
 // TODO: Rename this?
-type GraphSig = func(Txn, []Func) (Func, error)
+type GraphSig = func(txn Txn, args []Func, out Func) (Func, error)
 
 // Compile-time guarantee that *types.FuncValue accepts a func of type FuncSig.
 var _ = &types.FuncValue{V: FuncSig(nil)}
@@ -73,6 +73,7 @@ type Info struct {
 	Memo bool        // should the function be memoized? (false if too much output)
 	Fast bool        // is the function slow? (avoid speculative execution)
 	Spec bool        // can we speculatively execute it? (true for most)
+	Meld bool        // should this function be a singleton? eg: datetime.now()
 	Sig  *types.Type // the signature of the function, must be KindFunc
 	Err  error       // is this a valid function, or was it created improperly?
 }
@@ -83,13 +84,10 @@ type Init struct {
 	Hostname string // uuid for the host
 	//Noop bool
 
-	// Input is where a chan (stream) of values will get sent to this node.
-	// The engine will close this `input` chan.
-	Input chan types.Value
-
-	// Output is the chan (stream) of values to get sent out from this node.
-	// The Stream function must close this `output` chan.
-	Output chan types.Value
+	// Event is available and must be called anytime a StreamableFunc wishes
+	// to alert the engine of a new event.
+	// XXX: Why isn't this just an argument to Stream() ?
+	Event func(ctx context.Context) error
 
 	// Txn provides a transaction API that can be used to modify the
 	// function graph while it is "running". This should not be used by most
@@ -105,11 +103,10 @@ type Init struct {
 	Logf  func(format string, v ...interface{})
 }
 
-// Func is the interface that any valid func must fulfill. It is very simple,
-// but still event driven. Funcs should attempt to only send values when they
-// have changed.
-// TODO: should we support a static version of this interface for funcs that
-// never change to avoid the overhead of the goroutine and channel listener?
+// Func is the interface that any valid func must fulfill. Most functions will
+// implement this. Functions that require more functionality can implement
+// additional methods that will enable those functions to fulfill some of the
+// additional interfaces below.
 type Func interface {
 	fmt.Stringer // so that this can be stored as a Vertex
 
@@ -128,16 +125,67 @@ type Func interface {
 	// Init passes some important values and references to the function.
 	Init(*Init) error
 
-	// Stream is the mainloop of the function. It reads and writes from
-	// channels to return the changing values that this func has over time.
-	// It should shutdown and cleanup when the input context is cancelled.
-	// It must not exit before any goroutines it spawned have terminated.
-	// It must close the Output chan if it's done sending new values out. It
-	// must send at least one value, or return an error. It may also return
-	// an error at anytime if it can't continue.
-	// XXX: Remove this from here, it should appear as StreamableFunc and
-	// funcs should implement StreamableFunc or CallableFunc or maybe both.
+	// Call this function with the input args and return the value if it is
+	// possible to do so at this time. To transform from the single value,
+	// graph representation of the callable values into a linear, standard
+	// args list for use here, you can use the StructToCallableArgs
+	// function.
+	//
+	// This may be called speculatively. If the function cannot accept a
+	// speculative call at that time, it must return funcs.ErrCantSpeculate.
+	//
+	// XXX: Should we have another custom error for conditions such as
+	// "not enough args" and other programming mistakes?
+	Call(ctx context.Context, args []types.Value) (types.Value, error)
+}
+
+// StreamableFunc is a function which runs a mainloop. The mainloop can run an
+// Event() method to tell the function engine when it thinks a new Call() should
+// be run.
+type StreamableFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Stream is the mainloop of the function. It calls Event() when it
+	// wants to notify the function engine of a new value. That new value
+	// can be obtained by running Call(). If this function errors, then the
+	// whole function engine must shutdown. It's legal for the Call() to
+	// error, without the Stream exiting. This Stream function should
+	// shutdown and cleanup when the input context is cancelled.
 	Stream(context.Context) error
+}
+
+// CleanableFunc is an interface for functions that might have some cleanup to
+// run after they have been removed from the graph. It's usually useful for
+// executing cleanup transactions.
+type CleanableFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Cleanup runs after that function was removed from the graph.
+	//
+	// Cleanup is essential to remove anything from the function graph that
+	// we're done with when this function (node) exits. Historically this
+	// equivalent was done when Stream exited, however it's important that
+	// any Txn operations like Txn.Reverse happen here (or in Call) and not
+	// in Stream because (1) there may not be a Stream function for all
+	// Func's, and (2) it needs to happen synchronously when we expect it to
+	// and not where it race against something else, or where it could
+	// deadlock by having nested Txn's.
+	//
+	// If the Done method exists, that will run before this Cleanup does.
+	Cleanup(context.Context) error
+}
+
+// DoneableFunc is an interface for functions that tells them that Call will
+// never get called again. It's useful so that they can choose to shutdown the
+// Stream or free any other memory. This happens if the engine knows the
+// incoming values won't change any more.
+type DoneableFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Done tells the function that it will never be called again. This will
+	// get called a maximum of once, and before Cleanup is called if it is
+	// present.
+	Done() error // TODO: Should we return an error?
 }
 
 // BuildableFunc is an interface for functions which need a Build or Check step.
@@ -222,19 +270,6 @@ type InferableFunc interface { // TODO: Is there a better name for this?
 	FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*UnificationInvariant, error)
 }
 
-// CallableFunc is a function that can be called statically if we want to do it
-// speculatively or from a resource.
-type CallableFunc interface {
-	Func // implement everything in Func but add the additional requirements
-
-	// Call this function with the input args and return the value if it is
-	// possible to do so at this time. To transform from the single value,
-	// graph representation of the callable values into a linear, standard
-	// args list for use here, you can use the StructToCallableArgs
-	// function.
-	Call(ctx context.Context, args []types.Value) (types.Value, error)
-}
-
 // CopyableFunc is an interface which extends the base Func interface with the
 // ability to let our compiler know how to copy a Func if that func deems it's
 // needed to be able to do so.
@@ -300,6 +335,19 @@ type DataFunc interface {
 	// SetData is used by the language to pass our function some code-level
 	// context.
 	SetData(*FuncData)
+}
+
+// ShapelyFunc is a function that might require some additional graph shape
+// information to know where to get and output it's data from. This is typically
+// only implemented by tricky functions like "iter.map" and internal functions.
+type ShapelyFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// SetShape tells the function about some important pointers. It is
+	// called during function graph building typically, and before the
+	// function engine runs this function. IOW it runs before the Init() of
+	// this function.
+	SetShape(argFuncs []Func, outputFunc Func)
 }
 
 // MetadataFunc is a function that can return some extraneous information about

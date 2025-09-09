@@ -52,12 +52,18 @@ if $state == "three" {
 	Exec["timer"] -> Kv["${ns}"]
 }
 -- OUTPUT --
+Edge: FuncValue -> call # fn
 Edge: _lookup_default -> _operator # a
 Edge: _lookup_default -> _operator # a
 Edge: _lookup_default -> _operator # a
 Edge: _lookup_default -> _operator # a
 Edge: _operator -> _operator # a
 Edge: _operator -> _operator # b
+Edge: _operator -> stmtif # condition
+Edge: _operator -> stmtif # condition
+Edge: _operator -> stmtif # condition
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> _lookup_default # listormap
 Edge: const: str("") -> _lookup_default # indexorkey
 Edge: const: str("==") -> _operator # op
 Edge: const: str("==") -> _operator # op
@@ -65,25 +71,20 @@ Edge: const: str("==") -> _operator # op
 Edge: const: str("==") -> _operator # op
 Edge: const: str("default") -> _lookup_default # default
 Edge: const: str("default") -> _operator # b
-Edge: const: str("estate") -> kvlookup # namespace
 Edge: const: str("one") -> _operator # b
 Edge: const: str("or") -> _operator # op
 Edge: const: str("three") -> _operator # b
 Edge: const: str("two") -> _operator # b
-Edge: kvlookup -> _lookup_default # listormap
+Vertex: FuncValue
 Vertex: _lookup_default
 Vertex: _operator
 Vertex: _operator
 Vertex: _operator
 Vertex: _operator
 Vertex: _operator
+Vertex: call
+Vertex: callSubgraphOutput
 Vertex: const: str("")
-Vertex: const: str("/tmp/mgmt/state")
-Vertex: const: str("/tmp/mgmt/state")
-Vertex: const: str("/tmp/mgmt/state")
-Vertex: const: str("/usr/bin/sleep 1s")
-Vertex: const: str("/usr/bin/sleep 1s")
-Vertex: const: str("/usr/bin/sleep 1s")
 Vertex: const: str("==")
 Vertex: const: str("==")
 Vertex: const: str("==")
@@ -92,19 +93,9 @@ Vertex: const: str("default")
 Vertex: const: str("default")
 Vertex: const: str("estate")
 Vertex: const: str("one")
-Vertex: const: str("one")
 Vertex: const: str("or")
-Vertex: const: str("state: one\n")
-Vertex: const: str("state: three\n")
-Vertex: const: str("state: two\n")
 Vertex: const: str("three")
-Vertex: const: str("three")
-Vertex: const: str("timer")
-Vertex: const: str("timer")
-Vertex: const: str("timer")
-Vertex: const: str("timer")
-Vertex: const: str("timer")
-Vertex: const: str("timer")
 Vertex: const: str("two")
-Vertex: const: str("two")
-Vertex: kvlookup
+Vertex: stmtif
+Vertex: stmtif
+Vertex: stmtif

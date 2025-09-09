@@ -8,12 +8,6 @@ if true {
 }
 $i = 13
 -- OUTPUT --
-Edge: const: int(13) -> _operator # b
-Edge: const: int(42) -> _operator # a
-Edge: const: str("+") -> _operator # op
-Vertex: _operator
+Edge: const: bool(true) -> stmtif # condition
 Vertex: const: bool(true)
-Vertex: const: int(13)
-Vertex: const: int(42)
-Vertex: const: str("+")
-Vertex: const: str("t")
+Vertex: stmtif

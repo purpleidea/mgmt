@@ -1,0 +1,13 @@
+-- main.mcl --
+# This test checks that we propagate consistently and without glitches. We would
+# fail with: test[-1] or test[1] or similar if we weren't consistent. It is not
+# necessarily guaranteed by the function engine to work this way, but we aim to.
+import "datetime"
+import "fmt"
+
+$now = datetime.now()
+$zero = $now - $now
+
+test [fmt.printf("%d", $zero),] {}
+-- OUTPUT --
+Vertex: test[0]

@@ -1,0 +1,14 @@
+-- main.mcl --
+class c1($b) {
+	if $b {
+		test "t2" {}
+	} else {
+		test "t3" {}
+	}
+}
+include c1(true)
+include c1(false)
+
+-- OUTPUT --
+Vertex: test[t2]
+Vertex: test[t3]

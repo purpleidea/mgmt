@@ -33,6 +33,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -55,20 +56,22 @@ func init() {
 	funcs.Register(Random1FuncName, func() interfaces.Func { return &Random1Func{} })
 }
 
-// Random1Func returns one random string of a certain length.
-// XXX: return a stream instead, and combine this with a first(?) function which
-// takes the first value and then puts backpressure on the stream. This should
-// notify parent functions somehow that their values are no longer required so
-// that they can shutdown if possible. Maybe it should be returning a stream of
-// floats [0,1] as well, which someone can later map to the alphabet that they
-// want. Should random() take an interval to know how often to spit out values?
-// It could also just do it once per second, and we could filter for less. If we
-// want something high precision, we could add that in the future... We could
-// name that "random" and this one can be "random1" until we deprecate it.
+// Random1Func returns one random string of a certain length. If you change the
+// length, then it will produce a new random value.
 type Random1Func struct {
+	// XXX: To produce a stream of random values every N seconds, make a
+	// built-in function or use the dual <|> hack below?
+	// XXX: Maybe it should be returning a stream of floats [0,1] as well,
+	// which someone can later map to the alphabet that they want. Should
+	// random() take an interval to know how often to spit out values? It
+	// could also just do it once per second, and we could filter for less.
+	// If we want something high precision, we could add that in the future.
+	// We could name that "random" and this one can be "random1" until we
+	// deprecate it.
 	init *interfaces.Init
 
-	finished bool // did we send the random string?
+	length uint16 // last length
+	result string // last random
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -136,49 +139,50 @@ func (obj *Random1Func) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the single value that was generated and then closes.
-func (obj *Random1Func) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	var result string
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.finished {
-				// TODO: continue instead?
-				return fmt.Errorf("you can only pass a single input to random")
-			}
-
-			length := input.Struct()[random1ArgNameLength].Int()
-			// TODO: if negative, randomly pick a length ?
-			if length < 0 {
-				return fmt.Errorf("can't generate a negative length")
-			}
-
-			var err error
-			if result, err = generate(uint16(length)); err != nil {
-				return err // no errwrap needed b/c helper func
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- &types.StrValue{
-			V: result,
-		}:
-			// we only send one value, then wait for input to close
-			obj.finished = true
-
-		case <-ctx.Done():
-			return nil
-		}
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *Random1Func) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
 	}
+	length := args[0].Int()
+
+	if length < 0 || length > math.MaxUint16 {
+		// On error, reset the cached values. This *may* be useful if we
+		// want to use the future "except" operator to produce an stream
+		// of random values-- we could flip flop between two "random1()"
+		// functions to successively get a val from one, while resetting
+		// the other one. Which happens right here... Here's an example:
+		//
+		// $now = datetime.now()
+		// $len = 8 # length of rand
+		// # alternate every second
+		// $out = if math.mod($now, 2) == 0 {
+		// 	random1($len) <|> random1(-1)
+		// } else {
+		// 	random1(-1) <|> random1($len)
+		// }
+		//
+		// Perhaps it's just better to have a core rand stream function?
+		obj.length = 0
+		obj.result = ""
+		return nil, fmt.Errorf("can't generate an invalid length")
+	}
+
+	if uint16(length) == obj.length { // same, so use cached value
+		return &types.StrValue{
+			V: obj.result,
+		}, nil
+	}
+	obj.length = uint16(length) // cache
+
+	result, err := generate(uint16(length))
+	if err != nil {
+		return nil, err // no errwrap needed b/c helper func
+	}
+	obj.result = result // cache
+
+	return &types.StrValue{
+		V: result,
+	}, nil
 }

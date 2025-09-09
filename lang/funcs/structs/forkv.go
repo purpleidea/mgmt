@@ -61,6 +61,8 @@ type ForKVFunc struct {
 	SetOnIterBody func(innerTxn interfaces.Txn, ptr types.Value, key, val interfaces.Func) error
 	ClearIterBody func(length int)
 
+	ArgVertices []interfaces.Func // only one expected
+
 	init *interfaces.Init
 
 	lastForKVMap       types.Value // remember the last value
@@ -87,6 +89,10 @@ func (obj *ForKVFunc) Validate() error {
 		return fmt.Errorf("must specify an edge name")
 	}
 
+	if len(obj.ArgVertices) != 1 {
+		return fmt.Errorf("function did not receive shape information")
+	}
+
 	return nil
 }
 
@@ -97,8 +103,8 @@ func (obj *ForKVFunc) Info() *interfaces.Info {
 	if obj.KeyType != nil && obj.ValType != nil { // don't panic if called speculatively
 		// XXX: Improve function engine so it can return no value?
 		//typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s})", obj.EdgeName, obj.KeyType, obj.ValType)) // returns nothing
-		// XXX: Temporary float type to prove we're dropping the output since we don't use it.
-		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) float", obj.EdgeName, obj.KeyType, obj.ValType))
+		// dummy type to prove we're dropping the output since we don't use it.
+		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) nil", obj.EdgeName, obj.KeyType, obj.ValType))
 	}
 
 	return &interfaces.Info{
@@ -115,102 +121,6 @@ func (obj *ForKVFunc) Init(init *interfaces.Init) error {
 	obj.lastForKVMap = nil
 	obj.lastInputMapLength = -1
 	return nil
-}
-
-// Stream takes an input struct in the format as described in the Func and Graph
-// methods of the Expr, and returns the actual expected value as a stream based
-// on the changing inputs to that value.
-func (obj *ForKVFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-
-	// A Func to send input maps to the subgraph. The Txn.Erase() call
-	// ensures that this Func is not removed when the subgraph is recreated,
-	// so that the function graph can propagate the last map we received to
-	// the subgraph.
-	inputChan := make(chan types.Value)
-	subgraphInput := &ChannelBasedSourceFunc{
-		Name:   "subgraphInput",
-		Source: obj,
-		Chan:   inputChan,
-		Type:   obj.mapType(),
-	}
-	obj.init.Txn.AddVertex(subgraphInput)
-	if err := obj.init.Txn.Commit(); err != nil {
-		return errwrap.Wrapf(err, "commit error in Stream")
-	}
-	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
-	defer func() {
-		close(inputChan)
-		obj.init.Txn.Reverse()
-		obj.init.Txn.DeleteVertex(subgraphInput)
-		obj.init.Txn.Commit()
-	}()
-
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // block looping back here
-				//canReceiveMoreMapValues = false
-				// We don't ever shutdown here, since even if we
-				// don't get more maps, that last map value is
-				// still propagating inside of the subgraph and
-				// so we don't want to shutdown since that would
-				// reverse the txn which we only do at the very
-				// end on graph shutdown.
-				continue
-			}
-
-			forKVMap, exists := input.Struct()[obj.EdgeName]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
-			}
-
-			// It's important to have this compare step to avoid
-			// redundant graph replacements which slow things down,
-			// but also cause the engine to lock, which can preempt
-			// the process scheduler, which can cause duplicate or
-			// unnecessary re-sending of values here, which causes
-			// the whole process to repeat ad-nauseum.
-			n := len(forKVMap.Map())
-
-			// If the keys are the same, that's enough! We don't
-			// need to rebuild the graph unless any of the keys
-			// change, since those are our unique identifiers into
-			// the whole loop. As a result, we don't compare between
-			// the entire two map, since while we could rebuild the
-			// graph on any change, it's easier to leave it as is
-			// and simply push new values down the already built
-			// graph if any value changes.
-			if obj.lastInputMapLength != n || obj.cmpMapKeys(forKVMap) != nil {
-				// TODO: Technically we only need to save keys!
-				obj.lastForKVMap = forKVMap
-				obj.lastInputMapLength = n
-				// replaceSubGraph uses the above two values
-				if err := obj.replaceSubGraph(subgraphInput); err != nil {
-					return errwrap.Wrapf(err, "could not replace subgraph")
-				}
-			}
-
-			// send the new input map to the subgraph
-			select {
-			case inputChan <- forKVMap:
-			case <-ctx.Done():
-				return nil
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- &types.FloatValue{
-			V: 42.0, // XXX: temporary
-		}:
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
@@ -313,4 +223,42 @@ func (obj *ForKVFunc) cmpMapKeys(m types.Value) error {
 	}
 
 	return nil
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *ForKVFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	forKVMap := args[0]
+	n := len(forKVMap.Map())
+
+	// If the keys are the same, that's enough! We don't need to rebuild the
+	// graph unless any of the keys/ change, since those are our unique
+	// identifiers into the whole loop. As a result, we don't compare
+	// between the entire two maps, since while we could rebuild the graph
+	// on any change, it's easier to leave it as is and simply push new
+	// values down the already built graph if any value changes.
+	if obj.lastInputMapLength != n || obj.cmpMapKeys(forKVMap) != nil {
+		subgraphInput := obj.ArgVertices[0]
+
+		// TODO: Technically we only need to save keys!
+		obj.lastForKVMap = forKVMap
+		obj.lastInputMapLength = n
+		// replaceSubGraph uses the above two values
+		if err := obj.replaceSubGraph(subgraphInput); err != nil {
+			return nil, errwrap.Wrapf(err, "could not replace subgraph")
+		}
+
+		return nil, interfaces.ErrInterrupt
+	}
+
+	// send dummy value to the output
+	return types.NewNil(), nil // dummy value
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *ForKVFunc) Cleanup(ctx context.Context) error {
+	return obj.init.Txn.Reverse()
 }

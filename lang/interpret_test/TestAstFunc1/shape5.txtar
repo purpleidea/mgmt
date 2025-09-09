@@ -19,16 +19,20 @@ $s = fmt.printf("%d", datetime.now())
 
 test [$lambda($s),] {}
 -- OUTPUT --
+Edge: FuncValue -> call # fn
 Edge: _operator -> composite: []str # 0
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> printf: func(format str, a int) str # a
 Edge: const: str("!") -> _operator # b
 Edge: const: str("%d") -> printf: func(format str, a int) str # format
 Edge: const: str("+") -> _operator # op
-Edge: now -> printf: func(format str, a int) str # a
 Edge: printf: func(format str, a int) str -> _operator # a
+Vertex: FuncValue
 Vertex: _operator
+Vertex: call
+Vertex: callSubgraphOutput
 Vertex: composite: []str
 Vertex: const: str("!")
 Vertex: const: str("%d")
 Vertex: const: str("+")
-Vertex: now
 Vertex: printf: func(format str, a int) str

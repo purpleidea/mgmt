@@ -70,7 +70,7 @@ func SimpleFnToDirectFunc(name string, fv *types.FuncValue) interfaces.Func {
 // *full.FuncValue.
 func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 	return &full.FuncValue{
-		V: func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		V: func(txn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
 			wrappedFunc := SimpleFnToDirectFunc(name, fv)
 			txn.AddVertex(wrappedFunc)
 			for i, arg := range args {
@@ -79,6 +79,13 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 					Args: []string{argName},
 				})
 			}
+
+			// XXX: do we need to use the `out` arg here?
+			// XXX: eg: via .SetShape(args, out)
+			//if shapelyFunc, ok := wrappedFunc.(interfaces.ShapelyFunc); ok {
+			//	shapelyFunc.SetShape(args, out)
+			//}
+
 			return wrappedFunc, nil
 		},
 		F: nil, // unused
@@ -98,16 +105,22 @@ func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 // only be called once.
 func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type) *full.FuncValue {
 
-	v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+	v := func(txn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
 		valueTransformingFunc := makeFunc() // do this once here
-		buildableFunc, ok := valueTransformingFunc.(interfaces.BuildableFunc)
-		if ok {
+		if buildableFunc, ok := valueTransformingFunc.(interfaces.BuildableFunc); ok {
 			// Set the type in case it's not already done.
 			if _, err := buildableFunc.Build(typ); err != nil {
 				// programming error?
 				return nil, err
 			}
 		}
+
+		// XXX: is this the best way to pass this stuff in?
+		// XXX: do we even want to do this here? is it redundant or bad?
+		if shapelyFunc, ok := valueTransformingFunc.(interfaces.ShapelyFunc); ok {
+			shapelyFunc.SetShape(args, out)
+		}
+
 		for i, arg := range args {
 			argName := typ.Ord[i]
 			txn.AddEdge(arg, valueTransformingFunc, &interfaces.FuncEdge{
@@ -118,10 +131,10 @@ func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type) *full
 	}
 
 	var f interfaces.FuncSig
-	callableFunc, ok := makeFunc().(interfaces.CallableFunc)
-	if ok {
-		f = callableFunc.Call
-	}
+	fn := makeFunc()
+	//if _, ok := fn.(interfaces.StreamableFunc); !ok { // XXX: is this what we want now?
+	f = fn.Call
+	//}
 
 	// This has the "V" implementation and the simpler "F" implementation
 	// which can occasionally be used if the interfaces.Func supports that!

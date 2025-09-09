@@ -783,6 +783,9 @@ func (obj *Main) Run() error {
 						Logf("gapi exited")
 					}
 					gapiChan = nil // disable it
+					if err := gapiImpl.Err(); err != nil {
+						obj.Logf("gapi exited with error: %+v", errwrap.WithoutContext(err))
+					}
 					continue
 				}
 

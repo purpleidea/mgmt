@@ -32,7 +32,6 @@ package structs
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -60,8 +59,9 @@ type CallFunc struct {
 	FuncType *types.Type // the type of the function
 	EdgeName string      // name of the edge used
 
-	ArgVertices []interfaces.Func
-
+	// These two fields are identical to what is used by a ShapelyFunc.
+	// TODO: Consider just using that interface here instead?
+	ArgVertices  []interfaces.Func
 	OutputVertex interfaces.Func
 
 	init *interfaces.Init
@@ -111,8 +111,10 @@ func (obj *CallFunc) Info() *interfaces.Info {
 	}
 
 	return &interfaces.Info{
-		Pure: true,
-		Memo: false, // TODO: ???
+		Pure: false, // TODO: ???
+		Memo: false,
+		Fast: false,
+		Spec: false,
 		Sig:  typ,
 		Err:  obj.Validate(),
 	}
@@ -123,90 +125,6 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.lastFuncValue = nil
 	return nil
-}
-
-// Stream takes an input struct in the format as described in the Func and Graph
-// methods of the Expr, and returns the actual expected value as a stream based
-// on the changing inputs to that value.
-func (obj *CallFunc) Stream(ctx context.Context) error {
-	// XXX: is there a sync.Once sort of solution that would be more elegant here?
-	mutex := &sync.Mutex{}
-	done := false
-	send := func(ctx context.Context, b bool) error {
-		mutex.Lock()
-		defer mutex.Unlock()
-		if done {
-			return nil
-		}
-		done = true
-		defer close(obj.init.Output) // the sender closes
-
-		if !b {
-			return nil
-		}
-
-		// send dummy value to the output
-		select {
-		case obj.init.Output <- types.NewFloat(): // XXX: dummy value
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		return nil
-	}
-	defer send(ctx, false) // just close
-
-	defer func() {
-		obj.init.Txn.Reverse()
-	}()
-
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // block looping back here
-				if !done {
-					return fmt.Errorf("input closed without ever sending anything")
-				}
-				return nil
-			}
-
-			value, exists := input.Struct()[obj.EdgeName]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
-			}
-
-			newFuncValue, ok := value.(*full.FuncValue)
-			if !ok {
-				return fmt.Errorf("programming error, can't convert to *FuncValue")
-			}
-
-			// It's important to have this compare step to avoid
-			// redundant graph replacements which slow things down,
-			// but also cause the engine to lock, which can preempt
-			// the process scheduler, which can cause duplicate or
-			// unnecessary re-sending of values here, which causes
-			// the whole process to repeat ad-nauseum.
-			if newFuncValue == obj.lastFuncValue {
-				continue
-			}
-			// If we have a new function, then we need to replace
-			// the subgraph with a new one that uses the new
-			// function.
-			obj.lastFuncValue = newFuncValue
-
-			if err := obj.replaceSubGraph(newFuncValue); err != nil {
-				return errwrap.Wrapf(err, "could not replace subgraph")
-			}
-
-			send(ctx, true) // send dummy and then close
-
-			continue
-
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
@@ -233,16 +151,61 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	// methods called on it. Nothing else. It will _not_ call Commit or
 	// Reverse. It adds to the graph, and our Commit and Reverse operations
 	// are the ones that actually make the change.
-	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices)
+	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices, obj.OutputVertex)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}
 
 	// create the new subgraph
-	edgeName := OutputFuncArgName
-	edge := &interfaces.FuncEdge{Args: []string{edgeName}}
+	edge := &interfaces.FuncEdge{Args: []string{OutputFuncArgName}} // "out"
 	obj.init.Txn.AddVertex(outputFunc)
-	obj.init.Txn.AddEdge(outputFunc, obj.OutputVertex, edge)
+
+	// XXX: We don't want to do this for ShapelyFunc's. This is a hack b/c I
+	// wasn't sure how to make this more consistent elsewhere. Look at the
+	// "hack" edge in iter.map and iter.filter as those need this hack.
+	// XXX: maybe this interface could return the funcSubgraphOutput node?
+	if _, ok := outputFunc.(interfaces.ShapelyFunc); !ok {
+		obj.init.Txn.AddEdge(outputFunc, obj.OutputVertex, edge)
+	}
 
 	return obj.init.Txn.Commit()
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *CallFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	value := args[0]
+
+	newFuncValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("programming error, can't convert to *FuncValue")
+	}
+
+	if newFuncValue != obj.lastFuncValue {
+		// If we have a new function, then we need to replace the
+		// subgraph with a new one that uses the new function.
+		obj.lastFuncValue = newFuncValue
+
+		// This does *not* deadlock, because running a Txn, can't cause
+		// a second Txn to run automatically. What can happen following
+		// this replacement and subsequent Txn execution, is that we'll
+		// run the interrupt which then lets the new Call functions run
+		// and they then can call more Txn exections and so on...
+		if err := obj.replaceSubGraph(newFuncValue); err != nil {
+			return nil, errwrap.Wrapf(err, "could not replace subgraph")
+		}
+
+		return nil, interfaces.ErrInterrupt
+	}
+
+	// send dummy value to the output
+	return types.NewNil(), nil // dummy value
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *CallFunc) Cleanup(ctx context.Context) error {
+	return obj.init.Txn.Reverse()
 }

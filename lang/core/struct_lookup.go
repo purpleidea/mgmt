@@ -283,62 +283,6 @@ func (obj *StructLookupFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *StructLookupFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			st := (input.Struct()[structLookupArgNameStruct]).(*types.StructValue)
-			field := input.Struct()[structLookupArgNameField].Str()
-
-			if field == "" {
-				return fmt.Errorf("received empty field")
-			}
-			if obj.field == "" {
-				// This can happen at compile time too. Bonus!
-				obj.field = field // store first field
-			}
-			if field != obj.field {
-				return fmt.Errorf("input field changed from: `%s`, to: `%s`", obj.field, field)
-			}
-			result, exists := st.Lookup(obj.field)
-			if !exists {
-				return fmt.Errorf("could not lookup field: `%s` in struct", field)
-			}
-
-			// if previous input was `2 + 4`, but now it
-			// changed to `1 + 5`, the result is still the
-			// same, so we can skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 // Call returns the result of this function.
 func (obj *StructLookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	if len(args) < 2 {

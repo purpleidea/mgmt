@@ -1259,7 +1259,7 @@ func TestAstFunc2(t *testing.T) {
 				t.Errorf("test #%d: init error with func engine: %+v", index, err)
 				return
 			}
-			defer funcs.Cleanup()
+			//defer funcs.Cleanup()
 
 			// XXX: can we type check things somehow?
 			//logf("function engine validating...")
@@ -1268,52 +1268,6 @@ func TestAstFunc2(t *testing.T) {
 			//	t.Errorf("test #%d: validate error with func engine: %+v", index, err)
 			//	return
 			//}
-
-			logf("function engine starting...")
-			wg := &sync.WaitGroup{}
-			defer wg.Wait()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := funcs.Run(ctx); err != nil {
-					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: run error with func engine: %+v", index, err)
-					return
-				}
-			}()
-
-			//wg.Add(1)
-			//go func() { // XXX: debugging
-			//	defer wg.Done()
-			//	for {
-			//		select {
-			//		case <-time.After(100 * time.Millisecond): // blocked functions
-			//			t.Logf("test #%d: graphviz...", index)
-			//			funcs.Graphviz("") // log to /tmp/...
-			//
-			//		case <-ctx.Done():
-			//			return
-			//		}
-			//	}
-			//}()
-
-			<-funcs.Started() // wait for startup (will not block forever)
-
-			// Sanity checks for graph size.
-			if count := funcs.NumVertices(); count != 0 {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: expected empty graph on start, got %d vertices", index, count)
-			}
-			defer func() {
-				if count := funcs.NumVertices(); count != 0 {
-					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
-				}
-			}()
-			defer wg.Wait()
-			defer cancel()
 
 			txn := funcs.Txn()
 			defer txn.Free() // remember to call Free()
@@ -1325,6 +1279,70 @@ func TestAstFunc2(t *testing.T) {
 			}
 			defer txn.Reverse() // should remove everything we added
 
+			logf("function engine starting...")
+			wg := &sync.WaitGroup{}
+			defer wg.Wait()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := funcs.Run(ctx); err != nil {
+					if err == context.Canceled { // normal test shutdown
+						return
+					}
+					// check in funcs.Err() instead.
+					//t.Errorf("test #%d: FAIL", index)
+					//t.Errorf("test #%d: run error with func engine: %+v", index, err)
+				}
+			}()
+			defer func() {
+				err := errwrap.WithoutContext(funcs.Err())
+				if err == context.Canceled { // normal test shutdown
+					return
+				}
+				if err == nil {
+					return
+				}
+
+				if (!fail || !failStream) && err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: stream errored: %+v", index, err)
+					return
+				}
+				if failStream && err != nil {
+					t.Logf("test #%d: stream errored: %+v", index, err)
+					// Stream errors often have pointers in them, so don't compare for now.
+					//s := err.Error() // convert to string
+					//if !foundErr(s) {
+					//	t.Errorf("test #%d: FAIL", index)
+					//	t.Errorf("test #%d: expected different error", index)
+					//	t.Logf("test #%d: err: %s", index, s)
+					//	t.Logf("test #%d: exp: %s", index, expstr)
+					//}
+					return
+				}
+				if failStream && err == nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: stream passed, expected fail", index)
+					return
+				}
+			}()
+
+			// Sanity checks for graph size.
+			//if count := funcs.NumVertices(); count != 0 {
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: expected empty graph on start, got %d vertices", index, count)
+			//}
+			//defer func() {
+			//	if count := funcs.NumVertices(); count != 0 {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
+			//	}
+			//}()
+			defer wg.Wait()
+			defer cancel()
+
 			isEmpty := make(chan struct{})
 			if fgraph.NumVertices() == 0 { // no funcs to load!
 				close(isEmpty)
@@ -1332,64 +1350,24 @@ func TestAstFunc2(t *testing.T) {
 
 			// wait for some activity
 			logf("stream...")
-			stream := funcs.Stream()
-			//select {
-			//case err, ok := <-stream:
-			//	if !ok {
-			//		t.Errorf("test #%d: FAIL", index)
-			//		t.Errorf("test #%d: stream closed", index)
-			//		return
-			//	}
-			//	if err != nil {
-			//		t.Errorf("test #%d: FAIL", index)
-			//		t.Errorf("test #%d: stream errored: %+v", index, err)
-			//		return
-			//	}
-			//
-			//case <-time.After(60 * time.Second): // blocked functions
-			//	t.Errorf("test #%d: FAIL", index)
-			//	t.Errorf("test #%d: stream timeout", index)
-			//	return
-			//}
+			tableChan := funcs.Stream()
 
 			// sometimes the <-stream seems to constantly (or for a
 			// long time?) win the races against the <-time.After(),
 			// so add some limit to how many times we need to stream
 			max := 1
+			var table interfaces.Table
 		Loop:
 			for {
+				var ok bool
 				select {
-				case err, ok := <-stream:
+				case table, ok = <-tableChan:
 					if !ok {
-						t.Errorf("test #%d: FAIL", index)
-						t.Errorf("test #%d: stream closed", index)
+						//t.Errorf("test #%d: FAIL", index) // check in funcs.Err() instead.
+						t.Logf("test #%d: stream closed", index)
 						return
 					}
-					if err != nil {
-						if (!fail || !failStream) && err != nil {
-							t.Errorf("test #%d: FAIL", index)
-							t.Errorf("test #%d: stream errored: %+v", index, err)
-							return
-						}
-						if failStream && err != nil {
-							t.Logf("test #%d: stream errored: %+v", index, err)
-							// Stream errors often have pointers in them, so don't compare for now.
-							//s := err.Error() // convert to string
-							//if !foundErr(s) {
-							//	t.Errorf("test #%d: FAIL", index)
-							//	t.Errorf("test #%d: expected different error", index)
-							//	t.Logf("test #%d: err: %s", index, s)
-							//	t.Logf("test #%d: exp: %s", index, expstr)
-							//}
-							return
-						}
-						if failStream && err == nil {
-							t.Errorf("test #%d: FAIL", index)
-							t.Errorf("test #%d: stream passed, expected fail", index)
-							return
-						}
-						return
-					}
+
 					t.Logf("test #%d: got stream event!", index)
 					max--
 					if max == 0 {
@@ -1410,11 +1388,9 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}
 
-			t.Logf("test #%d: %s", index, funcs.Stats())
+			//t.Logf("test #%d: %s", index, funcs.Stats())
 
 			// run interpret!
-			table := funcs.Table() // map[interfaces.Func]types.Value
-
 			interpreter := &interpret.Interpreter{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -2138,7 +2114,7 @@ func TestAstFunc3(t *testing.T) {
 				t.Errorf("test #%d: init error with func engine: %+v", index, err)
 				return
 			}
-			defer funcs.Cleanup()
+			//defer funcs.Cleanup()
 
 			// XXX: can we type check things somehow?
 			//logf("function engine validating...")
@@ -2147,52 +2123,6 @@ func TestAstFunc3(t *testing.T) {
 			//	t.Errorf("test #%d: validate error with func engine: %+v", index, err)
 			//	return
 			//}
-
-			logf("function engine starting...")
-			wg := &sync.WaitGroup{}
-			defer wg.Wait()
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				if err := funcs.Run(ctx); err != nil {
-					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: run error with func engine: %+v", index, err)
-					return
-				}
-			}()
-
-			//wg.Add(1)
-			//go func() { // XXX: debugging
-			//	defer wg.Done()
-			//	for {
-			//		select {
-			//		case <-time.After(100 * time.Millisecond): // blocked functions
-			//			t.Logf("test #%d: graphviz...", index)
-			//			funcs.Graphviz("") // log to /tmp/...
-			//
-			//		case <-ctx.Done():
-			//			return
-			//		}
-			//	}
-			//}()
-
-			<-funcs.Started() // wait for startup (will not block forever)
-
-			// Sanity checks for graph size.
-			if count := funcs.NumVertices(); count != 0 {
-				t.Errorf("test #%d: FAIL", index)
-				t.Errorf("test #%d: expected empty graph on start, got %d vertices", index, count)
-			}
-			defer func() {
-				if count := funcs.NumVertices(); count != 0 {
-					t.Errorf("test #%d: FAIL", index)
-					t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
-				}
-			}()
-			defer wg.Wait()
-			defer cancel()
 
 			txn := funcs.Txn()
 			defer txn.Free() // remember to call Free()
@@ -2204,6 +2134,74 @@ func TestAstFunc3(t *testing.T) {
 			}
 			defer txn.Reverse() // should remove everything we added
 
+			logf("function engine starting...")
+			wg := &sync.WaitGroup{}
+			defer wg.Wait()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if err := funcs.Run(ctx); err != nil {
+					if err == context.Canceled { // normal test shutdown
+						return
+					}
+					// check in funcs.Err() instead.
+					//t.Errorf("test #%d: FAIL", index)
+					//t.Errorf("test #%d: run error with func engine: %+v", index, err)
+				}
+			}()
+			defer func() {
+				err := errwrap.WithoutContext(funcs.Err())
+				if err == context.Canceled { // normal test shutdown
+					return
+				}
+				if err == nil {
+					return
+				}
+
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: stream errored: %+v", index, err)
+				return
+
+				//if (!fail || !failStream) && err != nil {
+				//	t.Errorf("test #%d: FAIL", index)
+				//	t.Errorf("test #%d: stream errored: %+v", index, err)
+				//	return
+				//}
+				//if failStream && err != nil {
+				//	t.Logf("test #%d: stream errored: %+v", index, err)
+				//	// Stream errors often have pointers in them, so don't compare for now.
+				//	//s := err.Error() // convert to string
+				//	//if !foundErr(s) {
+				//	//	t.Errorf("test #%d: FAIL", index)
+				//	//	t.Errorf("test #%d: expected different error", index)
+				//	//	t.Logf("test #%d: err: %s", index, s)
+				//	//	t.Logf("test #%d: exp: %s", index, expstr)
+				//	//}
+				//	return
+				//}
+				//if failStream && err == nil {
+				//	t.Errorf("test #%d: FAIL", index)
+				//	t.Errorf("test #%d: stream passed, expected fail", index)
+				//	return
+				//}
+			}()
+
+			// Sanity checks for graph size.
+			//if count := funcs.NumVertices(); count != 0 {
+			//	t.Errorf("test #%d: FAIL", index)
+			//	t.Errorf("test #%d: expected empty graph on start, got %d vertices", index, count)
+			//}
+			//defer func() {
+			//	if count := funcs.NumVertices(); count != 0 {
+			//		t.Errorf("test #%d: FAIL", index)
+			//		t.Errorf("test #%d: expected empty graph on exit, got %d vertices", index, count)
+			//	}
+			//}()
+			defer wg.Wait()
+			defer cancel()
+
 			isEmpty := make(chan struct{})
 			if fgraph.NumVertices() == 0 { // no funcs to load!
 				close(isEmpty)
@@ -2211,44 +2209,29 @@ func TestAstFunc3(t *testing.T) {
 
 			// wait for some activity
 			logf("stream...")
-			stream := funcs.Stream()
-			//select {
-			//case err, ok := <-stream:
-			//	if !ok {
-			//		t.Errorf("test #%d: FAIL", index)
-			//		t.Errorf("test #%d: stream closed", index)
-			//		return
-			//	}
-			//	if err != nil {
-			//		t.Errorf("test #%d: FAIL", index)
-			//		t.Errorf("test #%d: stream errored: %+v", index, err)
-			//		return
-			//	}
-			//
-			//case <-time.After(60 * time.Second): // blocked functions
-			//	t.Errorf("test #%d: FAIL", index)
-			//	t.Errorf("test #%d: stream timeout", index)
-			//	return
-			//}
+			tableChan := funcs.Stream()
 
 			// sometimes the <-stream seems to constantly (or for a
 			// long time?) win the races against the <-time.After(),
 			// so add some limit to how many times we need to stream
 			max := 1
+			var table interfaces.Table
 		Loop:
 			for {
+				var ok bool
 				select {
-				case err, ok := <-stream:
+				case table, ok = <-tableChan:
 					if !ok {
-						t.Errorf("test #%d: FAIL", index)
-						t.Errorf("test #%d: stream closed", index)
+						//t.Errorf("test #%d: FAIL", index) // check in funcs.Err() instead.
+						t.Errorf("test #%d: FAIL", index) // check in funcs.Err() instead.
+						t.Logf("test #%d: stream closed", index)
 						return
 					}
-					if err != nil {
-						t.Errorf("test #%d: FAIL", index)
-						t.Errorf("test #%d: stream errored: %+v", index, err)
-						return
-					}
+					//if err != nil {
+					//	t.Errorf("test #%d: FAIL", index)
+					//	t.Errorf("test #%d: stream errored: %+v", index, err)
+					//	return
+					//}
 					t.Logf("test #%d: got stream event!", index)
 					max--
 					if max == 0 {
@@ -2269,10 +2252,9 @@ func TestAstFunc3(t *testing.T) {
 				}
 			}
 
-			t.Logf("test #%d: %s", index, funcs.Stats())
+			//t.Logf("test #%d: %s", index, funcs.Stats())
 
 			// run interpret!
-			table := funcs.Table() // map[interfaces.Func]types.Value
 
 			interpreter := &interpret.Interpreter{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`

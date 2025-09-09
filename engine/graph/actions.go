@@ -437,7 +437,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 
 	//defer close(state.stopped) // done signal
 
-	state.cuid = obj.Converger.Register() // XXX RACE READ
+	state.cuid = obj.Converger.Register()
 	state.tuid = obj.Converger.Register()
 	// must wait for all users of the cuid to finish *before* we unregister!
 	// as a result, this defer happens *before* the below wait group Wait...

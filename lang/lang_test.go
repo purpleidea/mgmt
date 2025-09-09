@@ -151,27 +151,20 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := lang.Run(ctx); err != nil {
+		if err := lang.Run(ctx); err != nil && err != context.Canceled {
 			reterr = errwrap.Append(reterr, err)
 		}
 	}()
 	defer cancel() // shutdown the Run
 
 	// we only wait for the first event, instead of the continuous stream
+	var graph *pgraph.Graph
+	var ok bool
 	select {
-	case err, ok := <-lang.Stream():
+	case graph, ok = <-lang.Stream(ctx):
 		if !ok {
 			return nil, fmt.Errorf("stream closed without event")
 		}
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "stream failed")
-		}
-	}
-
-	// run artificially without the entire GAPI loop
-	graph, err := lang.Interpret()
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "interpret failed")
 	}
 
 	return graph, nil

@@ -114,62 +114,6 @@ func (obj *AbsPathFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *AbsPathFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			path := args[0].Str()
-			// TODO: add validation for absolute path?
-			if obj.path != nil && *obj.path == path {
-				continue // nothing changed
-			}
-			obj.path = &path
-
-			result, err := obj.Call(ctx, obj.args)
-			if err != nil {
-				return err
-			}
-
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 // Copy is implemented so that the obj.built value is not lost if we copy this
 // function.
 func (obj *AbsPathFunc) Copy() interfaces.Func {
@@ -186,6 +130,8 @@ func (obj *AbsPathFunc) Call(ctx context.Context, args []types.Value) (types.Val
 		return nil, fmt.Errorf("not enough args")
 	}
 	path := args[0].Str()
+
+	// TODO: add validation for absolute path?
 
 	if obj.data == nil {
 		return nil, funcs.ErrCantSpeculate

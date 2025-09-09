@@ -31,7 +31,6 @@ package coreexample
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -88,22 +87,8 @@ func (obj *FlipFlop) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *FlipFlop) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // always signal when we're done
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	// TODO: don't hard code 5 sec interval
 	ticker := time.NewTicker(time.Duration(5) * time.Second)
 	defer ticker.Stop()
@@ -125,20 +110,12 @@ func (obj *FlipFlop) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		result, err := obj.Call(ctx, nil)
-		if err != nil {
-			return err
-		}
-
 		obj.mutex.Lock()
 		obj.value = !obj.value // flip it
 		obj.mutex.Unlock()
 
-		select {
-		case obj.init.Output <- result:
-
-		case <-ctx.Done():
-			return nil
+		if err := obj.init.Event(ctx); err != nil {
+			return err
 		}
 	}
 }

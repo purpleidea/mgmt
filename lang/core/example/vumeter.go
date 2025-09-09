@@ -37,7 +37,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -147,66 +146,36 @@ func (obj *VUMeterFunc) Init(init *interfaces.Init) error {
 
 // Stream returns the changing values that this func has over time.
 func (obj *VUMeterFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	ticker := newTicker()
+	ticker := time.NewTicker(time.Duration(1) * time.Second)
 	defer ticker.Stop()
-	// FIXME: this goChan seems to work better than the ticker :)
-	// this is because we have a ~1sec delay in capturing the value in exec
-	goChan := make(chan struct{})
-	once := &sync.Once{}
-	onceFunc := func() { close(goChan) } // only run once!
+
+	// streams must generate an initial event on startup
+	// even though ticker will send one, we want to be faster to first event
+	startChan := make(chan struct{}) // start signal
+	close(startChan)                 // kick it off!
+
+	// XXX: We have a back pressure problem! Call takes ~1sec to run. But
+	// since we moved to a buffered event channel, we now generate new
+	// events every second, rather than every second _after_ the previous
+	// event was consumed... This means, we're bombaring the engine with
+	// more events than it can ever process. Add a backpressure mechanism so
+	// that we're always draining the event channel. We could do that here
+	// per-function for rare cases like this, and/or we could try and fix it
+	// in the engine.
 	for {
 		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
+		case <-startChan:
+			startChan = nil // disable
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			once.Do(onceFunc)
-			continue // we must wrap around and go in through goChan
-
-		//case <-ticker.C: // received the timer event
-		case <-goChan: // triggers constantly
-
-			if obj.last == nil {
-				continue // still waiting for input values
-			}
-
-			result, err := obj.Call(ctx, obj.args)
-			if err != nil {
-				return err
-			}
-
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
+		case <-ticker.C: // received the timer event
+			// pass
 
 		case <-ctx.Done():
 			return nil
 		}
 
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
-		case <-ctx.Done():
-			return nil
+		if err := obj.init.Event(ctx); err != nil {
+			return err
 		}
 	}
 }

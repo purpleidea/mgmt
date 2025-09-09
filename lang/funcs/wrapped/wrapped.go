@@ -147,69 +147,6 @@ func (obj *Func) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *Func) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				if len(obj.Fn.Type().Ord) > 0 {
-					return nil // can't output any more
-				}
-				// no inputs were expected, pass through once
-			}
-			if ok {
-				//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-				//	return errwrap.Wrapf(err, "wrong function input")
-				//}
-
-				if obj.last != nil && input.Cmp(obj.last) == nil {
-					continue // value didn't change, skip it
-				}
-				obj.last = input // store for next
-			}
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-
-			if obj.init.Debug {
-				obj.init.Logf("Calling function with: %+v", args)
-			}
-			result, err := obj.Call(ctx, args) // (Value, error)
-			if err != nil {
-				if obj.init.Debug {
-					obj.init.Logf("Function returned error: %+v", err)
-				}
-				return err
-			}
-			if obj.init.Debug {
-				obj.init.Logf("Function returned with: %+v", result)
-			}
-
-			// TODO: do we want obj.result to be a pointer instead?
-			if obj.result == result {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			if len(obj.Fn.Type().Ord) == 0 {
-				return nil // no more values, we're a pure func
-			}
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *Func) Call(ctx context.Context, args []types.Value) (types.Value, error) {

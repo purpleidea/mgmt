@@ -81,8 +81,8 @@ func (obj *OutputFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *OutputFunc) Info() *interfaces.Info {
-	// XXX: contains "dummy" return type
-	s := fmt.Sprintf("func(%s %s, %s float) %s", obj.EdgeName, obj.Type, OutputFuncDummyArgName, obj.Type)
+	// contains "dummy" return type
+	s := fmt.Sprintf("func(%s %s, %s nil) %s", obj.EdgeName, obj.Type, OutputFuncDummyArgName, obj.Type)
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,
@@ -95,44 +95,6 @@ func (obj *OutputFunc) Info() *interfaces.Info {
 func (obj *OutputFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
-}
-
-// Stream returns the changing values that this func has over time.
-func (obj *OutputFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				return nil // can't output any more
-			}
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-
-			result, err := obj.Call(ctx, args) // get the value...
-			if err != nil {
-				return err
-			}
-
-			if obj.last != nil && result.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = result // store so we can send after this select
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.last: // send
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 // Call this function with the input args and return the value if it is possible

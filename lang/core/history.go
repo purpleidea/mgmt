@@ -32,6 +32,8 @@ package core // TODO: should this be in its own individual package?
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -46,6 +48,9 @@ const (
 	// arg names...
 	historyArgNameValue = "value"
 	historyArgNameIndex = "index"
+
+	// factor helps us sample much faster for precision reasons.
+	factor = 10
 )
 
 func init() {
@@ -54,25 +59,39 @@ func init() {
 
 var _ interfaces.BuildableFunc = &HistoryFunc{} // ensure it meets this expectation
 
-// HistoryFunc is special function which returns the Nth oldest value seen. It
-// must store up incoming values until it gets enough to return the desired one.
-// A restart of the program, will expunge the stored state. This obviously takes
-// more memory, the further back you wish to index. A change in the index var is
-// generally not useful, but it is permitted. Moving it to a smaller value will
-// cause older index values to be expunged. If this is undesirable, a max count
-// could be added. This was not implemented with efficiency in mind. Since some
-// functions might not send out un-changed values, it might also make sense to
-// implement a *time* based hysteresis, since this only looks at the last N
-// changed values. A time based hysteresis would tick every precision-width, and
-// store whatever the latest value at that time is.
+// HistoryFunc is special function which returns the value N milliseconds ago.
+// It must store up incoming values until it gets enough to return the desired
+// one. If it doesn't yet have a value, it will initially return the oldest
+// value it can. A restart of the program, will expunge the stored state. This
+// obviously takes more memory, the further back you wish to index. A change in
+// the index var is generally not useful, but it is permitted. Moving it to a
+// smaller value will cause older index values to be expunged. If this is
+// undesirable, a max count could be added. This was not implemented with
+// efficiency in mind. This implements a *time* based hysteresis, since
+// previously this only looked at the last N changed values. Since some
+// functions might not send out un-changed values, it might make more sense this
+// way. This time based hysteresis should tick every precision-width, and store
+// whatever the latest value at that time is. This is implemented wrong, because
+// we can't guarantee the sampling interval is constant, and it's also wasteful.
+// We should implement a better version that keeps track of the time, so that we
+// can pick the closest one and also not need to store duplicates.
+// XXX: This function needs another look. We likely we to snapshot everytime we
+// get a new value in obj.Call instead of having a ticker.
 type HistoryFunc struct {
 	Type *types.Type // type of input value (same as output type)
 
 	init *interfaces.Init
 
-	history []types.Value // goes from newest (index->0) to oldest (len()-1)
+	input chan int64
+	delay *int64
 
-	result types.Value // last calculated output
+	value     types.Value // last value
+	buffer    []*valueWithTimestamp
+	interval  int
+	retention int
+
+	ticker *time.Ticker
+	mutex  *sync.Mutex // don't need an rwmutex since only one reader
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -168,68 +187,165 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *HistoryFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan int64)
+	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *HistoryFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
+	obj.ticker = time.NewTicker(1) // build it however (non-zero to avoid panic!)
+	defer obj.ticker.Stop()        // double stop is safe
+	obj.ticker.Stop()              // begin with a stopped ticker
+	select {
+	case <-obj.ticker.C: // drain if needed
+	default:
+	}
+
 	for {
 		select {
-		case input, ok := <-obj.init.Input:
+		case delay, ok := <-obj.input:
 			if !ok {
-				return nil // can't output any more
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
+
+			// obj.delay is only used here for duplicate detection,
+			// and while similar to obj.interval, we don't reuse it
+			// because we don't want a race condition reading delay
+			if obj.delay != nil && *obj.delay == delay {
+				continue // nothing changed
+			}
+			obj.delay = &delay
+
+			obj.reinit(int(delay)) // starts ticker!
+
+		case <-obj.ticker.C: // received the timer event
+			obj.store()
+			// XXX: We deadlock here if the select{} in obj.Call
+			// runs at the same time and the event obj.ag is
+			// unbuffered. Should the engine buffer?
+
+			// XXX: If we send events, we basically infinite loop :/
+			// XXX:  Didn't look into the feedback mechanism yet.
+			//if err := obj.init.Event(ctx); err != nil {
+			//	return err
 			//}
 
-			//if obj.last != nil && input.Cmp(obj.last) == nil {
-			//	continue // value didn't change, skip it
-			//}
-			//obj.last = input // store for next
-
-			index := int(input.Struct()[historyArgNameIndex].Int())
-			value := input.Struct()[historyArgNameValue]
-			var result types.Value
-
-			if index < 0 {
-				return fmt.Errorf("can't use a negative index of %d", index)
-			}
-
-			// 1) truncate history so length equals index
-			if len(obj.history) > index {
-				// remove all but first N elements, where N == index
-				obj.history = obj.history[:index]
-			}
-
-			// 2) (un)shift (add our new value to the beginning)
-			obj.history = append([]types.Value{value}, obj.history...)
-
-			// 3) are we ready to output a sufficiently old value?
-			if index >= len(obj.history) {
-				continue // not enough history is stored yet...
-			}
-
-			// 4) read one off the back
-			result = obj.history[len(obj.history)-1]
-
-			// TODO: do we want to do this?
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+func (obj *HistoryFunc) reinit(delay int) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	if obj.buffer == nil {
+	}
+
+	obj.interval = delay
+	obj.retention = delay + 10000 // XXX: arbitrary
+	obj.buffer = []*valueWithTimestamp{}
+
+	duration := delay / factor // XXX: sample more often than delay?
+
+	// Start sampler...
+	if duration == 0 { // can't be zero or ticker will panic
+		duration = 100 // XXX: 1ms is probably too fast
+	}
+	obj.ticker.Reset(time.Duration(duration) * time.Millisecond)
+}
+
+func (obj *HistoryFunc) store() {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	val := obj.value.Copy() // copy
+
+	now := time.Now()
+	v := &valueWithTimestamp{
+		Timestamp: now,
+		Value:     val,
+	}
+	obj.buffer = append(obj.buffer, v) // newer values go at the end
+
+	retention := time.Duration(obj.retention) * time.Millisecond
+
+	// clean up old entries
+	cutoff := now.Add(-retention)
+	i := 0
+	for ; i < len(obj.buffer); i++ {
+		if obj.buffer[i].Timestamp.After(cutoff) {
+			break
+		}
+	}
+	obj.buffer = obj.buffer[i:]
+}
+
+func (obj *HistoryFunc) peekAgo(ms int) types.Value {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	if obj.buffer == nil { // haven't started yet
+		return nil
+	}
+	if len(obj.buffer) == 0 { // no data exists yet
+		return nil
+	}
+
+	target := time.Now().Add(-time.Duration(ms) * time.Millisecond)
+
+	for i := len(obj.buffer) - 1; i >= 0; i-- {
+		if !obj.buffer[i].Timestamp.After(target) {
+			return obj.buffer[i].Value
+		}
+	}
+
+	// If no value found, return the oldest one.
+	return obj.buffer[0].Value
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *HistoryFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	value := args[0]
+	interval := args[1].Int() // ms (used to be index)
+
+	if interval < 0 {
+		return nil, fmt.Errorf("can't use a negative interval of %d", interval)
+	}
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	obj.mutex.Lock()
+	obj.value = value // store a copy
+	obj.mutex.Unlock()
+
+	// XXX: we deadlock here if obj.init.Event also runs at the same time!
+	// XXX: ...only if it's unbuffered of course. Should the engine buffer?
+	select {
+	case obj.input <- interval: // inform the delay interval
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	val := obj.peekAgo(int(interval)) // contains mutex
+	if val == nil {                   // don't have a value yet, return self...
+		return obj.value, nil
+	}
+	return val, nil
+}
+
+// valueWithTimestamp stores a value alongside the time it was recorded.
+type valueWithTimestamp struct {
+	Timestamp time.Time
+	Value     types.Value
 }

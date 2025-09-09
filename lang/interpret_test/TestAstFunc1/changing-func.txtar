@@ -21,21 +21,23 @@ $out2 = $fn2()
 test "${out1}" {}
 test "${out2}" {}
 -- OUTPUT --
+Edge: FuncValue -> call # fn
+Edge: FuncValue -> call # fn
 Edge: call -> callSubgraphOutput # dummy
 Edge: call -> callSubgraphOutput # dummy
-Edge: const: bool(false) -> exprif # condition
-Edge: const: bool(true) -> exprif # condition
-Edge: exprIfSubgraphOutput -> call # fn
-Edge: exprIfSubgraphOutput -> call # fn
-Edge: exprif -> exprIfSubgraphOutput # dummy
-Edge: exprif -> exprIfSubgraphOutput # dummy
+Edge: call -> callSubgraphOutput # dummy
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> call # fn
+Edge: callSubgraphOutput -> call # fn
+Vertex: FuncValue
+Vertex: FuncValue
 Vertex: call
 Vertex: call
+Vertex: call
+Vertex: call
+Vertex: callSubgraphOutput
+Vertex: callSubgraphOutput
 Vertex: callSubgraphOutput
 Vertex: callSubgraphOutput
 Vertex: const: bool(false)
 Vertex: const: bool(true)
-Vertex: exprIfSubgraphOutput
-Vertex: exprIfSubgraphOutput
-Vertex: exprif
-Vertex: exprif

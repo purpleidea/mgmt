@@ -94,20 +94,6 @@ func (obj *Hostname) Init(init *interfaces.Init) error {
 
 // Stream returns the single value that this fact has, and then closes.
 func (obj *Hostname) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // signal that we're done sending
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	recurse := false // single file
 	recWatcher, err := recwatch.NewRecWatcher("/etc/hostname", recurse)
 	if err != nil {
@@ -165,18 +151,8 @@ func (obj *Hostname) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		// NOTE: We ask the actual machine instead of using obj.init.Hostname
-		value, err := obj.Call(ctx, nil)
-		if err != nil {
+		if err := obj.init.Event(ctx); err != nil {
 			return err
-		}
-
-		select {
-		case obj.init.Output <- value:
-			// pass
-
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }
@@ -191,6 +167,7 @@ func (obj *Hostname) Call(ctx context.Context, args []types.Value) (types.Value,
 
 	hostnameObject := conn.Object(hostname1Iface, hostname1Path)
 
+	// NOTE: We ask the actual machine instead of using obj.init.Hostname
 	h, err := obj.getHostnameProperty(hostnameObject, "Hostname")
 	if err != nil {
 		return nil, err

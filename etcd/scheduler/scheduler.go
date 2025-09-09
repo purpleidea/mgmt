@@ -39,6 +39,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
@@ -46,6 +47,9 @@ import (
 )
 
 const (
+	// DefaultStrategy is the strategy to use if none has been specified.
+	DefaultStrategy = "rr"
+
 	// DefaultSessionTTL is the number of seconds to wait before a dead or
 	// unresponsive host is removed from the scheduled pool.
 	DefaultSessionTTL = 10 // seconds
@@ -62,10 +66,10 @@ var ErrEndOfResults = errors.New("scheduler: end of results")
 
 var schedulerLeases = make(map[string]etcd.LeaseID) // process lifetime in-memory lease store
 
-// schedulerResult represents output from the scheduler.
-type schedulerResult struct {
-	hosts []string
-	err   error
+// ScheduledResult represents output from the scheduler.
+type ScheduledResult struct {
+	Hosts []string
+	Err   error
 }
 
 // Result is what is returned when you request a scheduler. You can call methods
@@ -73,7 +77,7 @@ type schedulerResult struct {
 // these is produced, the scheduler has already kicked off running for you
 // automatically.
 type Result struct {
-	results   chan *schedulerResult
+	results   chan *ScheduledResult
 	closeFunc func() // run this when you're done with the scheduler // TODO: replace with an input `context`
 }
 
@@ -87,7 +91,7 @@ func (obj *Result) Next(ctx context.Context) ([]string, error) {
 		if !ok {
 			return nil, ErrEndOfResults
 		}
-		return val.hosts, val.err
+		return val.Hosts, val.Err
 
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -108,7 +112,9 @@ func (obj *Result) Shutdown() {
 // can be passed in to customize the behaviour. Hostname represents the unique
 // identifier for the caller. The behaviour is undefined if this is run more
 // than once with the same path and hostname simultaneously.
-func Schedule(client *etcd.Client, path string, hostname string, opts ...Option) (*Result, error) {
+func Schedule(client interfaces.Client, path string, hostname string, opts ...Option) (*Result, error) {
+	c := client.GetClient()
+
 	if strings.HasSuffix(path, "/") {
 		return nil, fmt.Errorf("scheduler: path must not end with the slash char")
 	}
@@ -160,7 +166,7 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 	}
 
 	//options.debug = true // use this for local debugging
-	session, err := concurrency.NewSession(client, sessionOptions...)
+	session, err := concurrency.NewSession(c, sessionOptions...)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "scheduler: could not create session")
 	}
@@ -175,29 +181,43 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 
 	// stored scheduler results
 	scheduledPath := fmt.Sprintf("%s/scheduled", path)
-	scheduledChan := client.Watcher.Watch(ctx, scheduledPath)
+	//scheduledPath := fmt.Sprintf("%s%s/scheduled", client.GetNamespace(), path)
+	//scheduledChan := client.Watcher.Watch(ctx, scheduledPath)
+	scheduledChan, err := client.Watcher(ctx, scheduledPath)
+	if err != nil {
+		cancel()
+		return nil, errwrap.Wrapf(err, "scheduler: could not watch scheduled path")
+	}
 
 	// exchange hostname, and attach it to session (leaseID) so it expires
 	// (gets deleted) when we disconnect...
 	exchangePath := fmt.Sprintf("%s/exchange", path)
+	//exchangePath := fmt.Sprintf("%s%s/exchange", client.GetNamespace(), path)
 	exchangePathHost := fmt.Sprintf("%s/%s", exchangePath, hostname)
 	exchangePathPrefix := fmt.Sprintf("%s/", exchangePath)
 
 	// open the watch *before* we set our key so that we can see the change!
-	watchChan := client.Watcher.Watch(ctx, exchangePathPrefix, etcd.WithPrefix())
+	//watchChan := client.Watcher.Watch(ctx, exchangePathPrefix, etcd.WithPrefix())
+	watchChan, err := client.Watcher(ctx, exchangePathPrefix, etcd.WithPrefix())
+	if err != nil {
+		cancel()
+		return nil, errwrap.Wrapf(err, "scheduler: could not watch exchange path")
+	}
 
 	data := "TODO" // XXX: no data to exchange alongside hostnames yet
 	ifops := []etcd.Cmp{
 		etcd.Compare(etcd.Value(exchangePathHost), "=", data),
 		etcd.Compare(etcd.LeaseValue(exchangePathHost), "=", leaseID),
 	}
-	elsop := etcd.OpPut(exchangePathHost, data, etcd.WithLease(leaseID))
+	elsop := []etcd.Op{
+		etcd.OpPut(exchangePathHost, data, etcd.WithLease(leaseID)),
+	}
 
 	// it's important to do this in one transaction, and atomically, because
 	// this way, we only generate one watch event, and only when it's needed
 	// updating leaseID, or key expiry (deletion) both generate watch events
 	// XXX: context!!!
-	if txn, err := client.KV.Txn(context.TODO()).If(ifops...).Then([]etcd.Op{}...).Else(elsop).Commit(); err != nil {
+	if txn, err := client.Txn(context.TODO(), ifops, nil, elsop); err != nil {
 		defer cancel() // cancel to avoid leaks if we exit early...
 		return nil, errwrap.Wrapf(err, "could not exchange in `%s`", path)
 	} else if txn.Succeeded {
@@ -207,19 +227,19 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 	}
 
 	// create an election object
-	electionPath := fmt.Sprintf("%s/election", path)
+	electionPath := fmt.Sprintf("%s%s/election", client.GetNamespace(), path)
 	election := concurrency.NewElection(session, electionPath)
 	electionChan := election.Observe(ctx)
 
 	elected := "" // who we "assume" is elected
 	wg := &sync.WaitGroup{}
-	ch := make(chan *schedulerResult)
+	ch := make(chan *ScheduledResult)
 	closeChan := make(chan struct{})
 	send := func(hosts []string, err error) bool { // helper function for sending
 		select {
-		case ch <- &schedulerResult{ // send
-			hosts: hosts,
-			err:   err,
+		case ch <- &ScheduledResult{ // send
+			Hosts: hosts,
+			Err:   err,
 		}:
 			return true
 		case <-closeChan: // unblock
@@ -403,22 +423,20 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 					continue
 				}
 
-				err := watchResp.Err()
-				if watchResp.Canceled || err == context.Canceled {
+				//err := watchResp.Err()
+				err := watchResp
+				if err == context.Canceled {
 					// channel get closed shortly...
 					continue
 				}
-				if watchResp.Header.Revision == 0 { // by inspection
-					// received empty message ?
-					// switched client connection ?
-					// FIXME: what should we do here ?
-					continue
-				}
+				//if watchResp.Header.Revision == 0 { // by inspection
+				//	// received empty message ?
+				//	// switched client connection ?
+				//	// FIXME: what should we do here ?
+				//	continue
+				//}
 				if err != nil {
 					send(nil, errwrap.Wrapf(err, "scheduler: exchange watcher failed"))
-					continue
-				}
-				if len(watchResp.Events) == 0 { // nothing interesting
 					continue
 				}
 
@@ -437,13 +455,12 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 				// specific information which is used for some
 				// purpose, eg: seconds active, and other data?
 				hostnames = make(map[string]string) // reset
-				for _, x := range resp.Kvs {
-					k := string(x.Key)
+				for k, v := range resp {
 					if !strings.HasPrefix(k, exchangePathPrefix) {
 						continue
 					}
 					k = k[len(exchangePathPrefix):] // strip
-					hostnames[k] = string(x.Value)
+					hostnames[k] = v
 				}
 				if options.debug {
 					options.logf("available hostnames: %+v", hostnames)
@@ -490,20 +507,25 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 			if elected != hostname {
 				options.logf("i am not the leader, running scheduling result get...")
 				resp, err := client.Get(ctx, scheduledPath)
-				if err != nil || resp == nil || len(resp.Kvs) != 1 {
+				if err != nil || resp == nil || len(resp) != 1 {
 					if err != nil {
 						send(nil, errwrap.Wrapf(err, "scheduler: could not get scheduling result in `%s`", path))
 					} else if resp == nil {
 						send(nil, fmt.Errorf("scheduler: could not get scheduling result in `%s`, resp is nil", path))
-					} else if len(resp.Kvs) > 1 {
-						send(nil, fmt.Errorf("scheduler: could not get scheduling result in `%s`, resp kvs: %+v", path, resp.Kvs))
+					} else if len(resp) > 1 {
+						send(nil, fmt.Errorf("scheduler: could not get scheduling result in `%s`, resp kvs: %+v", path, resp))
 					}
-					// if len(resp.Kvs) == 0, we shouldn't error
+					// if len(resp) == 0, we shouldn't error
 					// in that situation it's just too early...
 					continue
 				}
 
-				result := string(resp.Kvs[0].Value)
+				var result string
+				for _, v := range resp {
+					result = v
+					break // get one value
+				}
+				//result := string(resp.Kvs[0].Value)
 				hosts := strings.Split(result, hostnameJoinChar)
 
 				if options.debug {
@@ -530,17 +552,20 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 			sort.Strings(hosts) // for consistency
 
 			options.logf("storing scheduling result...")
+
 			data := strings.Join(hosts, hostnameJoinChar)
 			ifops := []etcd.Cmp{
 				etcd.Compare(etcd.Value(scheduledPath), "=", data),
 			}
-			elsop := etcd.OpPut(scheduledPath, data)
+			elsop := []etcd.Op{
+				etcd.OpPut(scheduledPath, data),
+			}
 
 			// it's important to do this in one transaction, and atomically, because
 			// this way, we only generate one watch event, and only when it's needed
 			// updating leaseID, or key expiry (deletion) both generate watch events
 			// XXX: context!!!
-			if _, err := client.KV.Txn(context.TODO()).If(ifops...).Then([]etcd.Op{}...).Else(elsop).Commit(); err != nil {
+			if _, err := client.Txn(context.TODO(), ifops, nil, elsop); err != nil {
 				send(nil, errwrap.Wrapf(err, "scheduler: could not set scheduling result in `%s`", path))
 				continue
 			}
@@ -575,4 +600,100 @@ func Schedule(client *etcd.Client, path string, hostname string, opts ...Option)
 	}
 
 	return result, nil
+}
+
+// Scheduled gets the scheduled results without participating.
+func Scheduled(ctx context.Context, client interfaces.Client, path string) (chan *ScheduledResult, error) {
+	if strings.HasSuffix(path, "/") {
+		return nil, fmt.Errorf("scheduled: path must not end with the slash char")
+	}
+	if !strings.HasPrefix(path, "/") {
+		return nil, fmt.Errorf("scheduled: path must start with the slash char")
+	}
+
+	// key structure is $path/election = ???
+	// key structure is $path/exchange/$hostname = ???
+	// key structure is $path/scheduled = ???
+
+	// stored scheduler results
+	scheduledPath := fmt.Sprintf("%s/scheduled", path)
+	ch, err := client.Watcher(ctx, scheduledPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// XXX: What about waitgroups? Does the caller need to know?
+	result := make(chan *ScheduledResult)
+	go func() {
+		defer close(result)
+		for {
+			var err error
+			var hosts []string
+
+			select {
+			case event, ok := <-ch:
+				if !ok {
+					// XXX: should this be an error?
+					err = nil // we shut down I guess
+				} else {
+					err = event // it may be an error
+				}
+
+			case <-ctx.Done():
+				return
+			}
+
+			// We had an event!
+
+			// Get data to send...
+			if err == nil { // did we error above?
+				hosts, err = getScheduled(ctx, client, scheduledPath)
+			}
+
+			// Send off that data...
+			select {
+			case result <- &ScheduledResult{
+				Hosts: hosts,
+				Err:   err,
+			}:
+
+			case <-ctx.Done():
+				return
+			}
+
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	return result, nil
+}
+
+// getScheduled gets the list of hosts which are scheduled for a given namespace
+// in etcd.
+func getScheduled(ctx context.Context, client interfaces.Client, path string) ([]string, error) {
+	keyMap, err := client.Get(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(keyMap) == 0 {
+		// nobody scheduled yet
+		//return nil, interfaces.ErrNotExist
+		return []string{}, nil
+	}
+
+	if count := len(keyMap); count != 1 {
+		return nil, fmt.Errorf("returned %d entries", count)
+	}
+
+	val, exists := keyMap[path]
+	if !exists {
+		return nil, fmt.Errorf("path `%s` is missing", path)
+	}
+
+	hosts := strings.Split(val, hostnameJoinChar)
+
+	return hosts, nil
 }

@@ -81,10 +81,8 @@ type MapFunc struct {
 	inputListType  *types.Type
 	outputListType *types.Type
 
-	// outputChan is an initially-nil channel from which we receive output
-	// lists from the subgraph. This channel is reset when the subgraph is
-	// recreated.
-	outputChan chan types.Value
+	argFuncs   []interfaces.Func
+	outputFunc interfaces.Func
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -103,6 +101,11 @@ func (obj *MapFunc) ArgGen(index int) (string, error) {
 }
 
 // helper
+//
+// NOTE: The expression signature is shown here, but the actual "signature" of
+// this in the function graph returns the "dummy" value because we do the same
+// this that we do with ExprCall for example. That means that this function is
+// one of very few where the actual expr signature is different from the func!
 func (obj *MapFunc) sig() *types.Type {
 	// func(inputs []?1, function func(?1) ?2) []?2
 	tIi := "?1"
@@ -186,10 +189,19 @@ func (obj *MapFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, errwrap.Wrapf(err, "return type of function must match returned list contents type")
 	}
 
+	// TODO: Do we need to be extra careful and check that this matches?
+	// unificationUtil.UnifyCmp(typ, obj.sig()) != nil {}
+
 	obj.Type = tInputs.Val    // or tArg
 	obj.RType = tFunction.Out // or typ.Out.Val
 
 	return obj.sig(), nil
+}
+
+// SetShape tells the function about some special graph engine pointers.
+func (obj *MapFunc) SetShape(argFuncs []interfaces.Func, outputFunc interfaces.Func) {
+	obj.argFuncs = argFuncs
+	obj.outputFunc = outputFunc
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -197,6 +209,11 @@ func (obj *MapFunc) Validate() error {
 	if obj.Type == nil || obj.RType == nil {
 		return fmt.Errorf("type is not yet known")
 	}
+
+	if obj.argFuncs == nil || obj.outputFunc == nil {
+		return fmt.Errorf("function did not receive shape information")
+	}
+
 	return nil
 }
 
@@ -207,7 +224,7 @@ func (obj *MapFunc) Info() *interfaces.Info {
 		Pure: false, // XXX: what if the input function isn't pure?
 		Memo: false,
 		Fast: false,
-		Spec: false,
+		Spec: false,     // must be false with the current graph shape code
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}
@@ -223,124 +240,6 @@ func (obj *MapFunc) Init(init *interfaces.Init) error {
 	obj.outputListType = types.NewType(fmt.Sprintf("[]%s", obj.RType))
 
 	return nil
-}
-
-// Stream returns the changing values that this func has over time.
-func (obj *MapFunc) Stream(ctx context.Context) error {
-	// Every time the FuncValue or the length of the list changes, recreate the
-	// subgraph, by calling the FuncValue N times on N nodes, each of which
-	// extracts one of the N values in the list.
-
-	defer close(obj.init.Output) // the sender closes
-
-	// A Func to send input lists to the subgraph. The Txn.Erase() call ensures
-	// that this Func is not removed when the subgraph is recreated, so that the
-	// function graph can propagate the last list we received to the subgraph.
-	inputChan := make(chan types.Value)
-	subgraphInput := &structs.ChannelBasedSourceFunc{
-		Name:   "subgraphInput",
-		Source: obj,
-		Chan:   inputChan,
-		Type:   obj.inputListType,
-	}
-	obj.init.Txn.AddVertex(subgraphInput)
-	if err := obj.init.Txn.Commit(); err != nil {
-		return errwrap.Wrapf(err, "commit error in Stream")
-	}
-	obj.init.Txn.Erase() // prevent the next Reverse() from removing subgraphInput
-	defer func() {
-		close(inputChan)
-		obj.init.Txn.Reverse()
-		obj.init.Txn.DeleteVertex(subgraphInput)
-		obj.init.Txn.Commit()
-	}()
-
-	obj.outputChan = nil
-
-	canReceiveMoreFuncValuesOrInputLists := true
-	canReceiveMoreOutputLists := true
-	for {
-
-		if !canReceiveMoreFuncValuesOrInputLists && !canReceiveMoreOutputLists {
-			//break
-			return nil
-		}
-
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // block looping back here
-				canReceiveMoreFuncValuesOrInputLists = false
-				continue
-			}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			value, exists := input.Struct()[mapArgNameFunction]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
-			}
-
-			newFuncValue, ok := value.(*full.FuncValue)
-			if !ok {
-				return fmt.Errorf("programming error, can't convert to *FuncValue")
-			}
-
-			newInputList, exists := input.Struct()[mapArgNameInputs]
-			if !exists {
-				return fmt.Errorf("programming error, can't find edge")
-			}
-
-			// If we have a new function or the length of the input
-			// list has changed, then we need to replace the
-			// subgraph with a new one that uses the new function
-			// the correct number of times.
-
-			// It's important to have this compare step to avoid
-			// redundant graph replacements which slow things down,
-			// but also cause the engine to lock, which can preempt
-			// the process scheduler, which can cause duplicate or
-			// unnecessary re-sending of values here, which causes
-			// the whole process to repeat ad-nauseum.
-			n := len(newInputList.List())
-			if newFuncValue != obj.lastFuncValue || n != obj.lastInputListLength {
-				obj.lastFuncValue = newFuncValue
-				obj.lastInputListLength = n
-				// replaceSubGraph uses the above two values
-				if err := obj.replaceSubGraph(subgraphInput); err != nil {
-					return errwrap.Wrapf(err, "could not replace subgraph")
-				}
-				canReceiveMoreOutputLists = true
-			}
-
-			// send the new input list to the subgraph
-			select {
-			case inputChan <- newInputList:
-			case <-ctx.Done():
-				return nil
-			}
-
-		case outputList, ok := <-obj.outputChan:
-			// send the new output list downstream
-			if !ok {
-				obj.outputChan = nil
-				canReceiveMoreOutputLists = false
-				continue
-			}
-
-			select {
-			case obj.init.Output <- outputList:
-			case <-ctx.Done():
-				return nil
-			}
-
-		case <-ctx.Done():
-			return nil
-		}
-	}
 }
 
 func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
@@ -363,10 +262,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"outputElem1" -> "outputListFunc"
 	//	"outputElem2" -> "outputListFunc"
 	//
-	//	"outputListFunc" -> "mapSubgraphOutput"
+	//	"outputListFunc" -> "funcSubgraphOutput"
 	// }
-
-	const channelBasedSinkFuncArgNameEdgeName = structs.ChannelBasedSinkFuncArgName // XXX: not sure if the specific name matters.
 
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
@@ -375,15 +272,18 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	// create the new subgraph
 
-	obj.outputChan = make(chan types.Value)
-	subgraphOutput := &structs.ChannelBasedSinkFunc{
-		Name:     "mapSubgraphOutput",
-		Target:   obj,
-		EdgeName: channelBasedSinkFuncArgNameEdgeName,
-		Chan:     obj.outputChan,
-		Type:     obj.outputListType,
+	// XXX: Should we move creation of funcSubgraphOutput into Init() ?
+	funcSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+		//Textarea: obj.Textarea,
+		Name:     "funcSubgraphOutput",
+		Type:     obj.sig().Out,
+		EdgeName: structs.OutputFuncArgName,
 	}
-	obj.init.Txn.AddVertex(subgraphOutput)
+	obj.init.Txn.AddVertex(funcSubgraphOutput)
+	obj.init.Txn.AddEdge(funcSubgraphOutput, obj.outputFunc, &interfaces.FuncEdge{Args: []string{structs.OutputFuncArgName}}) // "out"
+
+	// XXX: hack add this edge that I thought would happen in call.go
+	obj.init.Txn.AddEdge(obj, funcSubgraphOutput, &interfaces.FuncEdge{Args: []string{structs.OutputFuncDummyArgName}}) // "dummy"
 
 	m := make(map[string]*types.Type)
 	ord := []string{}
@@ -398,6 +298,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		Ord:  ord,
 		Out:  obj.outputListType,
 	}
+
 	outputListFunc := structs.SimpleFnToDirectFunc(
 		"mapOutputList",
 		&types.FuncValue{
@@ -413,10 +314,9 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		},
 	)
 
+	edge := &interfaces.FuncEdge{Args: []string{structs.OutputFuncArgName}} // "out"
 	obj.init.Txn.AddVertex(outputListFunc)
-	obj.init.Txn.AddEdge(outputListFunc, subgraphOutput, &interfaces.FuncEdge{
-		Args: []string{channelBasedSinkFuncArgNameEdgeName},
-	})
+	obj.init.Txn.AddEdge(outputListFunc, funcSubgraphOutput, edge)
 
 	for i := 0; i < obj.lastInputListLength; i++ {
 		i := i
@@ -434,6 +334,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 						return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
 					}
 
+					// Extract the correct list element.
 					return list.List()[i], nil
 				},
 				T: types.NewType(fmt.Sprintf("func(inputList %s) %s", obj.inputListType, obj.Type)),
@@ -441,7 +342,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
-		outputElemFunc, err := obj.lastFuncValue.CallWithFuncs(obj.init.Txn, []interfaces.Func{inputElemFunc})
+		outputElemFunc, err := obj.lastFuncValue.CallWithFuncs(obj.init.Txn, []interfaces.Func{inputElemFunc}, funcSubgraphOutput)
 		if err != nil {
 			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.CallWithFuncs()")
 		}
@@ -454,6 +355,76 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		})
 	}
 
+	return obj.init.Txn.Commit()
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("not enough args")
+	}
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	// Need this before we can *really* run this properly.
+	if len(obj.argFuncs) != 2 {
+		return nil, funcs.ErrCantSpeculate
+		//return nil, fmt.Errorf("unexpected input arg length")
+	}
+
+	newInputList := args[0]
+	value := args[1]
+	newFuncValue, ok := value.(*full.FuncValue)
+	if !ok {
+		return nil, fmt.Errorf("programming error, can't convert to *FuncValue")
+	}
+
+	a := obj.last != nil && newInputList.Cmp(obj.last) == nil
+	b := obj.lastFuncValue != nil && newFuncValue == obj.lastFuncValue
+	if a && b {
+		return types.NewNil(), nil // dummy value
+	}
+	obj.last = newInputList // store for next
+	obj.lastFuncValue = newFuncValue
+
+	// Every time the FuncValue or the length of the list changes, recreate
+	// the subgraph, by calling the FuncValue N times on N nodes, each of
+	// which extracts one of the N values in the list.
+
+	n := len(newInputList.List())
+
+	c := n == obj.lastInputListLength
+	if b && c {
+		return types.NewNil(), nil // dummy value
+	}
+	obj.lastInputListLength = n
+
+	if b && !c { // different length list
+		return types.NewNil(), nil // dummy value
+	}
+
+	// If we have a new function or the length of the input list has
+	// changed, then we need to replace the subgraph with a new one that
+	// uses the new function the correct number of times.
+
+	subgraphInput := obj.argFuncs[0]
+
+	// replaceSubGraph uses the above two values
+	if err := obj.replaceSubGraph(subgraphInput); err != nil {
+		return nil, errwrap.Wrapf(err, "could not replace subgraph")
+	}
+
+	return nil, interfaces.ErrInterrupt
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *MapFunc) Cleanup(ctx context.Context) error {
+	obj.init.Txn.Reverse()
+	//obj.init.Txn.DeleteVertex(subgraphInput) // XXX: should we delete it?
 	return obj.init.Txn.Commit()
 }
 

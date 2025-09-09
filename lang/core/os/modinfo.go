@@ -64,8 +64,8 @@ type ModinfoLoadedFunc struct {
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 
+	input      chan string // stream of inputs
 	modulename *string     // the active module name
-	result     types.Value // last calculated output
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -103,13 +103,12 @@ func (obj *ModinfoLoadedFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ModinfoLoadedFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan string)
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *ModinfoLoadedFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-
 	// create new watcher
 	// XXX: does this file produce inotify events?
 	recWatcher := &recwatch.RecWatcher{
@@ -127,22 +126,12 @@ func (obj *ModinfoLoadedFunc) Stream(ctx context.Context) error {
 
 	for {
 		select {
-		case input, ok := <-obj.init.Input:
+		case modulename, ok := <-obj.input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			modulename := input.Struct()[modinfoLoadedArgNameModule].Str()
-			// TODO: add check for empty string
 			if obj.modulename != nil && *obj.modulename == modulename {
 				continue // nothing changed
 			}
@@ -156,33 +145,13 @@ func (obj *ModinfoLoadedFunc) Stream(ctx context.Context) error {
 				return errwrap.Wrapf(err, "error event received")
 			}
 
-			if obj.last == nil {
+			if obj.modulename == nil {
 				continue // still waiting for input values
 			}
 
-		case <-ctx.Done():
-			return nil
-		}
-
-		args, err := interfaces.StructToCallableArgs(obj.last) // []types.Value, error)
-		if err != nil {
-			return err
-		}
-
-		result, err := obj.Call(ctx, args)
-		if err != nil {
-			return err
-		}
-
-		// if the result is still the same, skip sending an update...
-		if obj.result != nil && result.Cmp(obj.result) == nil {
-			continue // result didn't change
-		}
-		obj.result = result // store new result
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
+			if err := obj.init.Event(ctx); err != nil { // send event
+				return err
+			}
 
 		case <-ctx.Done():
 			return nil
@@ -197,6 +166,20 @@ func (obj *ModinfoLoadedFunc) Call(ctx context.Context, args []types.Value) (typ
 		return nil, fmt.Errorf("not enough args")
 	}
 	modulename := args[0].Str()
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	// Tell the Stream what we're watching now... This doesn't block because
+	// Stream should always be ready to consume unless it's closing down...
+	// If it dies, then a ctx closure should come soon.
+	select {
+	case obj.input <- modulename:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 
 	m, err := lsmod.LsMod()
 	if err != nil {

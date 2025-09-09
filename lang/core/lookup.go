@@ -183,11 +183,6 @@ func (obj *LookupFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, err
 	}
 
-	if _, ok := f.(interfaces.CallableFunc); !ok {
-		// programming error
-		return nil, fmt.Errorf("not a CallableFunc")
-	}
-
 	bf, ok := f.(interfaces.BuildableFunc)
 	if !ok {
 		// programming error
@@ -248,23 +243,10 @@ func (obj *LookupFunc) Init(init *interfaces.Init) error {
 	return obj.fn.Init(init)
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *LookupFunc) Stream(ctx context.Context) error {
-	if obj.fn == nil {
-		return fmt.Errorf("function not built correctly")
-	}
-	return obj.fn.Stream(ctx)
-}
-
 // Call returns the result of this function.
 func (obj *LookupFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	if obj.fn == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
-	cf, ok := obj.fn.(interfaces.CallableFunc)
-	if !ok {
-		// programming error
-		return nil, fmt.Errorf("not a CallableFunc")
-	}
-	return cf.Call(ctx, args)
+	return obj.fn.Call(ctx, args)
 }

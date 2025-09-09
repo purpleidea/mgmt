@@ -73,7 +73,9 @@ type Interpreter struct {
 // requires an AST, and the table of values required to populate that AST. Type
 // unification, and earlier steps should obviously be run first so that you can
 // actually get a useful resource graph out of this instead of an error!
+// XXX: add a ctx?
 func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (*pgraph.Graph, error) {
+	obj.Logf("interpreting...")
 
 	// build the kind,name -> res mapping
 	obj.lookup = make(map[engine.ResPtrUID]engine.Res)

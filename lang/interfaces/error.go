@@ -50,4 +50,9 @@ const (
 	// import is missing. This might signal the downloader, or it might
 	// signal a permanent error.
 	ErrExpectedFileMissing = util.Error("file is currently missing")
+
+	// ErrInterrupt is returned when a function can't immediately return a
+	// value to the function engine because a graph change transaction needs
+	// to run.
+	ErrInterrupt = util.Error("function call interrupted")
 )

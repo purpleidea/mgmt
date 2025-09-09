@@ -115,48 +115,6 @@ func (obj *PoolFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this func has over time.
-func (obj *PoolFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
-	var value types.Value
-	for {
-		select {
-		case input, ok := <-obj.init.Input:
-			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			result, err := obj.Call(ctx, args)
-			if err != nil {
-				return err
-			}
-			value = result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- value:
-		case <-ctx.Done():
-			return nil
-		}
-	}
-}
-
 // Copy is implemented so that the obj.built value is not lost if we copy this
 // function.
 func (obj *PoolFunc) Copy() interfaces.Func {
@@ -181,6 +139,7 @@ func (obj *PoolFunc) Call(ctx context.Context, args []types.Value) (types.Value,
 	if obj.init == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
+
 	result, err := obj.init.Local.Pool(ctx, namespace, uid, nil)
 	if err != nil {
 		return nil, err

@@ -34,7 +34,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
-	"github.com/purpleidea/mgmt/etcd/scheduler"
+	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
 )
 
 // WorldInit is some data passed in when starting the World interface.
@@ -236,6 +236,9 @@ type ResDelete struct {
 type SchedulerWorld interface {
 	// Scheduler runs a distributed scheduler.
 	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
+
+	// Scheduled gets the scheduled results without participating.
+	Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error)
 }
 
 // EtcdWorld is a world interface that should be implemented if the world

@@ -6,5 +6,7 @@ if true {
 }
 test "${x}" {}
 -- OUTPUT --
+Edge: const: bool(true) -> stmtif # condition
 Vertex: const: bool(true)
 Vertex: const: str("hello")
+Vertex: stmtif

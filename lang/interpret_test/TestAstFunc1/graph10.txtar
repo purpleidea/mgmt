@@ -8,6 +8,8 @@ test "t" {
 	stringptr => $x,
 }
 -- OUTPUT --
+Edge: const: bool(true) -> stmtif # condition
 Vertex: const: bool(true)
 Vertex: const: str("hello")
 Vertex: const: str("t")
+Vertex: stmtif

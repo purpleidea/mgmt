@@ -132,7 +132,7 @@ const (
 	// time. It's mostly recommended that this is set to true, but it is
 	// sometimes made false when debugging scenarios containing the extended
 	// graph shape using CallFunc and other similar function call nodes.
-	AllowSpeculation = true
+	AllowSpeculation = true // set to false to test more graph shapes
 
 	// RequireStrictModulePath can be set to true if you wish to ignore any
 	// of the metadata parent path searching. By default that is allowed,
@@ -3505,17 +3505,12 @@ func (obj *StmtIf) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 }
 
 // Graph returns the reactive function graph which is expressed by this node. It
-// includes any vertices produced by this node, and the appropriate edges to any
-// vertices that are produced by its children. Nodes which fulfill the Expr
-// interface directly produce vertices (and possible children) where as nodes
-// that fulfill the Stmt interface do not produces vertices, where as their
-// children might. This particular if statement doesn't do anything clever here
-// other than adding in both branches of the graph. Since we're functional, this
-// shouldn't have any ill effects.
-// XXX: is this completely true if we're running technically impure, but safe
-// built-in functions on both branches? Can we turn off half of this?
+// includes the condition produced by this node, and the appropriate edges of
+// that. The then or else side of the graph is added at runtime based on the
+// value of the condition.
+// TODO: If we know the condition is static, generate only that side statically.
 func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
-	graph, err := pgraph.NewGraph("if")
+	graph, err := pgraph.NewGraph("stmtif")
 	if err != nil {
 		return nil, err
 	}
@@ -3527,16 +3522,39 @@ func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 	graph.AddGraph(g)
 	obj.conditionPtr = f
 
-	for _, x := range []interfaces.Stmt{obj.ThenBranch, obj.ElseBranch} {
-		if x == nil {
-			continue
-		}
-		g, err := x.Graph(env)
-		if err != nil {
-			return nil, err
-		}
-		graph.AddGraph(g)
+	// We need to call Graph during runtime. We can't do it here.
+	//var thenGraph *pgraph.Graph
+	//var elseGraph *pgraph.Graph
+	//if obj.ThenBranch != nil {
+	//	g, err := obj.ThenBranch.Graph(env)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	thenGraph = g
+	//}
+	//if obj.ElseBranch != nil {
+	//	g, err := obj.ElseBranch.Graph(env)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	elseGraph = g
+	//}
+
+	// Add a vertex for the if statement itself.
+	edgeName := structs.StmtIfFuncArgNameCondition
+	stmtIfFunc := &structs.StmtIfFunc{
+		EdgeName: edgeName,
+		// It's unusual to pass in env here, but not unprecedented. It's
+		// the first Stmt/Expr to require it, but it seems to work and
+		// Sam has approved this approach!
+		Env:  env,
+		Then: obj.ThenBranch,
+		Else: obj.ElseBranch,
 	}
+	graph.AddVertex(stmtIfFunc)
+	graph.AddEdge(obj.conditionPtr, stmtIfFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
 
 	return graph, nil
 }
@@ -4044,6 +4062,9 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 			obj.iterBody = []interfaces.Stmt{}
 			mutex.Unlock()
 		},
+
+		ArgVertices: []interfaces.Func{f},
+		//OutputVertex: ???,
 	}
 	graph.AddVertex(forFunc)
 	graph.AddEdge(f, forFunc, &interfaces.FuncEdge{
@@ -4546,6 +4567,9 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 			obj.iterBody = map[types.Value]interfaces.Stmt{}
 			mutex.Unlock()
 		},
+
+		ArgVertices: []interfaces.Func{f},
+		//OutputVertex: ???,
 	}
 	graph.AddVertex(forKVFunc)
 	graph.AddEdge(f, forKVFunc, &interfaces.FuncEdge{
@@ -9931,7 +9955,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			//return nil, funcs.ErrCantSpeculate
 			return nil, fmt.Errorf("not implemented")
 		}
-		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
 			// Extend the environment with the arguments.
 			extendedEnv := env.Copy() // TODO: Should we copy?
 			for i := range obj.Args {
@@ -9965,8 +9989,15 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 
 			innerTxn.AddGraph(subgraph)
 
+			// XXX: do we need to use the `out` arg here?
+			// XXX: eg: via .SetShape(args, out)
+			//if shapelyFunc, ok := bodyFunc.(interfaces.ShapelyFunc); ok {
+			//	shapelyFunc.SetShape(args, out)
+			//}
+
 			return bodyFunc, nil
 		}
+
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: v,
 			F: f,
@@ -9975,18 +10006,19 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 	} else if obj.Function != nil {
 		// Build this "callable" version in case it's available and we
 		// can use that directly. We don't need to copy it because we
-		// expect anything that is Callable to be stateless, and so it
+		// expect anything that isn't Streamable to be stateless, and it
 		// can use the same function call for every instantiation of it.
-		var f interfaces.FuncSig
-		callableFunc, ok := obj.function.(interfaces.CallableFunc)
-		if ok {
-			// XXX: this might be dead code, how do we exercise it?
-			// If the function is callable then the surrounding
-			// ExprCall will produce a graph containing this func
-			// instead of calling ExprFunc.Graph().
-			f = callableFunc.Call
-		}
-		v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		// This used to test if it was a CallableFunc. Now they all are,
+		// so we remove the streamable funcs which are more complicated.
+		var f interfaces.FuncSig = obj.function.Call
+		//if _, ok := obj.function.(interfaces.StreamableFunc); !ok { // XXX: is this what we want now?
+		//	// XXX: this might be dead code, how do we exercise it?
+		//	// If the function is callable then the surrounding
+		//	// ExprCall will produce a graph containing this func
+		//	// instead of calling ExprFunc.Graph().
+		//	f = obj.function.Call
+		//}
+		v := func(txn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
 			// Copy obj.function so that the underlying ExprFunc.function gets
 			// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
 			// calls to this function will share the same Func.
@@ -10007,12 +10039,19 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 					Args: []string{argName},
 				})
 			}
+
+			// XXX: is this the best way to pass this stuff in?
+			if shapelyFunc, ok := valueTransformingFunc.(interfaces.ShapelyFunc); ok {
+				shapelyFunc.SetShape(args, out)
+			}
+
 			return valueTransformingFunc, nil
 		}
 
 		// obj.function is a node which transforms input values into
 		// an output value, but we need to construct a node which takes no
 		// inputs and produces a FuncValue, so we need to wrap it.
+		// XXX: yes, this (obj.typ) is the type of iter.map and others!
 		funcValueFunc = structs.FuncValueToConstFunc(&full.FuncValue{
 			V: v,
 			F: f,
@@ -10088,7 +10127,7 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			//return nil, fmt.Errorf("not implemented")
 			return nil, funcs.ErrCantSpeculate
 		}
-		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
 			// There are no ExprParams, so we start with the empty environment.
 			// Extend that environment with the arguments.
 			extendedEnv := interfaces.EmptyEnv()
@@ -10130,6 +10169,12 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			}
 
 			innerTxn.AddGraph(subgraph)
+
+			// XXX: do we need to use the `out` arg here?
+			// XXX: eg: via .SetShape(args, out)
+			//if shapelyFunc, ok := bodyFunc.(interfaces.ShapelyFunc); ok {
+			//	shapelyFunc.SetShape(args, out)
+			//}
 
 			return bodyFunc, nil
 		}
@@ -10961,6 +11006,13 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		argFuncs = append(argFuncs, argFunc)
 	}
 
+	callSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+		Textarea: obj.Textarea,
+		Name:     "callSubgraphOutput",
+		Type:     obj.typ,
+		EdgeName: structs.OutputFuncArgName,
+	}
+
 	// Speculate early, in an attempt to get a simpler graph shape.
 	//exprFunc, ok := obj.expr.(*ExprFunc)
 	// XXX: Does this need to be .Pure for it to be allowed?
@@ -10976,13 +11028,14 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 					obj.data.Logf(format, v...)
 				},
 			}).Init(),
+			Post:     func() error { return nil },
 			Lock:     func() {},
 			Unlock:   func() {},
 			RefCount: (&ref.Count{}).Init(),
 		}).Init()
 		txn.AddGraph(graph) // add all of the graphs so far...
 
-		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs)
+		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs, callSubgraphOutput) // XXX: callSubgraphOutput as the last arg?
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
 		}
@@ -10992,7 +11045,11 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			return nil, nil, err
 		}
 
-		return txn.Graph(), outputFunc, nil
+		// XXX: do I need to build a callSubgraphOutput and return it
+		// here for the special cases that need it like iter.map ?
+		if outputFunc.Info().Spec { // otherwise, don't speculate
+			return txn.Graph(), outputFunc, nil
+		}
 	} else if err != nil && ok && canSpeculate && err != funcs.ErrCantSpeculate {
 		// This is a permanent error, not a temporary speculation error.
 		//return nil, nil, err // XXX: Consider adding this...
@@ -11009,13 +11066,12 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 	edgeName := structs.CallFuncArgNameFunction
 	edgeNameDummy := structs.OutputFuncDummyArgName
 
-	callSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
-		Textarea: obj.Textarea,
-		Name:     "callSubgraphOutput",
-		Type:     obj.typ,
-		EdgeName: structs.OutputFuncArgName,
-	}
 	graph.AddVertex(callSubgraphOutput)
+
+	// XXX: is this the best way to pass this stuff in?
+	if shapelyFunc, ok := funcValueFunc.(interfaces.ShapelyFunc); ok {
+		shapelyFunc.SetShape(argFuncs, callSubgraphOutput)
+	}
 
 	callFunc := &structs.CallFunc{
 		Textarea: obj.Textarea,
@@ -12774,6 +12830,8 @@ func (obj *ExprIf) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, e
 
 		EdgeName: edgeName,
 
+		// XXX: Do we need to pass in `env` and the Then/Else Expr's,
+		// the way we do with StmtIf, instead of doing it like this?
 		ThenGraph: thenGraph,
 		ElseGraph: elseGraph,
 

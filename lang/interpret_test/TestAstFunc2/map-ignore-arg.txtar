@@ -2,6 +2,8 @@
 import "iter"
 
 $fn = func($x) { # ignore arg
+	# XXX: copy() bug (performance) in the function graph, we see this "hey"
+	# str node three times instead of just seeing it only once. Is it a bug?
 	"hey"
 }
 

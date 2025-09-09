@@ -32,49 +32,8 @@
 package coresys
 
 import (
-	"context"
 	"testing"
-
-	"github.com/purpleidea/mgmt/lang/interfaces"
-	"github.com/purpleidea/mgmt/lang/types"
 )
-
-func TestSimple(t *testing.T) {
-	fact := &CPUCount{}
-
-	input := make(chan types.Value)
-	close(input) // kick it off!
-	output := make(chan types.Value)
-	err := fact.Init(&interfaces.Init{
-		Input:  input,
-		Output: output,
-		Logf: func(format string, v ...interface{}) {
-			t.Logf("cpucount_test: "+format, v...)
-		},
-	})
-	if err != nil {
-		t.Errorf("could not init CPUCount")
-		return
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		defer cancel()
-	Loop:
-		for {
-			select {
-			case cpus := <-output:
-				t.Logf("CPUS: %d\n", cpus.Int())
-				break Loop
-			}
-		}
-	}()
-
-	// now start the stream
-	if err := fact.Stream(ctx); err != nil {
-		t.Error(err)
-	}
-}
 
 func TestParseCPUList(t *testing.T) {
 	var cpulistTests = []struct {

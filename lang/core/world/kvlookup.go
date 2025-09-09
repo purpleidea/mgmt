@@ -51,18 +51,17 @@ func init() {
 	funcs.ModuleRegister(ModuleName, KVLookupFuncName, func() interfaces.Func { return &KVLookupFunc{} })
 }
 
-var _ interfaces.CallableFunc = &KVLookupFunc{}
+var _ interfaces.StreamableFunc = &KVLookupFunc{}
 
 // KVLookupFunc is special function which returns all the values of a given key
 // in the exposed world. It is similar to exchange, but it does not set a key.
+// Since exchange has been deprecated, you will want to use this in conjunction
+// with a resource to set the desired value.
 type KVLookupFunc struct {
 	init *interfaces.Init
 
-	namespace string
-	args      []types.Value
-
-	last   types.Value
-	result types.Value // last calculated output
+	input     chan string // stream of inputs
+	namespace *string     // the active namespace
 
 	watchChan chan error
 }
@@ -104,74 +103,43 @@ func (obj *KVLookupFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *KVLookupFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan string)
 	obj.watchChan = make(chan error) // XXX: sender should close this, but did I implement that part yet???
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *KVLookupFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer cancel() // important so that we cleanup the watch when exiting
 	for {
 		select {
 		// TODO: should this first chan be run as a priority channel to
 		// avoid some sort of glitch? is that even possible? can our
 		// hostname check with reality (below) fix that?
-		case input, ok := <-obj.init.Input:
+		case namespace, ok := <-obj.input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
-			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
-
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			namespace := args[0].Str()
-			if namespace == "" {
-				return fmt.Errorf("can't use an empty namespace")
-			}
-			if obj.init.Debug {
-				obj.init.Logf("namespace: %s", namespace)
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
 
 			// TODO: support changing the namespace over time...
-			// TODO: possibly removing our stored value there first!
-			if obj.namespace == "" {
-				obj.namespace = namespace // store it
+			if obj.namespace == nil {
+				obj.namespace = &namespace // store it
 				var err error
-				obj.watchChan, err = obj.init.World.StrMapWatch(ctx, obj.namespace) // watch for var changes
+				obj.watchChan, err = obj.init.World.StrMapWatch(ctx, namespace) // watch for var changes
 				if err != nil {
 					return err
 				}
-
-				result, err := obj.Call(ctx, obj.args) // build the map...
-				if err != nil {
-					return err
-				}
-				select {
-				case obj.init.Output <- result: // send one!
-					// pass
-				case <-ctx.Done():
-					return nil
-				}
-
-			} else if obj.namespace != namespace {
-				return fmt.Errorf("can't change namespace, previously: `%s`", obj.namespace)
+				continue // we get values on the watch chan, not here!
 			}
 
-			continue // we get values on the watch chan, not here!
+			if *obj.namespace == namespace {
+				continue // skip duplicates
+			}
+
+			// *obj.namespace != namespace
+			return fmt.Errorf("can't change namespace, previously: `%s`", *obj.namespace)
 
 		case err, ok := <-obj.watchChan:
 			if !ok { // closed
@@ -182,27 +150,13 @@ func (obj *KVLookupFunc) Stream(ctx context.Context) error {
 				return nil
 			}
 			if err != nil {
-				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.namespace)
+				return errwrap.Wrapf(err, "channel watch failed on `%s`", *obj.namespace)
 			}
 
-			result, err := obj.Call(ctx, obj.args) // build the map...
-			if err != nil {
+			if err := obj.init.Event(ctx); err != nil { // send event
 				return err
 			}
 
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
 		case <-ctx.Done():
 			return nil
 		}
@@ -217,9 +171,25 @@ func (obj *KVLookupFunc) Call(ctx context.Context, args []types.Value) (types.Va
 		return nil, fmt.Errorf("not enough args")
 	}
 	namespace := args[0].Str()
+	if namespace == "" {
+		return nil, fmt.Errorf("can't use an empty namespace")
+	}
+
+	// Check before we send to a chan where we'd need Stream to be running.
 	if obj.init == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
+
+	if obj.init.Debug {
+		obj.init.Logf("namespace: %s", namespace)
+	}
+
+	select {
+	case obj.input <- namespace:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
 	keyMap, err := obj.init.World.StrMapGet(ctx, namespace)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", namespace)

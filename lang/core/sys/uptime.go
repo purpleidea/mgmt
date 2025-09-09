@@ -31,7 +31,6 @@ package coresys
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -83,22 +82,8 @@ func (obj *Uptime) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *Uptime) Stream(ctx context.Context) error {
-	defer close(obj.init.Output)
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	ticker := time.NewTicker(time.Duration(1) * time.Second)
 	defer ticker.Stop()
 
@@ -112,23 +97,15 @@ func (obj *Uptime) Stream(ctx context.Context) error {
 		case <-startChan:
 			startChan = nil // disable
 
-		case <-ticker.C:
-			// send
+		case <-ticker.C: // received the timer event
+			// pass
 
 		case <-ctx.Done():
 			return nil
 		}
 
-		result, err := obj.Call(ctx, nil)
-		if err != nil {
+		if err := obj.init.Event(ctx); err != nil {
 			return err
-		}
-
-		select {
-		case obj.init.Output <- result:
-
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }

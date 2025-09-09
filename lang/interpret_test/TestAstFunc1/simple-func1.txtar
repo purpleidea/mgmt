@@ -7,4 +7,8 @@ $out1 = answer()
 
 test "${out1}" {}
 -- OUTPUT --
-Vertex: const: str("the answer is 42")
+Edge: FuncValue -> call # fn
+Edge: call -> callSubgraphOutput # dummy
+Vertex: FuncValue
+Vertex: call
+Vertex: callSubgraphOutput

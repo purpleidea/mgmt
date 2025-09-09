@@ -277,6 +277,11 @@ func (obj *opDeleteVertex) String() string {
 // functions in their Stream method to modify the function graph while it is
 // "running".
 type GraphTxn struct {
+
+	// Post runs some effects after the Commit has run succesfully, but
+	// before it exits.
+	Post func( /* deltaOps */ ) error
+
 	// Lock is a handle to the lock function to call before the operation.
 	Lock func()
 
@@ -313,6 +318,16 @@ func (obj *GraphTxn) Init() interfaces.Txn {
 	obj.rev = []opfn{}
 	obj.mutex = &sync.Mutex{}
 
+	if obj.Post == nil {
+		panic("the Post function is nil")
+	}
+	if obj.Lock == nil {
+		panic("the Lock function is nil")
+	}
+	if obj.Unlock == nil {
+		panic("the Unlock function is nil")
+	}
+
 	return obj // return self so it can be called in a chain
 }
 
@@ -322,6 +337,7 @@ func (obj *GraphTxn) Init() interfaces.Txn {
 // TODO: FreeFunc isn't well supported here. Replace or remove this entirely?
 func (obj *GraphTxn) Copy() interfaces.Txn {
 	txn := &GraphTxn{
+		Post:     obj.Post,
 		Lock:     obj.Lock,
 		Unlock:   obj.Unlock,
 		GraphAPI: obj.GraphAPI,
@@ -403,7 +419,7 @@ func (obj *GraphTxn) AddGraph(g *pgraph.Graph) interfaces.Txn {
 	for _, v := range g.Vertices() {
 		f, ok := v.(interfaces.Func)
 		if !ok {
-			panic("not a Func")
+			panic("not a Func") // XXX: why does this panic not appear until we ^C ?
 		}
 		//obj.AddVertex(f) // easy
 		opfn := &opAddVertex{ // replicate AddVertex
@@ -505,12 +521,20 @@ func (obj *GraphTxn) commit() error {
 			//obj.rev = append([]opfn{op}, obj.rev...) // add to front
 		}
 	}
+	//deltaOps := obj.ops // copy for delta graph effects
 	obj.ops = []opfn{} // clear it
 
 	// garbage collect anything that hit zero!
 	// XXX: add gc function to this struct and pass in opapi instead?
 	if err := obj.RefCount.GC(obj.GraphAPI); err != nil {
 		// programming error or ghosts
+		return err
+	}
+
+	// This runs after all the operations have been completely successfully.
+	// XXX: We'd like to pass in the graph delta information, so that we can
+	// more efficiently recompute the topological sort and so on...
+	if err := obj.Post( /* deltaOps */ ); err != nil {
 		return err
 	}
 

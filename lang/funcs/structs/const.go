@@ -94,22 +94,6 @@ func (obj *ConstFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the single value that this const has, and then closes.
-func (obj *ConstFunc) Stream(ctx context.Context) error {
-	value, err := obj.Call(ctx, nil)
-	if err != nil {
-		return err
-	}
-	select {
-	case obj.init.Output <- value:
-		// pass
-	case <-ctx.Done():
-		return nil
-	}
-	close(obj.init.Output) // signal that we're done sending
-	return nil
-}
-
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *ConstFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {

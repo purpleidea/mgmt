@@ -75,10 +75,8 @@ func init() {
 type ResFunc struct {
 	init *interfaces.Init
 
-	last   types.Value // last value received to use for diff
-	args   []types.Value
-	kind   string
-	result types.Value // last calculated output
+	input chan string // stream of inputs
+	kind  *string     // the active kind
 
 	watchChan chan error
 }
@@ -128,13 +126,13 @@ func (obj *ResFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ResFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan string)
 	obj.watchChan = make(chan error) // XXX: sender should close this, but did I implement that part yet???
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
 func (obj *ResFunc) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // the sender closes
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // important so that we cleanup the watch when exiting
 	for {
@@ -142,50 +140,35 @@ func (obj *ResFunc) Stream(ctx context.Context) error {
 		// TODO: should this first chan be run as a priority channel to
 		// avoid some sort of glitch? is that even possible? can our
 		// hostname check with reality (below) fix that?
-		case input, ok := <-obj.init.Input:
+		case kind, ok := <-obj.input:
 			if !ok {
-				obj.init.Input = nil // don't infinite loop back
-				continue             // no more inputs, but don't return!
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
 			}
-			//if err := input.Type().Cmp(obj.Info().Sig.Input); err != nil {
-			//	return errwrap.Wrapf(err, "wrong function input")
-			//}
 
-			if obj.last != nil && input.Cmp(obj.last) == nil {
-				continue // value didn't change, skip it
-			}
-			obj.last = input // store for next
-
-			args, err := interfaces.StructToCallableArgs(input) // []types.Value, error)
-			if err != nil {
-				return err
-			}
-			obj.args = args
-
-			kind := args[0].Str()
-			if kind == "" {
-				return fmt.Errorf("can't use an empty kind")
-			}
-			if obj.init.Debug {
-				obj.init.Logf("kind: %s", kind)
+			if obj.kind != nil && *obj.kind == kind {
+				continue // nothing changed
 			}
 
 			// TODO: support changing the key over time?
-			if obj.kind == "" {
-				obj.kind = kind // store it
+			if obj.kind == nil {
+				obj.kind = &kind // store
 				var err error
 				//  Don't send a value right away, wait for the
 				// first Watch startup event to get one!
-				obj.watchChan, err = obj.init.World.ResWatch(ctx, obj.kind) // watch for var changes
+				obj.watchChan, err = obj.init.World.ResWatch(ctx, kind) // watch for var changes
 				if err != nil {
 					return err
 				}
-
-			} else if obj.kind != kind {
-				return fmt.Errorf("can't change kind, previously: `%s`", obj.kind)
+				continue // we get values on the watch chan, not here!
 			}
 
-			continue // we get values on the watch chan, not here!
+			if *obj.kind == kind {
+				continue // skip duplicates
+			}
+
+			// *obj.kind != kind
+			return fmt.Errorf("can't change kind, previously: `%s`", *obj.kind)
 
 		case err, ok := <-obj.watchChan:
 			if !ok { // closed
@@ -196,27 +179,13 @@ func (obj *ResFunc) Stream(ctx context.Context) error {
 				return nil
 			}
 			if err != nil {
-				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.kind)
+				return errwrap.Wrapf(err, "channel watch failed on `%s`", *obj.kind)
 			}
 
-			result, err := obj.Call(ctx, obj.args) // get the value...
-			if err != nil {
+			if err := obj.init.Event(ctx); err != nil { // send event
 				return err
 			}
 
-			// if the result is still the same, skip sending an update...
-			if obj.result != nil && result.Cmp(obj.result) == nil {
-				continue // result didn't change
-			}
-			obj.result = result // store new result
-
-		case <-ctx.Done():
-			return nil
-		}
-
-		select {
-		case obj.init.Output <- obj.result: // send
-			// pass
 		case <-ctx.Done():
 			return nil
 		}
@@ -238,6 +207,21 @@ func (obj *ResFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 		return nil, fmt.Errorf("invalid resource kind: %s", kind)
 	}
 
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	if obj.init.Debug {
+		obj.init.Logf("kind: %s", kind)
+	}
+
+	select {
+	case obj.input <- kind:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
 	filters := []*engine.ResFilter{}
 	filter := &engine.ResFilter{
 		Kind: kind,
@@ -246,9 +230,6 @@ func (obj *ResFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	}
 	filters = append(filters, filter)
 
-	if obj.init == nil {
-		return nil, funcs.ErrCantSpeculate
-	}
 	resOutput, err := obj.init.World.ResCollect(ctx, filters)
 	if err != nil {
 		return nil, err

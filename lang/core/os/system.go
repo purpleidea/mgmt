@@ -47,6 +47,10 @@ const (
 
 	// arg names...
 	systemArgNameCmd = "cmd"
+
+	// SystemFuncBufferLength is the number of lines we can buffer before we
+	// block. If you need a larger value, please let us know your use-case.
+	SystemFuncBufferLength = 1024
 )
 
 func init() {
@@ -60,9 +64,25 @@ func init() {
 // Note that in the likely case in which the process emits several lines one
 // after the other, the downstream resources might not run for every line unless
 // the "Meta:realize" metaparam is set to true.
+//
+// Furthermore, there is no guarantee that every intermediate line will be seen,
+// particularly if there is no delay between them. Only the last line is
+// guaranteed. As a result, it is not recommend to use this for timing or
+// coordination. If you are using this for an intermediate value, or a
+// non-declarative system, then it's likely you are using this wrong.
 type SystemFunc struct {
 	init   *interfaces.Init
 	cancel context.CancelFunc
+
+	input chan string // stream of inputs
+
+	last   *string // the active command
+	output *string // the last output
+
+	values chan string
+
+	count int
+	mutex *sync.Mutex
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -101,17 +121,17 @@ func (obj *SystemFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *SystemFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.input = make(chan string)
+	obj.values = make(chan string, SystemFuncBufferLength)
+	obj.mutex = &sync.Mutex{}
 	return nil
 }
 
 // Stream returns the changing values that this func has over time.
-func (obj *SystemFunc) Stream(ctx context.Context) error {
+func (obj *SystemFunc) Stream(ctx context.Context) (reterr error) {
 	// XXX: this implementation is a bit awkward especially with the port to
 	// the Stream(context.Context) signature change. This is a straight port
 	// but we could refactor this eventually.
-
-	// Close the output chan to signal that no more values are coming.
-	defer close(obj.init.Output)
 
 	// A channel which closes when the current process exits, on its own
 	// or due to cancel(). The channel is only closed once all the pending
@@ -140,7 +160,7 @@ func (obj *SystemFunc) Stream(ctx context.Context) error {
 
 	for {
 		select {
-		case input, more := <-obj.init.Input:
+		case shellCommand, more := <-obj.input:
 			if !more {
 				// Wait until the current process exits and all of its
 				// stdout is sent downstream.
@@ -151,7 +171,11 @@ func (obj *SystemFunc) Stream(ctx context.Context) error {
 					return nil
 				}
 			}
-			shellCommand := input.Struct()[systemArgNameCmd].Str()
+
+			if obj.last != nil && *obj.last == shellCommand {
+				continue // nothing changed
+			}
+			obj.last = &shellCommand
 
 			// Kill the previous command, if any.
 			if obj.cancel != nil {
@@ -193,8 +217,22 @@ func (obj *SystemFunc) Stream(ctx context.Context) error {
 
 				stdoutScanner := bufio.NewScanner(stdoutReader)
 				for stdoutScanner.Scan() {
-					outputValue := &types.StrValue{V: stdoutScanner.Text()}
-					obj.init.Output <- outputValue
+					s := stdoutScanner.Text()
+					obj.mutex.Lock()
+					obj.count++
+					obj.mutex.Unlock()
+					select {
+					case obj.values <- s: // buffered
+					case <-ctx.Done():
+						// don't block here on shutdown
+						reterr = ctx.Err() // return err
+						return
+					}
+
+					if err := obj.init.Event(ctx); err != nil { // send event
+						reterr = err // return err
+						return
+					}
 				}
 			}()
 
@@ -220,8 +258,66 @@ func (obj *SystemFunc) Stream(ctx context.Context) error {
 				wg.Wait()
 				close(processedChan)
 			}()
+
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *SystemFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	cmd := args[0].Str()
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	// Tell the Stream what we're watching now... This doesn't block because
+	// Stream should always be ready to consume unless it's closing down...
+	// If it dies, then a ctx closure should come soon.
+	select {
+	case obj.input <- cmd:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	obj.mutex.Lock()
+	// If there are no values, and we've previously received a value then...
+	if obj.count == 0 && obj.output != nil {
+		s := *obj.output
+		obj.mutex.Unlock()
+		return &types.StrValue{
+			V: s,
+		}, nil
+	}
+	obj.count-- // we might be briefly negative
+	obj.mutex.Unlock()
+
+	// We know a value must be coming (or the command blocks) so we wait...
+	select {
+	case s, ok := <-obj.values:
+		if !ok {
+			return nil, fmt.Errorf("unexpected close")
+		}
+		obj.output = &s // store
+
+		return &types.StrValue{
+			V: s,
+		}, nil
+
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+// Done is a message from the engine to tell us that no more Call's are coming.
+func (obj *SystemFunc) Done() error {
+	close(obj.input) // At this point we know obj.input won't be used.
+	return nil
 }

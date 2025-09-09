@@ -37,6 +37,7 @@ import (
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -65,6 +66,7 @@ type GAPI struct {
 	initialized bool
 	wg          *sync.WaitGroup // sync group for tunnel go routines
 	err         error
+	errMutex    *sync.Mutex // guards err
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -93,6 +95,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 	}
 	obj.data = data // store for later
 	obj.wg = &sync.WaitGroup{}
+	obj.errMutex = &sync.Mutex{}
 	obj.initialized = true
 	return nil
 }
@@ -120,17 +123,17 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 			select {
 			case ch <- next:
 			case <-ctx.Done():
-				obj.err = ctx.Err()
+				obj.errAppend(ctx.Err())
 				return
 			}
-			obj.err = err
+			obj.errAppend(err)
 			return
 		}
 
 		obj.data.Logf("generating empty graph...")
 		g, err := pgraph.NewGraph("empty")
 		if err != nil {
-			obj.err = err
+			obj.errAppend(err)
 			return
 		}
 
@@ -146,7 +149,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 
 		// unblock if we exit while waiting to send!
 		case <-ctx.Done():
-			obj.err = ctx.Err()
+			obj.errAppend(ctx.Err())
 			return
 		}
 	}()
@@ -158,4 +161,11 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 func (obj *GAPI) Err() error {
 	obj.wg.Wait()
 	return obj.err
+}
+
+// errAppend is a simple helper function.
+func (obj *GAPI) errAppend(err error) {
+	obj.errMutex.Lock()
+	obj.err = errwrap.Append(obj.err, err)
+	obj.errMutex.Unlock()
 }

@@ -1,0 +1,11 @@
+import "fmt"
+import "os"
+
+$i = os.system(fmt.printf("for x in `seq 3`; do echo \"hello \$x\"; sleep 1s; done; echo done; echo double done"))
+
+# The msg field is updated several times in quick succession, the resource is
+# only guaranteed to be ran for the last value. Thus, it is likely that the
+# single "done" values will not be printed.
+print "out" {
+	msg => $i,
+}

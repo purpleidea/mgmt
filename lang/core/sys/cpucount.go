@@ -33,7 +33,6 @@ package coresys
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -97,24 +96,10 @@ func (obj *CPUCount) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time. It will
-// first poll sysfs to get the initial cpu count, and then receives UEvents from
-// the kernel as CPUs are added/removed.
+// Stream starts a mainloop and runs Event when it's time to Call() again. It
+// will first poll sysfs to get the initial cpu count, and then receives UEvents
+// from the kernel as CPUs are added/removed.
 func (obj CPUCount) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // signal when we're done
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
 	ss, err := socketset.NewSocketSet(rtmGrps, socketFile, unix.NETLINK_KOBJECT_UEVENT)
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating socket set")
@@ -182,22 +167,8 @@ func (obj CPUCount) Stream(ctx context.Context) error {
 			return nil
 		}
 
-		result, err := obj.Call(ctx, nil)
-		if err != nil {
+		if err := obj.init.Event(ctx); err != nil {
 			return err
-		}
-
-		// if the result is still the same, skip sending an update...
-		if obj.result != nil && result.Cmp(obj.result) == nil {
-			continue // result didn't change
-		}
-		obj.result = result // store new result
-
-		select {
-		case obj.init.Output <- result:
-
-		case <-ctx.Done():
-			return nil
 		}
 	}
 }

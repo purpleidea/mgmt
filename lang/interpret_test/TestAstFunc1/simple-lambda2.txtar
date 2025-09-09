@@ -11,12 +11,19 @@ $out2 = $answer()
 
 test [$out1 + $out2,] {}
 -- OUTPUT --
+Edge: FuncValue -> call # fn
+Edge: FuncValue -> call # fn
 Edge: _operator -> composite: []str # 0
+Edge: call -> callSubgraphOutput # dummy
+Edge: call -> callSubgraphOutput # dummy
+Edge: callSubgraphOutput -> _operator # a
+Edge: callSubgraphOutput -> _operator # b
 Edge: const: str("+") -> _operator # op
-Edge: const: str("the answer is 42") -> _operator # a
-Edge: const: str("the answer is 42") -> _operator # b
+Vertex: FuncValue
 Vertex: _operator
+Vertex: call
+Vertex: call
+Vertex: callSubgraphOutput
+Vertex: callSubgraphOutput
 Vertex: composite: []str
 Vertex: const: str("+")
-Vertex: const: str("the answer is 42")
-Vertex: const: str("the answer is 42")

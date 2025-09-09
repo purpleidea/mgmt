@@ -18,6 +18,7 @@ Edge: callSubgraphOutput -> printf: func(format str, a int) str # a
 Edge: const: str("%d") -> printf: func(format str, a int) str # format
 Edge: printf: func(format str, a int) str -> composite: []str # 0
 Vertex: FuncValue
+Vertex: FuncValue
 Vertex: call
 Vertex: callSubgraphOutput
 Vertex: composite: []str

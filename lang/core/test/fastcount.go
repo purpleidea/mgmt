@@ -31,7 +31,6 @@ package coretest
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -87,38 +86,23 @@ func (obj *FastCount) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *FastCount) Stream(ctx context.Context) error {
-	defer close(obj.init.Output) // always signal when we're done
-
-	// We always wait for our initial event to start.
-	select {
-	case _, ok := <-obj.init.Input:
-		if ok {
-			return fmt.Errorf("unexpected input")
-		}
-		obj.init.Input = nil
-
-	case <-ctx.Done():
-		return nil
-	}
-
-	// streams must generate an initial event on startup
 	for {
-		result, err := obj.Call(ctx, nil)
-		if err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return nil
+
+		default:
+			// run free
 		}
 
 		obj.mutex.Lock()
 		obj.count++
 		obj.mutex.Unlock()
 
-		select {
-		case obj.init.Output <- result:
-
-		case <-ctx.Done():
-			return nil
+		if err := obj.init.Event(ctx); err != nil {
+			return err
 		}
 	}
 }

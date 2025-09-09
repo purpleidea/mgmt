@@ -54,8 +54,10 @@ func (obj *EmbdEtcd) setEndpoints() {
 		return
 	}
 
+	obj.stateMutex.Lock()
 	eps := etcdUtil.FromURLsMapToStringList(obj.endpoints) // get flat list
-	sort.Strings(eps)                                      // sort for determinism
+	obj.stateMutex.Unlock()
+	sort.Strings(eps) // sort for determinism
 
 	curls, _ := obj.curls() // ignore error, was already validated
 

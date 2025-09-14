@@ -187,7 +187,8 @@ type VirtBuilderRes struct {
 	LogOutput bool `lang:"log_output" yaml:"log_output"`
 
 	// Tweaks adds some random tweaks to work around common bugs. This
-	// defaults to true.
+	// defaults to true. It also does some useful things that most may find
+	// desirable.
 	Tweaks bool `lang:"tweaks" yaml:"tweaks"`
 
 	varDir string
@@ -508,11 +509,24 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		extraPackages = append(extraPackages, p...)
 	}
 
+	// Magic vm things should happen automatically.
+	if d := obj.getDistro(); obj.Tweaks && (d == "fedora" || d == "debian") {
+		p := "qemu-guest-agent" // same for debian and fedora
+		extraPackages = append(extraPackages, p)
+	}
+
 	if len(obj.Packages) > 0 || len(extraPackages) > 0 {
 		packages := []string{} // I think the ordering _may_ matter.
 		packages = append(packages, obj.Packages...)
 		packages = append(packages, extraPackages...)
 		args := []string{"--install", strings.Join(packages, ",")}
+		cmdArgs = append(cmdArgs, args...)
+	}
+
+	// Magic vm things should happen automatically.
+	if d := obj.getDistro(); obj.Tweaks && (d == "fedora" || d == "debian") {
+		x := "/usr/bin/systemctl enable qemu-guest-agent.service"
+		args := []string{"--run-command", x}
 		cmdArgs = append(cmdArgs, args...)
 	}
 

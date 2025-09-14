@@ -68,6 +68,9 @@ var (
 
 func init() {
 	engine.RegisterResource(httpServerUIKind, func() engine.Res { return &HTTPServerUIRes{} })
+
+	// XXX: here for now: https://github.com/gin-gonic/gin/issues/1180
+	gin.SetMode(gin.ReleaseMode) // for production
 }
 
 var _ HTTPServerGroupableRes = &HTTPServerUIRes{} // compile time check
@@ -291,7 +294,7 @@ func (obj *HTTPServerUIRes) getTemplate() (*template.Template, error) {
 func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// XXX: do all the router bits in Init() if we can...
-	gin.SetMode(gin.ReleaseMode) // for production
+	//gin.SetMode(gin.ReleaseMode) // for production
 	router := gin.New()
 	router.Use(obj.ginLogger(), gin.Recovery())
 

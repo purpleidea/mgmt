@@ -140,8 +140,8 @@ type VirtRes struct {
 	restartScheduled    bool // do we need to schedule a hard restart?
 
 	// XXX: misc junk which we may wish to rewrite
-	processExitWatch bool // do we want to wait on an explicit process exit?
-	processExitChan  chan struct{}
+	//processExitWatch bool // do we want to wait on an explicit process exit?
+	processExitChan chan struct{}
 }
 
 // Default returns some sensible defaults for this resource.
@@ -343,7 +343,7 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 
 	send := false // send event?
 	for {
-		processExited := false // did the process exit fully (shutdown)?
+		//processExited := false // did the process exit fully (shutdown)?
 		select {
 		case event, ok := <-domChan:
 			if !ok {
@@ -381,7 +381,7 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 				if obj.State != "shutoff" {
 					send = true
 				}
-				processExited = true
+				//processExited = true
 
 			case libvirt.DOMAIN_EVENT_PMSUSPENDED:
 				// FIXME: IIRC, in s3 we can't cold change
@@ -390,13 +390,13 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 				fallthrough
 			case libvirt.DOMAIN_EVENT_CRASHED:
 				send = true
-				processExited = true // FIXME: is this okay for PMSUSPENDED ?
+				//processExited = true // FIXME: is this okay for PMSUSPENDED ?
 			}
 
-			if obj.processExitWatch && processExited {
-				close(obj.processExitChan) // send signal
-				obj.processExitWatch = false
-			}
+			//if obj.processExitWatch && processExited {
+			//	close(obj.processExitChan) // send signal
+			//	obj.processExitWatch = false
+			//}
 
 		case agentEvent, ok := <-gaChan:
 			if !ok {
@@ -714,8 +714,9 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 			if !apply {
 				return false, nil
 			}
-			obj.processExitWatch = true
-			obj.processExitChan = make(chan struct{})
+			//obj.processExitWatch = true
+			//obj.processExitChan = make(chan struct{})
+
 			// if machine shuts down before we call this, we error;
 			// this isn't ideal, but it happened due to user error!
 			obj.init.Logf("running shutdown")
@@ -840,15 +841,15 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// shutdown here and let the stateCheckApply fix things up...
 	// TODO: i think this is the most straight forward process...
-	if !obj.absent && restart {
-		if c, err := obj.domainShutdownSync(apply, dom); err != nil {
-			return false, errwrap.Wrapf(err, "domainShutdownSync failed")
-
-		} else if !c {
-			checkOK = false
-			restart = false // clear the restart requirement...
-		}
-	}
+	//if !obj.absent && restart {
+	//	if c, err := obj.domainShutdownSync(apply, dom); err != nil {
+	//		return false, errwrap.Wrapf(err, "domainShutdownSync failed")
+	//
+	//	} else if !c {
+	//		checkOK = false
+	//		restart = false // clear the restart requirement...
+	//	}
+	//}
 
 	// FIXME: is doing this early check (therefore twice total) a good idea?
 	// run additional preemptive attr change checks here for hotplug stuff!

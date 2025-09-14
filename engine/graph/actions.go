@@ -531,6 +531,9 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			if err == nil { // || err == engine.ErrClosed
 				return // exited cleanly, we're done
 			}
+			if err == context.Canceled {
+				return // we shutdown nicely on request
+			}
 			// we've got an error...
 			delay = res.MetaParams().Delay
 

@@ -939,7 +939,8 @@ func (obj *VirtRes) getDomainXML() string {
 			if i < obj.CPUs {
 				enabled = "yes"
 			}
-			b += fmt.Sprintf("<vcpu id='%d' enabled='%s' hotpluggable='yes'/>", i, enabled)
+			// all vcpus must have either set or unset order
+			b += fmt.Sprintf("<vcpu id='%d' enabled='%s' hotpluggable='yes' order='%d'/>", i, enabled, i+1)
 		}
 		b += fmt.Sprintf("</vcpus>")
 	} else {

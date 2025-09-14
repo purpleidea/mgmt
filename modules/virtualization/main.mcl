@@ -138,11 +138,11 @@ class vm($name, $config) {
 	$mac_6 = strings.substr($hex, 2, 3) + strings.substr($hex, 3, 4) # TODO: support $hex[2] or $hex[2:2] ?
 	$mac_tail = "01:" + $mac_5 + ":" + $mac_6
 
-	# XXX: with hotcpus => true AND cpus => 2 I get:
-	# domainCreate failed: virError(Code=67, Domain=10, Message='unsupported configuration: all vcpus must have either set or unset order')
+	$cpus = $config->cpus || 2
+
 	virt "${name}" {
 		uri => "qemu:///session",
-		cpus => 2,
+		cpus => $cpus,
 		maxcpus => 8,
 		memory => 1024*1024*16, # 16G of RAM
 		state => "running",
@@ -170,7 +170,7 @@ class vm($name, $config) {
 			username => "",
 			password => "",
 		},
-		hotcpus => false, # no fun today!
+		hotcpus => true, # "that's hot!"
 		restartondiverge => "",
 		restartonrefresh => false,
 

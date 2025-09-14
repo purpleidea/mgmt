@@ -34,7 +34,6 @@ package resources
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strings"
 	"sync"
@@ -46,8 +45,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/libvirt/libvirt-go"
-	libvirtxml "github.com/libvirt/libvirt-go-xml"
+	libvirt "libvirt.org/go/libvirt"       // gitlab.com/libvirt/libvirt-go-module
+	libvirtxml "libvirt.org/go/libvirtxml" // gitlab.com/libvirt/libvirt-go-xml-module
 )
 
 func init() {
@@ -65,17 +64,6 @@ const (
 	ShortPollInterval = 5 // seconds
 )
 
-var (
-	libvirtInitialized = false
-)
-
-type virtURISchemeType int
-
-const (
-	defaultURI virtURISchemeType = iota
-	lxcURI
-)
-
 // VirtRes is a libvirt resource. A transient virt resource, which has its state
 // set to `shutoff` is one which does not exist. The parallel equivalent is a
 // file resource which removes a particular path.
@@ -88,33 +76,43 @@ type VirtRes struct {
 
 	// URI is the libvirt connection URI, eg: `qemu:///session`.
 	URI string `lang:"uri" yaml:"uri"`
+
 	// State is the desired vm state. Possible values include: `running`,
 	// `paused` and `shutoff`.
 	State string `lang:"state" yaml:"state"`
+
 	// Transient is whether the vm is defined (false) or undefined (true).
 	Transient bool `lang:"transient" yaml:"transient"`
 
 	// CPUs is the desired cpu count of the machine.
 	CPUs uint `lang:"cpus" yaml:"cpus"`
+
 	// MaxCPUs is the maximum number of cpus allowed in the machine. You
 	// need to set this so that on boot the `hardware` knows how many cpu
 	// `slots` it might need to make room for.
 	MaxCPUs uint `lang:"maxcpus" yaml:"maxcpus"`
+
 	// HotCPUs specifies whether we can hot plug and unplug cpus.
 	HotCPUs bool `lang:"hotcpus" yaml:"hotcpus"`
+
 	// Memory is the size in KBytes of memory to include in the machine.
 	Memory uint64 `lang:"memory" yaml:"memory"`
 
 	// OSInit is the init used by lxc.
 	OSInit string `lang:"osinit" yaml:"osinit"`
+
 	// Boot is the boot order. Values are `fd`, `hd`, `cdrom` and `network`.
 	Boot []string `lang:"boot" yaml:"boot"`
+
 	// Disk is the list of disk devices to include.
 	Disk []*DiskDevice `lang:"disk" yaml:"disk"`
+
 	// CdRom is the list of cdrom devices to include.
 	CDRom []*CDRomDevice `lang:"cdrom" yaml:"cdrom"`
+
 	// Network is the list of network devices to include.
 	Network []*NetworkDevice `lang:"network" yaml:"network"`
+
 	// Filesystem is the list of file system devices to include.
 	Filesystem []*FilesystemDevice `lang:"filesystem" yaml:"filesystem"`
 
@@ -124,42 +122,26 @@ type VirtRes struct {
 	// RestartOnDiverge is the restart policy, and can be: `ignore`,
 	// `ifneeded` or `error`.
 	RestartOnDiverge string `lang:"restartondiverge" yaml:"restartondiverge"`
+
 	// RestartOnRefresh specifies if we restart on refresh signal.
 	RestartOnRefresh bool `lang:"restartonrefresh" yaml:"restartonrefresh"`
 
-	wg                  *sync.WaitGroup
-	conn                *libvirt.Connect
-	version             uint32 // major * 1000000 + minor * 1000 + release
-	absent              bool   // cached state
-	uriScheme           virtURISchemeType
-	processExitWatch    bool // do we want to wait on an explicit process exit?
-	processExitChan     chan struct{}
-	restartScheduled    bool // do we need to schedule a hard restart?
+	// cached in Init()
+	uriScheme virtURISchemeType
+	absent    bool // cached state
+
+	// conn and version are cached for use by CheckApply and it's children.
+	conn    *libvirt.Connect
+	version uint32 // major * 1000000 + minor * 1000 + release
+
+	// set in Watch, read in CheckApply
+	mutex               *sync.RWMutex
 	guestAgentConnected bool // our tracking of if guest agent is running
-}
+	restartScheduled    bool // do we need to schedule a hard restart?
 
-// VirtAuth is used to pass credentials to libvirt.
-type VirtAuth struct {
-	Username string `lang:"username" yaml:"username"`
-	Password string `lang:"password" yaml:"password"`
-}
-
-// Cmp compares two VirtAuth structs. It errors if they are not identical.
-func (obj *VirtAuth) Cmp(auth *VirtAuth) error {
-	if (obj == nil) != (auth == nil) { // xor
-		return fmt.Errorf("the VirtAuth differs")
-	}
-	if obj == nil && auth == nil {
-		return nil
-	}
-
-	if obj.Username != auth.Username {
-		return fmt.Errorf("the Username differs")
-	}
-	if obj.Password != auth.Password {
-		return fmt.Errorf("the Password differs")
-	}
-	return nil
+	// XXX: misc junk which we may wish to rewrite
+	processExitWatch bool // do we want to wait on an explicit process exit?
+	processExitChan  chan struct{}
 }
 
 // Default returns some sensible defaults for this resource.
@@ -174,9 +156,15 @@ func (obj *VirtRes) Default() engine.Res {
 
 // Validate if the params passed in are valid data.
 func (obj *VirtRes) Validate() error {
+	// XXX: Code requires polling for the mainloop for now.
+	if obj.MetaParams().Poll > 0 {
+		return fmt.Errorf("can't poll with virt resources")
+	}
+
 	if obj.CPUs > obj.MaxCPUs {
 		return fmt.Errorf("the number of CPUs (%d) must not be greater than MaxCPUs (%d)", obj.CPUs, obj.MaxCPUs)
 	}
+
 	return nil
 }
 
@@ -184,12 +172,10 @@ func (obj *VirtRes) Validate() error {
 func (obj *VirtRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
-	if !libvirtInitialized {
-		if err := libvirt.EventRegisterDefaultImpl(); err != nil {
-			return errwrap.Wrapf(err, "method EventRegisterDefaultImpl failed")
-		}
-		libvirtInitialized = true
+	if err := libvirtInit(); err != nil {
+		return err
 	}
+
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(obj.URI); err != nil {
@@ -202,20 +188,39 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 
 	obj.absent = (obj.Transient && obj.State == "shutoff") // machine shouldn't exist
 
-	obj.conn, err = obj.connect() // gets closed in Close method of Res API
+	obj.mutex = &sync.RWMutex{}
+
+	return nil
+}
+
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *VirtRes) Cleanup() error {
+	return nil
+}
+
+// Watch is the primary listener for this resource and it outputs events.
+func (obj *VirtRes) Watch(ctx context.Context) error {
+	wg := &sync.WaitGroup{}
+	defer wg.Wait() // wait until everyone has exited before we exit!
+
+	// XXX: we're using two connections per resource, we could pool these up
+	conn, _, err := obj.Auth.Connect(obj.URI)
 	if err != nil {
-		return errwrap.Wrapf(err, "connection to libvirt failed in init")
+		return errwrap.Wrapf(err, "connection to libvirt failed")
 	}
+	defer conn.Close()
 
 	// check for hard to change properties
-	dom, err := obj.conn.LookupDomainByName(obj.Name())
-	if err == nil {
-		defer dom.Free()
-	} else if !isNotFound(err) {
-		return errwrap.Wrapf(err, "could not lookup on init")
-	}
+	dom, err := conn.LookupDomainByName(obj.Name())
+	if err != nil && !isNotFound(err) {
+		return errwrap.Wrapf(err, "could not lookup domain")
 
-	if err == nil {
+	} else if isNotFound(err) {
+		// noop
+
+	} else if err == nil {
+		defer dom.Free()
+
 		// maxCPUs, err := dom.GetMaxVcpus()
 		i, err := dom.GetVcpusFlags(libvirt.DOMAIN_VCPU_MAXIMUM)
 		if err != nil {
@@ -224,7 +229,9 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 		maxCPUs := uint(i)
 		if obj.MaxCPUs != maxCPUs { // max cpu slots is hard to change
 			// we'll need to reboot to fix this one...
+			obj.mutex.Lock()
 			obj.restartScheduled = true
+			obj.mutex.Unlock()
 		}
 
 		// parse running domain xml to read properties
@@ -243,171 +250,131 @@ func (obj *VirtRes) Init(init *engine.Init) error {
 		for _, x := range domXML.Devices.Channels {
 			if x.Target.VirtIO != nil && strings.HasPrefix(x.Target.VirtIO.Name, "org.qemu.guest_agent.") {
 				// last connection found wins (usually 1 anyways)
+				obj.mutex.Lock()
 				obj.guestAgentConnected = (x.Target.VirtIO.State == "connected")
+				obj.mutex.Unlock()
 			}
 		}
 	}
-	obj.wg = &sync.WaitGroup{}
-	return nil
-}
 
-// Cleanup is run by the engine to clean up after the resource is done.
-func (obj *VirtRes) Cleanup() error {
-	// By the time that this Close method is called, the engine promises
-	// that the Watch loop has previously shutdown! (Assuming no bugs!)
-	// TODO: As a result, this is an extra check which shouldn't be needed,
-	// but which might mask possible engine bugs. Consider removing it!
-	obj.wg.Wait()
-
-	// TODO: what is the first int Close return value useful for (if at all)?
-	_, err := obj.conn.Close() // close libvirt conn that was opened in Init
-	obj.conn = nil             // set to nil to help catch any nil ptr bugs!
-
-	return err
-}
-
-// connect is the connect helper for the libvirt connection. It can handle auth.
-func (obj *VirtRes) connect() (conn *libvirt.Connect, err error) {
-	if obj.Auth != nil {
-		callback := func(creds []*libvirt.ConnectCredential) {
-			// Populate credential structs with the
-			// prepared username/password values
-			for _, cred := range creds {
-				if cred.Type == libvirt.CRED_AUTHNAME {
-					cred.Result = obj.Auth.Username
-					cred.ResultLen = len(cred.Result)
-				} else if cred.Type == libvirt.CRED_PASSPHRASE {
-					cred.Result = obj.Auth.Password
-					cred.ResultLen = len(cred.Result)
-				}
-			}
-		}
-		auth := &libvirt.ConnectAuth{
-			CredType: []libvirt.ConnectCredentialType{
-				libvirt.CRED_AUTHNAME, libvirt.CRED_PASSPHRASE,
-			},
-			Callback: callback,
-		}
-		conn, err = libvirt.NewConnectWithAuth(obj.URI, auth, 0)
-		if err == nil {
-			if version, err := conn.GetLibVersion(); err == nil {
-				obj.version = version
-			}
-		}
-	}
-	if obj.Auth == nil || err != nil {
-		conn, err = libvirt.NewConnect(obj.URI)
-		if err == nil {
-			if version, err := conn.GetLibVersion(); err == nil {
-				obj.version = version
-			}
-		}
-	}
-	return
-}
-
-// Watch is the primary listener for this resource and it outputs events.
-func (obj *VirtRes) Watch(ctx context.Context) error {
-	// FIXME: how will this work if we're polling?
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()                               // wait until everyone has exited before we exit!
-	domChan := make(chan libvirt.DomainEventType) // TODO: do we need to buffer this?
+	// Our channel event sources...
+	domChan := make(chan libvirt.DomainEventType)
 	gaChan := make(chan *libvirt.DomainEventAgentLifecycle)
 	errorChan := make(chan error)
-	exitChan := make(chan struct{})
-	defer close(exitChan)
-	obj.wg.Add(1) // don't exit without waiting for EventRunDefaultImpl
-	wg.Add(1)
+
+	// domain events callback
+	domCallback := func(c *libvirt.Connect, d *libvirt.Domain, ev *libvirt.DomainEventLifecycle) {
+		domName, _ := d.GetName()
+		if domName != obj.Name() {
+			return
+		}
+
+		select {
+		case domChan <- ev.Event: // send
+		case <-ctx.Done():
+		}
+	}
+
+	// if dom is nil, we get events for *all* domains!
+	domCallbackID, err := conn.DomainEventLifecycleRegister(nil, domCallback)
+	if err != nil {
+		return err
+	}
+	defer conn.DomainEventDeregister(domCallbackID)
+
+	// guest agent events callback
+	gaCallback := func(c *libvirt.Connect, d *libvirt.Domain, eva *libvirt.DomainEventAgentLifecycle) {
+		domName, _ := d.GetName()
+		if domName != obj.Name() {
+			return
+		}
+
+		select {
+		case gaChan <- eva: // send
+		case <-ctx.Done():
+		}
+	}
+
+	gaCallbackID, err := conn.DomainEventAgentLifecycleRegister(nil, gaCallback)
+	if err != nil {
+		return err
+	}
+	defer conn.DomainEventDeregister(gaCallbackID)
 
 	// run libvirt event loop
 	// TODO: *trigger* EventRunDefaultImpl to unblock so it can shut down...
 	// at the moment this isn't a major issue because it seems to unblock in
 	// bursts every 5 seconds! we can do this by writing to an event handler
 	// in the meantime, terminating the program causes it to exit anyways...
+	wg.Add(1) // don't exit without waiting for EventRunDefaultImpl
 	go func() {
-		defer obj.wg.Done()
 		defer wg.Done()
-		defer obj.init.Logf("EventRunDefaultImpl exited!")
+		defer func() {
+			if !obj.init.Debug {
+				return
+			}
+			obj.init.Logf("EventRunDefaultImpl exited!")
+		}()
+		defer close(errorChan)
 		for {
 			// TODO: can we merge this into our main for loop below?
 			select {
-			case <-exitChan:
+			case <-ctx.Done():
 				return
 			default:
 			}
+
 			//obj.init.Logf("EventRunDefaultImpl started!")
-			if err := libvirt.EventRunDefaultImpl(); err != nil {
-				select {
-				case errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed"):
-				case <-exitChan:
-					// pass
-				}
-				return
+			err := libvirt.EventRunDefaultImpl()
+			if err == nil {
+				//obj.init.Logf("EventRunDefaultImpl looped!")
+				continue
 			}
-			//obj.init.Logf("EventRunDefaultImpl looped!")
+
+			select {
+			case errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed"):
+			case <-ctx.Done():
+			}
+			return
 		}
 	}()
 
-	// domain events callback
-	domCallback := func(c *libvirt.Connect, d *libvirt.Domain, ev *libvirt.DomainEventLifecycle) {
-		domName, _ := d.GetName()
-		if domName == obj.Name() {
-			select {
-			case domChan <- ev.Event: // send
-			case <-exitChan:
-			}
-		}
-	}
-	// if dom is nil, we get events for *all* domains!
-	domCallbackID, err := obj.conn.DomainEventLifecycleRegister(nil, domCallback)
-	if err != nil {
-		return err
-	}
-	defer obj.conn.DomainEventDeregister(domCallbackID)
-
-	// guest agent events callback
-	gaCallback := func(c *libvirt.Connect, d *libvirt.Domain, eva *libvirt.DomainEventAgentLifecycle) {
-		domName, _ := d.GetName()
-		if domName == obj.Name() {
-			select {
-			case gaChan <- eva: // send
-			case <-exitChan:
-			}
-		}
-	}
-	gaCallbackID, err := obj.conn.DomainEventAgentLifecycleRegister(nil, gaCallback)
-	if err != nil {
-		return err
-	}
-	defer obj.conn.DomainEventDeregister(gaCallbackID)
-
 	obj.init.Running() // when started, notify engine that we're running
 
-	var send = false // send event?
+	send := false // send event?
 	for {
 		processExited := false // did the process exit fully (shutdown)?
 		select {
-		case event := <-domChan:
+		case event, ok := <-domChan:
+			if !ok {
+				// TODO: Should we restart it?
+				domChan = nil
+				continue
+			}
 			// TODO: shouldn't we do these checks in CheckApply ?
 			switch event {
 			case libvirt.DOMAIN_EVENT_DEFINED:
 				if obj.Transient {
 					send = true
 				}
+
 			case libvirt.DOMAIN_EVENT_UNDEFINED:
 				if !obj.Transient {
 					send = true
 				}
+
 			case libvirt.DOMAIN_EVENT_STARTED:
 				fallthrough
 			case libvirt.DOMAIN_EVENT_RESUMED:
 				if obj.State != "running" {
 					send = true
 				}
+
 			case libvirt.DOMAIN_EVENT_SUSPENDED:
 				if obj.State != "paused" {
 					send = true
 				}
+
 			case libvirt.DOMAIN_EVENT_STOPPED:
 				fallthrough
 			case libvirt.DOMAIN_EVENT_SHUTDOWN:
@@ -431,16 +398,25 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 				obj.processExitWatch = false
 			}
 
-		case agentEvent := <-gaChan:
+		case agentEvent, ok := <-gaChan:
+			if !ok {
+				// TODO: Should we restart it?
+				gaChan = nil
+				continue
+			}
 			state, reason := agentEvent.State, agentEvent.Reason
 
 			if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
+				obj.mutex.Lock()
 				obj.guestAgentConnected = true
+				obj.mutex.Unlock()
 				send = true
 				obj.init.Logf("guest agent connected")
 
 			} else if state == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
+				obj.mutex.Lock()
 				obj.guestAgentConnected = false
+				obj.mutex.Unlock()
 				// ignore CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_DOMAIN_STARTED
 				// events because they just tell you that guest agent channel was added
 				if reason == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_REASON_CHANNEL {
@@ -451,11 +427,17 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 				return fmt.Errorf("unknown guest agent state: %v", state)
 			}
 
-		case err := <-errorChan:
+		case err, ok := <-errorChan:
+			if !ok {
+				return nil
+			}
+			if err == nil { // unlikely
+				continue
+			}
 			return errwrap.Wrapf(err, "unknown libvirt error")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		// do all our event sending all together to avoid duplicate msgs
@@ -470,7 +452,6 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 // It doesn't check the state before hand, as it is a simple helper function.
 // The caller must run dom.Free() after use, when error was returned as nil.
 func (obj *VirtRes) domainCreate() (*libvirt.Domain, bool, error) {
-
 	if obj.Transient {
 		var flag libvirt.DomainCreateFlags
 		var state string
@@ -677,7 +658,10 @@ func (obj *VirtRes) attrCheckApply(ctx context.Context, apply bool, dom *libvirt
 	}
 
 	// modify the online aspect of the cpus with qemu-guest-agent
-	if obj.HotCPUs && obj.guestAgentConnected && domInfo.State != libvirt.DOMAIN_PAUSED {
+	obj.mutex.RLock()
+	guestAgentConnected := obj.guestAgentConnected
+	obj.mutex.RUnlock()
+	if obj.HotCPUs && guestAgentConnected && domInfo.State != libvirt.DOMAIN_PAUSED {
 
 		// if hotplugging a cpu without the guest agent, you might need:
 		// manually to: echo 1 > /sys/devices/system/cpu/cpu1/online OR
@@ -765,18 +749,29 @@ func (obj *VirtRes) domainShutdownSync(apply bool, dom *libvirt.Domain) (bool, e
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if obj.conn == nil { // programming error?
-		return false, fmt.Errorf("got called with nil connection")
+	// XXX: we're using two connections per resource, we could pool these up
+	conn, version, err := obj.Auth.Connect(obj.URI)
+	if err != nil {
+		return false, errwrap.Wrapf(err, "connection to libvirt failed")
 	}
+	// cache these for child methods
+	obj.conn = conn
+	obj.version = version
+	defer conn.Close()
+
 	// if we do the restart, we must flip the flag back to false as evidence
 	var restart bool                                // do we need to do a restart?
 	if obj.RestartOnRefresh && obj.init.Refresh() { // a refresh is a restart ask
 		restart = true
 	}
 
+	obj.mutex.RLock()
+	restartScheduled := obj.restartScheduled
+	obj.mutex.RUnlock()
+
 	// we need to restart in all situations except ignore. the "error" case
 	// means that if a restart is actually needed, we should return an error
-	if obj.restartScheduled && obj.RestartOnDiverge != "ignore" { // "ignore", "ifneeded", "error"
+	if restartScheduled && obj.RestartOnDiverge != "ignore" { // "ignore", "ifneeded", "error"
 		restart = true
 	}
 	if !apply {
@@ -785,10 +780,11 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	var checkOK = true
 
-	dom, err := obj.conn.LookupDomainByName(obj.Name())
-	if err == nil {
-		// pass
-	} else if isNotFound(err) {
+	dom, err := conn.LookupDomainByName(obj.Name())
+	if err != nil && !isNotFound(err) {
+		return false, errwrap.Wrapf(err, "LookupDomainByName failed")
+	}
+	if isNotFound(err) {
 		// domain not found
 		if obj.absent {
 			// we can ignore the restart var since we're not running
@@ -802,13 +798,14 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		var c bool                       // = true
 		dom, c, err = obj.domainCreate() // create the domain
 		if err != nil {
+			// XXX: print out the XML of the definition?
 			return false, errwrap.Wrapf(err, "domainCreate failed")
 		} else if !c {
 			checkOK = false
 		}
-
-	} else {
-		return false, errwrap.Wrapf(err, "LookupDomainByName failed")
+	}
+	if err == nil {
+		// pass
 	}
 	defer dom.Free() // the Free() for two possible domain objects above
 	// domain now exists
@@ -833,7 +830,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			if err != nil {
 				return false, errwrap.Wrapf(err, "domain.GetXMLDesc failed")
 			}
-			if _, err = obj.conn.DomainDefineXML(domXML); err != nil {
+			if _, err = conn.DomainDefineXML(domXML); err != nil {
 				return false, errwrap.Wrapf(err, "conn.DomainDefineXML failed")
 			}
 			obj.init.Logf("domain defined")
@@ -846,6 +843,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !obj.absent && restart {
 		if c, err := obj.domainShutdownSync(apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "domainShutdownSync failed")
+
 		} else if !c {
 			checkOK = false
 			restart = false // clear the restart requirement...
@@ -857,6 +855,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !obj.absent {
 		if c, err := obj.attrCheckApply(ctx, apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "early attrCheckApply failed")
+
 		} else if !c {
 			checkOK = false
 		}
@@ -866,6 +865,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// apply correct machine state, eg: startup/shutoff/pause as needed
 	if c, err := obj.stateCheckApply(ctx, apply, dom); err != nil {
 		return false, errwrap.Wrapf(err, "stateCheckApply failed")
+
 	} else if !c {
 		checkOK = false
 	}
@@ -877,13 +877,14 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if !obj.absent {
 		if c, err := obj.attrCheckApply(ctx, apply, dom); err != nil {
 			return false, errwrap.Wrapf(err, "attrCheckApply failed")
+
 		} else if !c {
 			checkOK = false
 		}
 	}
 
 	// we had to do a restart, we didn't, and we should error if it was needed
-	if obj.restartScheduled && restart == true && obj.RestartOnDiverge == "error" {
+	if restartScheduled && restart == true && obj.RestartOnDiverge == "error" {
 		return false, fmt.Errorf("needed restart but didn't! (RestartOnDiverge: %s)", obj.RestartOnDiverge)
 	}
 
@@ -1002,10 +1003,6 @@ func (obj *VirtRes) getDomainXML() string {
 	b += "</devices>" // end devices
 	b += "</domain>"  // end domain
 	return b
-}
-
-type virtDevice interface {
-	GetXML(idx int) string
 }
 
 // DiskDevice represents a disk that is attached to the virt machine.
@@ -1303,25 +1300,4 @@ func (obj *VirtRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = VirtRes(raw) // restore from indirection with type conversion!
 	return nil
-}
-
-// randMAC returns a random mac address in the libvirt range.
-func randMAC() string {
-	rand.Seed(time.Now().UnixNano())
-	return "52:54:00" +
-		fmt.Sprintf(":%x", rand.Intn(255)) +
-		fmt.Sprintf(":%x", rand.Intn(255)) +
-		fmt.Sprintf(":%x", rand.Intn(255))
-}
-
-// isNotFound tells us if this is a domain not found error.
-func isNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	if virErr, ok := err.(libvirt.Error); ok && virErr.Code == libvirt.ERR_NO_DOMAIN {
-		// domain not found
-		return true
-	}
-	return false // some other error
 }

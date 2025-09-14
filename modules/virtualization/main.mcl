@@ -50,7 +50,6 @@ class base() {
 	#}
 
 	# We want to use qemu of course!
-	# XXX: I had to run `systemctl start virtqemud` to get things working...
 	svc "virtqemud" {
 		state => "running",
 		startup => "enabled",

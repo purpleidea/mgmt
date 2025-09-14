@@ -194,6 +194,8 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
+	libvirt.org/go/libvirt v1.11006.0 // indirect
+	libvirt.org/go/libvirtxml v1.11006.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 

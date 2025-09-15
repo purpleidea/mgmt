@@ -36,6 +36,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"syscall/js"
 	"time"
 
@@ -186,15 +187,38 @@ func (obj *Main) Run() error {
 		el.Set("type", inputType)
 
 		if inputType == common.HTTPServerUIInputTypeRange {
+			min := 0
+			max := 0
+			step := 1
 			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeMin]; exists {
-				el.Set("min", val)
+				if d, err := strconv.Atoi(val); err == nil {
+					min = d
+					el.Set("min", val)
+				}
 			}
 			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeMax]; exists {
-				el.Set("max", val)
+				if d, err := strconv.Atoi(val); err == nil {
+					max = d
+					el.Set("max", val)
+				}
 			}
 			if val, exists := x.Type[common.HTTPServerUIInputTypeRangeStep]; exists {
-				el.Set("step", val)
+				if d, err := strconv.Atoi(val); err == nil {
+					step = d
+					el.Set("step", val)
+				}
 			}
+			// add the tick marks
+			el.Call("setAttribute", "list", id) // Use setAttribute (NOT Set)
+			datalist := obj.document.Call("createElement", "datalist")
+			datalist.Set("id", id) // matches the id of the list field
+			for i := min; i <= max; i += step {
+				fmt.Printf("i: %+v\n", i)
+				option := obj.document.Call("createElement", "option")
+				option.Set("value", i)
+				datalist.Call("appendChild", option)
+			}
+			fieldset.Call("appendChild", datalist)
 		}
 
 		el.Set("value", element.Value) // XXX: here or after change handler?

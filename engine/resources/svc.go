@@ -483,15 +483,27 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		refresh = false // We did a start or stop, so a reload is not needed.
 
-		// TODO: Do we need a timeout here?
-		select {
-		case status, ok = <-result:
-			if !ok {
-				return false, fmt.Errorf("unexpected closed channel during start/stop")
-			}
+		// TODO: Should we permanenty error after a long timeout here?
+		for {
+			warn := true // warn once
+			select {
+			case status, ok = <-result:
+				if !ok {
+					return false, fmt.Errorf("unexpected closed channel during start/stop")
+				}
+				break
 
-		case <-ctx.Done():
-			return false, ctx.Err()
+			case <-time.After(10 * time.Second):
+				if warn {
+					obj.init.Logf("service start/stop is slow...")
+				}
+				warn = false
+				continue
+
+			case <-ctx.Done():
+				return false, ctx.Err()
+			}
+			break // don't loop forever
 		}
 
 		switch status {
@@ -537,15 +549,27 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "failed to reload unit")
 	}
 
-	// TODO: Do we need a timeout here?
-	select {
-	case status, ok = <-result:
-		if !ok {
-			return false, fmt.Errorf("unexpected closed channel during reload")
-		}
+	// TODO: Should we permanenty error after a long timeout here?
+	for {
+		warn := true // warn once
+		select {
+		case status, ok = <-result:
+			if !ok {
+				return false, fmt.Errorf("unexpected closed channel during reload")
+			}
+			break
 
-	case <-ctx.Done():
-		return false, ctx.Err()
+		case <-time.After(10 * time.Second):
+			if warn {
+				obj.init.Logf("service start/stop is slow...")
+			}
+			warn = false
+			continue
+
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
+		break // don't loop forever
 	}
 
 	switch status {

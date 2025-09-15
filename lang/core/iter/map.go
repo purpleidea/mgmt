@@ -393,7 +393,9 @@ func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 
 	// Every time the FuncValue or the length of the list changes, recreate
 	// the subgraph, by calling the FuncValue N times on N nodes, each of
-	// which extracts one of the N values in the list.
+	// which extracts one of the N values in the list. If the contents of
+	// the list change (BUT NOT THE LENGTH) then it's okay to use the
+	// existing graph, because the shape is the same!
 
 	n := len(newInputList.List())
 
@@ -402,10 +404,6 @@ func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 		return types.NewNil(), nil // dummy value
 	}
 	obj.lastInputListLength = n
-
-	if b && !c { // different length list
-		return types.NewNil(), nil // dummy value
-	}
 
 	// If we have a new function or the length of the input list has
 	// changed, then we need to replace the subgraph with a new one that

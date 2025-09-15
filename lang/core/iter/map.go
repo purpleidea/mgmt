@@ -285,6 +285,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// XXX: hack add this edge that I thought would happen in call.go
 	obj.init.Txn.AddEdge(obj, funcSubgraphOutput, &interfaces.FuncEdge{Args: []string{structs.OutputFuncDummyArgName}}) // "dummy"
 
+	argNameInputList := "inputList"
+
 	m := make(map[string]*types.Type)
 	ord := []string{}
 	for i := 0; i < obj.lastInputListLength; i++ {
@@ -337,7 +339,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					// Extract the correct list element.
 					return list.List()[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(inputList %s) %s", obj.inputListType, obj.Type)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.inputListType, obj.Type)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
@@ -348,7 +350,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		}
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
-			Args: []string{"inputList"},
+			Args: []string{argNameInputList},
 		})
 		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
 			Args: []string{fmt.Sprintf("outputElem%d", i)},

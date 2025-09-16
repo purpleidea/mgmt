@@ -86,6 +86,8 @@ done | paste -sd, -)
 # Output the ignoredisk directive to a temporary file.
 if [ "${usb_disks}" != "" ]; then
 	echo "ignoredisk --drives=${usb_disks}" > /tmp/ignoredisk.ks
+else
+	echo "# no ignoredisk directive" > /tmp/ignoredisk.ks
 fi
 %end
 %include /tmp/ignoredisk.ks

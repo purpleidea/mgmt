@@ -1,0 +1,280 @@
+I've just released version 1.0.0 of mgmt!
+
+>  614 files changed, 30199 insertions(+), 11916 deletions(-)
+
+This is very important and large release. It's been 10 years since I first
+publicly released this project, and I might as well stop confusing new users.
+I'm happily using it in production for some time now, and I love writing `mcl`
+every day! I am doing customer work in mgmt, and I have happy users.
+
+With that, here are a few highlights from the release:
+
+* There is a new function engine which is significantly faster on large graphs.
+It could be improved further, but the optimizations aren't needed for now.
+
+* The "automatic embedded etcd clustering" should be considered deprecated. You
+can run with --no-magic to ensure it's off. It was buggy and we will possibly
+write it with mcl anyways. Expect it to be removed soon.
+
+* Type unification errors have context and line numbers! Many other error
+scenarios have this too! This isn't perfect, and there are still some remaining
+places when you don't get this information. Please help us find and expand
+these.
+
+* The function API has been overhauled which now makes writing most functions
+significantly easier and simpler. They'll also use less memory. This is a
+benefit of the new function engine.
+
+* We have added *declarative* for and forkv statements to the language.
+
+* Exported resources are merged and gorgeous! They work how I've always wanted.
+You can actually see my experiment in the very first demo of mgmt, and I finally
+wrote them to work with the language how I've always wanted.
+
+* There's an http:server:ui set of resources that have been added. Check out:
+https://www.youtube.com/watch?v=8vz1MMGkuik for some examples of that in action
+and more!
+
+And much more...
+
+
+SPONSORS
+
+The `mgmt` project is generously sponsored by:
+
+m9rx corporation - https://m9rx.com/
+
+Please reach out if you'd like to sponsor!
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/1.0.0
+
+They can also be found on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/1.0.0/
+
+
+NEWS
+
+* A bunch of misc mcl code has been added to modules/ for you to see.
+
+* The user resource has been improved following feedback from cloudflare.
+
+* Detect self-referential frags when building files that way.
+
+* Added a new function for URL parsing.
+
+* Type unification errors have context and line numbers!
+
+* There's a "baddev" feature branch which gets rebased which you can use if you
+don't want to install the tools to compiler the lexer/parser stuff. We do the
+ugly commit for you if that's easier for development.
+
+* We have added *declarative* for and forkv statements to the language. If you
+know of a better name that "forkv" we're happy to hear it, but a small poll
+didn't produce a more convincing suggestion.
+
+* Waiting for a deploy just happens automatically with the "empty" frontend.
+
+* Waiting to run a deploy just waits automatically until etcd is online.
+
+* Automatic mgmt deploying after virt provisioning works with a seeds field.
+
+* There's a global flag to skip autoedges to improve performance.
+
+* The docker resource has been modernized and supports running on a docker host
+that we're bootstrapping.
+
+* Docker ports were built backwards and these have been corrected.
+
+* The "world" interface has been cleaned up dramatically. This will make life
+easier for someone who wants to add a new backend there. Filesystem, scheduler,
+deployer, and more are all split.
+
+* We can run our etcd connection over SSH. That's one of the new backends.
+There's actually a reconnect issue, but it's an easy fix and it should likely
+come out in the next release.
+
+* We have an is_virtual function to detect where mgmt is running!
+
+* Virtualization modules moved to qcow2 by default. It's solid.
+
+* Improved a lot of user-facing logging so it's clearer what's happening.
+
+* Exported resources have been implemented ... and they're glorious. They work
+how I've always dreamed, and are such a breath of fresh air from the Puppet
+days. There's an export/collect system. Export works by metaparam, not a special
+language feature, and collect works with core functions. It runs when the
+resource in the graph actually runs, as opposed to "all at once, even if you
+fail" like the old days. Yay!
+
+* fmt.printf handles more cases!
+
+* The file resource now has a symlink param. Someone test it and find issues.
+
+* We have an iter.range function which is helpful with `for` statements.
+
+* We do some speculation which drastically reduces the shape of the function
+graphs in a lot of constant scenarios. This also reduces the need to change the
+shape, which brings a huge performance boost.
+
+* Don't reuse fact pointers. There was a bug around those. In fact get rid of
+the fact API since it's pointless really.
+
+* There's some new stuff in the convert package.
+
+* We added an http:server:ui resource. This is kind of a prototype, but you can
+see it in action here: https://www.youtube.com/watch?v=8vz1MMGkuik
+
+* Fix some send/recv corner cases. I wish I had more tests for this. Hint!
+
+* There's an os.readfilewait() function in temporarily. This will go away when
+we get the <|> operator.
+
+* A WatchFiles field was added to the exec resource. Very handy.
+
+* We have a new "line" resource. It supports "trim"-ing too.
+
+* There are some new functions that have been added.
+
+* The modules/ directory got some ssh key things.
+
+* Automatic grouping logic improved, thanks to http:server:ui stuff.
+
+* Hierarchical grouping works very reliably as far as I can tell.
+
+* A bunch of ctx's were added all over where they never were. Legacy code!
+
+* A bunch of network/NetworkManager/networkd and related mcl code was added. The
+interfaces are really ugly, what is the correct upstream network config thing?
+
+* We have a modinfo function.
+
+* We built in some ulimit settings for modern machines.
+
+* We have an mcl class for copr setup.
+
+* We added SSH hostkey logic into our core etcd ssh connection tooling.
+
+* The provisioner supports exec handoff. It can also handle more scenarios, eg
+booting from an ipxe usb key and not installing on it.
+
+* The provisioner supports encrypting machines with LUKS. It does this in a very
+clever way to allow creation of secure passwords after first boot. Many kudos to
+the systemd and other authors who built all the needed pieces for this to just
+work fairly well.
+
+* We improved a graph function from O(n) to O(1). Woops =D
+
+* We removed the secret channels from the function graphs. This is much simpler
+now!
+
+* ExprIf and StmtIf both do the more correct thing. I guess the bigger graph was
+eventually going to need to get killed. This was a good choice that I didn't
+make soon enough.
+
+* A ton of races were killed. We're building by default with the race checker.
+I don't know why I didn't do this ten years ago. Performance is not so terrible
+these days, and it catches so much. Woops. Good lesson to share with others.
+
+* The language has a nil type, but don't worry, this is only for internal
+plumbing, and we will NOT let it be user facing!
+
+* The langpuppet stuff had to be removed again for now. If it's used, patch in.
+
+* The GAPI stuff got a major cleanup. It was early code that was bad. Now it's a
+lot better.
+
+* The new function engine is the really big story. Have a look if you're an
+algorithmist. We'd love to have people work on improving it further. It's most
+likely glitch free now too!
+
+* The virt resource code a big cleanup. It runs hotplug again which had rotted
+due to libvirt api changes I think.
+
+* The qemu guest agent works automatically again.
+
+* The svc resource (one of the earliest) has been overhauled since it had old
+buggy code which has now been fixed.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner, etc,
+resources if anyone is interested, reach out to us. Particularly if there is
+support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but it's not a
+blocker, but it would definitely be useful. We're looking into it.
+
+* The arm64 version doesn't support augeas, so it was built with:
+GOTAGS='noaugeas' to get the build out.
+
+* We don't have the <|> operator merged yet. Expect that when we do this, we'll
+consider removing the || (default) operator. This is the only pending language
+change that I know of, and these cases are easily caught by the compiler and can
+be easily patched.
+
+* Autoedge performance isn't great. It can easily be disabled. Most of the time
+I just specify my edges, so this is really a convenience feature, but it should
+be looked into when we have a chance.
+
+* There's a subtle ssh reconnect issue which can occur. It should be easy to
+fix and I have a patch in testing.
+
+* Our wasm code input fields grew tick marks, but I think this disturbed the
+buggy wasm code. If someone is an expert here, please have at it.
+
+
+TALKS
+
+After FOSDEM/CfgMgmtCamp 2026, I don't have anything planned until CfgMgmtCamp
+2027. If you'd like to book me for a private event, or sponsor my travel for
+your conference, please let me know.
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat employees use
+their infrastructure. We're looking for a new home. I've opened a ticket with
+Freedesktop. If you have any sway with them or other recommendations, please let
+me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and while there are easy, medium and
+hard issues available! You're also welcome to suggest your own! Please join us
+in #mgmtconfig on Libera IRC or Matrix (preferred) and ping us if you'd like
+help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-contribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove
+
+Although asking in matrix is the best way to find something to work on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get involved. This is
+fun and friendly! You get to improve your skills, and we get some patches in
+return. Ping me off-list for details.
+
+
+THANKS
+
+Thanks (alphabetically) to everyone who contributed to the latest release:
+Ahmad Abuziad, Edward Toroshchyn, Felix Frank, hades, James Shubin, Karpfen, Lourenço, Lourenço Vales, Samuel Gélineau
+We had 10 unique committers since 0.0.27, and have had 103 overall.
+run 'git log 0.0.27..1.0.0' to see what has changed since 0.0.27
+
+
+Happy hacking,
+James
+@purpleidea

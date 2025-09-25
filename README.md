@@ -85,9 +85,19 @@ the configuration management space, but has a fast, modern, distributed systems
 approach. The project contains an engine and a language.
 [Please have a look at an introductory video or blog post.](docs/on-the-web.md)
 
-Mgmt is a fairly new project. It is usable today, but not yet feature complete.
-With your help you'll be able to influence our design and get us to 1.0 sooner!
-Interested users should read the [quick start guide](docs/quick-start-guide.md).
+Mgmt is over ten years old! It is very powerful today, and has a solid
+foundation and architecture which has been polished over the years. As with all
+software, there are bugs to fix and improvements to be made, but I expect
+they're easy to hack through and fix if you find any. Interested users should
+start with the [official website](https://mgmtconfig.com/docs/).
+
+## Sponsors:
+
+Mgmt is generously sponsored by:
+
+[![m9rx corporation](art/m9rx.png)](https://m9rx.com/)
+
+Please reach out if you'd like to sponsor!
 
 ## Documentation:
 

@@ -165,6 +165,14 @@ then
 	done
 elif [[ -n "$GITHUB_SHA" ]]
 then
+
+	# XXX: no idea if this will work, but CI fails when I push a tag...
+	if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+		echo "skipping because tag"
+		echo 'SKIP'
+		exit
+	fi
+
 	# GITHUB_SHA is the HEAD of the branch
 	# GITHUB_REF: The branch or tag ref that triggered the workflow. For example, refs/heads/feature-branch-1. If neither a branch or tag is available for the event type, the variable will not exist.
 	# GITHUB_BASE_REF: Only set for pull request events. The name of the base branch.

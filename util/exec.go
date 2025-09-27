@@ -53,6 +53,13 @@ type SimpleCmdOpts struct {
 
 // SimpleCmd is a simple wrapper for us to run commands how we usually want to.
 func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdOpts) error {
+	_, err := SimpleCmdOut(ctx, name, args, opts)
+	return err
+}
+
+// SimpleCmdOut is a simple wrapper for us to run commands how we usually want
+// to. This various returns the combined command output.
+func SimpleCmdOut(ctx context.Context, name string, args []string, opts *SimpleCmdOpts) ([]byte, error) {
 	logf := func(format string, v ...interface{}) {
 		if opts == nil {
 			return
@@ -75,7 +82,7 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 
 	logf("running: %s", strings.Join(cmd.Args, " "))
 	if err := cmd.Start(); err != nil {
-		return errwrap.Wrapf(err, "error starting cmd")
+		return nil, errwrap.Wrapf(err, "error starting cmd")
 	}
 
 	err := cmd.Wait() // we can unblock this with the timeout
@@ -91,23 +98,23 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 
 	if err == nil {
 		logf("command ran successfully!")
-		return nil // success!
+		return b.Bytes(), nil // success!
 	}
 
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
 	if !ok {
 		// command failed in some bad way
-		return errwrap.Wrapf(err, "cmd failed in some bad way")
+		return nil, errwrap.Wrapf(err, "cmd failed in some bad way")
 	}
 	pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 	wStatus, ok := pStateSys.(syscall.WaitStatus)
 	if !ok {
-		return errwrap.Wrapf(err, "could not get exit status of cmd")
+		return nil, errwrap.Wrapf(err, "could not get exit status of cmd")
 	}
 	exitStatus := wStatus.ExitStatus()
 	if exitStatus == 0 {
 		// i'm not sure if this could happen
-		return errwrap.Wrapf(err, "unexpected cmd exit status of zero")
+		return nil, errwrap.Wrapf(err, "unexpected cmd exit status of zero")
 	}
 
 	logf("cmd: %s", strings.Join(cmd.Args, " "))
@@ -116,5 +123,5 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 	} else {
 		logf("cmd error:\n%s", out) // newline because it's long
 	}
-	return errwrap.Wrapf(err, "cmd error") // exit status will be in the error
+	return nil, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
 }

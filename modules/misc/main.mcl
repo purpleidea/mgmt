@@ -27,6 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
+import "deploy"
 import "fmt"
 import "golang"
 import "golang/strings" as golang_strings
@@ -401,5 +402,36 @@ class copr_enable($name) {
 		],
 		creates => $p,
 		user => "root",
+	}
+}
+
+# For some reason, newly provisioned Fedora machines, don't have their root
+# partitions consuming 100% of the available space. Fix that. Make sure that
+# this runs on firstboot and *before* we change any LUKS password, as this only
+# works with the empty password.
+class grow($mount) {
+	pkg "cloud-utils-growpart" {
+		state => "installed",
+	}
+
+	$done = "/root/.mgmt_grow" # must be absolute
+
+	# The xfs_growfs, resize2fs, cryptsetup, and findmnt tools should
+	# already be installed on any resonable Linux system by default.
+	exec "mgmt grow ${mount}" {
+		cmd => deploy.binary_path(), # this is mgmt
+		args => [
+			"tools", # tools is a subcommand of mgmt
+			"grow",
+			"--mount",
+			"${mount}", # typically root, eg: /
+			"--exec", # !noop
+			"--done",
+			"${done}",
+		],
+		creates => $done, # TODO: is there something better?
+		user => "root", # need root to be able to run normally
+
+		Depend => Pkg["cloud-utils-growpart"],
 	}
 }

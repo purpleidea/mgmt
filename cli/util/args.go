@@ -204,3 +204,11 @@ type DocsGenerateArgs struct {
 	NoResources bool   `arg:"--no-resources" help:"skip resource doc generation"`
 	NoFunctions bool   `arg:"--no-functions" help:"skip function doc generation"`
 }
+
+// ToolsGrowArgs is the util tool CLI parsing structure and type of the parsed
+// result.
+type ToolsGrowArgs struct {
+	Mount string `arg:"--mount,required" help:"root mount point to start with"`
+	Exec  bool   `arg:"--exec" help:"actually run these commands"`
+	Done  string `arg:"--done" help:"create this file when done, skip if it exists"`
+}

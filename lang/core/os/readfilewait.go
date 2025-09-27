@@ -65,7 +65,6 @@ type ReadFileWaitFunc struct {
 
 	recWatcher *recwatch.RecWatcher
 	events     chan error // internal events
-	wg         *sync.WaitGroup
 
 	input    chan string // stream of inputs
 	filename *string     // the active filename
@@ -108,7 +107,6 @@ func (obj *ReadFileWaitFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan string)
 	obj.events = make(chan error)
-	obj.wg = &sync.WaitGroup{}
 	return nil
 }
 
@@ -116,11 +114,12 @@ func (obj *ReadFileWaitFunc) Init(init *interfaces.Init) error {
 func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 	//defer close(obj.input)  // if we close, this is a race with the sender
 	defer close(obj.events) // clean up for fun
-	defer obj.wg.Wait()
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 	defer func() {
 		if obj.recWatcher != nil {
 			obj.recWatcher.Close() // close previous watcher
-			obj.wg.Wait()
+			wg.Wait()
 		}
 	}()
 	for {
@@ -146,7 +145,7 @@ func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 
 			if obj.recWatcher != nil {
 				obj.recWatcher.Close() // close previous watcher
-				obj.wg.Wait()
+				wg.Wait()
 			}
 			// create new watcher
 			obj.recWatcher = &recwatch.RecWatcher{
@@ -171,9 +170,9 @@ func (obj *ReadFileWaitFunc) Stream(ctx context.Context) error {
 			// watch recwatch events in a proxy goroutine, since
 			// changing the recwatch object would panic the main
 			// select when it's nil...
-			obj.wg.Add(1)
+			wg.Add(1)
 			go func() {
-				defer obj.wg.Done()
+				defer wg.Done()
 				for {
 					var err error
 					select {

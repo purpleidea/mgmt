@@ -405,6 +405,45 @@ class copr_enable($name) {
 	}
 }
 
+# This removes any other flatpak remotes you have.
+# XXX: This should be a .d/ style thing. Replace with a "fragments" setup.
+class flathub_enable() {
+	# flatpak
+	file "/var/lib/flatpak/repo/config" {
+		state => "exists",
+		content => deploy.readfile("/files/flatpak/config"),
+		mode => "u=rw,go=r",
+		owner => "root",
+		group => "root",
+	}
+}
+
+class flatpak_enable($name) {
+	$ref = $name # eg: im.riot.Riot
+
+	# flatpak list --columns application:full
+	$p = "/var/lib/flatpak/app/${ref}/current/active/metadata"
+
+	$remote = "flathub" # only one supported for now
+
+	exec "flatpak-install-flathub-${name}" {
+		cmd => "/usr/bin/flatpak",
+		args => [
+			"install",
+			"--system", # the default
+			"--assumeyes",
+			"--noninteractive",
+			"--or-update", # why not i guess
+			"${remote}",
+			"${ref}",
+		],
+		creates => $p, # TODO: is there something better?
+		user => "root", # system wide flatpak
+
+		Depend => File["/var/lib/flatpak/repo/config"],
+	}
+}
+
 # For some reason, newly provisioned Fedora machines, don't have their root
 # partitions consuming 100% of the available space. Fix that. Make sure that
 # this runs on firstboot and *before* we change any LUKS password, as this only

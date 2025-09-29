@@ -87,7 +87,7 @@ func parsePkg(path, filename, templates string) error {
 }
 
 func parsePackages(c config) (functions, error) {
-	var funcs []function
+	var funcs functions
 	for _, golangPackage := range c.Packages {
 		fn, err := golangPackage.parsefuncs()
 		if err != nil {
@@ -99,7 +99,7 @@ func parsePackages(c config) (functions, error) {
 }
 
 func (obj *golangPackage) parsefuncs() (functions, error) {
-	var funcs []function
+	var funcs functions
 	cmd := exec.Command("go", "doc", obj.Name)
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -111,7 +111,7 @@ func (obj *golangPackage) parsefuncs() (functions, error) {
 }
 
 func (obj *golangPackage) extractFuncs(doc string, getHelp bool) (functions, error) {
-	var funcs []function
+	var funcs functions
 	for _, line := range strings.Split(doc, "\n") {
 		if !validSignature.MatchString(line) {
 			// TODO: improve validSignature regexp for this?
@@ -123,7 +123,7 @@ func (obj *golangPackage) extractFuncs(doc string, getHelp bool) (functions, err
 			return funcs, err
 		}
 		if f != nil {
-			funcs = append(funcs, *f)
+			funcs = append(funcs, f)
 		}
 	}
 

@@ -1,0 +1,71 @@
+$apitoken = "token-goes-here"
+
+cloudflare:dnsmanager "somedomain-a" {
+	zone => "somedomain.pt",
+	record_name => "somedomain.pt",
+	type => "A",
+	content => "1.2.3.4",
+	state => "exists",
+	ttl => 300,
+	apitoken => $apitoken,
+
+	Meta:poll => 60,
+}
+
+cloudflare:dnsmanager "somedomain-a-2" {
+	zone => "somedomain.pt",
+	record_name => "mail",
+	type => "A",
+	content => "1.2.3.4",
+	state => "exists",
+	ttl => 300,
+	apitoken => $apitoken,
+
+	Meta:poll => 60,
+}
+
+cloudflare:dnsmanager "somedomain-mx" {
+	zone => "somedomain.pt",
+	record_name => "somedomain.pt",
+	type => "MX",
+	content => "mail.somedomain.pt",
+	state => "exists",
+	priority => 0, # Required for MX records
+	ttl => 300,
+	apitoken => $apitoken,
+
+	Meta:poll => 60,
+}
+
+cloudflare:dnsmanager "somedomain-txt" {
+	zone => "somedomain.pt",
+	record_name => "somedomain.pt",
+	type => "TXT",
+	content => "\"v=spf1 mx -all\"",
+	state => "exists",
+	ttl => 300,
+	apitoken => $apitoken,
+
+	Meta:poll => 60,
+}
+
+cloudflare:dnsmanager "somedomain-txt-2" {
+	zone => "somedomain.pt",
+	record_name => "_dmarc",
+	type => "TXT",
+	content => "\"v=DMARC1; p=quarantine; rua=mailto:postmaster@somedomain.pt; ruf=mailto:postmaster@somedomain.pt; adkim=s; fo=1\"",
+	state => "exists",
+	ttl => 300,
+	apitoken => $apitoken,
+
+	Meta:poll => 60,
+}
+
+cloudflare:dnsmanager "purge" {
+	zone => "somedomain.pt",
+	apitoken => $apitoken,
+	cachettl => 2,
+	purge => false,
+
+	Meta:poll => 60,
+}

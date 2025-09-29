@@ -101,7 +101,7 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 	}
 	return t.Execute(finalFile, struct {
 		Packages  golangPackages
-		Functions []function
+		Functions functions
 	}{
 		c.Packages,
 		f,

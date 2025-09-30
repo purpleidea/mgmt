@@ -9,7 +9,7 @@ BINARY="mgmt"
 # git tag pointing to the current commit
 TAG=$(git tag -l --points-at HEAD)
 # maintainer email
-MAINTAINER="mgmtconfig@purpleidea.com"
+MAINTAINER="fpm@mgmtconfig.com"
 # project url
 URL="https://github.com/purpleidea/mgmt/"
 # project description

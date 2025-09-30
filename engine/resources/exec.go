@@ -138,6 +138,13 @@ type ExecRes struct {
 	// IfShell is the Shell for the IfCmd. See the docs for Shell.
 	IfShell string `lang:"ifshell" yaml:"ifshell"`
 
+	// IfEquals specifies that if the ifcmd returns zero, and that the
+	// output matches this string, then it will guard against the Cmd
+	// running. This can be the empty string. Remember to take into account
+	// if the output includes a trailing newline or not. (Hint: it usually
+	// does!)
+	IfEquals *string `lang:"ifequals" yaml:"ifequals"`
+
 	// Creates is the absolute file path to check for before running the
 	// main cmd. If this path exists, then the cmd will not run. More
 	// precisely we attempt to `stat` the file, so it must succeed for a
@@ -515,11 +522,16 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			}
 			return true, nil // don't run
 		}
-		if s := out.String(); s == "" {
+		s := out.String()
+		if s == "" {
 			obj.init.Logf("ifcmd out empty!")
 		} else {
 			obj.init.Logf("ifcmd out:")
 			obj.init.Logf("%s", s)
+		}
+		if obj.IfEquals != nil && *obj.IfEquals == s {
+			obj.init.Logf("ifequals matched")
+			return true, nil // don't run
 		}
 	}
 
@@ -894,6 +906,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if obj.IfShell != res.IfShell {
 		return fmt.Errorf("the IfShell differs")
+	}
+	if err := engineUtil.StrPtrCmp(obj.IfEquals, res.IfEquals); err != nil {
+		return errwrap.Wrapf(err, "the IfEquals differs")
 	}
 
 	if obj.Creates != res.Creates {

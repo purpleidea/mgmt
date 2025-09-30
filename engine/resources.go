@@ -208,6 +208,27 @@ type Init struct {
 	Logf func(format string, v ...interface{})
 }
 
+// Copy makes a copy of this Init struct, with all of the same elements inside.
+func (obj *Init) Copy() *Init {
+	return &Init{
+		Program:  obj.Program,
+		Version:  obj.Version,
+		Hostname: obj.Hostname,
+		Running:  obj.Running,
+		Event:    obj.Event,
+		Refresh:  obj.Refresh,
+		Send:     obj.Send,
+		Recv:     obj.Recv,
+		//Graph: obj.Graph, // TODO: not implemented, use FilteredGraph
+		FilteredGraph: obj.FilteredGraph,
+		Local:         obj.Local,
+		World:         obj.World,
+		VarDir:        obj.VarDir,
+		Debug:         obj.Debug,
+		Logf:          obj.Logf,
+	}
+}
+
 // KindedRes is an interface that is required for a resource to have a kind.
 type KindedRes interface {
 	// Kind returns a string representing the kind of resource this is.

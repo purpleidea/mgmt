@@ -153,6 +153,6 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'mgmt', u'mgmt Documentation',
-     author, 'mgmt', 'A next generation config management prototype!',
+     author, 'mgmt', 'Next generation distributed, event-driven, parallel config management!',
      'Miscellaneous'),
 ]

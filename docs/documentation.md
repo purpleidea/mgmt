@@ -2,8 +2,8 @@
 
 ## Overview
 
-The `mgmt` tool is a next generation config management prototype. It's not yet
-ready for production, but we hope to get there soon. Get involved today!
+The `mgmt` tool is a next generation config management solution. It's ready for
+production, and we hope you try out the future soon. Get involved today!
 
 ## Project Description
 

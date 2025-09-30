@@ -1,0 +1,11 @@
+gsettings "org.gnome.desktop.interface clock-show-seconds" {
+	type => "bool",
+	value => true,
+}
+
+gsettings "org.gnome.desktop.input-sources sources" { # happens to match schema/key args
+	schema => "org.gnome.desktop.input-sources",
+	key => "sources",
+	type => "custom",
+	value => "[('xkb', 'ca+eng'), ('xkb', 'ca'), ('xkb', 'us')]",
+}

@@ -58,6 +58,8 @@ type function struct {
 	Errorful bool `yaml:"errorful"`
 	// Args is the list of the arguments of the function.
 	Args []arg `yaml:"args"`
+	// Variadic is true if the last function parameter is variadic (e.g. param ...string)
+	Variadic bool
 	// ExtraGolangArgs are arguments that are added at the end of the go call.
 	// e.g. strconv.ParseFloat("3.1415", 64) could require add 64.
 	ExtraGolangArgs []arg `yaml:"extraGolangArgs"`
@@ -123,6 +125,12 @@ func (obj *function) MakeGolangArgs() (string, error) {
 		case "[]byte":
 			gol = fmt.Sprintf("[]byte(%s)", gol)
 		}
+
+		// Variadic expansion for the last slice argument.
+		if obj.Variadic && i == len(obj.Args)-1 && strings.HasPrefix(a.Type, "[]") {
+			gol = gol + "..."
+		}
+
 		args = append(args, gol)
 	}
 	for _, a := range obj.ExtraGolangArgs {

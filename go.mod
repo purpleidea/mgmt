@@ -27,8 +27,6 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/kylelemons/godebug v1.1.0
-	github.com/libvirt/libvirt-go v7.4.0+incompatible
-	github.com/libvirt/libvirt-go-xml v7.4.0+incompatible
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
@@ -50,6 +48,8 @@ require (
 	google.golang.org/grpc v1.70.0
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/augeas v0.0.0-20161110001225-ca62e35ed6b8
+	libvirt.org/go/libvirt v1.11006.0
+	libvirt.org/go/libvirtxml v1.11006.0
 )
 
 require (
@@ -182,6 +182,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/arch v0.16.0 // indirect
 	golang.org/x/exp v0.0.0-20250106191152-7588d65b2ba8 // indirect
+	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
@@ -194,8 +195,6 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
-	libvirt.org/go/libvirt v1.11006.0 // indirect
-	libvirt.org/go/libvirtxml v1.11006.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 

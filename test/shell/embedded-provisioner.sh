@@ -11,7 +11,9 @@ function repeat() {
 set -x
 
 # run unification with a dummy password
-$TIMEOUT "$MGMT" provisioner --only-unify --password $(repeat "#" 106) &
+eth=$(for i in /sys/class/net/*; do d=${i##*/}; [[ "$d" != "lo" && $(<"$i/type") -eq 1 ]] && echo "$d" && break; done) # get the first ethernet device
+
+$TIMEOUT "$MGMT" provisioner --interface $eth --only-unify --password $(repeat "#" 106) &
 pid=$!
 wait $pid	# get exit status
 e=$?

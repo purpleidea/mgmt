@@ -15,6 +15,7 @@ tmp/
 mgmt.iml
 /rpmbuild/
 /releases/
+/repository/
 /pprof/
 /sites/
 # vim swap files

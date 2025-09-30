@@ -562,7 +562,6 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// apply portion
-	obj.init.Logf("Apply")
 	var cmdName string
 	var cmdArgs []string
 	if obj.Shell == "" {

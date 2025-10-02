@@ -53,16 +53,13 @@ find a number of tutorials online.
 3. Spend between four to six hours with the [golang tour](https://tour.golang.org/).
 Skip over the longer problems, but try and get a solid overview of everything.
 If you forget something, you can always go back and repeat those parts.
-4. Connect to our [#mgmtconfig](https://web.libera.chat/?channels=#mgmtconfig)
-IRC channel on the [Libera.Chat](https://libera.chat/) network. You can use any
-IRC client that you'd like, but the [hosted web portal](https://web.libera.chat/?channels=#mgmtconfig)
-will suffice if you don't know what else to use. [Here are a few suggestions for
-alternative clients.](https://libera.chat/guides/clients)
+4. Connect to our [#mgmtconfig](https://matrix.to/#/#mgmtconfig:matrix.org)
+Matrix channel and hang out with us there out there.
 5. Now it's time to try and starting writing a patch! We have tagged a bunch of
 [open issues as #mgmtlove](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
 for new users to have somewhere to get involved. Look through them to see if
 something interests you. If you find one, let us know you're working on it by
-leaving a comment in the ticket. We'll be around to answer questions in the IRC
+leaving a comment in the ticket. We'll be around to answer questions in the
 channel, and to create new issues if there wasn't something that fit your
 interests. When you submit a patch, we'll review it and give you some feedback.
 Over time, we hope you'll learn a lot while supporting the project! Now get
@@ -534,9 +531,7 @@ which definitely existed before the band did.
 
 ### You didn't answer my question, or I have a question!
 
-It's best to ask on [IRC](https://web.libera.chat/?channels=#mgmtconfig)
-to see if someone can help you. If you don't get a response from IRC, you can
-contact me through my [technical blog](https://purpleidea.com/contact/) and I'll
-do my best to help. If you have a good question, please add it as a patch to
+It's best to ask on [Matrix](https://matrix.to/#/#mgmtconfig:matrix.org) to see
+if someone can help. If you don't get a response there, you can send a patch to
 this documentation. I'll merge your question, and add a patch with the answer!
 For news and updates, subscribe to the [mailing list](https://www.redhat.com/mailman/listinfo/mgmtconfig-list).

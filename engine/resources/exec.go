@@ -482,7 +482,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			cmdName = obj.IfShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.IfCmd}
 		}
-		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.IfCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -563,7 +563,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			cmdName = obj.NIfShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.NIfCmd}
 		}
-		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.NIfCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -817,7 +817,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			cmdName = obj.DoneShell // usually bash, or sh
 			cmdArgs = []string{"-c", obj.DoneCmd}
 		}
-		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.DoneCwd // run program in pwd if ""
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{

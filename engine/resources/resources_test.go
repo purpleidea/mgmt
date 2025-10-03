@@ -661,7 +661,7 @@ func TestResources1(t *testing.T) {
 				}
 
 				t.Logf("test #%d: running CheckApply", index)
-				checkOK, err := res.CheckApply(doneCtx, true) // no noop!
+				checkOK, err := res.CheckApply(context.TODO(), true) // no noop!
 				if err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: CheckApply failed: %s", index, err.Error())

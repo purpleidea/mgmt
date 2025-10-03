@@ -567,7 +567,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := fgraph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+				if err := fgraph.ExecGraphviz(context.TODO(), "/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -1120,7 +1120,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 				ast.ScopeGraph(graph)
 
-				if err := graph.ExecGraphviz("/tmp/set-scope.dot"); err != nil {
+				if err := graph.ExecGraphviz(context.TODO(), "/tmp/set-scope.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -1233,7 +1233,7 @@ func TestAstFunc2(t *testing.T) {
 
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := fgraph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+				if err := fgraph.ExecGraphviz(context.TODO(), "/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -1996,7 +1996,7 @@ func TestAstFunc3(t *testing.T) {
 				}
 				ast.ScopeGraph(graph)
 
-				if err := graph.ExecGraphviz("/tmp/set-scope.dot"); err != nil {
+				if err := graph.ExecGraphviz(context.TODO(), "/tmp/set-scope.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return
@@ -2088,7 +2088,7 @@ func TestAstFunc3(t *testing.T) {
 
 			if runGraphviz {
 				t.Logf("test #%d: Running graphviz...", index)
-				if err := fgraph.ExecGraphviz("/tmp/graphviz.dot"); err != nil {
+				if err := fgraph.ExecGraphviz(context.TODO(), "/tmp/graphviz.dot"); err != nil {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: writing graph failed: %+v", index, err)
 					return

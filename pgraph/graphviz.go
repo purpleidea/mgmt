@@ -30,6 +30,7 @@
 package pgraph // TODO: this should be a subpackage
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"os"
@@ -153,7 +154,7 @@ func (obj *Graphviz) Text() string {
 
 // Exec writes out the graphviz data and runs the correct graphviz filter
 // command.
-func (obj *Graphviz) Exec() error {
+func (obj *Graphviz) Exec(ctx context.Context) error {
 	filter := ""
 	switch obj.Filter {
 	case "":
@@ -195,7 +196,7 @@ func (obj *Graphviz) Exec() error {
 	}
 
 	out := fmt.Sprintf("%s.png", filename)
-	cmd := exec.Command(path, "-Tpng", fmt.Sprintf("-o%s", out), filename)
+	cmd := exec.CommandContext(ctx, path, "-Tpng", fmt.Sprintf("-o%s", out), filename)
 
 	if err1 == nil && err2 == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
@@ -286,7 +287,7 @@ func (obj *Graph) Graphviz() string {
 
 // ExecGraphviz writes out the graphviz data and runs the correct graphviz
 // filter command.
-func (obj *Graph) ExecGraphviz(filename string) error {
+func (obj *Graph) ExecGraphviz(ctx context.Context, filename string) error {
 	gv := &Graphviz{
 		Graphs: map[*Graph]*GraphvizOpts{
 			obj: nil,
@@ -296,5 +297,5 @@ func (obj *Graph) ExecGraphviz(filename string) error {
 		Filename: filename,
 		//Hostname: hostname,
 	}
-	return gv.Exec()
+	return gv.Exec(ctx)
 }

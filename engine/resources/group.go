@@ -197,7 +197,7 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		cmdName = "groupdel"
 	}
 
-	cmd := exec.Command(cmdName, args...)
+	cmd := exec.CommandContext(ctx, cmdName, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,

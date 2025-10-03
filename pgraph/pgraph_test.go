@@ -485,7 +485,7 @@ func TestTopoSort3(t *testing.T) {
 	G.AddEdge(v5, v6, e5)
 	G.AddEdge(v4, v2, e6) // cycle
 
-	G.ExecGraphviz("/tmp/g.dot")
+	//G.ExecGraphviz(context.TODO(), "/tmp/g.dot")
 
 	_, err := G.TopologicalSort()
 	if err == nil {

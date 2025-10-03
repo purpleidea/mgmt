@@ -1049,7 +1049,8 @@ func (obj *Main) Run() error {
 						obj.ge.Graph(): nil,
 					},
 				}
-				if err := gv.Exec(); err != nil {
+				// FIXME: is this the right ctx?
+				if err := gv.Exec(exitCtx); err != nil {
 					Logf("graphviz: %+v", err)
 				} else {
 					Logf("graphviz: successfully generated graph!")

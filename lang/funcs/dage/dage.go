@@ -961,7 +961,7 @@ func (obj *Engine) Graph() *pgraph.Graph {
 // ExecGraphviz writes out the diagram of a graph to be used for visualization
 // and debugging. You must not modify the graph (eg: during Lock) when calling
 // this method.
-func (obj *Engine) ExecGraphviz(dir string) error {
+func (obj *Engine) ExecGraphviz(ctx context.Context, dir string) error {
 	// No mutex needed here since this func runs in a non-concurrent Txn.
 
 	// No mutex is needed at this time because we only run this in txn's and
@@ -1019,7 +1019,7 @@ func (obj *Engine) ExecGraphviz(dir string) error {
 		},
 	}
 
-	if err := gv.Exec(); err != nil {
+	if err := gv.Exec(ctx); err != nil {
 		return err
 	}
 	return nil

@@ -127,9 +127,9 @@ type ExecRes struct {
 	WatchShell string `lang:"watchshell" yaml:"watchshell"`
 
 	// IfCmd is the command that runs to guard against running the Cmd. If
-	// this command succeeds, then Cmd *will* be run. If this command
-	// returns a non-zero result, then the Cmd will not be run. Any error
-	// scenario or timeout will cause the resource to error.
+	// this command succeeds, then Cmd *will not* be blocked from running.
+	// If this command returns a non-zero result, then the Cmd will not be
+	// run. Any error scenario or timeout will cause the resource to error.
 	IfCmd string `lang:"ifcmd" yaml:"ifcmd"`
 
 	// IfCwd is the Cwd for the IfCmd. See the docs for Cwd.
@@ -144,6 +144,19 @@ type ExecRes struct {
 	// if the output includes a trailing newline or not. (Hint: it usually
 	// does!)
 	IfEquals *string `lang:"ifequals" yaml:"ifequals"`
+
+	// NIfCmd is the command that runs to guard against running the Cmd. If
+	// this command succeeds, then Cmd *will* be blocked from running. If
+	// this command returns a non-zero result, then the Cmd will be allowed
+	// to run if not blocked by anything else. This is the opposite of the
+	// IfCmd.
+	NIfCmd string `lang:"nifcmd" yaml:"nifcmd"`
+
+	// NIfCwd is the Cwd for the NIfCmd. See the docs for Cwd.
+	NIfCwd string `lang:"nifcwd" yaml:"nifcwd"`
+
+	// NIfShell is the Shell for the NIfCmd. See the docs for Shell.
+	NIfShell string `lang:"nifshell" yaml:"nifshell"`
 
 	// Creates is the absolute file path to check for before running the
 	// main cmd. If this path exists, then the cmd will not run. More
@@ -535,6 +548,93 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
+	if obj.NIfCmd != "" { // opposite of the ifcmd check
+		var cmdName string
+		var cmdArgs []string
+		if obj.NIfShell == "" {
+			// call without a shell
+			// FIXME: are there still whitespace splitting issues?
+			split := strings.Fields(obj.NIfCmd)
+			cmdName = split[0]
+			//d, _ := os.Getwd() // TODO: how does this ever error ?
+			//cmdName = path.Join(d, cmdName)
+			cmdArgs = split[1:]
+		} else {
+			cmdName = obj.NIfShell // usually bash, or sh
+			cmdArgs = []string{"-c", obj.NIfCmd}
+		}
+		cmd := exec.Command(cmdName, cmdArgs...)
+		cmd.Dir = obj.NIfCwd // run program in pwd if ""
+		// ignore signals sent to parent process (we're in our own group)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Setpgid: true,
+			Pgid:    0,
+		}
+
+		// if we have an user and group, use them
+		var err error
+		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
+			return false, errwrap.Wrapf(err, "error while setting credential")
+		}
+
+		var out splitWriter
+		out.Init()
+		cmd.Stdout = out.Stdout
+		cmd.Stderr = out.Stderr
+
+		err = cmd.Run()
+		if err == nil {
+			obj.init.Logf("nifcmd: %s", strings.Join(cmd.Args, " "))
+			obj.init.Logf("nifcmd exited with: %d, skipping cmd", 0)
+			s := out.String()
+			if s == "" {
+				obj.init.Logf("nifcmd out empty!")
+			} else {
+				obj.init.Logf("nifcmd out:")
+				obj.init.Logf("%s", s)
+			}
+
+			//if err := obj.checkApplyWriteCache(); err != nil {
+			//	return false, err
+			//}
+			obj.safety()
+			if err := obj.send(); err != nil {
+				return false, err
+			}
+			return true, nil // don't run
+		}
+
+		exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+		if !ok {
+			// command failed in some bad way
+			return false, errwrap.Wrapf(err, "nifcmd failed in some bad way")
+		}
+		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+		wStatus, ok := pStateSys.(syscall.WaitStatus)
+		if !ok {
+			return false, errwrap.Wrapf(err, "could not get exit status of nifcmd")
+		}
+		exitStatus := wStatus.ExitStatus()
+		if exitStatus == 0 {
+			// i'm not sure if this could happen
+			return false, errwrap.Wrapf(err, "unexpected nifcmd exit status of zero")
+		}
+
+		obj.init.Logf("nifcmd: %s", strings.Join(cmd.Args, " "))
+		obj.init.Logf("nifcmd exited with: %d, not skipping cmd", exitStatus)
+		if s := out.String(); s == "" {
+			obj.init.Logf("nifcmd out empty!")
+		} else {
+			obj.init.Logf("nifcmd out:")
+			obj.init.Logf("%s", s)
+		}
+
+		//if obj.NIfEquals != nil && *obj.NIfEquals == s {
+		//	obj.init.Logf("nifequals matched")
+		//	return true, nil // don't run
+		//}
+	}
+
 	if obj.Creates != "" { // gate the extra syscall
 		if _, err := os.Stat(obj.Creates); err == nil {
 			obj.init.Logf("creates file exists, skipping cmd")
@@ -910,6 +1010,16 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 		return errwrap.Wrapf(err, "the IfEquals differs")
 	}
 
+	if obj.NIfCmd != res.NIfCmd {
+		return fmt.Errorf("the NIfCmd differs")
+	}
+	if obj.NIfCwd != res.NIfCwd {
+		return fmt.Errorf("the NIfCwd differs")
+	}
+	if obj.NIfShell != res.NIfShell {
+		return fmt.Errorf("the NIfShell differs")
+	}
+
 	if obj.Creates != res.Creates {
 		return fmt.Errorf("the Creates differs")
 	}
@@ -956,6 +1066,7 @@ type ExecUID struct {
 	Cmd      string
 	WatchCmd string
 	IfCmd    string
+	NIfCmd   string
 	DoneCmd  string
 	// TODO: add more elements here
 }
@@ -1046,6 +1157,7 @@ func (obj *ExecRes) UIDs() []engine.ResUID {
 		Cmd:      obj.getCmd(),
 		WatchCmd: obj.WatchCmd,
 		IfCmd:    obj.IfCmd,
+		NIfCmd:   obj.NIfCmd,
 		DoneCmd:  obj.DoneCmd,
 		// TODO: add more params here
 	}
@@ -1138,6 +1250,11 @@ func (obj *ExecRes) cmdFiles() []string {
 	if obj.IfShell != "" {
 		paths = append(paths, obj.IfShell)
 	} else if sp := strings.Fields(obj.IfCmd); len(sp) > 0 {
+		paths = append(paths, sp[0])
+	}
+	if obj.NIfShell != "" {
+		paths = append(paths, obj.NIfShell)
+	} else if sp := strings.Fields(obj.NIfCmd); len(sp) > 0 {
 		paths = append(paths, sp[0])
 	}
 	if obj.DoneShell != "" {

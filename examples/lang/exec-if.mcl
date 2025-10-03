@@ -1,0 +1,20 @@
+exec "i will run 1" {
+	cmd => "/usr/bin/echo i WILL run",
+	ifcmd => "/usr/bin/true",
+}
+
+exec "i will not run 2" {
+	cmd => "/usr/bin/echo i will NOT run",
+	ifcmd => "/usr/bin/false",
+}
+
+# nifcmd exited with: 0, skipping cmd
+exec "i will not run 1" {
+	cmd => "/usr/bin/echo i will NOT run",
+	nifcmd => "/usr/bin/true",
+}
+
+exec "i will run 2" {
+	cmd => "/usr/bin/echo i WILL run",
+	nifcmd => "/usr/bin/false",
+}

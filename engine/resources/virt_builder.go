@@ -36,6 +36,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -621,6 +622,15 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 
 	cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 
+	usr, err := user.Current()
+	if err != nil {
+		return false, err
+	}
+	// FIXME: consider building this from an empty environment?
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("HOME=%s", usr.HomeDir),
+	)
+
 	// ignore signals sent to parent process (we're in our own group)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -638,7 +648,7 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		return false, errwrap.Wrapf(err, "error starting cmd")
 	}
 
-	err := cmd.Wait() // we can unblock this with the timeout
+	cmderr := cmd.Wait() // we can unblock this with the timeout
 	out := b.String()
 
 	p := path.Join(obj.varDir, fmt.Sprintf("%d.log", start))
@@ -648,7 +658,7 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		}
 	}
 
-	if err == nil {
+	if cmderr == nil {
 		obj.init.Logf("built image successfully!")
 		return false, nil // success!
 	}
@@ -667,7 +677,7 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		obj.init.Logf("deleted partial output")
 	}
 
-	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+	exitErr, ok := cmderr.(*exec.ExitError) // embeds an os.ProcessState
 	if !ok {
 		// command failed in some bad way
 		return false, errwrap.Wrapf(err, "cmd failed in some bad way")

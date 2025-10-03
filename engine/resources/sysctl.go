@@ -287,7 +287,7 @@ func (obj *SysctlRes) runtimeCheckApply(ctx context.Context, apply bool) (bool, 
 	b, err := os.ReadFile(obj.toPath())
 	if err != nil && !os.IsNotExist(err) {
 		// system or permissions error?
-		return false, nil
+		return false, err
 	}
 	if err == nil && bytes.Equal(expected, b) {
 		return true, nil // we match!
@@ -323,7 +323,7 @@ func (obj *SysctlRes) persistCheckApply(ctx context.Context, apply bool) (bool, 
 	b, err := os.ReadFile(obj.getFilename())
 	if err != nil && !os.IsNotExist(err) {
 		// system or permissions error?
-		return false, nil
+		return false, err
 	}
 	if err == nil && bytes.Equal(expected, b) {
 		return true, nil // we match!

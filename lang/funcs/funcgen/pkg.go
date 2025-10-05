@@ -350,7 +350,7 @@ func buildHelp(internalName, publicName string, sig *types.Signature, doc string
 
 	if doc != "" {
 		for _, line := range strings.Split(doc, "\n") {
-			line = strings.TrimRight(line, "\r\n")
+			line = strings.TrimLeft(strings.TrimRight(line, "\r\n"), " \t")
 			if line == "" {
 				b.WriteString("//\n")
 			} else {

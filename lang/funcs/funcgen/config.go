@@ -40,7 +40,7 @@ type config struct {
 	Packages golangPackages `yaml:"packages"`
 }
 
-type functions []function
+type functions []*function
 
 type arg struct {
 	// Name is the name of the argument.

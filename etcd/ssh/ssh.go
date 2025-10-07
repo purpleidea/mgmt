@@ -105,8 +105,6 @@ type World struct {
 
 	init *engine.WorldInit
 
-	sshClient *ssh.Client
-
 	cleanups []func() error
 }
 
@@ -265,7 +263,9 @@ func (obj *World) hostKeyCallback(hostkey ssh.PublicKey) ssh.HostKeyCallback {
 		if hostkey != nil {
 			fn := ssh.FixedHostKey(hostkey)
 			if fn(hostname, remote, key) == nil {
-				obj.init.Logf("matched key")
+				if obj.init.Debug {
+					obj.init.Logf("matched key")
+				}
 				return nil // found it!
 			}
 			obj.init.Logf("did not match known key: %s", ssh.FingerprintSHA256(hostkey))
@@ -351,6 +351,10 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		return fmt.Errorf("found %d duplicate tunnels", l)
 	}
 
+	// XXX: If we're using SSH, we should really have a list of SSH
+	// endpoints, but a localhost identifier of one etcd jump from each...
+	// Having the {N, M} set would be possibly too complicated. The point is
+	// that the list of SSH endpoints is the useful thing when over SSH.
 	s := obj.URL
 	scheme := "ssh://"
 	// the url.Parse function parses incorrectly without a scheme prefix :/
@@ -388,7 +392,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		pubKey = k
 	}
 
-	addr := fmt.Sprintf("%s:%s", hostname, port)
+	sshAddr := fmt.Sprintf("%s:%s", hostname, port)
 
 	// Preference order of keys I have available...
 	keyTypes := []string{
@@ -462,47 +466,66 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		HostKeyAlgorithms: obj.prioritizeHostKeyAlgorithms(preferredAlgoOrder, keyTypes),
 	}
 
-	obj.init.Logf("ssh: %s@%s", user, addr)
-	obj.sshClient, err = dialSSHWithContext(ctx, "tcp", addr, sshConfig)
-	if err != nil {
-		return err
-	}
-	obj.cleanups = append(obj.cleanups, func() error {
-		e := obj.sshClient.Close()
-		if obj.init.Debug && e != nil {
-			obj.init.Logf("ssh client close error: %+v", e)
-		}
-		return e
-	})
+	sshCleanups := []func() error{}
 
 	// This runs repeatedly when etcd tries to reconnect.
 	grpcWithContextDialerFunc := func(ctx context.Context, addr string) (net.Conn, error) {
+
 		var reterr error
 		for _, seed := range obj.Seeds { // first successful connect wins
 			if addr != seedSSH[seed] {
 				continue // not what we're expecting
 			}
-			obj.init.Logf("tunnel: %s", addr)
 
-			tunnel, err := obj.sshClient.Dial("tcp", addr)
+			// Cleanup previous connection...
+			var errs error
+			for i := len(sshCleanups) - 1; i >= 0; i-- { // reverse
+				f := sshCleanups[i]
+				if err := f(); err != nil {
+					errs = errwrap.Append(errs, err)
+				}
+			}
+			sshCleanups = nil // clean
+			if errs != nil {
+				obj.init.Logf("error cleaning on reconnect: %+v", errs)
+			}
+
+			obj.init.Logf("ssh: %s@%s", user, sshAddr)
+			sshClient, err := dialSSHWithContext(ctx, "tcp", sshAddr, sshConfig)
 			if err != nil {
 				reterr = err
 				obj.init.Logf("ssh dial error: %v", err)
 				continue
 			}
-
-			// TODO: do we need a mutex around adding these?
-			obj.cleanups = append(obj.cleanups, func() error {
-				e := tunnel.Close()
-				if e == io.EOF { // XXX: why does this happen?
-					return nil // ignore
-				}
+			sshCleanups = append(sshCleanups, func() error {
+				e := sshClient.Close()
 				if obj.init.Debug && e != nil {
 					obj.init.Logf("ssh client close error: %+v", e)
 				}
 				return e
 			})
 
+			obj.init.Logf("tunnel: %s", addr)
+			tunnel, err := sshClient.Dial("tcp", addr)
+			if err != nil {
+				reterr = err
+				obj.init.Logf("ssh tunnel error: %v", err)
+				continue
+			}
+
+			// TODO: do we need a mutex around adding these?
+			sshCleanups = append(sshCleanups, func() error {
+				e := tunnel.Close()
+				if e == io.EOF { // XXX: why does this happen?
+					return nil // ignore
+				}
+				if obj.init.Debug && e != nil {
+					obj.init.Logf("ssh tunnel close error: %+v", e)
+				}
+				return e
+			})
+
+			obj.init.Logf("ssh tunnel connected")
 			return tunnel, nil // connected successfully
 		}
 

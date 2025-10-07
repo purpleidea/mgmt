@@ -409,15 +409,20 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 	}
 	// Wait for a message on eventChan that says the container has started.
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
-	select {
-	case event := <-eventCh:
-		if event.Status != "start" {
+	for {
+		select {
+		case event := <-eventCh:
+			if event.Status == "start" {
+				return nil
+			}
+			if event.Status == "init" { // one user saw this
+				continue
+			}
 			return fmt.Errorf("unexpected event: %+v", event)
+		case err := <-errCh:
+			return errwrap.Wrapf(err, "error waiting for container start")
 		}
-	case err := <-errCh:
-		return errwrap.Wrapf(err, "error waiting for container start")
 	}
-	return nil
 }
 
 // containerStop stops the specified container and waits for it to stop.

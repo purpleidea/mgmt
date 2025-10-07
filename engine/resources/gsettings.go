@@ -154,11 +154,11 @@ func (obj *GsettingsRes) value() (string, error) {
 	}
 
 	if obj.Type == "int" {
-		v, ok := obj.Value.(int)
+		v, ok := obj.Value.(int64)
 		if !ok {
 			return "", fmt.Errorf("invalid int, got: %T", obj.Value)
 		}
-		return strconv.Itoa(v), nil
+		return strconv.FormatInt(v, 10), nil
 	}
 
 	if obj.Type == "custom" {

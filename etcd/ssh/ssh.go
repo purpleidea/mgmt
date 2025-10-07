@@ -53,6 +53,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 )
 
 const (
@@ -535,9 +536,14 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		return nil, fmt.Errorf("no ssh tunnels available") // TODO: better error message?
 	}
 
+	grpcConnectParams := grpc.ConnectParams{
+		Backoff: backoff.DefaultConfig,
+		//MinConnectTimeout: ???
+	}
 	etcdClient, err := clientv3.New(clientv3.Config{
 		Endpoints: obj.Seeds,
 		DialOptions: []grpc.DialOption{
+			grpc.WithConnectParams(grpcConnectParams),
 			grpc.WithContextDialer(grpcWithContextDialerFunc),
 		},
 	})

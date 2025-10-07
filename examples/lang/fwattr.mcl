@@ -1,0 +1,22 @@
+import "golang/strings" as golang_strings
+
+# the lenovo driver can only set 48 attributes per boot :(
+fwattr "BootTimeExtension" {
+	driver => "thinklmi", # usually determined automatically
+
+	value => "1",
+}
+
+$boot = [
+	"USBHDD",
+	"USBCD",
+	"USBFDD",
+	"NVMe0",
+]
+fwattr "BootOrder" {
+	#driver => "thinklmi", # usually determined automatically
+
+	value => golang_strings.join($boot, ":"),
+
+	check => false, # useful for buggy/old firmware for certain keys
+}

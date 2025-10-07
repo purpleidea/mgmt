@@ -32,6 +32,7 @@ import "fmt"
 import "golang"
 import "golang/strings" as golang_strings
 import "iter"
+import "list"
 import "local"
 import "net"
 import "os"
@@ -377,6 +378,84 @@ class systemd_daemon_reload($name) {
 		# NOTE: We grep since find doesn't return a useful return code.
 		ifcmd => "/usr/bin/test ! -e '${mtime_file}' || /usr/bin/find /lib/systemd/system/ /etc/systemd/system/ -type f -name '*.service' -newer '${mtime_file}' | /usr/bin/grep -q .",
 		ifshell => "/usr/bin/bash",
+	}
+}
+
+# Instead of enabling a dnf repo manually, you can use this to accomplish it.
+class yum_repo($id, $st) {
+	panic(golang_strings.has_prefix($id, "_copr")) # can't begin this way
+
+	# baseurl may contain $releasever and $basearch literals (not mcl!)
+	$baseurl = $st->baseurl
+	$gpgkey = $st->gpgkey || ""
+
+	# `man 5 dnf.conf` for more details
+	$tmpl =
+"
+[${id}]
+name=${id}
+baseurl=${baseurl}
+#baseurl=http://download.example/pub/fedora/linux/updates/$releasever/Everything/$basearch/
+#metalink=https://mirrors.example.com/metalink?repo=${id}&distroversion=fedora-$releasever&arch=$basearch
+enabled=1
+{{ if .gpgkey -}}
+repo_gpgcheck=0 # TODO: enable me
+gpgcheck=1
+gpgkey={{ .gpgkey }}
+#gpgkey=file:///etc/mgmt/fedora-$releasever-$basearch
+{{ end -}}
+metadata_expire=6h
+skip_if_unavailable=False
+countme=0
+"
+
+	$args = struct{
+		id => $id,
+		gpgkey => $gpgkey,
+	}
+
+	file "/etc/yum.repos.d/${id}.repo" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
+		mode => "u=rw,go=",
+		owner => "root",
+	}
+}
+
+# keep these packages up to date. if $pkg is an empty string, we update
+# everything.
+class dnf_update($pkg) {
+
+	$name = if $pkg == "" {
+		"dnf-update"
+	} else {
+		"dnf-update-${pkg}"
+	}
+
+	$a = [
+		"update",
+		"--comment",
+		"dnf update by mgmt",
+		"--assumeyes",
+	]
+	$args = if $pkg == "" {
+		$a
+	} else {
+		list.concat($a, ["${pkg}",]) # limit to this package only
+	}
+
+	exec "${name}" {
+		cmd => "/usr/bin/dnf",
+		args => $args,
+
+		# returns 100 when updates available, zero if nothing to do
+		nifcmd => "/usr/bin/dnf check-upgrade ${pkg}", # (same as check-update)
+		watchfiles => [
+			#"/var/lib/cache/libdnf5/", # TODO: map pkg to repo here?
+			"/var/lib/dnf/history.sqlite", # kind of a hack for now
+		],
+
+		user => "root",
 	}
 }
 

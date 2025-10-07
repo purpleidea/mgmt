@@ -54,9 +54,9 @@ class ssh_keygen_type($user, $type) {
 	exec "ssh-keygen-${user}" {
 		cmd => "/usr/bin/ssh-keygen",
 		args => [
-		        "-t", "${type}", # type
-		        "-f", "${p}.ssh/id_${type}", # private key file
-		        "-N", "", # empty password
+			"-t", "${type}", # type
+			"-f", "${p}.ssh/id_${type}", # private key file
+			"-N", "", # empty password
 		],
 		creates => "${p}.ssh/id_${type}",
 		user => $user,

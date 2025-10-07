@@ -148,7 +148,7 @@ func (obj *GsettingsRes) value() (string, error) {
 	if obj.Type == "str" {
 		v, ok := obj.Value.(string)
 		if !ok {
-			return "", fmt.Errorf("invalid str")
+			return "", fmt.Errorf("invalid str, got: %T", obj.Value)
 		}
 		return v, nil
 	}
@@ -156,7 +156,7 @@ func (obj *GsettingsRes) value() (string, error) {
 	if obj.Type == "int" {
 		v, ok := obj.Value.(int)
 		if !ok {
-			return "", fmt.Errorf("invalid int")
+			return "", fmt.Errorf("invalid int, got: %T", obj.Value)
 		}
 		return strconv.Itoa(v), nil
 	}
@@ -164,7 +164,7 @@ func (obj *GsettingsRes) value() (string, error) {
 	if obj.Type == "custom" {
 		v, ok := obj.Value.(string)
 		if !ok {
-			return "", fmt.Errorf("invalid custom")
+			return "", fmt.Errorf("invalid custom, got: %T", obj.Value)
 		}
 		return v, nil
 	}

@@ -125,7 +125,10 @@ type localArgs struct {
 	// eg: https://mirror.csclub.uwaterloo.ca/fedora/ for example. This
 	// points to: https://download.fedoraproject.org/pub/fedora/linux/ by
 	// default if unspecified, because it will automatically translate to a
-	// local mirror near you.
+	// local mirror near you. If you have issues with the installer exiting,
+	// and 404's or similar issues happening, specify a mirror here. Some
+	// users can get inconsistent repository views if the particular
+	// location they connect from picks different mirrors.
 	// TODO: Do we need to do a special step of checking the signature of
 	// the initrd or vmlinuz or the install.img file we first load?
 	Mirror string `arg:"--mirror" help:"https mirror for proxy provisioning" func:"cli_mirror"`

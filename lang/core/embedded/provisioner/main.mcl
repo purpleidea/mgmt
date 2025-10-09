@@ -827,7 +827,7 @@ class base:host($name, $config) {
 		password => $password,	# salted
 		bios => $bios,
 		part => $part,
-		luks => true, # set empty password
+		luks => $luks, # set empty password
 		flavour => $flavour,
 		url => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
 		repos => {

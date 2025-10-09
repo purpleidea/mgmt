@@ -388,6 +388,8 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.init.Logf("packages: %+v", strings.Join(obj.localArgs.Packages, ","))
 	}
 
+	obj.init.Logf("luks: %t", obj.localArgs.LUKS)
+
 	modulePathArgs := []string{}
 	if p := obj.localArgs.HandoffModulePath; p != "" {
 		if strings.HasPrefix(p, "~") {

@@ -24,6 +24,9 @@ DIR="releases"
 # repository directory
 OUT="repository"
 
+# get my GPG key ID. (fpm --rpm-sign looks in here for that)
+GPGKEYID=$(cat ~/.rpmmacros | grep '%_gpg_name' | awk '{print $2}')
+
 ## make sure the distro is a known valid one
 #if [[ "$DISTRO" == fedora-* ]]; then
 #	typ="rpm"
@@ -134,6 +137,11 @@ for dv in "${!map_distro_version[@]}"; do
 				depends="$depends --depends $i"
 			done
 
+			sign=""
+			if [ "$type" = "rpm" ]; then
+				sign="--rpm-sign"
+			fi
+
 			# build the package
 			echo "fpm..."
 			echo "output: ${output}"
@@ -148,6 +156,7 @@ for dv in "${!map_distro_version[@]}"; do
 			--input-type dir \
 			--output-type "$type" \
 			--package "${output}" \
+			${sign} \
 			${depends} \
 			"misc/mgmt.service"="/usr/lib/systemd/system/mgmt.service" \
 			"$BINARY"="$PREFIX/mgmt" \
@@ -170,6 +179,11 @@ for dv in "${!map_distro_version[@]}"; do
 			if [[ ! -f Packages.gz ]] || find . -name '*.deb' -newer Packages.gz | grep -q .; then
 				echo "dpkg-scanpackages ${type} ${outdir}"
 				dpkg-scanpackages --multiversion . /dev/null | gzip -9 > Packages.gz
+
+				# build the cool stuff
+				apt-ftparchive release . > Release
+				gpg --default-key $GPGKEYID -abs -o Release.gpg Release
+				gpg --default-key $GPGKEYID --clearsign -o InRelease Release
 			fi
 			cd - > /dev/null # silence it
 		fi

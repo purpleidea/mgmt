@@ -137,6 +137,7 @@ Name=${dev}
 # networkd_dhcp sets up a dhcp client with systemd-networkd.
 class networkd_dhcp($dev, $st) {
 	$dns = $st->dns || ["8.8.8.8",]
+	$metric = $st->metric || 100
 
 	$tmpl =
 "
@@ -152,7 +153,14 @@ DNS={{ . }}
 
 [DHCP]
 UseDNS=false
-RouteMetric=100
+
+{{ if .metric -}}
+[DHCPv4]
+RouteMetric={{ .metric }}
+
+[IPv6AcceptRA]
+RouteMetric={{ .metric }}
+{{ end -}}
 "
 
 	$args = struct{
@@ -184,6 +192,8 @@ class networkd_static($dev, $st) {
 	#$router = $st->router || ""
 	$dns = $st->dns || ["8.8.8.8",]
 	#$vips []str = $st->vips || [] # []cidr
+
+	#$metric = $st->metric || 50
 
 	$tmpl =
 "

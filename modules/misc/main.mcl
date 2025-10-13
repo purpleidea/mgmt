@@ -414,7 +414,9 @@ countme=0
 		gpgkey => $gpgkey,
 	}
 
-	file "/etc/yum.repos.d/${id}.repo" {
+	$file_name = "/etc/yum.repos.d/${id}.repo"
+
+	file "${file_name}" {
 		state => "exists",
 		content => golang.template($tmpl, $args),
 		mode => "u=rw,go=",
@@ -426,7 +428,7 @@ countme=0
 # everything.
 class dnf_update($pkg) {
 
-	$name = if $pkg == "" {
+	$exec_name = if $pkg == "" {
 		"dnf-update"
 	} else {
 		"dnf-update-${pkg}"
@@ -444,7 +446,7 @@ class dnf_update($pkg) {
 		list.concat($a, ["${pkg}",]) # limit to this package only
 	}
 
-	exec "${name}" {
+	exec "${exec_name}" {
 		cmd => "/usr/bin/dnf",
 		args => $args,
 

@@ -64,11 +64,13 @@ class base() {
 		group => "lp",
 		mode => "u=rw,go=",
 
+		Depend => File["/etc/cups/"],
+		Depend => File["${vardir}printers.conf.header"],
+		Depend => File["${vardir}printers.d/"],
+
 		Before => Exec["restorecon"],
 		Notify => Svc["cups"],
 		Before => Svc["cups"],
-		Depend => File["${vardir}printers.conf.header"],
-		Depend => File["${vardir}printers.d/"],
 	}
 
 	exec "restorecon" {

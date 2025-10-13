@@ -105,13 +105,16 @@ class server:subnet_base() {
 		mode => "u=rw,go=",
 	}
 
-
 	file "/etc/dhcp/subnets.conf" {
 		state => $const.res.file.state.exists,
 		fragments => [
 			"${vardir}subnets.header",
 			"${vardir}subnets.d/",
 		],
+
+		Depend => File["/etc/dhcp/"],
+		Depend => File["${vardir}subnets.header"],
+		Depend => File["${vardir}subnets.d/"],
 
 		Notify => Svc["dhcpd"],
 	}
@@ -158,6 +161,9 @@ class server:subnet($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rwx,g=rx,o=",
+
+		Before => File["/etc/dhcp/subnets.conf"],
+		Depend => File["${vardir}subnets.d/"],
 	}
 }
 
@@ -186,6 +192,10 @@ class server:host_base() {
 			"${vardir}hosts.header",
 			"${vardir}hosts.d/",
 		],
+
+		Depend => File["/etc/dhcp/"],
+		Depend => File["${vardir}hosts.header"],
+		Depend => File["${vardir}hosts.d/"],
 
 		Notify => Svc["dhcpd"],
 	}
@@ -219,5 +229,8 @@ class server:host($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rwx,g=rx,o=",
+
+		Before => File["/etc/dhcp/hosts.conf"],
+		Depend => File["${vardir}hosts.d/"],
 	}
 }

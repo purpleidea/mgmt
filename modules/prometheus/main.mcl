@@ -42,6 +42,10 @@ class server() {
 		group => "root",
 		mode => "u=rw,g=r,o=",
 
+		Depend => File["/etc/prometheus/"],
+		Depend => File["${vardir}prometheus.yml.header"],
+		Depend => File["${vardir}jobs.d/"],
+
 		Notify => Svc["prometheus"],
 	}
 

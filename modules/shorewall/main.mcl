@@ -164,6 +164,7 @@ class firewall:zone($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/zones"],
 		Depend => File["${vardir}zones.d/"],
 	}
 }
@@ -225,6 +226,7 @@ class firewall:interface($name, $zone, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/interfaces"],
 		Depend => File["${vardir}interfaces.d/"],
 	}
 }
@@ -287,6 +289,7 @@ class firewall:policy($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/policy"],
 		Depend => File["${vardir}policy.d/"],
 	}
 }
@@ -394,6 +397,7 @@ class firewall:rule($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/rules"],
 		Depend => File["${vardir}rules.d/"],
 	}
 }
@@ -411,6 +415,7 @@ class firewall:bulkrules($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/rules"],
 		Depend => File["${vardir}rules.d/"],
 	}
 }
@@ -479,6 +484,7 @@ class firewall:stoppedrule($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/stoppedrules"],
 		Depend => File["${vardir}stoppedrules.d/"],
 	}
 }
@@ -573,6 +579,7 @@ class firewall:snat($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/shorewall/snat"],
 		Depend => File["${vardir}snat.d/"],
 	}
 }

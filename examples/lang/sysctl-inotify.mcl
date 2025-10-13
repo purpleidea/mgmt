@@ -1,0 +1,8 @@
+# To know where this value is, just prepend /proc/sys/ and then replace the dots
+# with slashes, so this becomes /proc/sys/net/ipv4/ip_forward which you can cat!
+sysctl "fs.inotify.max_user_instances" { # mgmt loves this!
+	value => "512",
+}
+sysctl "fs.inotify.max_user_watches" { # mgmt loves this!
+	value => "242940",
+}

@@ -104,6 +104,9 @@ class server:job($name, $st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rw,go=",
+
+		Before => File["/etc/prometheus/prometheus.yml"],
+		Depend => File["${vardir}jobs.d/"],
 	}
 }
 

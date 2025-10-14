@@ -154,6 +154,7 @@ class base:printer($name, $st) {
 		group => "root",
 		mode => "u=rw,go=",
 
+		Before => File["/etc/cups/printers.conf"],
 		Depend => File["${vardir}printers.d/"],
 	}
 

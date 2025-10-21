@@ -82,7 +82,7 @@ class router($st) {
 		$prefix = net.cidr_to_prefix($loc_network)
 		include misc.networkd_static($loc_dev, struct{
 			cidr => "${loc_ip}/${prefix}",
-			#dns => $dns,
+			#dns => $dns, # we usually don't want DNS here!
 		})
 		#include misc.network_manager_static(struct{
 		#	uuid => $loc_uuid,

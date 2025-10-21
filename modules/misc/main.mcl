@@ -190,7 +190,7 @@ class networkd_static($dev, $st) {
 	$ip = net.cidr_to_ip($cidr)
 	$prefix = net.cidr_to_prefix($cidr)
 	#$router = $st->router || ""
-	$dns = $st->dns || ["8.8.8.8",]
+	$dns []str = $st->dns || [] # usually we don't by default!
 	#$vips []str = $st->vips || [] # []cidr
 
 	#$metric = $st->metric || 50

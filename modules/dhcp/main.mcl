@@ -65,6 +65,8 @@ class server($st) {
 		owner => "root",
 		group => "root",
 		mode => "u=rwx,g=rx,o=", # dir
+
+		Depend => Pkg["${pkg}"],
 	}
 
 	file "/etc/dhcp/dhcpd.conf" {
@@ -75,11 +77,16 @@ class server($st) {
 		mode => "u=rw,go=",
 
 		Notify => Svc["dhcpd"],
+
+		Depend => File["/etc/dhcp/"],
 	}
 
 	svc "dhcpd" {
 		state => "running",
 		startup => "enabled",
+
+		Depend => Pkg["${pkg}"],
+		Depend => File["/etc/dhcp/dhcpd.conf"],
 	}
 
 	$vardir = local.vardir("dhcp/")

@@ -152,6 +152,10 @@ class router($st) {
 			"dhcp",
 			"tcpflags",
 			"nosmurfs",
+			# routeback lets traffic hairpin if we want to do magic:
+			# eg: DNAT loc loc:192.168.201.100:22 tcp 222 - &NET_IF
+			# to pair with: DNAT net loc:192.168.201.100:22 tcp 222
+			"routeback",
 			"routefilter",
 			"logmartians",
 		],

@@ -210,6 +210,19 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return true, nil
 	}
 
+	gids, err := usr.GroupIds() // ([]string, error)
+	if err != nil {
+		return false, err
+	}
+	groups := []string{}
+	for _, gid := range gids {
+		g, err := user.LookupGroupId(gid)
+		if err != nil {
+			return false, err
+		}
+		groups = append(groups, g.Name)
+	}
+
 	if usercheck := true; exists && obj.State == "exists" {
 		shell, err := util.UserShell(ctx, obj.Name())
 		if err != nil {
@@ -227,6 +240,26 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			usercheck = false
 		}
 		if obj.GID != nil && int(*obj.GID) != intGID {
+			usercheck = false
+		}
+
+		// Check our primary group matches what we requested...
+		if obj.Group != nil {
+			g, err := user.LookupGroupId(usr.Gid)
+			if err != nil {
+				return false, err
+			}
+
+			if g.Name != *obj.Group {
+				usercheck = false
+			}
+		}
+
+		// Check our member groups match what we expect. (In any order.)
+		cmpGroups := func(g1, g2 []string) error {
+			return cmpListContents(g1, g2)
+		}
+		if cmpGroups(obj.Groups, groups) != nil {
 			usercheck = false
 		}
 
@@ -518,5 +551,30 @@ func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	*obj = UserRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// cmpListContents is a helper to compare the list contents without pre-sorting.
+func cmpListContents(a, b []string) error {
+	if len(a) != len(b) {
+		return fmt.Errorf("lengths differ")
+	}
+
+	count := make(map[string]int)
+
+	// Count each string in the first slice...
+	for _, s := range a {
+		count[s]++
+	}
+
+	// Subtract counts for the second slice, and check if any are zero.
+	for _, s := range b {
+		count[s]--
+		if count[s] < 0 {
+			return fmt.Errorf("difference: %s", s)
+		}
+	}
+
+	// If all the counts are zero, then the slices must match!
 	return nil
 }

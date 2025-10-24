@@ -519,7 +519,7 @@ Start:
 				obj.Logf("call: %v", f)
 			}
 			//node.result, err = f.Call(ctx, args)
-			node.result, err = obj.call(f, ctx, args) // recovers!
+			node.result, err = obj.call(ctx, args, f) // recovers!
 			// XXX: On error lookup the fallback value if it exists.
 			// XXX: This might cause an interrupt + graph addition.
 			if err == interfaces.ErrInterrupt {
@@ -634,7 +634,8 @@ func (obj *Engine) effect( /*delta *DeltaOps*/ ) error {
 }
 
 // call is a helper to handle the recovering if needed from a function call.
-func (obj *Engine) call(f interfaces.Func, ctx context.Context, args []types.Value) (result types.Value, reterr error) {
+// NOTE: We moved f to be the last arg because golint complains ctx isn't first.
+func (obj *Engine) call(ctx context.Context, args []types.Value, f interfaces.Func) (result types.Value, reterr error) {
 	defer func() {
 		// catch programming errors
 		if r := recover(); r != nil {

@@ -316,8 +316,8 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			return false, errwrap.Wrapf(err, "value is not an int")
 		}
 
-		scalar_min := -1
-		scalar_max := -1
+		scalarMin := -1
+		scalarMax := -1
 
 		// If these min or max files are missing, there's no limit...
 		if b, err := os.ReadFile(path.Join(FWAttrDir, driver, "attributes", obj.getKey(), "min_value")); err != nil && !os.IsNotExist(err) {
@@ -332,7 +332,7 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			if i < min {
 				return false, nil // too short
 			}
-			scalar_min = min
+			scalarMin = min
 		}
 
 		if b, err := os.ReadFile(path.Join(FWAttrDir, driver, "attributes", obj.getKey(), "max_value")); err != nil && !os.IsNotExist(err) {
@@ -347,7 +347,7 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			if i > max {
 				return false, nil // too long
 			}
-			scalar_max = max
+			scalarMax = max
 		}
 
 		if b, err := os.ReadFile(path.Join(FWAttrDir, driver, "attributes", obj.getKey(), "scalar_increment")); err != nil && !os.IsNotExist(err) {
@@ -355,21 +355,21 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			return false, err
 
 		} else if err == nil {
-			if scalar_min == -1 {
+			if scalarMin == -1 {
 				// TODO: or do we assume we centre on zero?
-				//scalar_min = 0 // for centering, not checking
+				//scalarMin = 0 // for centering, not checking
 				return false, fmt.Errorf("can't verify scalar_increment without min_value")
 			}
 
-			scalar_increment, err := strconv.Atoi(strings.TrimSuffix(string(b), "\n"))
+			scalarIncrement, err := strconv.Atoi(strings.TrimSuffix(string(b), "\n"))
 			if err != nil {
 				return false, errwrap.Wrapf(err, "can't read scalar_increment")
 			}
 
 			// XXX: if you see this message, please let us know!
 			obj.init.Logf("how do we validate against scalar_increment for %s", obj.getKey())
-			obj.init.Logf("scalar_increment: %v", scalar_increment)
-			return isValidScalarIncrement(i, scalar_min, scalar_max, scalar_increment), nil
+			obj.init.Logf("scalar_increment: %v", scalarIncrement)
+			return isValidScalarIncrement(i, scalarMin, scalarMax, scalarIncrement), nil
 		}
 
 		obj.value = &obj.Value // store

@@ -50,7 +50,7 @@ func AllKind(x int64, y string) float64 {
 	return float64(x) + 1.0
 }
 
-// ToUpper
+// ToUpper runs the strings.ToUpper method.
 func ToUpper(s string) string { return strings.ToUpper(s) }
 
 // ToLower is excluded in the test via config (`Exclude: []string{"ToLower"},`).

@@ -42,6 +42,8 @@ const (
 	// the input value to OutputFunc.
 	OutputFuncArgName = "out"
 
+	// OutputFuncDummyArgName is the name for the edge which is used as the
+	// dummy.
 	OutputFuncDummyArgName = "dummy"
 )
 

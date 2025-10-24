@@ -27,6 +27,12 @@ OUT="repository"
 # get my GPG key ID. (fpm --rpm-sign looks in here for that)
 GPGKEYID=$(cat ~/.rpmmacros | grep '%_gpg_name' | awk '{print $2}')
 
+MASTER=false
+if [ "$1" = "--master" ]; then
+	MASTER=true
+	OUT="${OUT}/master"
+fi
+
 ## make sure the distro is a known valid one
 #if [[ "$DISTRO" == fedora-* ]]; then
 #	typ="rpm"
@@ -105,8 +111,15 @@ for dv in "${!map_distro_version[@]}"; do
 		#echo "package_version: $package_version"
 
 		if [[ " ${skip_mgmt_version[*]} " == *" $package_version "* ]]; then
-			echo "skip: ${package_version}"
+			#echo "skip: ${package_version}"
 			continue
+		fi
+
+		if $MASTER; then
+			if [[ "${package_version}" != "master" ]]; then
+				#echo "skip: ${package_version} (not master!)"
+				continue
+			fi
 		fi
 
 		for chunk2 in $chunk1/binary-linux-*; do
@@ -125,11 +138,16 @@ for dv in "${!map_distro_version[@]}"; do
 
 			#file $chunk2/mgmt-linux-$arch-$package_version # found it
 
+			input="${DIR}/${package_version}/binary-linux-${arch}/${BINARY}-linux-${arch}-${package_version}"
+			#echo "input: $input"
 			output="${OUT}/${distro}-${version}/${repoarch}/mgmt-${package_version}.${repoarch}.${type}"
 
-			if [ -f "$output" ]; then
-				echo "skip: ${output}"
-				continue
+			# XXX: use the output cmp for everyone?
+			if ! $MASTER; then
+				if [ -f "$output" ]; then
+					echo "skip: ${output}"
+					continue
+				fi
 			fi
 
 			depends=""
@@ -137,30 +155,69 @@ for dv in "${!map_distro_version[@]}"; do
 				depends="$depends --depends $i"
 			done
 
-			sign=""
-			if [ "$type" = "rpm" ]; then
-				sign="--rpm-sign"
+			# If binary is changed, then delete so fpm remakes it!
+			# XXX: note we are only comparing the binary inside it!
+			if [ -e "${output}" ]; then
+				cmp=$(mktemp -p /tmp/ mgmt.XXX)
+				# extract it to a temp file
+
+				if [ "${type}" = "rpm" ]; then
+					rpm2cpio "${output}" | cpio --quiet -i --to-stdout ".$PREFIX/mgmt" > "${cmp}"
+				elif [ "${type}" = "deb" ]; then
+					data_archive=$(ar t "${output}" | grep ^data.tar) # data.tar.xz or data.tar.gz or ...
+					case "$data_archive" in
+						*.gz)
+							ar p "${output}" "$data_archive" | tar -xzf - ".$PREFIX/mgmt" -O > "${cmp}"
+							;;
+						*.xz)
+							ar p "${output}" "$data_archive" | tar -xJf - ".$PREFIX/mgmt" -O > "${cmp}"
+							;;
+						*.zst)
+							ar p "${output}" "$data_archive" | tar --use-compress-program=unzstd -xf - ".$PREFIX/mgmt" -O > "${cmp}"
+							;;
+						*)
+							echo "Unsupported compression: $data_archive"
+							;;
+					esac
+				fi
+
+				if ! diff -q "${input}" "${cmp}"; then
+					rm "${output}" # delete it so fpm will remake
+				else
+					echo "skipping identical package: ${output}"
+					continue
+				fi
 			fi
+
+			sign=""
+			#if [ "$type" = "rpm" ]; then
+			#	sign="--rpm-sign" # XXX: doesn't work anymore!
+			#fi
 
 			# build the package
 			echo "fpm..."
+			echo "input: ${input}"
 			echo "output: ${output}"
 			fpm \
-			--log error \
+			--input-type dir \
+			--output-type "$type" \
 			--name "$BINARY" \
-			--version "$package_version" \
+			--version "$(mgmt --version)" \
+			--architecture "$repoarch" \
 			--maintainer "$MAINTAINER" \
 			--url "$URL" \
 			--description "$DESCRIPTION" \
 			--license "$LICENSE" \
-			--input-type dir \
-			--output-type "$type" \
 			--package "${output}" \
 			${sign} \
 			${depends} \
 			"misc/mgmt.service"="/usr/lib/systemd/system/mgmt.service" \
-			"$BINARY"="$PREFIX/mgmt" \
+			"${input}"="$PREFIX/mgmt" \
 			|| rm "${output}" # if it fails, remove it...
+
+			if [ "$type" = "rpm" ]; then
+				rpmsign --addsign "${output}"
+			fi
 		done
 	done
 
@@ -171,7 +228,7 @@ for dv in "${!map_distro_version[@]}"; do
 		if [ "$type" = "rpm" ]; then
 			echo "createrepo ${type} ${outdir}"
 			# TODO: use --deltas ?
-			createrepo_c --update "${outdir}"
+			createrepo_c --quiet --update "${outdir}"
 		fi
 		if [ "$type" = "deb" ]; then
 			cd ${outdir} > /dev/null
@@ -182,8 +239,8 @@ for dv in "${!map_distro_version[@]}"; do
 
 				# build the cool stuff
 				apt-ftparchive release . > Release
-				gpg --default-key $GPGKEYID -abs -o Release.gpg Release
-				gpg --default-key $GPGKEYID --clearsign -o InRelease Release
+				gpg --default-key $GPGKEYID --yes -abs -o Release.gpg Release
+				gpg --default-key $GPGKEYID --yes --clearsign -o InRelease Release
 			fi
 			cd - > /dev/null # silence it
 		fi
@@ -193,6 +250,9 @@ done
 USERNAME=$(cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' '{print $2}' | tr -d ' ')
 SERVER='dl.fedoraproject.org'
 REMOTE_PATH="/srv/pub/alt/${USERNAME}/${BINARY}/repo/"
+if $MASTER; then
+	REMOTE_PATH="${REMOTE_PATH}master/"
+fi
 if [ "${USERNAME}" = "" ]; then
 	echo "empty username, can't rsync"
 fi

@@ -56,6 +56,11 @@ ifeq ($(MGMT_NOTRIMPATH),true)
 else
 	TRIMPATH = -trimpath
 endif
+ifeq ($(MGMT_NOGOLANGRACE),true)
+	GOLANGRACE =
+else
+	GOLANGRACE = -race
+endif
 ARCH = $(uname -m)
 SPEC = rpmbuild/SPECS/$(PROGRAM).spec
 SOURCE = rpmbuild/SOURCES/$(PROGRAM)-$(VERSION).tar.bz2
@@ -94,6 +99,8 @@ FILE_DEBIAN-STABLE = mgmt_$(TOKEN_DEBIAN-STABLE)_$(VERSION)_amd64.deb
 FILE_UBUNTU-LATEST = mgmt_$(TOKEN_UBUNTU-LATEST)_$(VERSION)_amd64.deb
 FILE_ARCHLINUX = mgmt-$(TOKEN_ARCHLINUX)-$(VERSION)-1-x86_64.pkg.tar.xz
 
+PKG_BINARY_AMD64_MASTER = releases/master/$(TOKEN_BINARY_AMD64)/$(FILE_BINARY_AMD64)
+PKG_BINARY_ARM64_MASTER = releases/master/$(TOKEN_BINARY_ARM64)/$(FILE_BINARY_ARM64)
 PKG_BINARY_AMD64 = releases/$(VERSION)/$(TOKEN_BINARY_AMD64)/$(FILE_BINARY_AMD64)
 PKG_BINARY_ARM64 = releases/$(VERSION)/$(TOKEN_BINARY_ARM64)/$(FILE_BINARY_ARM64)
 PKG_FEDORA-LATEST = releases/$(VERSION)/$(TOKEN_FEDORA-LATEST)/$(FILE_FEDORA-LATEST)
@@ -138,6 +145,9 @@ endif
 
 SHA256SUMS = releases/$(VERSION)/SHA256SUMS
 SHA256SUMS_ASC = $(SHA256SUMS).asc
+
+SHA256SUMS_MASTER = releases/master/SHA256SUMS
+SHA256SUMS_MASTER_ASC = $(SHA256SUMS_MASTER).asc
 
 default: build
 
@@ -233,7 +243,7 @@ build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum | lang resour
 	@# XXX: leave race detector on by default for now. For production
 	@# builds, we can consider turning it off for performance improvements.
 	@# XXX: ./mgmt run --tmp-prefix lang something_fast.mcl > /tmp/race 2>&1 # search for "WARNING: DATA RACE"
-	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) -race -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) $(GOLANGRACE) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 # to use this you might want to run something like:
@@ -455,6 +465,38 @@ mkosi_ubuntu-latest: releases/$(VERSION)/.mkdir
 mkosi_archlinux: releases/$(VERSION)/.mkdir
 	@title='$@' ; echo "Generating: $${title#'mkosi_'} via mkosi..."
 	@title='$@' ; distro=$${title#'mkosi_'} ; ./misc/mkosi/make.sh $${distro} `realpath "releases/$(VERSION)/"`
+
+#
+#	release master
+#
+.PHONY: release_master
+release_master: TRIMPATH = -trimpath
+release_master: GOLANGRACE =
+release_master: VERSION = master
+release_master: $(SHA256SUMS_MASTER_ASC) ## makes and uploads a master release
+	@#echo SVERSION: $(SVERSION)
+	@#echo VERSION: $(VERSION)
+	./misc/fpm-repo.sh --master
+
+$(SHA256SUMS_MASTER_ASC): $(SHA256SUMS_MASTER)
+	@echo "Signing sha256 sum..."
+	@gpg2 --yes --clearsign $(SHA256SUMS_MASTER)
+
+$(SHA256SUMS_MASTER): $(PKG_BINARY_AMD64_MASTER) $(PKG_BINARY_ARM64_MASTER)
+	@# remove the directory separator in the SHA256SUMS file
+	@echo "Generating: sha256 sum..."
+	@sha256sum \
+	` [ -e $(PKG_BINARY_AMD64_MASTER) ] && printf -- "$(PKG_BINARY_AMD64_MASTER)" ` \
+	` [ -e $(PKG_BINARY_ARM64_MASTER) ] && printf -- "$(PKG_BINARY_ARM64_MASTER)" ` \
+	| awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS_MASTER)
+
+$(PKG_BINARY_AMD64_MASTER): build/mgmt-linux-amd64
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-amd64 $(PKG_BINARY_AMD64_MASTER)
+
+$(PKG_BINARY_ARM64_MASTER): build/mgmt-linux-arm64
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
+	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-arm64 $(PKG_BINARY_ARM64_MASTER)
 
 #
 #	release

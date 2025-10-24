@@ -120,4 +120,4 @@ fpm \
 	${CHANGELOG} \
 	${DEPS} \
 	"misc/mgmt.service"="/usr/lib/systemd/system/mgmt.service" \
-	"$BINARY"="$PREFIX/mgmt"
+	"$BINARY"="$PREFIX/mgmt" # XXX: this is taking the wrong file and not respective arch!

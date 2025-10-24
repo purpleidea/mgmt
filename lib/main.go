@@ -201,6 +201,9 @@ type Config struct {
 	// NoPgp disables pgp functionality.
 	NoPgp bool `arg:"--no-pgp" help:"don't create pgp keys"`
 
+	// NoRaiseLimits disables automatic limit raising functionality.
+	NoRaiseLimits bool `arg:"--no-raise-limits" help:"don't raise limits like inotify"`
+
 	// PgpKeyPath is used to import a pre-made key pair.
 	PgpKeyPath *string `arg:"--pgp-key-path" help:"path for instance key pair"`
 
@@ -481,6 +484,11 @@ func (obj *Main) Run() error {
 				return
 			}
 		}()
+	}
+
+	// raise inotify limits
+	if !obj.NoRaiseLimits {
+		raiseLimits(Logf) // just alert the user...
 	}
 
 	// setup converger

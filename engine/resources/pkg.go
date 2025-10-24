@@ -61,6 +61,13 @@ const (
 )
 
 // PkgRes is a package resource for packagekit.
+//
+// It will attempt to make automatic edges with the package name, unless
+// Meta:autoedge is false. For the unique scenario where you are adding a new
+// package repository, and then installing something from it, you will want to
+// disable automatic edges, or this will fail to find the package during the
+// Init stage before mgmt can even run and create the repo! As a result, add an
+// edge between this and the repo creation stage, and avoid graph errors!
 type PkgRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -114,7 +121,8 @@ func (obj *PkgRes) Validate() error {
 func (obj *PkgRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
-	if obj.fileList == nil {
+	aem := obj.AutoEdgeMeta() // get current values
+	if obj.fileList == nil && !aem.Disabled {
 		if err := obj.populateFileList(); err != nil {
 			return errwrap.Wrapf(err, "error populating file list in init")
 		}
@@ -262,6 +270,7 @@ func (obj *PkgRes) populateFileList() error {
 	data, ok := result[obj.Name()] // lookup single package (init does just one)
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
+		// common if we made a package name typo or repo doesn't exist!
 		return fmt.Errorf("can't find package named '%s'", obj.Name())
 	}
 	if data.PackageID == "" {

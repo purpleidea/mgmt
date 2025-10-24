@@ -32,12 +32,14 @@ package resources
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 
+	"github.com/purpleidea/mgmt/data"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util"
@@ -59,10 +61,17 @@ func init() {
 const (
 	// FWAttrDir is the directory to read/write firmware attributes to/from.
 	FWAttrDir = "/sys/class/firmware-attributes/"
+
+	// fwattrSkip is a sentinel value that we use in a few places.
+	fwattrSkip = "_skip"
 )
 
 // FWAttrRes is a resource for interacting with the kernel firmware attributes
-// API. Please note that on some platforms such as Lenovo, there is an
+// API. This resource will automatically use the correct "value" for a key when
+// more than one is possible for that particular vendor. If you have a mapping
+// that is not in our database, please send a patch.
+//
+// Please note that on some platforms such as Lenovo (thinklmi), there is an
 // architectural limitation that prevents more than 48 attributes from being set
 // before presumably needing to reboot.
 //
@@ -94,6 +103,11 @@ type FWAttrRes struct {
 	// /sys/class/firmware-attributes/<driver>/<key>/current_value path with
 	// `echo foo >` and seeing if it works without erroring. You must not
 	// include the trailing newline which is present all values.
+	//
+	// TODO: When resources eventually support proper type unification, let
+	// this also be an int or a bool, and for booleans, map them using our
+	// json file to the correct string value of "Enabled" (for those keys
+	// of the boolean variety).
 	Value string `lang:"value" yaml:"value"`
 
 	// Check (which defaults to true) turns off the validation that runs
@@ -106,6 +120,12 @@ type FWAttrRes struct {
 	// have type "string".
 	Check bool `lang:"check" yaml:"check"`
 
+	// Strict means that we won't use the "quirks" alternate values mapping
+	// if the exact key is not available. It should not be harmful to keep
+	// this off, but it would be useful to find which old values are being
+	// used long after legacy firmware has been deprecated.
+	Strict bool `lang:"strict" yaml:"strict"`
+
 	// Skip let's you turn this resource into a "noop" if the key doesn't
 	// exist. This should ideally not be used because a typo would
 	// effectively make this resource ineffective. As a result, if you use
@@ -113,11 +133,13 @@ type FWAttrRes struct {
 	// can add a more general "configuration set" of values to all of your
 	// machine, without having to match them precisely, and this won't cause
 	// errors if one of them has an old version of a BIOS without that
-	// feature.
+	// feature. This will also skip if the attributes API doesn't exist on
+	// this machine.
 	Skip bool `lang:"skip" yaml:"skip"`
 
 	skip   bool    // are we actually skipping this particular name?
 	driver *string // cache
+	value  *string // actual value to use
 }
 
 // getDriver gets the driver that we should use.
@@ -128,7 +150,9 @@ func (obj *FWAttrRes) getDriver() (string, error) {
 	}
 
 	files, err := os.ReadDir(FWAttrDir)
-	if err != nil {
+	if err != nil && os.IsNotExist(err) && obj.Skip { // TODO: could be a different skip
+		return fwattrSkip, nil
+	} else if err != nil {
 		return "", err
 	}
 
@@ -201,7 +225,7 @@ func (obj *FWAttrRes) getType() (string, error) {
 
 	} else if err != nil {
 		if obj.Skip {
-			return "_skip", nil
+			return fwattrSkip, nil
 		}
 
 		// the path should already exist (this driver is broken?)
@@ -247,7 +271,44 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			return false, errwrap.Wrapf(err, "unexpected error with: %s", p)
 		}
 		sp := strings.Split(strings.TrimSuffix(string(b), "\n"), ";") // semicolon is the separator
-		return util.StrInList(obj.Value, sp), nil
+		if util.StrInList(obj.Value, sp) {                            // is valid?
+			obj.value = &obj.Value
+			return true, nil
+		}
+
+		if obj.Strict {
+			return false, nil
+		}
+		// If the value wasn't valid, before returning false, first see
+		// if there's a validate alternate mapping available. This is
+		// because some vendors have incompatible values with the same
+		// meaning across different firmware versions. Attempt to pick
+		// the correct alternate if we can.
+		kvv, err := decodeFWAttrJSON(driver)
+		if err != nil {
+			return false, err
+		}
+
+		if kvv == nil {
+			return false, nil
+		}
+		vv, exists := kvv[obj.getKey()]
+		if !exists {
+			return false, nil
+		}
+		vs, exists := vv[obj.Value]
+		if !exists {
+			return false, nil
+		}
+
+		for _, v := range vs {
+			if util.StrInList(v, sp) { // is valid?
+				obj.value = &v
+				return true, nil
+			}
+		}
+
+		return false, nil
 
 	case "integer":
 		i, err := strconv.Atoi(obj.Value)
@@ -311,7 +372,8 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			return isValidScalarIncrement(i, scalar_min, scalar_max, scalar_increment), nil
 		}
 
-		return true, nil // must be fine
+		obj.value = &obj.Value // store
+		return true, nil       // must be fine
 
 	case "string":
 		// NOTE: I have seen a "possible_values" file with type "string"
@@ -348,14 +410,16 @@ func (obj *FWAttrRes) isValidValue() (bool, error) {
 			}
 		}
 
-		return true, nil // must be fine
+		obj.value = &obj.Value // store
+		return true, nil       // must be fine
 
 	case "ordered-list":
 		// XXX: I need HP hardware to test this.
 		obj.init.Logf("please send the developer some hardware if you want support here")
 		return false, fmt.Errorf("type %s is not implemented", typ)
 
-	case "_skip": // skip mode, not a real type
+	case fwattrSkip: // skip mode, not a real type
+		//obj.value = &obj.Value // store
 		return true, nil
 
 	default:
@@ -436,7 +500,18 @@ func (obj *FWAttrRes) Cleanup() error {
 // value the kernel has stored!
 func (obj *FWAttrRes) Watch(ctx context.Context) error {
 	if obj.skip {
-		obj.init.Logf("warning: Skip mode is active, this key is ineffective")
+
+		driver, err := obj.getDriver()
+		if err != nil {
+			// programming error
+			panic("driver lookup error")
+		}
+		if driver == fwattrSkip {
+			obj.init.Logf("warning: skip mode: %s not present", FWAttrDir)
+		} else {
+			obj.init.Logf("warning: skip mode: this key is ineffective")
+		}
+
 		obj.init.Running() // when started, notify engine that we're running
 
 		select {
@@ -483,7 +558,12 @@ func (obj *FWAttrRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		return true, nil
 	}
 
-	expected := []byte(obj.Value + "\n") // always add a newline
+	if obj.value == nil {
+		// must be set by calling isValidValue method
+		panic("programming error")
+	}
+
+	expected := []byte(*obj.value + "\n") // always add a newline
 
 	b, err := os.ReadFile(obj.toPath())
 	if err != nil && !os.IsNotExist(err) {
@@ -512,7 +592,11 @@ func (obj *FWAttrRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		return false, err
 	}
 
-	obj.init.Logf("wrote `%s` to: %s\n", obj.Value, obj.getKey())
+	if *obj.value == obj.Value {
+		obj.init.Logf("wrote `%s` to: %s\n", *obj.value, obj.getKey())
+	} else {
+		obj.init.Logf("wrote (modified) `%s` to: %s\n", *obj.value, obj.getKey())
+	}
 
 	return false, err
 }
@@ -537,6 +621,9 @@ func (obj *FWAttrRes) Cmp(r engine.Res) error {
 
 	if obj.Check != res.Check {
 		return fmt.Errorf("the Check differs")
+	}
+	if obj.Strict != res.Strict {
+		return fmt.Errorf("the Strict differs")
 	}
 	if obj.Skip != res.Skip {
 		return fmt.Errorf("the Skip differs")
@@ -573,4 +660,32 @@ func isValidScalarIncrement(value, min, max, step int) bool {
 		return false
 	}
 	return (value-min)%step == 0
+}
+
+// KeyValueValues is a map from fwattr name to value to alternate values for
+// that value. In other words, for the attribute name "SecureBoot", it can have
+// a value named "Enabled" which has a list of alternate aliases on different
+// firmware, which is ["Enable"].
+type KeyValueValues map[string]map[string][]string
+
+// decodeFWAttrJSON pulls the mapping out of the json data.
+func decodeFWAttrJSON(driver string) (KeyValueValues, error) {
+	// First we decode into a map of raw JSON to get the driver keys.
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(data.FWAttr, &root); err != nil {
+		return nil, err
+	}
+
+	raw, exists := root[driver]
+	if !exists { // key doesn't exist
+		return nil, nil
+	}
+
+	// Now decode only the key we want.
+	var kvv KeyValueValues
+	if err := json.Unmarshal(raw, &kvv); err != nil {
+		return nil, err
+	}
+
+	return kvv, nil
 }

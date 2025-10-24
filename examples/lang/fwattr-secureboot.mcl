@@ -1,0 +1,6 @@
+# the lenovo driver can only set 48 attributes per boot :(
+fwattr "SecureBoot" {
+	driver => "thinklmi", # usually determined automatically
+
+	value => "Enabled", # if the driver uses "Enable" this works too!
+}

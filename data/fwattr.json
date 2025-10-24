@@ -1,0 +1,19 @@
+{
+  "thinklmi": {
+    "SecureBoot": {
+      "Enabled": ["Enable"],
+      "Disabled": ["Disable"],
+      "Enable": ["Enabled"],
+      "Disable": ["Disabled"]
+    },
+    "KeyboardLayout": {
+      "English": ["English_US", "English_UK"],
+      "French": ["CanadianFrenchMultilingual", "CanadianFrench"],
+      "Chinese": ["TraditionalChinese"],
+      "English_US": ["English"],
+      "CanadianFrenchMultilingual": ["French"],
+      "CanadianFrench": ["French"],
+      "TraditionalChinese": ["Chinese"]
+    }
+  }
+}

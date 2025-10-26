@@ -207,11 +207,14 @@ for dv in "${!map_distro_version[@]}"; do
 					esac
 				fi
 
-				if ! diff -q "${input}" "${cmp}"; then
-					rm "${output}" # delete it so fpm will remake
-				else
+				diff -q "${input}" "${cmp}"
+				d=$?
+				rm "${cmp}" # clean up old file
+				if [ $d -eq 0 ]; then
 					echo "skipping identical package: ${output}"
 					continue
+				else
+					rm "${output}" # delete it so fpm will remake
 				fi
 			fi
 

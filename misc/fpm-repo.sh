@@ -28,9 +28,35 @@ OUT="repository"
 GPGKEYID=$(cat ~/.rpmmacros | grep '%_gpg_name' | awk '{print $2}')
 
 MASTER=false
-if [ "$1" = "--master" ]; then
-	MASTER=true
-	OUT="${OUT}/master"
+VERSION=""
+while [[ "$#" -gt 0 ]]; do
+	case "$1" in
+		--version)
+			if [[ -n "$2" ]]; then
+				VERSION="$2"
+				shift # extra arg...
+			else
+				echo "error: --version requires a value"
+				exit 1
+			fi
+			;;
+		--master)
+			MASTER=true
+			OUT="${OUT}/master"
+			;;
+		*)
+			echo "unknown arg: $1"
+			echo "usage: ./$0 ..." # TODO: improve me
+			exit 1
+			;;
+	esac
+	shift
+done
+
+if [[ -n "$VERSION" ]]; then
+	echo "version: $VERSION"
+else
+	VERSION=$(mgmt --version) # fallback
 fi
 
 ## make sure the distro is a known valid one
@@ -202,7 +228,7 @@ for dv in "${!map_distro_version[@]}"; do
 			--input-type dir \
 			--output-type "$type" \
 			--name "$BINARY" \
-			--version "$(mgmt --version)" \
+			--version "${VERSION}" \
 			--architecture "$repoarch" \
 			--maintainer "$MAINTAINER" \
 			--url "$URL" \

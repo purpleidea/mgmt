@@ -476,13 +476,14 @@ release_master: VERSION = master
 release_master: $(SHA256SUMS_MASTER_ASC) ## makes and uploads a master release
 	@#echo SVERSION: $(SVERSION)
 	@#echo VERSION: $(VERSION)
-	./misc/fpm-repo.sh --master
+	./misc/fpm-repo.sh --master --version $(SVERSION)
 
 $(SHA256SUMS_MASTER_ASC): $(SHA256SUMS_MASTER)
 	@echo "Signing sha256 sum..."
 	@gpg2 --yes --clearsign $(SHA256SUMS_MASTER)
 
-$(SHA256SUMS_MASTER): $(PKG_BINARY_AMD64_MASTER) $(PKG_BINARY_ARM64_MASTER)
+#$(SHA256SUMS_MASTER): $(PKG_BINARY_AMD64_MASTER) $(PKG_BINARY_ARM64_MASTER)
+$(SHA256SUMS_MASTER): $(PKG_BINARY_AMD64_MASTER)
 	@# remove the directory separator in the SHA256SUMS file
 	@echo "Generating: sha256 sum..."
 	@sha256sum \
@@ -491,10 +492,13 @@ $(SHA256SUMS_MASTER): $(PKG_BINARY_AMD64_MASTER) $(PKG_BINARY_ARM64_MASTER)
 	| awk -F '/| ' '{print $$1"  "$$6}' > $(SHA256SUMS_MASTER)
 
 $(PKG_BINARY_AMD64_MASTER): build/mgmt-linux-amd64
+	@mkdir -p $$(dirname $(PKG_BINARY_AMD64_MASTER))
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-amd64 $(PKG_BINARY_AMD64_MASTER)
 
+# XXX: requires magic to cross-compile go-libvirt for arm64, so figure this out later...
 $(PKG_BINARY_ARM64_MASTER): build/mgmt-linux-arm64
+	@mkdir -p $$(dirname $(PKG_BINARY_ARM64_MASTER))
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; echo "Building: $${distro} package..."
 	@title='$(@D)' ; distro=$${title#'releases/$(VERSION)/'} ; cp -a build/mgmt-linux-arm64 $(PKG_BINARY_ARM64_MASTER)
 

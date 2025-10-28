@@ -563,7 +563,7 @@ releases/$(VERSION)/mgmt-release.url: $(DEP_BINARY_AMD64) $(DEP_BINARY_ARM64) $(
 	git push origin $(VERSION)
 	@echo "Creating github release..."
 	hub release create \
-		-F <( echo -e "$(VERSION)\n";echo "Verify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
+		-F <( echo -e "$(VERSION)\n";echo -e "Full release notes at: https://github.com/purpleidea/mgmt/raw/refs/heads/master/docs/release-notes/$(VERSION) for all the details.\n\nVerify the signatures of all packages before you use them. The signing key can be downloaded from https://purpleidea.com/contact/#pgp-key to verify the release." ) \
 		` [ -e $(PKG_BINARY_AMD64) ] && printf -- "-a $(PKG_BINARY_AMD64)" ` \
 		` [ -e $(PKG_BINARY_ARM64) ] && printf -- "-a $(PKG_BINARY_ARM64)" ` \
 		` [ -e $(PKG_FEDORA-LATEST) ] && printf -- "-a $(PKG_FEDORA-LATEST)" ` \

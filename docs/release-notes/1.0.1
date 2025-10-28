@@ -1,0 +1,147 @@
+I've just released version 1.0.1 of mgmt!
+
+> 65 files changed, 3754 insertions(+), 305 deletions(-)
+
+This is a small release to help out some of the packaging folks.
+
+With that, here are a few highlights from the release:
+
+* We added a standalone "grow" command to the tools sub command.
+
+* The exec resource has a new ifequals param. It also got a nifcmd param.
+
+* A new gsettings resource was added. A new fwattr resource was added too!
+
+* There's an http:server:ui set of resources that have been added. Check out:
+https://www.youtube.com/watch?v=8vz1MMGkuik for some examples of that in action
+and more!
+
+And much more...
+
+
+SPONSORS
+
+The `mgmt` project is generously sponsored by:
+
+m9rx corporation - https://m9rx.com/
+
+Please reach out if you'd like to sponsor!
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/1.0.1
+
+You can also track the `git master` repo on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/repo/master/
+
+
+NEWS
+
+* You can now easily grow a stack of partition, encrypted volume and filesystem.
+
+* Simple flatpak management is now possible with an mcl class.
+
+* The exec resource grew an ifequals param. This takes even more bash out of the
+equation when writing mcl code.
+
+* A new gsettings resource makes management of GNOME settings (and more) very
+easy.
+
+* We added nifcmd, nifcwd, and nifshell params to the exec resource.
+
+* A regression in the virt-builder resource was fixed.
+
+* Karpfen improved our func generation for golang 1.25 which helps out the nix
+people.
+
+* We added an fwattr resource to manage BIOS settings via the linux
+firmware-attributes API.
+
+* SSH world reconnections now work properly and have backoff.
+
+* We now automatically raise inotify limits at startup. This shouldn't hurt
+anyone but if you've got a reason you're affected negatively, please let us know
+why.
+
+* The user resource wasn't setting all the group things correctly. This is now
+fixed. Thanks to user "thijs" for the report.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner, etc,
+resources if anyone is interested, reach out to us. Particularly if there is
+support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but it's not a
+blocker, but it would definitely be useful. We're looking into it.
+
+* We don't have any aarch64 hardware, so no more arm64 builds or testing until
+we get a donation or sponsor for that unfortunately.
+
+* We don't have the <|> operator merged yet. Expect that when we do this, we'll
+consider removing the || (default) operator. This is the only pending language
+change that I know of, and these cases are easily caught by the compiler and can
+be easily patched.
+
+* Autoedge performance isn't great. It can easily be disabled. Most of the time
+I just specify my edges, so this is really a convenience feature, but it should
+be looked into when we have a chance.
+
+
+TALKS
+
+After FOSDEM/CfgMgmtCamp 2026, I don't have anything planned until CfgMgmtCamp
+2027. If you'd like to book me for a private event, or sponsor my travel for
+your conference, please let me know.
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat employees use
+their infrastructure. We're looking for a new home. I've opened a ticket with
+Freedesktop. If you have any sway with them or other recommendations, please let
+me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and while there are easy, medium and
+hard issues available! You're also welcome to suggest your own! Please join us
+in #mgmtconfig on Libera IRC or Matrix (preferred) and ping us if you'd like
+help getting started! For details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-contribute-to-the-project-if-i-dont-know-golang
+
+Many tagged #mgmtlove issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove
+
+Although asking in matrix is the best way to find something to work on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get involved. This is
+fun and friendly! You get to improve your skills, and we get some patches in
+return. Ping me off-list for details.
+
+
+THANKS
+
+To the Fedora project for their continued donation of space and bandwidth.
+
+Thanks (alphabetically) to everyone who contributed to the latest release:
+James Shubin, Karpfen
+We had 2 unique committers since 1.0.0, and have had 103 overall.
+run 'git log 1.0.0..1.0.1' to see what has changed since 1.0.0
+
+Please see the THANKS file for more thanking.
+
+
+Happy hacking,
+James
+@purpleidea

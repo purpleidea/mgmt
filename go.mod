@@ -50,6 +50,8 @@ require (
 	google.golang.org/grpc v1.70.0
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/augeas v0.0.0-20161110001225-ca62e35ed6b8
+	libvirt.org/go/libvirt v1.11006.0
+	libvirt.org/go/libvirtxml v1.11006.0
 )
 
 require (
@@ -195,8 +197,6 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
-	libvirt.org/go/libvirt v1.11006.0 // indirect
-	libvirt.org/go/libvirtxml v1.11006.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 

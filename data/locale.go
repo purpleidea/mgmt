@@ -27,23 +27,14 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package util
+// Package data contains some data that is used throughout the project.
+package data
 
 import (
-	"fmt"
-	"time"
-
-	. "github.com/purpleidea/mgmt/util/gettext"
+	"embed" // embed data with go:embed
 )
 
-// Hello is a simple helper function to print a hello message and time.
-func Hello(program, version string, flags Flags) {
-	var start = time.Now().UnixNano()
-	if program == "" {
-		program = "<unknown>"
-	}
-	fmt.Println(L("This is: %s, version: %s", program, version))
-	fmt.Println(L("Copyright (C) James Shubin and the project contributors"))
-	fmt.Println(L("Written by James Shubin <james@shubin.ca> and the project contributors"))
-	flags.Logf("main: start: %v", start)
-}
+// LocalesFS is all of the embedded locale data for translations.
+//
+//go:embed locales/*/LC_MESSAGES/*.po
+var LocalesFS embed.FS

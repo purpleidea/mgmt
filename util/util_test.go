@@ -1713,7 +1713,7 @@ func TestUint64KeyFromStrInMap(t *testing.T) {
 			},
 		},
 		{
-			name: `needle "n" in haystack doesn't contain "n"`,
+			name: `needle "n" in haystack does not contain "n"`,
 			input: input{
 				needle:   "n",
 				haystack: map[uint64]string{0: "a", 1: "b"},

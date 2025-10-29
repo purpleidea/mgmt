@@ -274,7 +274,7 @@ func TestLexParse0(t *testing.T) {
 		testCases = append(testCases, test{
 			name: "maps 1",
 			code: `
-			# make sure the "str:" part doesn't match a single ident
+			# make sure the "str:" part does not match a single ident
 			$strmap map{str: int} = {
 				"key1" => 42,
 				"key2" => -13,
@@ -1314,7 +1314,7 @@ func TestLexParse0(t *testing.T) {
 					stringptr => "hello",
 				}
 			}
-			# a dotted identifier is allowed here if it's imported
+			# a dotted identifier is allowed here if it is imported
 			include pkg.c1
 			`,
 			fail: false,
@@ -1359,7 +1359,7 @@ func TestLexParse0(t *testing.T) {
 					stringptr => "hello",
 				}
 			}
-			# a dotted identifier is allowed here if it's imported
+			# a dotted identifier is allowed here if it is imported
 			include pkg.ns.c1
 			`,
 			fail: false,

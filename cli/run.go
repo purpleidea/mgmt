@@ -42,6 +42,7 @@ import (
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	. "github.com/purpleidea/mgmt/util/gettext"
 
 	"github.com/spf13/afero"
 )
@@ -126,7 +127,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	}
 
 	cliUtil.Hello(main.Program, main.Version, data.Flags) // say hello!
-	defer Logf("goodbye!")
+	defer Logf(G("goodbye!"))
 
 	// create a memory backed temporary filesystem for storing runtime data
 	mmFs := afero.NewMemMapFs()

@@ -66,6 +66,7 @@ if label-block "basic"; then
 	run-testsuite ./test/test-markdownlint.sh
 	run-testsuite ./test/test-commit-message.sh
 	run-testsuite ./test/test-docs-generate.sh
+	run-testsuite ./test/test-gettext.sh
 	run-testsuite ./test/test-govet.sh
 	run-testsuite ./test/test-examples.sh
 	run-testsuite ./test/test-gotest.sh

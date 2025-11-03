@@ -1,0 +1,24 @@
+msgid ""
+msgstr ""
+"Language: en_CA\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: cli/deploy.go:145 cli/docs.go:98 cli/firstboot.go:99 cli/run.go:130
+#: cli/setup.go:128 cli/tools.go:98
+msgid "goodbye!"
+msgstr "goodbye!"
+
+#: cli/util/hello.go:45
+#, c-format
+msgid "This is: %s, version: %s"
+msgstr "This is: %s, version: %s"
+
+#: cli/util/hello.go:46
+msgid "Copyright (C) James Shubin and the project contributors"
+msgstr "Copyright (C) James Shubin and the project contributors"
+
+#: cli/util/hello.go:47
+msgid "Written by James Shubin <james@shubin.ca> and the project contributors"
+msgstr "Written by James Shubin <james@shubin.ca> and the project contributors"

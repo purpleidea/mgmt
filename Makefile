@@ -39,6 +39,7 @@ SHELL = bash
 GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
 MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
 MISC_FILES := $(shell find engine/resources/http_server_ui/)
+PO_FILES := $(shell find * -name '*.po' -not -path 'old/*' -not -path 'tmp/*')
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -202,6 +203,10 @@ path: ## create working paths
 deps: ## install system and golang dependencies
 	./misc/make-deps.sh
 
+.PHONY: gettext
+gettext: ## pull latest translations out and merge them into the locales/ dir.
+	@./misc/gettext.sh
+
 generate:
 	go generate
 
@@ -217,7 +222,7 @@ resources: ## builds the resources dependencies required for the engine backend
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum
+$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build $(TRIMPATH) -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -236,7 +241,7 @@ baddev: $(PROGRAM)
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) go.mod go.sum | lang resources funcgen
+build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum | lang resources funcgen
 	@# If you need to run `go mod tidy` then this can trigger.
 	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."

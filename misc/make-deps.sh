@@ -50,6 +50,7 @@ if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
+	$sudo_command $APT install -y gettext || true
 	if ! in_env; then
 		$sudo_command $YUM install -y ragel
 	fi
@@ -64,6 +65,7 @@ if [ -n "$APT" ]; then
 	$sudo_command $APT install -y libaugeas-dev || true
 	$sudo_command $APT install -y ruby ruby-dev || true
 	$sudo_command $APT install -y libpcap0.8-dev || true
+	$sudo_command $APT install -y gettext || true
 	if ! in_env; then
 		$sudo_command $APT install -y ragel || true
 	fi

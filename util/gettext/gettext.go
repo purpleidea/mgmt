@@ -27,23 +27,45 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package util
+// Package gettext is the utility code for translation and internationalization.
+// We don't want to export any symbols other than the absolute minimum, because
+// importing this efficiently to reduce the size of the function calls clutters
+// up the namespace which we don't want. This also wraps up the gettext library
+// we use so that if we ever change it, we won't need to port over all our code.
+package gettext
 
 import (
-	"fmt"
-	"time"
+	"io/fs"
+	"os"
 
-	. "github.com/purpleidea/mgmt/util/gettext"
+	"github.com/purpleidea/mgmt/data"
+
+	"github.com/leonelquinteros/gotext"
 )
 
-// Hello is a simple helper function to print a hello message and time.
-func Hello(program, version string, flags Flags) {
-	var start = time.Now().UnixNano()
-	if program == "" {
-		program = "<unknown>"
+var (
+	locale *gotext.Locale
+)
+
+func init() {
+	// TODO: should there be other ways of getting the language?
+	lang := os.Getenv("LANG")
+	if lang == "" {
+		lang = "en_CA" // default
 	}
-	fmt.Println(G("This is: %s, version: %s", program, version))
-	fmt.Println(G("Copyright (C) James Shubin and the project contributors"))
-	fmt.Println(G("Written by James Shubin <james@shubin.ca> and the project contributors"))
-	flags.Logf("main: start: %v", start)
+
+	// This function is expecting a locales/ subdirectory.
+	localesDir, err := fs.Sub(data.LocalesFS, "locales")
+	if err != nil {
+		panic(err)
+	}
+	locale = gotext.NewLocaleFS(lang, localesDir)
+
+	locale.AddDomain("default") // the name of the .po file
+}
+
+// G is the main translation function to be exported by this package.
+// TODO: should this be L or something else instead?
+func G(msgid string, v ...interface{}) string {
+	return locale.Get(msgid, v...)
 }

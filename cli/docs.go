@@ -38,6 +38,7 @@ import (
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/docs"
+	. "github.com/purpleidea/mgmt/util/gettext"
 )
 
 // DocsGenerateArgs is the CLI parsing structure and type of the parsed result.
@@ -94,7 +95,7 @@ func (obj *DocsGenerateArgs) Run(ctx context.Context, data *cliUtil.Data) (bool,
 	// We don't use these for the setup command in normal operation.
 	if data.Flags.Debug {
 		cliUtil.Hello(data.Program, data.Version, data.Flags) // say hello!
-		defer Logf("goodbye!")
+		defer Logf(G("goodbye!"))
 	}
 
 	// install the exit signal handler

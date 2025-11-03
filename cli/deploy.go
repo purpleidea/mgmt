@@ -45,6 +45,7 @@ import (
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	. "github.com/purpleidea/mgmt/util/gettext"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
@@ -141,7 +142,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	defer cancel()
 
 	cliUtil.Hello(program, version, data.Flags) // say hello!
-	defer Logf("goodbye!")
+	defer Logf(G("goodbye!"))
 
 	var hash, pHash string
 	if !obj.NoGit {

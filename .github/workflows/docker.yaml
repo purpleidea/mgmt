@@ -1,0 +1,34 @@
+# Docs: https://help.github.com/en/articles/workflow-syntax-for-github-actions
+
+# If the name is omitted, it uses the filename instead.
+#name: Test
+on:
+  # Run on all pull requests.
+  pull_request:
+    #branches:
+    #- master
+  # Run on all pushes.
+  push:
+  # Run daily at 4am.
+  schedule:
+  - cron: 0 4 * * *
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v6
+      with:
+        file: "docker/Dockerfile"
+        context: .  # Path to your Dockerfile and build context
+        push: false # Just build in CI for now
+        tags: mgmt
+        # You can add more tags based on commit SHA or version numbers

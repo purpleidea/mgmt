@@ -60,6 +60,12 @@ class base() {
 		state => "running",
 		startup => "enabled",
 	}
+
+	# We want storage to work!
+	svc "virtstoraged" {
+		state => "running",
+		startup => "enabled",
+	}
 }
 
 # Create a vm for the system.

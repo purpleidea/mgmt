@@ -433,8 +433,8 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 		return fmt.Errorf("res kind is empty")
 	}
 
-	if strings.Contains(obj.Kind, "_") && obj.Kind != interfaces.PanicResKind {
-		return fmt.Errorf("kind must not contain underscores")
+	if strings.HasPrefix(obj.Kind, "_") && obj.Kind != interfaces.PanicResKind {
+		return fmt.Errorf("kind must not start with an underscore")
 	}
 
 	if err := obj.Name.Init(data); err != nil {
@@ -3081,8 +3081,8 @@ func (obj *StmtEdgeHalf) Init(data *interfaces.Data) error {
 	if obj.Kind == "" {
 		return fmt.Errorf("edge half kind is empty")
 	}
-	if strings.Contains(obj.Kind, "_") {
-		return fmt.Errorf("kind must not contain underscores")
+	if strings.HasPrefix(obj.Kind, "_") {
+		return fmt.Errorf("kind must not start with an underscore")
 	}
 
 	return obj.Name.Init(data)

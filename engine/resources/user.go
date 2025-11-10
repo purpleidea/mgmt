@@ -96,7 +96,9 @@ func (obj *UserRes) Default() engine.Res {
 
 // Validate if the params passed in are valid data.
 func (obj *UserRes) Validate() error {
-	const whitelist string = "_abcdefghijklmnopqrstuvwxyz0123456789"
+	if err := util.ValidUser(obj.Name()); err != nil {
+		return fmt.Errorf("user contains invalid character(s)")
+	}
 
 	if obj.State != "exists" && obj.State != "absent" {
 		return fmt.Errorf("state must be 'exists' or 'absent'")
@@ -108,10 +110,8 @@ func (obj *UserRes) Validate() error {
 		if *obj.Group == "" {
 			return fmt.Errorf("group cannot be empty string")
 		}
-		for _, char := range *obj.Group {
-			if !strings.Contains(whitelist, string(char)) {
-				return fmt.Errorf("group contains invalid character(s)")
-			}
+		if err := util.ValidUser(*obj.Group); err != nil { // groups too
+			return fmt.Errorf("group contains invalid character(s)")
 		}
 	}
 	if obj.Groups != nil {
@@ -119,10 +119,8 @@ func (obj *UserRes) Validate() error {
 			if group == "" {
 				return fmt.Errorf("group cannot be empty string")
 			}
-			for _, char := range group {
-				if !strings.Contains(whitelist, string(char)) {
-					return fmt.Errorf("groups list contains invalid character(s)")
-				}
+			if err := util.ValidUser(group); err != nil { // groups too
+				return fmt.Errorf("groups list contains invalid character(s)")
 			}
 		}
 	}

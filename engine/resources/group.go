@@ -40,6 +40,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -74,6 +75,11 @@ func (obj *GroupRes) Validate() error {
 	if obj.State != "exists" && obj.State != "absent" {
 		return fmt.Errorf("state must be 'exists' or 'absent'")
 	}
+
+	if err := util.ValidUser(obj.Name()); err != nil { // groups too
+		return fmt.Errorf("group contains invalid character(s)")
+	}
+
 	return nil
 }
 

@@ -87,8 +87,6 @@ type UserRes struct {
 	// but happens if you want more than one username to access the
 	// resources of the same UID. See the --non-unique flag in `useradd`.
 	AllowDuplicateUID bool `lang:"allowduplicateuid" yaml:"allowduplicateuid"`
-
-	recWatcher *recwatch.RecWatcher
 }
 
 // Default returns some sensible defaults for this resource.
@@ -150,12 +148,11 @@ func (obj *UserRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *UserRes) Watch(ctx context.Context) error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(util.EtcPasswdFile, false)
+	recWatcher, err := recwatch.NewRecWatcher(util.EtcPasswdFile, false)
 	if err != nil {
 		return err
 	}
-	defer obj.recWatcher.Close()
+	defer recWatcher.Close()
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -165,7 +162,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 		}
 
 		select {
-		case event, ok := <-obj.recWatcher.Events():
+		case event, ok := <-recWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
 			}

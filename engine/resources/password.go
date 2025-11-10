@@ -80,8 +80,7 @@ type PasswordRes struct {
 	// the old saved password and create a new one without erroring.
 	CheckRecovery bool `lang:"check_recovery" yaml:"check_recovery"`
 
-	path       string // the path to local storage
-	recWatcher *recwatch.RecWatcher
+	path string // the path to local storage
 }
 
 // Default returns some sensible defaults for this resource.
@@ -213,19 +212,18 @@ Loop:
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *PasswordRes) Watch(ctx context.Context) error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.path, false)
+	recWatcher, err := recwatch.NewRecWatcher(obj.path, false)
 	if err != nil {
 		return err
 	}
-	defer obj.recWatcher.Close()
+	defer recWatcher.Close()
 
 	obj.init.Running() // when started, notify engine that we're running
 
 	for {
 		select {
 		// NOTE: this part is very similar to the file resource code
-		case event, ok := <-obj.recWatcher.Events():
+		case event, ok := <-recWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
 			}

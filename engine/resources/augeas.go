@@ -72,8 +72,6 @@ type AugeasRes struct {
 	// form of ["path", "value"]. mgmt will run augeas.Get() before
 	// augeas.Set(), to prevent changing the file when it is not needed.
 	Sets []*AugeasSet `lang:"sets" yaml:"sets"`
-
-	recWatcher *recwatch.RecWatcher // used to watch the changed files
 }
 
 // AugeasSet represents a key/value pair of settings to be applied.
@@ -139,12 +137,11 @@ func (obj *AugeasRes) Cleanup() error {
 // was taken from the File resource.
 // FIXME: DRY - This is taken from the file resource
 func (obj *AugeasRes) Watch(ctx context.Context) error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(obj.File, false)
+	recWatcher, err := recwatch.NewRecWatcher(obj.File, false)
 	if err != nil {
 		return err
 	}
-	defer obj.recWatcher.Close()
+	defer recWatcher.Close()
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -154,7 +151,7 @@ func (obj *AugeasRes) Watch(ctx context.Context) error {
 		}
 
 		select {
-		case event, ok := <-obj.recWatcher.Events():
+		case event, ok := <-recWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
 			}

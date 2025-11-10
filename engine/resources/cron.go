@@ -146,8 +146,7 @@ type CronRes struct {
 	// cannot elapse anymore is unloaded. It defaults to true.
 	RemainAfterElapse bool `lang:"remainafterelapse" yaml:"remainafterelapse"`
 
-	file       *FileRes             // nested file resource
-	recWatcher *recwatch.RecWatcher // recwatcher for nested file
+	file *FileRes // nested file resource
 }
 
 // Default returns some sensible defaults for this resource.
@@ -288,11 +287,11 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "error generating unit file path")
 	}
 	// recwatcher for the systemd-timer unit file
-	obj.recWatcher, err = recwatch.NewRecWatcher(p, false)
+	recWatcher, err := recwatch.NewRecWatcher(p, false)
 	if err != nil {
 		return err
 	}
-	defer obj.recWatcher.Close()
+	defer recWatcher.Close()
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -304,7 +303,7 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 				obj.init.Logf("%+v", event)
 			}
 
-		case event, ok := <-obj.recWatcher.Events():
+		case event, ok := <-recWatcher.Events():
 			// process unit file recwatch events
 			if !ok { // channel shutdown
 				return nil

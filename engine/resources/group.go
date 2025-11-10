@@ -62,8 +62,6 @@ type GroupRes struct {
 
 	// GID is the group's gid.
 	GID *uint32 `lang:"gid" yaml:"gid"`
-
-	recWatcher *recwatch.RecWatcher
 }
 
 // Default returns some sensible defaults for this resource.
@@ -93,12 +91,11 @@ func (obj *GroupRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *GroupRes) Watch(ctx context.Context) error {
-	var err error
-	obj.recWatcher, err = recwatch.NewRecWatcher(groupFile, false)
+	recWatcher, err := recwatch.NewRecWatcher(groupFile, false)
 	if err != nil {
 		return err
 	}
-	defer obj.recWatcher.Close()
+	defer recWatcher.Close()
 
 	obj.init.Running() // when started, notify engine that we're running
 
@@ -108,7 +105,7 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 		}
 
 		select {
-		case event, ok := <-obj.recWatcher.Events():
+		case event, ok := <-recWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
 			}

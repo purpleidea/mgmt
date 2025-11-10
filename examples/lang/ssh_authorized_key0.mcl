@@ -1,0 +1,20 @@
+ssh:authorized_key "test" {
+	file => "/tmp/ssh_authorized_keys", # for testing
+
+	options => [
+		"command=\"echo 'Port forwarding only'; exit\"",
+		"no-agent-forwarding",
+		"no-pty",
+		"no-user-rc",
+		"no-X11-forwarding",
+		"permitopen=\"127.0.0.1:2379\"",
+	],
+
+	# if this is not a real key, this resource will error; it can't be "foo"
+	type => "ssh-ed25519",
+	key => "AAAAC3NzaC1lZDI1NTE5AAAAIOLlHSZU/zoD54fGacCI1wAFEdRmoBYFKG1PMDhhJBFX",
+	comment => "root@computer",
+
+	state => "exists",
+
+}

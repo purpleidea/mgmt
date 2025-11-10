@@ -9,7 +9,7 @@ Requires=systemd-networkd.service
 ExecStart=/usr/bin/mgmt run empty $OPTS
 RestartSec=5s
 Restart=always
-LimitNOFILE=16384
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

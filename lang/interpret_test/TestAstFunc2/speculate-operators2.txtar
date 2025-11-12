@@ -1,0 +1,7 @@
+-- main.mcl --
+$x = 5
+test "hello" {
+	anotherstr => "hello world" + $x + "\n",
+}
+-- OUTPUT --
+# err: errUnify: type error: str != int: /main.mcl @ 3:16-3:33

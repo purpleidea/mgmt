@@ -74,6 +74,15 @@ func init() {
 			if l := len(input); l != 2 { // catch programming bugs
 				return nil, fmt.Errorf("invalid len %d", l)
 			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindStr:
 				return &types.StrValue{
@@ -105,6 +114,18 @@ func init() {
 			"func(float, float) float", // floating-point subtraction
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				return &types.IntValue{
@@ -130,6 +151,18 @@ func init() {
 			"func(float, float) float", // floating-point multiplication
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				// FIXME: check for overflow?
@@ -157,6 +190,18 @@ func init() {
 			"func(float, float) float", // floating-point division
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				divisor := input[1].Int()
@@ -216,10 +261,25 @@ func init() {
 			return match(typ)
 		},
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			k := input[0].Type().Kind
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			k1 := input[0].Type().Kind
+			k2 := input[1].Type().Kind
 			// Don't try and compare functions, this will panic!
-			if !types.IsComparableKind(k) {
-				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			if !types.IsComparableKind(k1) {
+				return nil, fmt.Errorf("unsupported kind: %+v", k1)
+			}
+			if !types.IsComparableKind(k2) {
+				return nil, fmt.Errorf("unsupported kind: %+v", k2)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
 			}
 
 			return &types.BoolValue{
@@ -262,10 +322,25 @@ func init() {
 			return match(typ)
 		},
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
-			k := input[0].Type().Kind
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			k1 := input[0].Type().Kind
+			k2 := input[1].Type().Kind
 			// Don't try and compare functions, this will panic!
-			if !types.IsComparableKind(k) {
-				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			if !types.IsComparableKind(k1) {
+				return nil, fmt.Errorf("unsupported kind: %+v", k1)
+			}
+			if !types.IsComparableKind(k2) {
+				return nil, fmt.Errorf("unsupported kind: %+v", k2)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
 			}
 
 			return &types.BoolValue{
@@ -282,6 +357,18 @@ func init() {
 			"func(float, float) bool", // floating-point less-than
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				return &types.BoolValue{
@@ -308,6 +395,18 @@ func init() {
 			"func(float, float) bool", // floating-point greater-than
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				return &types.BoolValue{
@@ -334,6 +433,18 @@ func init() {
 			"func(float, float) bool", // floating-point less-than-equal
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				return &types.BoolValue{
@@ -360,6 +471,18 @@ func init() {
 			"func(float, float) bool", // floating-point greater-than-equal
 		}),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
 			switch k := input[0].Type().Kind; k {
 			case types.KindInt:
 				return &types.BoolValue{
@@ -385,6 +508,17 @@ func init() {
 		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be bool for this function.
+			if k := input[0].Type().Kind; k != types.KindBool {
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+			if k := input[1].Type().Kind; k != types.KindBool {
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+
 			return &types.BoolValue{
 				V: input[0].Bool() && input[1].Bool(),
 			}, nil
@@ -396,6 +530,17 @@ func init() {
 		I: info,
 		T: types.NewType("func(bool, bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be bool for this function.
+			if k := input[0].Type().Kind; k != types.KindBool {
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+			if k := input[1].Type().Kind; k != types.KindBool {
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+
 			return &types.BoolValue{
 				V: input[0].Bool() || input[1].Bool(),
 			}, nil
@@ -407,6 +552,14 @@ func init() {
 		I: info,
 		T: types.NewType("func(bool) bool"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 1 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// The arg should be bool for this function.
+			if k := input[0].Type().Kind; k != types.KindBool {
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+
 			return &types.BoolValue{
 				V: !input[0].Bool(),
 			}, nil
@@ -418,6 +571,10 @@ func init() {
 		I: info,
 		T: types.NewType("func() float"),
 		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 0 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+
 			return &types.FloatValue{
 				V: math.Pi,
 			}, nil

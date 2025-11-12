@@ -1,0 +1,6 @@
+-- main.mcl --
+test "hello" {
+	anotherstr => "hello world" + true + "\n",
+}
+-- OUTPUT --
+# err: errUnify: type error: str != bool: /main.mcl @ 2:16-2:36

@@ -109,9 +109,9 @@ declare -A map_distrotype=(
 )
 
 declare -A map_distro_version=(
-	["fedora-41"]="libvirt-devel augeas-devel"
-	["fedora-42"]="libvirt-devel augeas-devel"
-	["debian-13"]="libvirt-dev libaugeas-dev"
+	["fedora-42"]="libvirt-devel augeas-devel PackageKit"
+	["fedora-43"]="libvirt-devel augeas-devel PackageKit"
+	["debian-13"]="libvirt-dev libaugeas-dev packagekit"
 )
 
 #echo releases:

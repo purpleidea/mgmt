@@ -89,7 +89,7 @@ type KVRes struct {
 	// values when running this resource on multiple nodes simultaneously.
 	// To read/write/watch a single, global key, this value should be false.
 	// Note that resources may fight if more than one uses this. The `world`
-	// functions like `exchange`, require this to be true, since they're
+	// functions like `kvlookup`, require this to be true, since they're
 	// pulling values out of a pool that each node sets. The `world`
 	// functions like `getval`, require this to be false, since they're
 	// pulling values directly out of the same namespace that is shared by

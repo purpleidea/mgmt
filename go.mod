@@ -27,6 +27,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/kylelemons/godebug v1.1.0
+	github.com/leonelquinteros/gotext v1.7.2
 	github.com/libvirt/libvirt-go v7.4.0+incompatible
 	github.com/libvirt/libvirt-go-xml v7.4.0+incompatible
 	github.com/pin/tftp/v3 v3.1.0
@@ -123,7 +124,6 @@ require (
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/leonelquinteros/gotext v1.7.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mdlayher/ethernet v0.0.0-20220221185849-529eae5b6118 // indirect

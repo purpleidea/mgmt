@@ -1,0 +1,44 @@
+exec "Enable WIFI" {
+    cmd        => "nmcli radio wifi on",
+    shell      => "/bin/bash",
+    ifcmd      => "nmcli radio wifi | grep -q disabled",
+    ifshell    => "/bin/bash",
+    watchcmd   => "nmcli monitor", # nmcli monitor can be used instead of polling (while true, ..., sleep x, done)
+    watchshell => "/bin/bash",
+}
+
+exec "Connect to WIFI" {
+    cmd   => "nmcli device wifi connect "$wifi-name" ifname "$iface",
+    ifcmd => "! nmcli -t -f DEVICE connection show --active | grep -q '^$iface$'",
+    ifshell => "/bin/bash",
+    watchcmd   => "nmcli monitor",
+    watchshell => "/bin/bash",
+}
+
+### Scenario ###
+# Enable WIFI
+# Connect to WIFI
+# Store the Local IP in file
+# Watch WIFI connection
+# Retry connect on failure
+# If failed connect to another WIFI
+# Store the new Local IP in file
+
+### Improvements ###
+# notify another service about the new IP
+# store available wifi's credentials in file and read it from there
+# config file that contains the ip, wifi, credentials, network card
+# use variables
+# check ethernet cards
+
+### Notes ###
+# "nmcli radio wifi off" will produce an error because "Connect to WIFI" will try to connect but the wifi is off
+
+
+### Terminal Commands ###
+# nmcli device wifi list
+# nmcli device wifi connect "SSID" password ""
+# nmcli device wifi connect "SSID" password "" ifname ""
+# nmcli device
+# nmcli connection show --active
+# nmcli device disconnect wlp3s0

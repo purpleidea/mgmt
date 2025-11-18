@@ -80,7 +80,7 @@ func TestSort0(t *testing.T) {
 			for _, r := range s {
 				str += " " + r.String()
 			}
-			t.Errorf(str)
+			t.Errorf("%s", str)
 		}
 	}
 }
@@ -102,7 +102,7 @@ func TestSort1(t *testing.T) {
 		for _, r := range s {
 			str += " " + r.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 
 	if !reflect.DeepEqual(rs, []engine.Res{r3, r2, r6, r1, r5, r4}) {
@@ -111,6 +111,6 @@ func TestSort1(t *testing.T) {
 		for _, r := range rs {
 			str += " " + r.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }

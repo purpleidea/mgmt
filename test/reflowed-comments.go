@@ -174,7 +174,7 @@ func Check(filename string) error {
 		if err := IsWrappedProperly(block, maxLength); err != nil {
 			m := strings.Join(block, "\n")
 			msg := filename + " " + strings.Repeat(".", maxLength-len(filename+" "+"V")) + fmt.Sprintf("V\n%+v\n", m)
-			fmt.Fprintf(os.Stderr, msg)
+			fmt.Fprintf(os.Stderr, "%s", msg)
 			return fmt.Errorf("block (%s) failed: %+v", ident, err) // TODO: errwrap ?
 		}
 	}

@@ -8205,9 +8205,9 @@ func (obj *ExprList) Type() (*types.Type, error) {
 
 	if obj.typ == nil {
 		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -8648,9 +8648,9 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 
 	if obj.typ == nil {
 		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -9090,9 +9090,9 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 
 	if obj.typ == nil {
 		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -9732,14 +9732,14 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		}
 
 		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		return obj.typ, nil
 
 	} else if len(obj.Values) > 0 {
 		// there's nothing we can do to speculate at this time
 		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -9748,7 +9748,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		if obj.function == nil {
 			// TODO: should we return ErrTypeCurrentlyUnknown instead?
 			panic("unexpected empty function")
-			//return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			//return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		sig := obj.function.Info().Sig
 		if sig != nil && !sig.HasVariant() && obj.typ == nil { // type is now known statically
@@ -9756,7 +9756,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		}
 
 		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -9802,9 +9802,9 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 
 	if obj.typ == nil {
 		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, err.Error())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -10659,7 +10659,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	exprFunc, isFn := obj.expr.(*ExprFunc)
 	if !isFn {
 		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -10712,7 +10712,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	if obj.typ == nil {
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -11393,7 +11393,7 @@ func (obj *ExprVar) Type() (*types.Type, error) {
 
 	if obj.scope == nil { // avoid a possible nil panic if we speculate here
 		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
 		return obj.typ, nil
 	}
@@ -11408,7 +11408,7 @@ func (obj *ExprVar) Type() (*types.Type, error) {
 	}
 
 	if obj.typ == nil {
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -11518,7 +11518,7 @@ func (obj *ExprVar) SetValue(value types.Value) error {
 // then it can call Value on that expression.
 func (obj *ExprVar) Value() (types.Value, error) {
 	if obj.scope == nil { // avoid a possible nil panic if we speculate here
-		return nil, errwrap.Wrapf(interfaces.ErrValueCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrValueCurrentlyUnknown, "%s", obj.String())
 	}
 
 	expr, exists := obj.scope.Variables[obj.Name]
@@ -11648,7 +11648,7 @@ func (obj *ExprParam) Type() (*types.Type, error) {
 	// Return the type if it is already known statically... It is useful for
 	// type unification to have some extra info early.
 	if obj.typ == nil {
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 	return obj.typ, nil
 }
@@ -12001,7 +12001,7 @@ func (obj *ExprPoly) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprPoly) Type() (*types.Type, error) {
-	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -12714,7 +12714,7 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 	if typ != nil {
 		return typ, nil
 	}
-	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, obj.String())
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned

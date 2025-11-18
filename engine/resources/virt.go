@@ -968,25 +968,25 @@ func (obj *VirtRes) getDomainXML() string {
 
 	if obj.Disk != nil {
 		for i, disk := range obj.Disk {
-			b += fmt.Sprintf(disk.GetXML(i))
+			b += fmt.Sprintf("%s", disk.GetXML(i))
 		}
 	}
 
 	if obj.CDRom != nil {
 		for i, cdrom := range obj.CDRom {
-			b += fmt.Sprintf(cdrom.GetXML(i))
+			b += fmt.Sprintf("%s", cdrom.GetXML(i))
 		}
 	}
 
 	if obj.Network != nil {
 		for i, net := range obj.Network {
-			b += fmt.Sprintf(net.GetXML(i))
+			b += fmt.Sprintf("%s", net.GetXML(i))
 		}
 	}
 
 	if obj.Filesystem != nil {
 		for i, fs := range obj.Filesystem {
-			b += fmt.Sprintf(fs.GetXML(i))
+			b += fmt.Sprintf("%s", fs.GetXML(i))
 		}
 	}
 

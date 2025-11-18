@@ -434,7 +434,7 @@ func TestTopoSort1(t *testing.T) {
 		for _, v := range s {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 
@@ -526,7 +526,7 @@ func TestReachability0(t *testing.T) {
 				for _, v := range result {
 					str += " " + v.String()
 				}
-				t.Errorf(str)
+				t.Errorf("%s", str)
 			}
 		}
 	}
@@ -548,7 +548,7 @@ func TestReachability0(t *testing.T) {
 			for _, v := range result {
 				str += " " + v.String()
 			}
-			t.Errorf(str)
+			t.Errorf("%s", str)
 		}
 	}
 	{
@@ -583,7 +583,7 @@ func TestReachability0(t *testing.T) {
 			for _, v := range result {
 				str += " " + v.String()
 			}
-			t.Errorf(str)
+			t.Errorf("%s", str)
 		}
 	}
 }
@@ -622,7 +622,7 @@ func TestReachability1(t *testing.T) {
 		for _, v := range result {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 
@@ -663,7 +663,7 @@ func TestReachability2(t *testing.T) {
 		for _, v := range result {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 
@@ -702,7 +702,7 @@ func TestReachability3(t *testing.T) {
 		for _, v := range result {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 
@@ -741,7 +741,7 @@ func TestReachability4(t *testing.T) {
 		for _, v := range result {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 
@@ -825,7 +825,7 @@ func TestSort0(t *testing.T) {
 			for _, v := range s {
 				str += " " + v.String()
 			}
-			t.Errorf(str)
+			t.Errorf("%s", str)
 		}
 	}
 }
@@ -847,7 +847,7 @@ func TestSort1(t *testing.T) {
 		for _, v := range s {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 
 	if !reflect.DeepEqual(vs, []Vertex{v3, v2, v6, v1, v5, v4}) {
@@ -856,7 +856,7 @@ func TestSort1(t *testing.T) {
 		for _, v := range vs {
 			str += " " + v.String()
 		}
-		t.Errorf(str)
+		t.Errorf("%s", str)
 	}
 }
 

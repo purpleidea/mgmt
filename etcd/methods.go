@@ -78,7 +78,7 @@ func (obj *EmbdEtcd) volunteer(ctx context.Context, urls etcdtypes.URLs) error {
 	if urls == nil {
 		msg = "unvolunteering failed"
 	}
-	return errwrap.Wrapf(err, msg)
+	return errwrap.Wrapf(err, "%s", msg)
 }
 
 // nominate nominates a particular client to be a server (peer). If you specify
@@ -117,7 +117,7 @@ func (obj *EmbdEtcd) nominate(ctx context.Context, hostname string, urls etcdtyp
 	if urls == nil {
 		msg = "unnominate failed"
 	}
-	return errwrap.Wrapf(err, msg)
+	return errwrap.Wrapf(err, "%s", msg)
 }
 
 // advertise idempotently advertises the list of available client endpoints for
@@ -157,7 +157,7 @@ func (obj *EmbdEtcd) advertise(ctx context.Context, hostname string, urls etcdty
 	if urls == nil {
 		msg = "unadvertising failed"
 	}
-	return errwrap.Wrapf(err, msg)
+	return errwrap.Wrapf(err, "%s", msg)
 }
 
 // getVolunteers returns a urls map of available etcd server volunteers.

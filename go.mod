@@ -28,8 +28,6 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leonelquinteros/gotext v1.7.2
-	github.com/libvirt/libvirt-go v7.4.0+incompatible
-	github.com/libvirt/libvirt-go-xml v7.4.0+incompatible
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5

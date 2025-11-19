@@ -40,6 +40,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/datetime"
 	_ "github.com/purpleidea/mgmt/lang/core/deploy"
 	_ "github.com/purpleidea/mgmt/lang/core/embedded"
+	_ "github.com/purpleidea/mgmt/lang/core/encoding"
 	_ "github.com/purpleidea/mgmt/lang/core/example"
 	_ "github.com/purpleidea/mgmt/lang/core/example/nested"
 	_ "github.com/purpleidea/mgmt/lang/core/fmt"

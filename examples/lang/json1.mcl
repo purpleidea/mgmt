@@ -1,0 +1,13 @@
+import "encoding"
+import "fmt"
+
+$json = "true"
+
+# in cases we can infer the type, we don't need to specify it as the second arg
+$out = encoding.decode_json($json)
+
+print "json" {
+	msg => fmt.printf("json: %t", $out),
+
+	Meta:autogroup => false,
+}

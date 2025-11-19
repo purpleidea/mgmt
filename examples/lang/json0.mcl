@@ -1,0 +1,19 @@
+import "encoding"
+import "fmt"
+
+$json = "{\"hello\": 42}"
+
+# json is stupid because the above is ambiguous and can have two different types
+$out1 = encoding.decode_json($json, "struct{hello int;}")
+$out2 = encoding.decode_json($json, "map{str: int}")
+
+print "json1" {
+	msg => fmt.printf("json1: %v", $out1),
+
+	Meta:autogroup => false,
+}
+print "json2" {
+	msg => fmt.printf("json2: %v", $out2),
+
+	Meta:autogroup => false,
+}

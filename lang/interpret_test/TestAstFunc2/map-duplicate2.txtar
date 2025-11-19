@@ -1,0 +1,16 @@
+-- main.mcl --
+import "fmt"
+
+# What should happen here? What if the $key changes over time? Since this case
+# could be statically determined, it's perfectly acceptable to error at compile
+# time here. However in general, it's more important that the subsequent value
+# overwrite the earlier one, which is what this test verifies to be true.
+$key = "k1"
+
+$m = {"k1" => 42, $key => 13,} # dupe!
+
+$found = $m["k1"] || 99
+
+test [fmt.printf("value: %d", $found),] {}
+-- OUTPUT --
+Vertex: test[value: 13]

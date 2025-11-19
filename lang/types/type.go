@@ -272,6 +272,11 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 			return nil, err
 		}
 
+		// XXX: Should we include this check here?
+		//if !IsHashableType(key) {
+		//	return nil, fmt.Errorf("map key type %s is not hashable", key)
+		//}
+
 		return &Type{
 			Kind: KindMap,
 			Key:  key,

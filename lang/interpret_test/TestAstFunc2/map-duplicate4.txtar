@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+$m = {"k1" => 42, 13 => true,} # incompatible type!
+
+$found = $m["k1"] || 99
+
+test [fmt.printf("value: %d", $found),] {}
+-- OUTPUT --
+# err: errInit: inconsistent map key type: base kind does not match (str != int)

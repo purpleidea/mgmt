@@ -1,0 +1,13 @@
+-- main.mcl --
+
+$st0 = struct{foo => "a", bar => ["a1", "a2",],}
+$st1 = struct{foo => "a", bar => ["a1", "a2",],}
+$st2 = struct{foo => "b", bar => ["b1", "b2", "b3",],}
+
+$m = {$st1 => "pass", $st2 => "fail",}
+
+$s = $m[$st0] || "error"
+
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: error setting type: map(var(st1): str("pass"), var(st2): str("fail")), error: map key type struct{foo str; bar []str} is not hashable

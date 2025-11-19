@@ -1,0 +1,12 @@
+-- main.mcl --
+import "fmt"
+
+$m = {"k1" => 42, "k2" => 13, "k1" => 4,} # dupe!
+
+$found = $m["k1"] || 99
+
+print "print1" {
+	msg => fmt.printf("found value of: %d", $found),
+}
+-- OUTPUT --
+# err: errInit: duplicate map key: "k1"

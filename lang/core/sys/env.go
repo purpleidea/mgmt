@@ -111,14 +111,21 @@ func HasEnv(ctx context.Context, input []types.Value) (types.Value, error) {
 
 // Env returns a map of all keys and their values.
 func Env(ctx context.Context, input []types.Value) (types.Value, error) {
-	environ := make(map[types.Value]types.Value)
+	m := types.NewType("map{str: str}").New().(*types.MapValue)
+
 	for _, keyval := range os.Environ() {
-		if i := strings.IndexRune(keyval, '='); i != -1 {
-			environ[&types.StrValue{V: keyval[:i]}] = &types.StrValue{V: keyval[i+1:]}
+		i := strings.IndexRune(keyval, '=')
+		if i == -1 {
+			continue
+		}
+
+		k := &types.StrValue{V: keyval[:i]}
+		v := &types.StrValue{V: keyval[i+1:]}
+
+		if err := m.Set(k, v); err != nil {
+			return nil, err
 		}
 	}
-	return &types.MapValue{
-		T: types.NewType("map{str: str}"),
-		V: environ,
-	}, nil
+
+	return m, nil
 }

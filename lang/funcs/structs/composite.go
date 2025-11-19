@@ -190,7 +190,7 @@ func (obj *CompositeFunc) StructCall(ctx context.Context, st types.Value) (types
 				return nil, fmt.Errorf("missing input val `val:%d`", i)
 			}
 
-			if err := result.(*types.MapValue).Add(key, val); err != nil {
+			if err := result.(*types.MapValue).Set(key, val); err != nil {
 				return nil, errwrap.Wrapf(err, "can't build map key with index `%d`", i)
 			}
 		}

@@ -1,0 +1,13 @@
+-- main.mcl --
+
+$st0 = struct{foo => "bar",} # matches $st1, but different "pointer"
+$st1 = struct{foo => "bar",}
+$st2 = struct{foo => "baz",}
+
+$m = {$st1 => "pass", $st2 => "fail",}
+
+$s = $m[$st0] || "error"
+
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[pass]

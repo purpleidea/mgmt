@@ -199,7 +199,7 @@ func (obj *KVLookupFunc) Call(ctx context.Context, args []types.Value) (types.Va
 	for k, v := range keyMap {
 		key := &types.StrValue{V: k}
 		val := &types.StrValue{V: v}
-		if err := d.Add(key, val); err != nil {
+		if err := d.Set(key, val); err != nil {
 			return nil, errwrap.Wrapf(err, "map could not add key `%s`, val: `%s`", k, v)
 		}
 	}

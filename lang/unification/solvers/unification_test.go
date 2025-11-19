@@ -133,12 +133,12 @@ func TestUnification1(t *testing.T) {
 		})
 	}
 	{
-		k1 := &ast.ExprInt{}
-		k2 := &ast.ExprInt{}
-		k3 := &ast.ExprInt{}
-		v1 := &ast.ExprFloat{}
-		v2 := &ast.ExprFloat{}
-		v3 := &ast.ExprFloat{}
+		k1 := &ast.ExprInt{V: 1}
+		k2 := &ast.ExprInt{V: 2}
+		k3 := &ast.ExprInt{V: 3}
+		v1 := &ast.ExprFloat{V: 1.0}
+		v2 := &ast.ExprFloat{V: 2.0}
+		v3 := &ast.ExprFloat{V: 3.0}
 		expr := &ast.ExprMap{
 			KVs: []*ast.ExprMapKV{
 				{Key: k1, Val: v1},

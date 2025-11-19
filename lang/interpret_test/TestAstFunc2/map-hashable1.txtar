@@ -1,0 +1,8 @@
+-- main.mcl --
+$m = {"hello" => "pass", "world" => "fail",}
+
+$s = $m["hello"] || "error"
+
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[pass]

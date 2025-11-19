@@ -8420,7 +8420,6 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 	obj.data = data
 	obj.Textarea.Setup(data)
 
-	// XXX: Can we check that there aren't any duplicate keys? Can we Cmp?
 	for _, x := range obj.KVs {
 		if err := x.Key.Init(data); err != nil {
 			return err
@@ -8429,6 +8428,59 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 			return err
 		}
 	}
+
+	// Here we statically check that there aren't any duplicate keys. To do
+	// so we also end up checking if there are any inconsistent types. Keep
+	// in mind that we can't guarantee that we won't fail later during type
+	// unification (a key could be coming from a variable like $foo) but we
+	// can catch the static cases that contain duplicates.
+	keys := []types.Value{}
+	var typ *types.Type
+	for _, x := range obj.KVs {
+		if t, err := x.Key.Type(); err == nil {
+			if typ == nil {
+				typ = t // save it
+			} else if err := typ.Cmp(t); err != nil {
+				// TODO: wrap error here to make it user friendly?
+				return errwrap.Wrapf(err, "inconsistent map key type")
+			}
+		}
+
+		val, err := x.Key.Value()
+		if err != nil { // can't determine the value statically
+			continue
+		}
+		keys = append(keys, val)
+	}
+	if typ == nil {
+		return nil // can't do more without knowing the type
+	}
+
+	// This check is useful to catch these errors before type unification!
+	if !types.IsHashableType(typ) {
+		return fmt.Errorf("map key type %s is not hashable", typ)
+	}
+
+	// The `nil` type is not important, we just need any stand-in.
+	mapTyp := types.NewType(fmt.Sprintf("map{%s: nil}", typ.String()))
+	m := mapTyp.New().(*types.MapValue)
+	if m == nil {
+		// If you build a map with an invalid type, then it will be nil.
+		return fmt.Errorf("map key type %s is not hashable", typ.String())
+	}
+
+	// Instead of N^2 Cmp check here, try and add them to the map.
+	for i, key := range keys {
+		if err := m.Set(key, types.ValueNil); err != nil {
+			// TODO: wrap error here to make it user friendly?
+			return err // invalid key
+		}
+		if m.Len() != i+1 { // Length mismatch!
+			// We must have just added a duplicate!
+			return fmt.Errorf("duplicate map key: %s", key)
+		}
+	}
+
 	return nil
 }
 
@@ -8598,6 +8650,14 @@ func (obj *ExprMap) SetScope(scope *interfaces.Scope, sctx map[string]interfaces
 // previously been set (when not initially known) this will error.
 func (obj *ExprMap) SetType(typ *types.Type) error {
 	// TODO: should we ensure this is set to a KindMap ?
+	if typ == nil || typ.Key == nil {
+		return fmt.Errorf("type is nil")
+	}
+	// This check is necessary to catch this after type unification!
+	if !types.IsHashableType(typ.Key) {
+		return fmt.Errorf("map key type %s is not hashable", typ.Key)
+	}
+
 	if obj.typ != nil {
 		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
 	}
@@ -8804,8 +8864,10 @@ func (obj *ExprMap) SetValue(value types.Value) error {
 // This might get called speculatively (early) during unification to learn more.
 func (obj *ExprMap) Value() (types.Value, error) {
 	kvs := make(map[types.Value]types.Value)
+	keys := []types.Value{}
 	var ktyp, vtyp *types.Type
 
+	// A subsequent key overwrites an earlier one.
 	for i, x := range obj.KVs {
 		// keys
 		kt, err := x.Key.Type()
@@ -8847,7 +8909,9 @@ func (obj *ExprMap) Value() (types.Value, error) {
 			return nil, fmt.Errorf("val for map index `%d` was nil", i)
 		}
 
-		kvs[key] = val // add to map
+		// Use proper Set API below so we don't add duplicates!
+		kvs[key] = val           // add to temporary map
+		keys = append(keys, key) // save the order
 	}
 	if len(obj.KVs) > 0 {
 		t := &types.Type{
@@ -8862,10 +8926,19 @@ func (obj *ExprMap) Value() (types.Value, error) {
 		}
 	}
 
-	return &types.MapValue{
-		T: obj.typ,
-		V: kvs,
-	}, nil
+	if obj.typ == nil {
+		return nil, fmt.Errorf("can't build value with unknown type")
+	}
+
+	// Build this safely with the correct API.
+	m := obj.typ.New().(*types.MapValue)
+
+	for _, key := range keys {
+		if err := m.Set(key, kvs[key]); err != nil {
+			return nil, err
+		}
+	}
+	return m, nil // *types.MapValue
 }
 
 // ExprMapKV represents a key and value pair in a (dictionary) map. This does

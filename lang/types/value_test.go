@@ -100,12 +100,12 @@ func TestPrint1(t *testing.T) {
 	testCases[d0] = `{}`
 
 	d1 := NewMap(NewType("map{str: int}"))
-	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
+	d1.Set(&StrValue{V: "answer"}, &IntValue{V: 42})
 	testCases[d1] = `{"answer": 42}`
 
 	d2 := NewMap(NewType("map{str: int}"))
-	d2.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
-	d2.Add(&StrValue{V: "hello"}, &IntValue{V: 13})
+	d2.Set(&StrValue{V: "answer"}, &IntValue{V: 42})
+	d2.Set(&StrValue{V: "hello"}, &IntValue{V: 13})
 	testCases[d2] = `{"answer": 42, "hello": 13}`
 
 	s0 := NewStruct(NewType("struct{}"))
@@ -215,7 +215,7 @@ func TestReflectValue1(t *testing.T) {
 	testCases[d0] = `map[]`
 
 	d1 := NewMap(NewType("map{str: int}"))
-	d1.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
+	d1.Set(&StrValue{V: "answer"}, &IntValue{V: 42})
 	testCases[d1] = `map[answer:42]`
 
 	// multiple key maps are tested below since they have multiple outputs
@@ -480,8 +480,8 @@ func TestSort1(t *testing.T) {
 
 func TestMapReflectValue1(t *testing.T) {
 	d := NewMap(NewType("map{str: int}"))
-	d.Add(&StrValue{V: "answer"}, &IntValue{V: 42})
-	d.Add(&StrValue{V: "hello"}, &IntValue{V: 13})
+	d.Set(&StrValue{V: "answer"}, &IntValue{V: 42})
+	d.Set(&StrValue{V: "hello"}, &IntValue{V: 13})
 	// both are valid, since map's aren't sorted
 	// imo, golang should at least sort these on display!
 	// TODO: https://github.com/golang/go/issues/21095
@@ -496,7 +496,7 @@ func TestMapReflectValue1(t *testing.T) {
 	}
 
 	d2 := NewMap(NewType("map{str: str}"))
-	d2.Add(&StrValue{V: "answer"}, &StrValue{V: "42 hello:13"})
+	d2.Set(&StrValue{V: "answer"}, &StrValue{V: "42 hello:13"})
 	val2 := d2.Value()
 
 	if v1, v2 := fmt.Sprintf("%+v", val), fmt.Sprintf("%+v", val2); v1 == v2 {
@@ -530,7 +530,7 @@ func TestMapLookup1(t *testing.T) {
 	d := NewMap(NewType("map{str: int}"))
 	k := &StrValue{V: "answer"}
 	v := &IntValue{V: 42}
-	if err := d.Add(k, v); err != nil {
+	if err := d.Set(k, v); err != nil {
 		t.Errorf("map could not add key %s, val: %s", k, v)
 	}
 

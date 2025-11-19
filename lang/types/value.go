@@ -51,6 +51,11 @@ var (
 	// zero reflect.Value.
 	ErrInvalidValue = errors.New("cannot represent invalid reflect.Value")
 
+	// ValueNil is a nil value in our system. Can be used where needed, must
+	// not be exposed to the end user in the mcl language.
+	//ValueNil, _ = ValueOfGolang(nil) // doesn't work how we expect atm
+	ValueNil = &NilValue{}
+
 	// ValueFalse is a false value in our system. Can be used where needed.
 	ValueFalse, _ = ValueOfGolang(false)
 
@@ -82,6 +87,7 @@ type Value interface {
 // reminder that if you pass in a nil value, or something containing a nil
 // value, then you won't get what you want. See our documentation for ValueOf.
 func ValueOfGolang(i interface{}) (Value, error) {
+	// XXX: Should a nil return a &NilValue{} here?
 	return ValueOf(reflect.ValueOf(i))
 }
 
@@ -700,6 +706,12 @@ func (obj *BoolValue) Value() interface{} {
 	return obj.V
 }
 
+// Hash hashes this value to provide a unique key for referencing this in a map.
+func (obj *BoolValue) Hash(seed Seed) Hash {
+	//return Comparable[bool](seed, obj.V)
+	return Comparable(seed, obj.V)
+}
+
 // Bool represents the value of this type as a bool if it is one. If this is not
 // a bool, then this panics.
 func (obj *BoolValue) Bool() bool {
@@ -755,6 +767,12 @@ func (obj *StrValue) Value() interface{} {
 	return obj.V
 }
 
+// Hash hashes this value to provide a unique key for referencing this in a map.
+func (obj *StrValue) Hash(seed Seed) Hash {
+	//return Comparable[string](seed, obj.V)
+	return Comparable(seed, obj.V)
+}
+
 // Str represents the value of this type as a string if it is one. If this is
 // not a string, then this panics.
 func (obj *StrValue) Str() string {
@@ -807,6 +825,12 @@ func (obj *IntValue) Copy() Value {
 // Value returns the raw value of this type.
 func (obj *IntValue) Value() interface{} {
 	return obj.V
+}
+
+// Hash hashes this value to provide a unique key for referencing this in a map.
+func (obj *IntValue) Hash(seed Seed) Hash {
+	//return Comparable[int64](seed, obj.V)
+	return Comparable(seed, obj.V)
 }
 
 // Int represents the value of this type as an integer if it is one. If this is
@@ -864,6 +888,12 @@ func (obj *FloatValue) Copy() Value {
 // Value returns the raw value of this type.
 func (obj *FloatValue) Value() interface{} {
 	return obj.V
+}
+
+// Hash hashes this value to provide a unique key for referencing this in a map.
+func (obj *FloatValue) Hash(seed Seed) Hash {
+	//return Comparable[float64](seed, obj.V)
+	return Comparable(seed, obj.V)
 }
 
 // Float represents the value of this type as a float if it is one. If this is
@@ -1006,22 +1036,48 @@ func (obj *ListValue) Contains(v Value) (index int, exists bool) {
 	return -1, false
 }
 
-// MapValue represents a dictionary value.
+// MapValue represents a dictionary value. The keys must all have the same type.
+// The values must all have the same type. The type of the keys must be one that
+// is hashable. At the moment this means that only bool, str, int, float are
+// supported. Structs with valid hashable keys are also allowed.
 type MapValue struct {
 	Base
 	// the types of all keys and values are represented inside of T
 	V map[Value]Value
 	T *Type
+
+	// m is a map from hash to a list of values being stored that hash to
+	// this. It's a list in case there are hash collisions. The stored value
+	// is the pointer to the key in the above map storing the actual value.
+	m map[Hash][]Value
+
+	// s is the stored seed for this map.
+	s Seed
+
+	// TODO: If we needed to order the keys deterministically, we could add
+	// each hash here. For multiple keys that hash to the same value, we
+	// order them based on the above list order.
+	//l []Hash // do we need to order the keys?
 }
 
-// NewMap creates a new map with the specified map type.
+// NewMap creates a new map with the specified map type. It's important to use
+// this when creating a map because it initializes the internal private
+// structures. If you attempt to make this with a key type that is not hashable,
+// then this will panic!
 func NewMap(t *Type) *MapValue {
 	if t.Kind != KindMap {
 		return nil // sanity check
 	}
+	if !IsHashableType(t.Key) {
+		// key is not hashable
+		return nil
+	}
+
 	return &MapValue{
 		V: make(map[Value]Value),
 		T: t,
+		m: make(map[Hash][]Value),
+		s: MakeSeed(),
 	}
 }
 
@@ -1065,14 +1121,15 @@ func (obj *MapValue) Cmp(val Value) error {
 		return fmt.Errorf("maps have different lengths")
 	}
 
-	for k := range obj.V {
-		v, exists := cmp.V[k]
+	for key := range obj.V {
+		//val, exists := cmp.V[key] // wrong!
+		val, exists := cmp.Lookup(key)
 		if !exists {
-			return fmt.Errorf("key %s does not exist", k)
+			return fmt.Errorf("key %s does not exist", key)
 		}
 
-		if err := obj.V[k].Cmp(v); err != nil {
-			return errwrap.Wrapf(err, "index %s did not cmp", k)
+		if err := obj.V[key].Cmp(val); err != nil {
+			return errwrap.Wrapf(err, "key %s did not cmp", key)
 		}
 	}
 
@@ -1082,12 +1139,24 @@ func (obj *MapValue) Cmp(val Value) error {
 // Copy returns a copy of this value.
 func (obj *MapValue) Copy() Value {
 	m := map[Value]Value{}
-	for k, v := range obj.V {
-		m[k.Copy()] = v.Copy()
+	newM := make(map[Hash][]Value)
+	for key, val := range obj.V {
+		newKey := key.Copy()
+		newVal := val.Copy()
+
+		hash := newKey.(Hashable).Hash(obj.s) // must not panic
+		if _, exists := newM[hash]; !exists {
+			newM[hash] = make([]Value, 1) // needs at least one entry
+		}
+		newM[hash] = append(newM[hash], newKey)
+		m[newKey] = newVal
 	}
+
 	return &MapValue{
 		V: m,
 		T: obj.T.Copy(),
+		m: newM,
+		s: MakeSeed(),
 	}
 }
 
@@ -1103,7 +1172,9 @@ func (obj *MapValue) Value() interface{} {
 }
 
 // Map represents the value of this type as a dictionary if it is one. If this
-// is not a map, then this panics.
+// is not a map, then this panics. Remember that the keys of this map are the
+// pointers to the Value objects. You *cannot* use the standard _, exists := map
+// syntax to check if a key exists. Instead use the Lookup function!
 func (obj *MapValue) Map() map[Value]Value {
 	return obj.V
 }
@@ -1113,34 +1184,136 @@ func (obj *MapValue) Len() int {
 	return len(obj.V)
 }
 
-// Add adds an element to this map. It errors if the types do not match.
-func (obj *MapValue) Add(k, v Value) error { // TODO: change method name?
-
+// Set adds an element to this map. It errors if the types do not match. If the
+// key already exists, this will overwrite it.
+func (obj *MapValue) Set(key, val Value) error { // TODO: change method name?
 	//if obj.T.Key.Kind != KindVariant {
-	if err := obj.T.Key.Cmp(k.Type()); err != nil {
+	if err := obj.T.Key.Cmp(key.Type()); err != nil {
 		return errwrap.Wrapf(err, "key does not match map key type")
 	}
 	//}
-
 	if obj.T.Val.Kind != KindVariant { // skip cmp if dest is a variant
-		if err := obj.T.Val.Cmp(v.Type()); err != nil {
+		if err := obj.T.Val.Cmp(val.Type()); err != nil {
 			return errwrap.Wrapf(err, "val does not match map val type")
 		}
 	}
 
-	obj.V[k] = v
+	if typ := key.Type(); !IsHashableType(typ) {
+		return fmt.Errorf("map key type %s is not hashable", typ)
+	}
+	hashable, ok := key.(Hashable)
+	if !ok {
+		return fmt.Errorf("map key type %s is not hashable", key.Type())
+	}
+
+	hash := hashable.Hash(obj.s)
+	if _, exists := obj.m[hash]; !exists {
+		obj.m[hash] = make([]Value, 1) // needs at least one entry
+	}
+	index := -1
+	var found Value
+	for i, x := range obj.m[hash] { // []Value
+		// the nil check is in case we made a value above
+		if x == nil || x.Cmp(key) != nil {
+			continue
+		}
+		index = i
+		found = x
+		break // assume datastructure doesn't have invalid dupes
+	}
+	if index == -1 {
+		index = 0 // set to first entry
+	} else {
+		delete(obj.V, found) // remove old key (we're overwriting)
+	}
+	obj.m[hash][index] = key
+	obj.V[key] = val // store!
+
 	return nil
 }
 
-// Lookup searches the map for a key. On success it also returns the Value.
+// Lookup searches the map for a key. On success it also returns the Value. If
+// the key is of the wrong type, this will return false as well.
 func (obj *MapValue) Lookup(key Value) (value Value, exists bool) {
 	//v, exists := obj.V[key] // not what we want!
-	for k, v := range obj.V {
-		if k.Cmp(key) == nil {
-			return v, true // found
-		}
+
+	//for k, v := range obj.V { // slow version
+	//	if k.Cmp(key) == nil {
+	//		return v, true // found
+	//	}
+	//}
+
+	//if obj.T.Key.Kind != KindVariant {
+	if err := obj.T.Key.Cmp(key.Type()); err != nil {
+		return nil, false
 	}
-	return nil, false
+	//}
+
+	hashable, ok := key.(Hashable)
+	if !ok {
+		//return fmt.Errorf("type %s is not hashable", k.Type())
+		return nil, false
+	}
+
+	hash := hashable.Hash(obj.s)
+	if _, exists := obj.m[hash]; !exists {
+		return nil, false // not found
+	}
+
+	for _, x := range obj.m[hash] { // []Value
+		if x.Cmp(key) != nil {
+			continue
+		}
+
+		val, exists := obj.V[x]
+		if !exists {
+			// programming error or someone poked at the struct
+			panic("inconsistent map structure")
+		}
+		return val, true // found!
+	}
+
+	return nil, false // not found
+}
+
+// Delete deletes the key from the map. It returns true if it existed, false
+// otherwise. If the key is of the wrong type, this will return false as well.
+func (obj *MapValue) Delete(key Value) (exists bool) {
+	//if obj.T.Key.Kind != KindVariant {
+	if err := obj.T.Key.Cmp(key.Type()); err != nil {
+		return false
+	}
+	//}
+
+	hashable, ok := key.(Hashable)
+	if !ok {
+		return false
+		//return fmt.Errorf("type %s is not hashable", key.Type())
+	}
+
+	hash := hashable.Hash(obj.s)
+	if _, exists := obj.m[hash]; !exists {
+		return false // not found
+	}
+	index := -1
+	var found Value
+	for i, x := range obj.m[hash] { // []Value
+		if x.Cmp(key) != nil {
+			continue
+		}
+		index = i
+		found = x
+		break // assume datastructure doesn't have invalid dupes
+	}
+	if index == -1 {
+		return false // not found
+	}
+
+	// nuke that element in our list
+	obj.m[hash] = append(obj.m[hash][:index], obj.m[hash][index+1:]...)
+	delete(obj.V, found) // remove old key (we're overwriting)
+
+	return true // deleted
 }
 
 // StructValue represents a struct value. The keys are ordered.
@@ -1227,6 +1400,27 @@ func (obj *StructValue) Value() interface{} {
 		val.FieldByName(k).Set(reflect.ValueOf(obj.V[k].Value())) // recurse
 	}
 	return val.Interface()
+}
+
+// Hash hashes this value to provide a unique key for referencing this in a map.
+func (obj *StructValue) Hash(seed Seed) Hash {
+	if obj.V == nil {
+		panic("malformed struct")
+	}
+	if obj.T == nil {
+		panic("malformed struct type")
+	}
+	if len(obj.V) != len(obj.T.Ord) {
+		panic("malformed struct length")
+	}
+	if len(obj.T.Map) != len(obj.T.Ord) {
+		panic("malformed struct length")
+	}
+
+	h := NewHasher(seed) // *Hasher
+	return h.Hash(obj)
+	//return Comparable[?](seed, obj.V)
+	//return Comparable(seed, obj.V)
 }
 
 // Struct represents the value of this type as a struct if it is one. If this is

@@ -1,0 +1,22 @@
+import "datetime"
+import "fmt"
+import "math"
+
+$now = datetime.now()
+$x = math.mod($now, 2)
+
+$key = if $x == 0 {
+	"k1"
+} else {
+	"k2"
+}
+
+$m = {"k1" => 42, $key => 13,} # dupe!
+
+# Later value gets chosen.
+#$found = $m["k1"] || 99
+$found = $m["k2"] || 99
+
+print "print1" {
+	msg => fmt.printf("found value of: %d", $found),
+}

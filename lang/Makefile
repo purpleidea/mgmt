@@ -40,6 +40,7 @@ clean:
 parser/lexer.nn.go: parser/lexer.nex
 	@echo "Generating: lexer..."
 	nex -e -o $@ $<
+	sed -i $$'/^import (/ {N;N;N;N;/^import (\\n\t"bufio"\\n\t"io"\\n\t"strings"\\n)/d;}' $@ # get rid of the duplicate imports
 	gofmt -s -w $@
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/lexer.nn.go'
 
@@ -47,6 +48,7 @@ parser/y.go: parser/parser.y
 	@echo "Generating: parser..."
 	goyacc -v parser/y.output -o $@ $<
 	gofmt -s -w $@
+	goimports -l -w $@ # needed because it's a mess
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl

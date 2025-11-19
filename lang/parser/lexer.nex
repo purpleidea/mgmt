@@ -404,7 +404,10 @@
 package parser
 
 import (
+	"bufio"
+	"io"
 	"fmt"
+	"strings"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"

@@ -1,0 +1,13 @@
+import "encoding"
+import "fmt"
+
+$json = "{\"hello\": 42}"
+
+# if the struct field is missing in the data, the flexible version allows this
+$out = encoding.decode_json_flexible($json, "struct{hello int; goodbye bool;}")
+
+print "json" {
+	msg => fmt.printf("json: %v", $out),
+
+	Meta:autogroup => false,
+}

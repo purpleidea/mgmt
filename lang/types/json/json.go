@@ -48,11 +48,30 @@ func ValueOfJSON(data string, typ *types.Type) (types.Value, error) {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	return convertJSON(v, typ)
+	return convertJSON(v, typ, false)
 }
 
-// convertJSON is the recursive helper that takes
-func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
+// FlexibleValueOfJSON takes a string containing some JSON, and an expected
+// type, and if the JSON matches that type, returns the equivalent types.Value
+// matching it. This variant differs from ValueOfJSON in that if a struct field
+// is present in the type, but missing from the data, then it will substitute a
+// zero value for the data instead of erroring.
+func FlexibleValueOfJSON(data string, typ *types.Type) (types.Value, error) {
+	// Unmarshal into interface{}
+	var v interface{}
+	dec := json.NewDecoder(strings.NewReader(data))
+	dec.UseNumber() // to preserve number precision
+	if err := dec.Decode(&v); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	return convertJSON(v, typ, true)
+}
+
+// convertJSON is the recursive helper that takes the parsed json data and the
+// expected type. If you specify flexible, then it allows missing fields in the
+// data. This API may change if we add more modifiers in the future.
+func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, error) {
 	if typ == nil {
 		// TODO: attempt to guess the type and hope it's not ambiguous?
 		return nil, fmt.Errorf("type is nil")
@@ -113,7 +132,7 @@ func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
 
 		values := []types.Value{}
 		for _, x := range v {
-			vv, err := convertJSON(x, typ.Val) // recurse
+			vv, err := convertJSON(x, typ.Val, flexible) // recurse
 			if err != nil {
 				return nil, err
 			}
@@ -139,11 +158,11 @@ func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
 		m := make(map[types.Value]types.Value)
 		// loop through the list of map keys in undefined order
 		for k, x := range v {
-			kk, err := convertJSON(k, typ.Key) // recurse
+			kk, err := convertJSON(k, typ.Key, flexible) // recurse
 			if err != nil {
 				return nil, err
 			}
-			vv, err := convertJSON(x, typ.Val) // recurse
+			vv, err := convertJSON(x, typ.Val, flexible) // recurse
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +181,7 @@ func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
 			return nil, fmt.Errorf("type doesn't match struct")
 		}
 
-		if len(v) != len(typ.Ord) {
+		if !flexible && len(v) != len(typ.Ord) {
 			// programming error?
 			return nil, fmt.Errorf("incompatible number of fields")
 		}
@@ -177,11 +196,6 @@ func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
 
 		m := make(map[string]types.Value)
 		for _, x := range typ.Ord {
-			xx, exists := v[x]
-			if !exists {
-				return nil, fmt.Errorf("field %s was not found in struct", x)
-			}
-
 			t, ok := typ.Map[x]
 			if !ok {
 				panic("malformed struct order")
@@ -190,7 +204,16 @@ func convertJSON(val interface{}, typ *types.Type) (types.Value, error) {
 				panic("malformed struct field")
 			}
 
-			vv, err := convertJSON(xx, t) // recurse
+			xx, exists := v[x]
+			if !exists && !flexible {
+				return nil, fmt.Errorf("field %s was not found in struct", x)
+			}
+			if !exists {
+				m[x] = t.New() // zero value
+				continue
+			}
+
+			vv, err := convertJSON(xx, t, flexible) // recurse
 			if err != nil {
 				return nil, err
 			}

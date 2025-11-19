@@ -51,6 +51,7 @@ const (
 
 func init() {
 	funcs.ModuleRegister(ModuleName, DecodeJSONFuncName, func() interfaces.Func { return &DecodeJSONFunc{} })
+	funcs.ModuleRegister(ModuleName, DecodeJSONFuncName+"_flexible", func() interfaces.Func { return &DecodeJSONFunc{flexible: true} })
 }
 
 var _ interfaces.InferableFunc = &DecodeJSONFunc{} // ensure it meets this expectation
@@ -60,8 +61,15 @@ var _ interfaces.InferableFunc = &DecodeJSONFunc{} // ensure it meets this expec
 // in an mcl type representation in the second arg so that we know what type to
 // parse the json as. There are some cases when the type can be inferred, and
 // you don't need to specify the second arg. It's your problem if the type
-// unification doesn't work though!
+// unification doesn't work though! The "flexible" version of this function
+// differs in that if a struct field is present in the type, but missing from
+// the data, then it will substitute a zero value for the data instead of
+// erroring. This is useful for cases when you have an initial schema
+// represented by the type in your mcl code, and you gradually expand it over
+// time before the data has caught up and added all those new fields.
 type DecodeJSONFunc struct {
+	flexible bool // "flexible" version of this function
+
 	// Type is the type of the type specification (2nd) arg if one is
 	// specified. Nil is the special undetermined value that is used before
 	// type is known.
@@ -241,6 +249,8 @@ func (obj *DecodeJSONFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *DecodeJSONFunc) Copy() interfaces.Func {
 	return &DecodeJSONFunc{
+		flexible: obj.flexible,
+
 		Type:   obj.Type, // don't copy because we use this after unification
 		length: obj.length,
 		built:  obj.built,
@@ -277,6 +287,10 @@ func (obj *DecodeJSONFunc) Call(ctx context.Context, args []types.Value) (types.
 	// If we're early, then this might be nil. Error correctly in this case.
 	if obj.init == nil && typ == nil {
 		return nil, funcs.ErrCantSpeculate
+	}
+
+	if obj.flexible {
+		return jsonUtil.FlexibleValueOfJSON(data, typ)
 	}
 
 	// XXX: This particular function, requires typ and can't guess the type!

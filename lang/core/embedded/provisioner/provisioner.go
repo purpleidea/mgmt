@@ -365,7 +365,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.localArgs.Arch = "x86_64"
 	}
 
-	if obj.localArgs.Distro == "fedora" && obj.localArgs.Flavour == nil {
+	if obj.localArgs.Distro == "fedora" && (obj.localArgs.Flavour == nil || *obj.localArgs.Flavour == "") {
 		flavour := "Workstation" // set a default for fedora
 		obj.localArgs.Flavour = &flavour
 	}

@@ -262,7 +262,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	// Add custom defaults, and improve some as well.
 
-	if s := obj.localArgs.Interface; s == nil {
+	if s := obj.localArgs.Interface; s == nil || *obj.localArgs.Interface == "" {
 		devices, err := util.GetPhysicalEthernetDevices()
 		if err != nil {
 			return nil, err
@@ -318,7 +318,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 			obj.localArgs.Prefix = &expanded
 		}
 	}
-	if obj.localArgs.Prefix == nil { // pick a default
+	if obj.localArgs.Prefix == nil || *obj.localArgs.Prefix == "" { // pick a default
 		user, err := user.Current()
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "can't get current user")

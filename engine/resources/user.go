@@ -205,17 +205,19 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return true, nil
 	}
 
-	gids, err := usr.GroupIds() // ([]string, error)
-	if err != nil {
-		return false, err
-	}
 	groups := []string{}
-	for _, gid := range gids {
-		g, err := user.LookupGroupId(gid)
+	if usr != nil { // if it doesn't exist, we don't have any groups yet
+		gids, err := usr.GroupIds() // ([]string, error)
 		if err != nil {
 			return false, err
 		}
-		groups = append(groups, g.Name)
+		for _, gid := range gids {
+			g, err := user.LookupGroupId(gid)
+			if err != nil {
+				return false, err
+			}
+			groups = append(groups, g.Name)
+		}
 	}
 
 	if usercheck := true; exists && obj.State == "exists" {

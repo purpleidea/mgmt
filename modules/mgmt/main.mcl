@@ -1,0 +1,157 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "golang"
+import "golang/strings" as golang_strings
+import "os"
+
+import "git://github.com/purpleidea/mgmt/modules/misc/"
+
+# base contains some code for machines running mgmt itself. Some of this needs
+# to be already present for mgmt itself to run, but those machines get
+# bootstrapped in other ways.
+# XXX: use util/distro package to get this data if it's even ever useful.
+class base() {
+	if os.is_family_redhat() {
+		pkg [
+			"augeas-devel",
+			"libvirt-devel",
+		] {
+			state => "installed",
+		}
+
+		# This seems to be a dbus activated service, so don't bother it.
+		#svc "packagekit" {
+		#	state => "running",
+		#	startup => "enabled",
+		#}
+	}
+	if os.is_family_debian() {
+		pkg [
+			"libaugeas-dev",
+			"libvirt-dev",
+		] {
+			state => "installed",
+		}
+	}
+}
+
+class service_file($path, $st) {
+	$exec str = $st->exec # required
+	$ssh_url = $st->ssh_url || "" # optional
+	$ssh_hostkey = $st->ssh_hostkey || "" # optional
+	$seeds []str = $st->seeds # required
+
+	# join them all together, use the arg multiple times...
+	$valid_seeds = "--seeds='" + golang_strings.join($seeds, "' --seeds='") + "'"
+
+	$tmpl = struct{
+		exec => $exec,
+		ssh_url => $ssh_url,
+		ssh_hostkey => $ssh_hostkey,
+		#seeds => $seeds,
+		valid_seeds => $valid_seeds,
+	}
+	file "${path}" {
+		state => "exists",
+		content => golang.template(deploy.readfile("/files/mgmt.service.tmpl"), $tmpl),
+		mode => "u=rw,go=",
+		owner => "root",
+		group => "root",
+	}
+}
+
+class service() {
+	svc "mgmt" {
+		state => "running",
+		startup => "enabled",
+
+		Depend => File["/etc/systemd/system/mgmt.service"],
+	}
+}
+
+# master swaps everything over to a git master tracked repo. This includes:
+# 1) installs package repo (which tracks git master)
+# 2) installs the package (from that repo)
+# 3) installs the new service (with the new /usr/bin/mgmt binary path)
+# 4) reloads systemd for the new service (if needed)
+# 5) deletes the old /usr/local/bin/mgmt file (if present)
+# 6) keeps the mgmt package up-to-date
+class master($st) {
+	$seeds []str = $st->seeds # required
+	$ssh_url = $st->ssh_url || "" # optional
+	$ssh_hostkey = $st->ssh_hostkey || "" # optional
+
+	# 1) package repo
+	include misc.yum_repo("mgmt", struct{
+		# The $ vars are *not* mcl, they are yum/dnf repo variables.
+		baseurl => "https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/repo/master/fedora-$releasever/$basearch/",
+		gpgkey => "https://purpleidea.com/james@purpleidea.com.asc",
+	}) as misc_yum_repo_mgmt
+	$file_name_mgmt = $misc_yum_repo_mgmt.file_name # XXX can we have dots in interpolation?
+
+	# 2) install package
+	$exec_name_mgmt = $misc_dnf_update_mgmt.exec_name # XXX can we have dots in interpolation?
+	pkg "mgmt" {
+		state => "installed",
+
+		Meta:autoedge => false, # because repo doesn't exist at the start
+		Meta:autogroup => false, # because it comes from a separate repo
+
+		Depend => File["${file_name_mgmt}"],
+		Before => Exec["${exec_name_mgmt}"],
+	}
+
+	# 3) creates a service file here
+	include service_file("/etc/systemd/system/mgmt.service", struct{
+		exec => "/usr/bin/mgmt",
+		ssh_url => $ssh_url,
+		ssh_hostkey => $ssh_hostkey,
+		seeds => $seeds,
+	})
+
+	# 4) reload new service and ensure it's running
+	include misc.systemd_daemon_reload("systemctl daemon-reload")
+	include service()
+
+	# 5) remove any temporary mgmt that we used for bootstrapping
+	# XXX: this caused an error when running handover:
+	# gapi exited with error: lstat /usr/local/bin/mgmt: no such file or directory
+	file "/usr/local/bin/mgmt" {
+		state => "absent",
+
+		Depend => Pkg["mgmt"],
+	}
+
+	# 6) keep it up-to-date
+	include misc.dnf_update("mgmt") as misc_dnf_update_mgmt # always up to date
+
+	Pkg["mgmt"] -> File["/etc/systemd/system/mgmt.service"] -> Exec["systemctl daemon-reload"] -> Svc["mgmt"] -> File["/usr/local/bin/mgmt"]
+}

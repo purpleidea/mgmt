@@ -1,0 +1,24 @@
+# /etc/systemd/system/etcd.service
+# see: https://github.com/etcd-io/etcd/blob/main/contrib/systemd/etcd.service
+
+[Unit]
+Description=Mgmt etcd single node cluster
+Documentation=https://github.com/purpleidea/mgmt/
+After=local-fs.target
+Wants=local-fs.target
+
+[Service]
+{{ if .user -}}
+User={{ .user }}
+{{ end -}}
+Type=notify
+WorkingDirectory=/var/lib/etcd/
+Environment=ETCD_DATA_DIR=/var/lib/etcd/
+Environment=ETCD_NAME=%m
+ExecStart={{ .exec }} --listen-client-urls='http://0.0.0.0:2379' --advertise-client-urls='http://0.0.0.0:2379' {{ .opts }}
+RestartSec=5s
+Restart=always
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

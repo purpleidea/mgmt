@@ -1,0 +1,148 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "fmt"
+import "iter"
+import "golang"
+import "golang/strings" as golang_strings
+import "strings"
+import "world/collect"
+
+# class server pulls in everything for you to run a simple etcd server.
+class server($st) {
+	$ip = $st->ip || "" # TODO: auto-detect
+
+	user "etcd" {
+		state => "exists",
+		homedir => "/var/lib/etcd/",
+		shell => "/sbin/nologin", # TODO: /usr/sbin/nologin one day
+
+		Before => File["/etc/systemd/system/etcd.service"],
+	}
+
+	include service_file("/etc/systemd/system/etcd.service", struct{
+		exec => "mgmt etcd", # full path to mgmt is optional
+		user => "etcd",
+	})
+
+	include service()
+
+	$all = collect.res("ssh:authorized_key") # []struct{name str; host str;}
+	$fn = func($st) {
+		golang_strings.has_prefix($st->name, "provisioner:") and $st->host != "${hostname}"
+	}
+	$filtered = iter.filter($all, $fn)
+
+	collect ssh:authorized_key $filtered { # pull down everyone's public keys
+		file => "/var/lib/etcd/.ssh/authorized_keys",
+		options => [
+			"command=\"echo 'Port forwarding only'; exit\"",
+			"no-agent-forwarding",
+			"no-pty",
+			"no-user-rc",
+			"no-X11-forwarding",
+			"permitopen=\"127.0.0.1:2379\"",
+		],
+		state => "exists",
+
+		Meta:hidden => false, # we don't want them hidden of course!
+	}
+
+	# export the server information for provisioners to read it...
+	# XXX: eventually export as `mapped => true` for multiple servers
+	kv "etcd_server" {
+		value => "${ip}",
+	}
+
+	# for some buggy reason, these .pub files end the key with a space
+	$ssh_hostkey = strings.split(golang_strings.trim_space(os.readfile("/etc/ssh/ssh_host_ed25519_key.pub")), " ")[1]
+	kv "etcd_server_hostkey" {
+		value => "${ssh_hostkey}", # TODO: support other options
+	}
+}
+
+class service_file($path, $st) {
+	$exec = $st->exec # required
+	$user = $st->user || "etcd"
+	$compaction = $st->compaction || "periodic"
+	$retention = $st->retention || "10h"
+	$quota = $st->retention || "8589934592" # in bytes (1024*1024*1024*8) 8GiB
+
+	# TODO: validate the inputs to avoid weird injection or escaping
+
+	$c = if $compaction == "" {
+		""
+	} else {
+		fmt.printf("--auto-compaction-mode='%s'", $compaction)
+	}
+
+	$r = if $retention == "" {
+		""
+	} else {
+		fmt.printf("--auto-compaction-retention='%s'", $retention)
+	}
+
+	$b = if $quota == "" {
+		""
+	} else {
+		fmt.printf("--quota-backend-bytes='%s'", $quota)
+	}
+
+	$l = [
+		$c,
+		$r,
+		$b,
+		"$OPTS", # the systemd token
+	]
+
+	$opts = strings.join_nonempty($l, " ")
+
+	$tmpl = struct{
+		exec => $exec,
+		user => $user,
+		opts => $opts,
+	}
+	file "${path}" {
+		state => "exists",
+		content => golang.template(deploy.readfile("/files/etcd.service.tmpl"), $tmpl),
+		mode => "u=rw,go=",
+		owner => "root",
+		group => "root",
+	}
+}
+
+class service() {
+	svc "etcd" {
+		state => "running",
+		startup => "enabled",
+
+		Depend => File["/etc/systemd/system/etcd.service"],
+	}
+}

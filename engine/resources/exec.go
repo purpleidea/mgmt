@@ -249,7 +249,7 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("the Creates param must be an absolute path")
 	}
 
-	// check that, if an user or a group is set, we're running as root
+	// check that, if a user or a group is set, we're running as root
 	if obj.User != "" || obj.Group != "" {
 		currentUser, err := user.Current()
 		if err != nil {

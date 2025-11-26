@@ -41,7 +41,9 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 func init() {
@@ -209,10 +211,11 @@ func (obj *GsettingsRes) makeComposite() (*ExecRes, error) {
 	if err != nil {
 		return nil, err
 	}
-	uid, err := obj.uid()
-	if err != nil {
-		return nil, err
-	}
+	// We can't do this now, since user might not exist yet!
+	//uid, err := obj.uid()
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	res, err := engine.NewNamedResource("exec", fmt.Sprintf(gsettingsTmpl, obj.Name()))
 	if err != nil {
@@ -240,14 +243,33 @@ func (obj *GsettingsRes) makeComposite() (*ExecRes, error) {
 	exec.User = obj.User
 	exec.Group = obj.Group
 
-	exec.Env = map[string]string{
+	// We can't do this now, since user might not exist yet!
+	//exec.Env = map[string]string{
+	//	// Either of these will work, so we'll include both for fun.
+	//	"DBUS_SESSION_BUS_ADDRESS": fmt.Sprintf("unix:path=/run/user/%d/bus", uid),
+	//	"XDG_RUNTIME_DIR":          fmt.Sprintf("/run/user/%d/", uid),
+	//}
+
+	//exec.Timeout = ? // TODO: should we have a timeout to prevent blocking?
+
+	return exec, nil
+}
+
+// setEnv pushes the data into the composite resource that we only have at the
+// Watch/CheckApply phase.
+func (obj *GsettingsRes) setEnv() error {
+	uid, err := obj.uid()
+	if err != nil {
+		return err
+	}
+
+	obj.exec.Env = map[string]string{
 		// Either of these will work, so we'll include both for fun.
 		"DBUS_SESSION_BUS_ADDRESS": fmt.Sprintf("unix:path=/run/user/%d/bus", uid),
 		"XDG_RUNTIME_DIR":          fmt.Sprintf("/run/user/%d/", uid),
 	}
-	//exec.Timeout = ? // TODO: should we have a timeout to prevent blocking?
 
-	return exec, nil
+	return nil
 }
 
 // Validate reports any problems with the struct definition.
@@ -304,6 +326,49 @@ func (obj *GsettingsRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *GsettingsRes) Watch(ctx context.Context) error {
+	// If we error, it's too early to run "monitor" command, because we need
+	// the user created to get the uid for the env paths...
+	if err := obj.setEnv(); err == nil { // hack to push in the correct env
+		return obj.exec.Watch(ctx)
+	}
+
+	// XXX: If the user is added by a different mechanism, we won't see it!
+	recWatcher, err := recwatch.NewRecWatcher(util.EtcPasswdFile, false)
+	if err != nil {
+		return err
+	}
+	defer recWatcher.Close()
+
+	obj.init.Running() // when started, notify engine that we're running
+
+	for {
+		if obj.init.Debug {
+			obj.init.Logf("watching: %s", util.EtcPasswdFile) // attempting to watch...
+		}
+
+		select {
+		case event, ok := <-recWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
+			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
+			}
+
+		case <-ctx.Done(): // closed by the engine to signal shutdown
+			return nil
+		}
+
+		obj.init.Event() // notify engine of an event (this can block)
+
+		if _, err := obj.uid(); err == nil {
+			break // we can watch normally now...
+		}
+	}
+
 	return obj.exec.Watch(ctx)
 }
 
@@ -311,6 +376,10 @@ func (obj *GsettingsRes) Watch(ctx context.Context) error {
 // input is true. It returns error info and if the state check passed or not.
 func (obj *GsettingsRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("%s", obj.exec.IfCmd) // "gsettings get"
+
+	if err := obj.setEnv(); err != nil { // hack to push in the correct env
+		return false, err
+	}
 
 	checkOK, err := obj.exec.CheckApply(ctx, apply)
 	if err != nil {

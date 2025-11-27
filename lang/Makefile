@@ -48,7 +48,7 @@ parser/y.go: parser/parser.y
 	@echo "Generating: parser..."
 	goyacc -v parser/y.output -o $@ $<
 	gofmt -s -w $@
-	goimports -l -w $@ # needed because it's a mess
+	goimports -l -w $@ > /dev/null # needed because it's a mess
 	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh 'parser/y.go'
 
 interpolate/parse.generated.go: interpolate/parse.rl

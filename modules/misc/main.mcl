@@ -498,15 +498,33 @@ class copr_enable($name) {
 
 # This removes any other flatpak remotes you have.
 # XXX: This should be a .d/ style thing. Replace with a "fragments" setup.
+# XXX: This doesn't work if the key isn't added. If we do the config file setup,
+# we get: "error: Unable to load summary from remote flathub" ... "Can't check
+# signature: public key not found"
 class flathub_enable() {
-	# flatpak
-	file "/var/lib/flatpak/repo/config" {
-		state => "exists",
-		content => deploy.readfile("/files/flatpak/config"),
-		mode => "u=rw,go=r",
-		owner => "root",
-		group => "root",
+	$remote = "flathub" # only one supported for now
+	$location = "https://dl.flathub.org/repo/flathub.flatpakrepo"
+	$p = "/var/lib/flatpak/repo/flathub.trustedkeys.gpg" # gets created
+
+	exec "flatpak-enable-flathub" {
+		cmd => "/usr/bin/flatpak",
+		args => [
+			"remote-add",
+			"--system", # the default
+			"--if-not-exists", # why not i guess
+			"${remote}",
+			"${location}",
+		],
+		creates => $p, # TODO: is there something better?
+		user => "root", # system wide flatpak
 	}
+	#file "/var/lib/flatpak/repo/config" {
+	#	state => "exists",
+	#	content => deploy.readfile("/files/flatpak/config"),
+	#	mode => "u=rw,go=r",
+	#	owner => "root",
+	#	group => "root",
+	#}
 }
 
 class flatpak_enable($name) {
@@ -531,7 +549,7 @@ class flatpak_enable($name) {
 		creates => $p, # TODO: is there something better?
 		user => "root", # system wide flatpak
 
-		Depend => File["/var/lib/flatpak/repo/config"],
+		Depend => Exec["flatpak-enable-flathub"],
 	}
 }
 

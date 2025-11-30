@@ -110,7 +110,9 @@ type ExecRes struct {
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_KEY -> value.
 	// Omitting this value or setting it to an empty array will cause the
-	// program to be run with an empty environment.
+	// program to be run with an empty environment. These values are used
+	// for every command. If there's a legitimate need to have different
+	// environments for each command, then we'll split that out eventually.
 	Env map[string]string `lang:"env" yaml:"env"`
 
 	// WatchCmd is the command to run to detect event changes. Each line of
@@ -320,6 +322,18 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		defer cancel()
 		cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
 		cmd.Dir = obj.WatchCwd // run program in pwd if ""
+
+		envKeys := []string{}
+		for key := range obj.Env {
+			envKeys = append(envKeys, key)
+		}
+		sort.Strings(envKeys)
+		cmdEnv := []string{}
+		for _, k := range envKeys {
+			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+		}
+		cmd.Env = cmdEnv
+
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
@@ -484,6 +498,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.IfCwd // run program in pwd if ""
+
+		envKeys := []string{}
+		for key := range obj.Env {
+			envKeys = append(envKeys, key)
+		}
+		sort.Strings(envKeys)
+		cmdEnv := []string{}
+		for _, k := range envKeys {
+			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+		}
+		cmd.Env = cmdEnv
+
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
@@ -565,6 +591,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.NIfCwd // run program in pwd if ""
+
+		envKeys := []string{}
+		for key := range obj.Env {
+			envKeys = append(envKeys, key)
+		}
+		sort.Strings(envKeys)
+		cmdEnv := []string{}
+		for _, k := range envKeys {
+			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+		}
+		cmd.Env = cmdEnv
+
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,
@@ -819,6 +857,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
 		cmd.Dir = obj.DoneCwd // run program in pwd if ""
+
+		envKeys := []string{}
+		for key := range obj.Env {
+			envKeys = append(envKeys, key)
+		}
+		sort.Strings(envKeys)
+		cmdEnv := []string{}
+		for _, k := range envKeys {
+			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+		}
+		cmd.Env = cmdEnv
+
 		// ignore signals sent to parent process (we're in our own group)
 		cmd.SysProcAttr = &syscall.SysProcAttr{
 			Setpgid: true,

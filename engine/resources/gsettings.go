@@ -369,7 +369,9 @@ func (obj *GsettingsRes) Watch(ctx context.Context) error {
 		}
 	}
 
-	return obj.exec.Watch(ctx)
+	// TODO: Is recursion depth an issue here on some pathological host?
+	return obj.Watch(ctx) // Try the obj.setEnv() again before we Watch!
+	//return obj.exec.Watch(ctx)
 }
 
 // CheckApply checks the resource state and applies the resource if the bool

@@ -1,0 +1,6 @@
+# Run this as root. Then manually create the user. Should still work!
+gsettings "org.gnome.desktop.interface clock-show-seconds" {
+	type => "bool",
+	value => true,
+	user => "james",
+}

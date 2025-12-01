@@ -33,6 +33,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -102,6 +104,13 @@ type SSHAuthorizedKeyRes struct {
 	// specifying this is optional.
 	Comment string `lang:"comment" yaml:"comment"`
 
+	// Mkdir will make the .ssh/ directory if it doesn't already exist. This
+	// only makes the immediate directory, this is not `mkdir -p`, and it
+	// only does so if the HOME directory (parent of the .ssh/) already
+	// exists. This never removes the .ssh/ directory if state is absent.
+	// This defaults to true.
+	Mkdir bool `lang:"mkdir" yaml:"mkdir"`
+
 	// XXX: Add a "Magic" param, which if true, would edit any entry instead
 	// of just adding a new one. It would do so by determining which old
 	// line to edit by looking for one with the same "comment". To find that
@@ -123,7 +132,9 @@ type SSHAuthorizedKeyRes struct {
 
 // Default returns some sensible defaults for this resource.
 func (obj *SSHAuthorizedKeyRes) Default() engine.Res {
-	return &SSHAuthorizedKeyRes{}
+	return &SSHAuthorizedKeyRes{
+		Mkdir: true,
+	}
 }
 
 // parseLine checks if an authorized_keys line is valid and if so, returns a
@@ -320,13 +331,60 @@ func (obj *SSHAuthorizedKeyRes) Watch(ctx context.Context) error {
 	return obj.line.Watch(ctx)
 }
 
+// fileCheckApply creates the .ssh/ directory if needed.
+func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if !obj.Mkdir {
+		return true, nil
+	}
+	if obj.State != "exists" {
+		return true, nil
+	}
+
+	p, err := obj.getFile() // */.ssh/authorized_keys
+	if err != nil {
+		return false, err
+	}
+	dir := filepath.Dir(p) + "/"  // */.ssh/
+	d := filepath.Base(dir) + "/" // .ssh/
+	if d != ".ssh/" {             // can't do anything if it's not this pattern...
+		return true, nil
+	}
+
+	if _, err := os.Stat(dir); err == nil {
+		return true, nil // already exists
+	} else if err != nil && !os.IsNotExist(err) {
+		return false, errwrap.Wrapf(err, "could not stat dir")
+	}
+
+	// state is not okay, no work done, exit, but without error
+	if !apply {
+		return false, nil
+	}
+
+	// create the empty directory
+	if err := os.Mkdir(dir, 0700); err != nil {
+		return false, err
+	}
+	obj.init.Logf("mkdir %s", dir)
+
+	return false, nil
+}
+
 // CheckApply method for SSHAuthorizedKey resource.
 func (obj *SSHAuthorizedKeyRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	//obj.init.Logf("%s", obj.line.?) // "check"
 
-	checkOK, err := obj.line.CheckApply(ctx, apply)
-	if err != nil {
-		return checkOK, err
+	checkOK := true
+
+	if c, err := obj.fileCheckApply(ctx, apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
+	if c, err := obj.line.CheckApply(ctx, apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
 	}
 
 	if !checkOK {
@@ -381,6 +439,10 @@ func (obj *SSHAuthorizedKeyRes) Cmp(r engine.Res) error {
 	}
 	if obj.Comment != res.Comment {
 		return fmt.Errorf("the Comment differs")
+	}
+
+	if obj.Mkdir != res.Mkdir {
+		return fmt.Errorf("the Mkdir differs")
 	}
 
 	// TODO: why is res.line ever nil?

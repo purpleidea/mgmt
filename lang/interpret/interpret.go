@@ -66,7 +66,7 @@ type Interpreter struct {
 	receive map[engine.ResPtrUID]map[string]*engine.Send
 
 	// export tracks the unique combinations we export. (kind, name, host)
-	export map[engine.ResDelete]struct{}
+	export map[engine.ResDelete]engine.Res
 }
 
 // Interpret runs the program and outputs a generated resource graph. It
@@ -83,7 +83,7 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 	// build the send/recv mapping
 	obj.receive = make(map[engine.ResPtrUID]map[string]*engine.Send)
 	// build the exports
-	obj.export = make(map[engine.ResDelete]struct{})
+	obj.export = make(map[engine.ResDelete]engine.Res)
 
 	// Remember that if a resource is "Hidden", then make sure it is NOT
 	// sending to anyone, since it would never produce a value. It can
@@ -145,10 +145,20 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 				Name: name,
 				Host: host,
 			}
-			if _, exists := obj.export[uid]; exists {
-				return nil, fmt.Errorf("duplicate export: %s to %s", res, host)
+
+			r, exists := obj.export[uid]
+			if !exists {
+				obj.export[uid] = res // add to temporary lookup table
+				continue
 			}
-			obj.export[uid] = struct{}{}
+
+			// if these are exactly identical, it's OK.
+			// TODO: Do we want to also do AdaptCmp? Probably not,
+			// because exported resources are often just partials...
+			if err := engine.ResCmp(r, res); err != nil {
+				// TODO: print a diff of the two resources
+				return nil, errwrap.Wrapf(err, "inequivalent duplicate export: %s to %s", res, host)
+			}
 		}
 
 		if meta.Hidden {

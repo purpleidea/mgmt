@@ -36,9 +36,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -74,12 +76,16 @@ type SSHAuthorizedKeyRes struct {
 	// File is the authorized_keys file to edit. By default, if unspecified,
 	// this used the file at ~/.ssh/authorized_keys for the given user. You
 	// can specify the user field instead of this to have that specific user
-	// expanded. The ~user/ patterns will be expanded here. This can't be
-	// combined with the User param.
+	// expanded. The ~user/ patterns will be expanded here. This takes
+	// precedence over the User param (for determining the path) if that is
+	// specified.
 	File string `lang:"file" yaml:"file"`
 
-	// User specifies the expansion for the file path lookup. This can't be
-	// combined with the File param.
+	// User specifies the expansion for the file path lookup. If user is
+	// specified, then the dir (if created with the Mkdir option) and the
+	// authorized_keys file (if it needs to be created) will be owned by
+	// this user. If the File param is specified, then this is only used for
+	// ownership changes.
 	User string `lang:"user" yaml:"user"`
 
 	// Content is the line to add to the file. It will get parsed and
@@ -199,11 +205,11 @@ func (obj *SSHAuthorizedKeyRes) getLine() (string, error) {
 // getFile returns the path to the file that we want to edit.
 func (obj *SSHAuthorizedKeyRes) getFile() (string, error) {
 	f := "~/.ssh/authorized_keys" // default
-	if obj.File != "" {
-		f = obj.File
-	}
 	if obj.User != "" {
 		f = fmt.Sprintf("~%s/.ssh/authorized_keys", obj.User)
+	}
+	if obj.File != "" { // takes precedence over user
+		f = obj.File
 	}
 	p, err := util.ExpandHome(f)
 	if err != nil {
@@ -252,9 +258,9 @@ func (obj *SSHAuthorizedKeyRes) Validate() error {
 		return fmt.Errorf("state must be 'exists' or 'absent'")
 	}
 
-	if obj.File != "" && obj.User != "" {
-		return fmt.Errorf("can't use File and User params at the same time")
-	}
+	//if obj.File != "" && obj.User != "" {
+	//	return fmt.Errorf("can't use File and User params at the same time")
+	//}
 	if obj.User != "" {
 		if err := util.ValidUser(obj.User); err != nil {
 			return err
@@ -340,10 +346,12 @@ func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool) 
 		return true, nil
 	}
 
-	p, err := obj.getFile() // */.ssh/authorized_keys
-	if err != nil {
-		return false, err
-	}
+	p := obj.line.File // already stored here
+	//p, err := obj.getFile() // */.ssh/authorized_keys
+	//if err != nil {
+	//	return false, err
+	//}
+
 	dir := filepath.Dir(p) + "/"  // */.ssh/
 	d := filepath.Base(dir) + "/" // .ssh/
 	if d != ".ssh/" {             // can't do anything if it's not this pattern...
@@ -367,7 +375,7 @@ func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool) 
 	}
 	obj.init.Logf("mkdir %s", dir)
 
-	return false, nil
+	return false, obj.chown(dir)
 }
 
 // CheckApply method for SSHAuthorizedKey resource.
@@ -381,10 +389,27 @@ func (obj *SSHAuthorizedKeyRes) CheckApply(ctx context.Context, apply bool) (boo
 	} else if !c {
 		checkOK = false
 	}
+
+	// Check if file exists before we run the line resource...
+	exists := false
+	if _, err := os.Stat(obj.line.File); err != nil && !os.IsNotExist(err) {
+		return false, errwrap.Wrapf(err, "could not stat file")
+	} else if err == nil {
+		exists = true
+	}
+
 	if c, err := obj.line.CheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
+		// We only chown if we probably created the file. Because we
+		// don't want to potentially fight with a file resource which is
+		// doing more precisely what the user asked for.
+		if !exists { // we must have created it, so chown it...
+			if err := obj.chown(obj.line.File); err != nil {
+				return false, err
+			}
+		}
 	}
 
 	if !checkOK {
@@ -476,4 +501,51 @@ func (obj *SSHAuthorizedKeyRes) UnmarshalYAML(unmarshal func(interface{}) error)
 
 	*obj = SSHAuthorizedKeyRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// chown is a general utility to chown the path in question.
+func (obj *SSHAuthorizedKeyRes) chown(p string) error {
+	if obj.User == "" {
+		return nil // can't do anything
+	}
+
+	fileInfo, err := os.Stat(p)
+	if err != nil { // if the file does not exist, it's correct to error!
+		return err
+	}
+
+	stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		// not unix
+		return fmt.Errorf("can't set Owner or Group on this platform")
+	}
+
+	var expectedUID, expectedGID int
+
+	if obj.User != "" {
+		expectedUID, err = engineUtil.GetUID(obj.User)
+		if err != nil {
+			return err
+		}
+	} else {
+		// nothing specified, no changes to be made, expect same as actual
+		expectedUID = int(stUnix.Uid)
+	}
+	//if obj.Group != "" {
+	//	expectedGID, err = engineUtil.GetGID(obj.Group)
+	//	if err != nil {
+	//		return false, err
+	//	}
+	//} else {
+	//	// nothing specified, no changes to be made, expect same as actual
+	expectedGID = int(stUnix.Gid)
+	//}
+
+	// nothing to do
+	if int(stUnix.Uid) == expectedUID && int(stUnix.Gid) == expectedGID {
+		return nil
+	}
+
+	obj.init.Logf("chown %s", p)
+	return os.Chown(p, expectedUID, expectedGID)
 }

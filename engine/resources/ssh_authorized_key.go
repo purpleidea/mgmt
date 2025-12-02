@@ -211,11 +211,15 @@ func (obj *SSHAuthorizedKeyRes) getFile() (string, error) {
 	if obj.File != "" { // takes precedence over user
 		f = obj.File
 	}
-	p, err := util.ExpandHome(f)
-	if err != nil {
-		return "", err
-	}
-	return p, nil
+
+	// If we're exporting this, we can't expand this in Init because the
+	// user won't necessarily exist or have the right $HOME directory...
+	// Therefore we only expand on CheckApply/Watch when it's being used.
+	//p, err := util.ExpandHome(f)
+	//if err != nil {
+	//	return "", err
+	//}
+	return f, nil
 }
 
 // makeComposite creates a pointer to a LineRes. The pointer is used to validate
@@ -338,7 +342,7 @@ func (obj *SSHAuthorizedKeyRes) Watch(ctx context.Context) error {
 }
 
 // fileCheckApply creates the .ssh/ directory if needed.
-func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool, file string) (bool, error) {
 	if !obj.Mkdir {
 		return true, nil
 	}
@@ -346,15 +350,9 @@ func (obj *SSHAuthorizedKeyRes) fileCheckApply(ctx context.Context, apply bool) 
 		return true, nil
 	}
 
-	p := obj.line.File // already stored here
-	//p, err := obj.getFile() // */.ssh/authorized_keys
-	//if err != nil {
-	//	return false, err
-	//}
-
-	dir := filepath.Dir(p) + "/"  // */.ssh/
-	d := filepath.Base(dir) + "/" // .ssh/
-	if d != ".ssh/" {             // can't do anything if it's not this pattern...
+	dir := filepath.Dir(file) + "/" // */.ssh/
+	d := filepath.Base(dir) + "/"   // .ssh/
+	if d != ".ssh/" {               // can't do anything if it's not this pattern...
 		return true, nil
 	}
 
@@ -384,7 +382,12 @@ func (obj *SSHAuthorizedKeyRes) CheckApply(ctx context.Context, apply bool) (boo
 
 	checkOK := true
 
-	if c, err := obj.fileCheckApply(ctx, apply); err != nil {
+	p, err := util.ExpandHome(obj.line.File)
+	if err != nil {
+		return false, err
+	}
+
+	if c, err := obj.fileCheckApply(ctx, apply, p); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -392,7 +395,7 @@ func (obj *SSHAuthorizedKeyRes) CheckApply(ctx context.Context, apply bool) (boo
 
 	// Check if file exists before we run the line resource...
 	exists := false
-	if _, err := os.Stat(obj.line.File); err != nil && !os.IsNotExist(err) {
+	if _, err := os.Stat(p); err != nil && !os.IsNotExist(err) {
 		return false, errwrap.Wrapf(err, "could not stat file")
 	} else if err == nil {
 		exists = true
@@ -406,7 +409,7 @@ func (obj *SSHAuthorizedKeyRes) CheckApply(ctx context.Context, apply bool) (boo
 		// don't want to potentially fight with a file resource which is
 		// doing more precisely what the user asked for.
 		if !exists { // we must have created it, so chown it...
-			if err := obj.chown(obj.line.File); err != nil {
+			if err := obj.chown(p); err != nil {
 				return false, err
 			}
 		}

@@ -38,6 +38,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -63,7 +64,8 @@ type LineRes struct {
 
 	init *engine.Init
 
-	// File is the absolute path to the file that we are managing.
+	// File is the absolute path to the file that we are managing. If this
+	// contains a ~user/foo/ or ~/foo/ type directory, then expand it.
 	// TODO: Allow the Name to be something like ${path}:some-contents ?
 	File string `lang:"file" yaml:"file"`
 
@@ -93,6 +95,11 @@ func (obj *LineRes) getContent() string {
 	return strings.TrimSpace(obj.Content)
 }
 
+// getFile is a helper to get the actual file to use.
+func (obj *LineRes) getFile() (string, error) {
+	return util.ExpandHome(obj.File)
+}
+
 // Default returns some sensible defaults for this resource.
 func (obj *LineRes) Default() engine.Res {
 	return &LineRes{}
@@ -101,7 +108,7 @@ func (obj *LineRes) Default() engine.Res {
 // Validate if the params passed in are valid data.
 func (obj *LineRes) Validate() error {
 
-	if !strings.HasPrefix(obj.File, "/") {
+	if !strings.HasPrefix(obj.File, "/") && !strings.HasPrefix(obj.File, "~/") {
 		return fmt.Errorf("the File must be absolute")
 	}
 	if strings.HasSuffix(obj.File, "/") {
@@ -129,7 +136,12 @@ func (obj *LineRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *LineRes) Watch(ctx context.Context) error {
-	recWatcher, err := recwatch.NewRecWatcher(obj.File, false)
+	f, err := obj.getFile()
+	if err != nil {
+		return err
+	}
+
+	recWatcher, err := recwatch.NewRecWatcher(f, false)
 	if err != nil {
 		return err
 	}
@@ -139,7 +151,7 @@ func (obj *LineRes) Watch(ctx context.Context) error {
 
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("watching: %s", obj.File) // attempting to watch...
+			obj.init.Logf("watching: %s", f) // attempting to watch...
 		}
 
 		select {
@@ -200,8 +212,12 @@ func (obj *LineRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 // false.
 func (obj *LineRes) check(ctx context.Context) (bool, error) {
 	matchLines := strings.Split(obj.getContent(), "\n")
+	f, err := obj.getFile()
+	if err != nil {
+		return false, err
+	}
 
-	file, err := os.Open(obj.File)
+	file, err := os.Open(f)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -253,8 +269,12 @@ func (obj *LineRes) check(ctx context.Context) (bool, error) {
 // if something went permanently wrong.
 func (obj *LineRes) remove(ctx context.Context) (bool, error) {
 	matchLines := strings.Split(obj.getContent(), "\n")
+	f, err := obj.getFile()
+	if err != nil {
+		return false, err
+	}
 
-	file, err := os.Open(obj.File)
+	file, err := os.Open(f)
 	if err != nil {
 		return false, err
 	}
@@ -320,7 +340,7 @@ func (obj *LineRes) remove(ctx context.Context) (bool, error) {
 
 	// write out the updated file
 	output := strings.Join(newLines, "\n") + nl // preserve newline at EOF
-	return false, os.WriteFile(obj.File, []byte(output), 0600)
+	return false, os.WriteFile(f, []byte(output), 0600)
 }
 
 // add returns true if it did nothing. false if it add a line. It errors if
@@ -329,7 +349,12 @@ func (obj *LineRes) remove(ctx context.Context) (bool, error) {
 // TODO: add at beginning or at end of file?
 // XXX: do the duplicate check at the same time?
 func (obj *LineRes) add(ctx context.Context) (bool, error) {
-	file, err := os.OpenFile(obj.File, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f, err := obj.getFile()
+	if err != nil {
+		return false, err
+	}
+
+	file, err := os.OpenFile(f, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return false, err
 	}

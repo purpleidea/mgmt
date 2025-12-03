@@ -38,6 +38,8 @@ import (
 
 func TestExpandHome(t *testing.T) {
 	usr, _ := user.Current()
+	t.Logf("username: %s", usr.Username)
+
 	var expandHomeTests = []struct {
 		path     string
 		expanded string

@@ -132,6 +132,9 @@ type ExecRes struct {
 	// this command succeeds, then Cmd *will not* be blocked from running.
 	// If this command returns a non-zero result, then the Cmd will not be
 	// run. Any error scenario or timeout will cause the resource to error.
+	// There is *no* guarantee that this command will be ever run. For
+	// example, if one of the Mtimes is newer, we won't be able to block the
+	// main command from running, and this check might be skipped.
 	IfCmd string `lang:"ifcmd" yaml:"ifcmd"`
 
 	// IfCwd is the Cwd for the IfCmd. See the docs for Cwd.
@@ -151,7 +154,9 @@ type ExecRes struct {
 	// this command succeeds, then Cmd *will* be blocked from running. If
 	// this command returns a non-zero result, then the Cmd will be allowed
 	// to run if not blocked by anything else. This is the opposite of the
-	// IfCmd.
+	// IfCmd. There is *no* guarantee that this command will be ever run.
+	// For example, if one of the Mtimes is newer, we won't be able to block
+	// the main command from running, and this check might be skipped.
 	NIfCmd string `lang:"nifcmd" yaml:"nifcmd"`
 
 	// NIfCwd is the Cwd for the NIfCmd. See the docs for Cwd.
@@ -164,8 +169,25 @@ type ExecRes struct {
 	// main cmd. If this path exists, then the cmd will not run. More
 	// precisely we attempt to `stat` the file, so it must succeed for a
 	// skip. This also adds a watch on this path which re-checks things when
-	// it changes.
+	// it changes. There is *no* guarantee that this check will be used if
+	// for example one of the Mtimes is newer, we won't be able to block the
+	// main command from running, and this check might be skipped.
 	Creates string `lang:"creates" yaml:"creates"`
+
+	// Mtimes is a list of files that will be kept track of. When any of the
+	// mtimes is newer than the time the last command ran, then the command
+	// will run again. This also adds a watch to each of these paths, and
+	// will error if any of these files is missing. If any of these indicate
+	// that the command needs running again, it will do so, even if it would
+	// otherwise be blocked by IfCmd, NIfCmd, Creates and so on... Keep in
+	// mind that use of this param may prevent IfCmd or others from running!
+	// The reason it's okay to err on the side of causing a new exec of the
+	// main command, is because they're supposed to be idempotent most of
+	// the time, and at worst, they should be expensive, not catastrophic!
+	// You may wish to combine this with `ifcmd => "/bin/false"` to prevent
+	// the command running when the mtimes are not out of date, since this
+	// only forces a run, it doesn't block a run.
+	Mtimes []string `lang:"mtimes" yaml:"mtimes"`
 
 	// DoneCmd is the command that runs after the regular Cmd runs
 	// successfully. This is a useful pattern to avoid the shelling out to
@@ -251,6 +273,12 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("the Creates param must be an absolute path")
 	}
 
+	for _, file := range obj.Mtimes {
+		if !strings.HasPrefix(file, "/") {
+			return fmt.Errorf("the path (`%s`) in Mtimes must be absolute", file)
+		}
+	}
+
 	// check that, if a user or a group is set, we're running as root
 	if obj.User != "" || obj.Group != "" {
 		currentUser, err := user.Current()
@@ -298,7 +326,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 	defer wg.Wait()
 
 	ioChan := make(chan *cmdOutput)
-	rwChan := make(chan recwatch.Event)
 	filesChan := make(chan recwatch.Event)
 
 	var watchCmd *exec.Cmd
@@ -352,7 +379,13 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		}
 	}
 
-	for _, file := range obj.WatchFiles {
+	fileList := []string{}
+	fileList = append(fileList, obj.Mtimes...)
+	fileList = append(fileList, obj.WatchFiles...)
+	if obj.Creates != "" {
+		fileList = append(fileList, obj.Creates)
+	}
+	for _, file := range fileList {
 		recurse := strings.HasSuffix(file, "/") // check if it's a file or dir
 		recWatcher, err := recwatch.NewRecWatcher(file, recurse)
 		if err != nil {
@@ -390,15 +423,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				}
 			}
 		}()
-	}
-
-	if obj.Creates != "" {
-		recWatcher, err := recwatch.NewRecWatcher(obj.Creates, false)
-		if err != nil {
-			return err
-		}
-		defer recWatcher.Close()
-		rwChan = recWatcher.Events()
 	}
 
 	obj.init.Running() // when started, notify engine that we're running
@@ -445,14 +469,6 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				continue
 			}
 
-		case event, ok := <-rwChan:
-			if !ok { // channel shutdown
-				return fmt.Errorf("unexpected recwatch shutdown")
-			}
-			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
-			}
-
 		case files, ok := <-filesChan:
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected recwatch shutdown")
@@ -481,7 +497,37 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, err
 	}
 
-	if obj.IfCmd != "" { // if there is no onlyif check, we should just run
+	forceRun := false
+	var mtime time.Time
+	if len(obj.Mtimes) > 0 {
+		p := path.Join(obj.dir, "mtimes")
+		fileInfo, err := os.Stat(p)
+		if err != nil && !os.IsNotExist(err) {
+			return false, err
+		}
+		if err == nil {
+			mtime = fileInfo.ModTime()
+		}
+		// otherwise mtime stays zero! (file doesn't exist yet)
+	}
+	for _, f := range obj.Mtimes {
+		fileInfo, err := os.Stat(f)
+		if err != nil {
+			return false, err
+		}
+
+		m := fileInfo.ModTime()
+		if m.After(mtime) { // if m is after mtime
+			// Yes there could be some file with an mtime in the
+			// future, but we don't need to worry about that
+			// scenario, since we'll set the mtime to a time after
+			// the command ran. (Same as when DoneCmd would run.)
+			forceRun = true
+			break
+		}
+	}
+
+	if obj.IfCmd != "" && !forceRun { // if there is no onlyif check, we should just run
 		var cmdName string
 		var cmdArgs []string
 		if obj.IfShell == "" {
@@ -574,7 +620,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
-	if obj.NIfCmd != "" { // opposite of the ifcmd check
+	if obj.NIfCmd != "" && !forceRun { // opposite of the ifcmd check
 		var cmdName string
 		var cmdArgs []string
 		if obj.NIfShell == "" {
@@ -673,7 +719,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		//}
 	}
 
-	if obj.Creates != "" { // gate the extra syscall
+	if obj.Creates != "" && !forceRun { // gate the extra syscall
 		if _, err := os.Stat(obj.Creates); err == nil {
 			obj.init.Logf("creates file exists, skipping cmd")
 			//if err := obj.checkApplyWriteCache(); err != nil {
@@ -919,6 +965,22 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
+	// Store the mtime as an mtime of last run time.
+	if len(obj.Mtimes) > 0 {
+		p := path.Join(obj.dir, "mtimes")
+		f, err := os.OpenFile(p, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+		if err != nil {
+			return false, err
+		}
+		// If you don't write anything, this won't update the mtime of the file!
+		if _, err := f.WriteString(time.Now().Format(time.RFC3339Nano) + "\n"); err != nil {
+			return false, err
+		}
+		if err := f.Close(); err != nil {
+			return false, err
+		}
+	}
+
 	if err := obj.checkApplyWriteCache(); err != nil {
 		return false, err
 	}
@@ -1074,6 +1136,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the Creates differs")
 	}
 
+	if err := engineUtil.StrListCmp(obj.Mtimes, res.Mtimes); err != nil {
+		return errwrap.Wrapf(err, "the Mtimes differ")
+	}
 	if obj.DoneCmd != res.DoneCmd {
 		return fmt.Errorf("the DoneCmd differs")
 	}

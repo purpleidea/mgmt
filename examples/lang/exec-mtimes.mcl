@@ -1,0 +1,21 @@
+# Don't use --tmp-prefix when testing, or you won't see the effect between runs.
+# You can `touch` foo or bar to see that this will cause whatever to be updated.
+file "/tmp/foo" {
+	state => "exists",
+}
+file "/tmp/bar" {
+	state => "exists",
+}
+exec "exec0" {
+	cmd => "date > /tmp/whatever",
+	shell => "/bin/bash",
+
+	mtimes => [ # a watch event is taken on these file paths!
+		"/tmp/foo",
+		"/tmp/bar",
+	],
+	ifcmd => "/bin/false", # include this to prevent unnecessary runs!
+
+	Depend => File["/tmp/foo"],
+	Depend => File["/tmp/bar"],
+}

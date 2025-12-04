@@ -97,7 +97,16 @@ func (obj *LineRes) getContent() string {
 
 // getFile is a helper to get the actual file to use.
 func (obj *LineRes) getFile() (string, error) {
-	return util.ExpandHome(obj.File)
+	b := strings.HasPrefix(obj.File, "~")
+	s, err := util.ExpandHome(obj.File)
+	if err != nil {
+		return "", err
+	}
+	if b && obj.File == s {
+		// We had a ~ prefix, but it didn't expand to anything.
+		return "", fmt.Errorf("invalid tilde prefix for path: %s", obj.File)
+	}
+	return s, nil
 }
 
 // Default returns some sensible defaults for this resource.
@@ -108,7 +117,8 @@ func (obj *LineRes) Default() engine.Res {
 // Validate if the params passed in are valid data.
 func (obj *LineRes) Validate() error {
 
-	if !strings.HasPrefix(obj.File, "/") && !strings.HasPrefix(obj.File, "~/") {
+	// A path of the form ~/ or ~user/ we'll let through...
+	if !strings.HasPrefix(obj.File, "/") && !strings.HasPrefix(obj.File, "~") {
 		return fmt.Errorf("the File must be absolute")
 	}
 	if strings.HasSuffix(obj.File, "/") {

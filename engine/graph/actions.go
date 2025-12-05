@@ -519,12 +519,10 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 					obj.Logf("%s: Watch...", vertex)
 				}
 				err = res.Watch(state.doneCtx) // run the watch normally
-				if obj.Debug {
-					if s := engineUtil.CleanError(err); err != nil {
-						obj.Logf("%s: Watch Error: %s", vertex, s)
-					} else {
-						obj.Logf("%s: Watch Exited...", vertex)
-					}
+				if s := engineUtil.CleanError(err); err != nil {
+					obj.Logf("%s: Watch Error: %s", vertex, s)
+				} else if obj.Debug {
+					obj.Logf("%s: Watch Exited...", vertex)
 				}
 				state.cuid.StopTimer() // clean up nicely
 			}

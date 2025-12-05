@@ -308,12 +308,10 @@ func (obj *Engine) Commit() error {
 				}
 				// contains the Watch and CheckApply loops
 				err := obj.Worker(v)
-				if obj.Debug || true {
-					if s := engineUtil.CleanError(err); err != nil {
-						obj.Logf("%s: Error: %s", v, s)
-					} else {
-						obj.Logf("%s: Exited...", v)
-					}
+				if s := engineUtil.CleanError(err); err != nil {
+					obj.Logf("%s: Error: %s", v, s)
+				} else if obj.Debug {
+					obj.Logf("%s: Exited...", v)
 				}
 				obj.errMutex.Lock()
 				obj.state[v].workerErr = err // store the error

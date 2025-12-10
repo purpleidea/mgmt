@@ -27,22 +27,27 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
+import "convert"
 import "deploy"
 import "fmt"
 import "iter"
 import "golang"
 import "golang/strings" as golang_strings
+import "os"
 import "strings"
 import "world/collect"
 
+import "git://github.com/purpleidea/mgmt/modules/misc/"
+
 # class server pulls in everything for you to run a simple etcd server.
 class server($st) {
-	$ip = $st->ip || "" # TODO: auto-detect
+	$host = $st->host || "" # TODO: auto-detect ip?
+	$port = $st->port || 22
 
 	user "etcd" {
 		state => "exists",
 		homedir => "/var/lib/etcd/",
-		shell => "/sbin/nologin", # TODO: /usr/sbin/nologin one day
+		shell => "/usr/sbin/nologin", # TODO: /usr/sbin/nologin one day
 
 		Before => File["/etc/systemd/system/etcd.service"],
 	}
@@ -51,6 +56,9 @@ class server($st) {
 		exec => "mgmt etcd", # full path to mgmt is optional
 		user => "etcd",
 	})
+
+	include misc.systemd_daemon_reload("systemctl daemon-reload")
+	File["/etc/systemd/system/etcd.service"] -> Exec["systemctl daemon-reload"] -> Svc["etcd"]
 
 	include service()
 
@@ -78,7 +86,11 @@ class server($st) {
 	# export the server information for provisioners to read it...
 	# XXX: eventually export as `mapped => true` for multiple servers
 	kv "etcd_server" {
-		value => "${ip}",
+		value => "${host}",
+	}
+	$port_str = convert.int_to_str($port)
+	kv "etcd_server_port" {
+		value => "${port_str}",
 	}
 
 	# for some buggy reason, these .pub files end the key with a space

@@ -41,6 +41,7 @@ import "list"
 import "local"
 import "net"
 import "os"
+import "sys"
 import "value"
 import "world"
 
@@ -54,14 +55,33 @@ class base($config) {
 	#
 	#	variables
 	#
-	$interface = $config->interface || "eth0"	# XXX: what if no interface exists?
+	$interface_env = sys.getenv("MGMT_PROVISIONER_INTERFACE")
+	$interface_def = if $interface_env == "" {
+		"eth0"
+	} else {
+		$interface_env
+	}
+	$interface = $config->interface || "${interface_def}"	# XXX: what if no interface exists?
 	#$interface = _struct_lookup_optional($config, "interface", "eth0")
 
 	$http_port = $config->http_port || 4280	# using :4280 avoids needing root and isn't in /etc/services
 	$http_port_str = fmt.printf("%d", $http_port)
 
-	$network = $config->network || "192.168.42.0/24"
-	$router = $config->router || "192.168.42.1/24"
+	# if $network is the empty string, then we don't do any dhcp ourselves!
+	# if $network is the empty string, then we don't bring up the interface!
+	$network_def = if sys.hasenv("MGMT_PROVISIONER_NETWORK") {
+		sys.getenv("MGMT_PROVISIONER_NETWORK")
+	} else {
+		"192.168.42.0/24"
+	}
+	$network = $config->network || "${network_def}"
+
+	$router_def = if sys.hasenv("MGMT_PROVISIONER_ROUTER") {
+		sys.getenv("MGMT_PROVISIONER_ROUTER")
+	} else {
+		"192.168.42.1/24"
+	}
+	$router = $config->router || "${router_def}"
 	$router_ip = net.cidr_to_ip($router) # removes cidr suffix
 
 	$dns = $config->dns || ["8.8.8.8", "1.1.1.1",] # maybe google/cloudflare will sponsor!
@@ -91,16 +111,18 @@ class base($config) {
 	#
 	#	network
 	#
-	net "${interface}" {
-		state => $const.res.net.state.up,
-		addrs => [$router,],	# has cidr suffix
-		#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
+	if $network != "" {
+		net "${interface}" {
+			state => $const.res.net.state.up,
+			addrs => [$router,],	# has cidr suffix
+			#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
 
-		ip_forward => true,	# XXX: does this work?
+			ip_forward => true,	# XXX: does this work?
 
-		Meta:reverse => true,	# XXX: ^C doesn't reverse atm. Fix that!
+			Meta:reverse => true,	# XXX: ^C doesn't reverse atm. Fix that!
 
-		Before => Dhcp:Server[":67"], # TODO: add autoedges
+			Before => Dhcp:Server[":67"], # TODO: add autoedges
+		}
 	}
 
 	#
@@ -178,15 +200,17 @@ class base($config) {
 	#
 	#	dhcp
 	#
-	dhcp:server ":67" {
-		interface => $interface, # required for now
-		leasetime => "10m", # seems some clients refresh half way at 5m
-		dns => $dns,	# pick your own better ones!
-		routers => [$router_ip,],
+	if $network != "" {
+		dhcp:server ":67" {
+			interface => $interface, # required for now
+			leasetime => "10m", # seems some clients refresh half way at 5m
+			dns => $dns,	# pick your own better ones!
+			routers => [$router_ip,],
 
-		serverid => $router_ip, # XXX: test automatic mode
+			serverid => $router_ip, # XXX: test automatic mode
 
-		#Depend => Net[$interface], # TODO: add autoedges
+			#Depend => Net[$interface], # TODO: add autoedges
+		}
 	}
 
 	#
@@ -207,6 +231,8 @@ class base($config) {
 		#source => "", # this default means empty directory
 		recurse => true,
 		purge => true, # remove unmanaged files in here
+
+		Depend => File["${http_prefix}"],
 	}
 
 	$vardir = local.vardir("provisioner/")
@@ -262,7 +288,7 @@ class base($config) {
 		Meta:autogroup => false,
 
 		Depend => Tftp:Server[":69"],
-		Depend => Dhcp:Server[":67"],
+		Depend => $network != "" ?: Dhcp:Server[":67"],
 		Depend => Http:Server[":${http_port_str}"],
 	}
 
@@ -297,18 +323,28 @@ class base:repo($config) {
 		state => $const.res.file.state.exists,
 
 		#Meta:quiet => true,	# TODO
+
+		Depend => File["${tftp_prefix}"],
 	}
 	file "${distroarch_uefi_prefix}" {	# dir
 		state => $const.res.file.state.exists,
+
+		Depend => File["${uefi_prefix}"],
 	}
 	file "${distroarch_http_prefix}" {	# root http dir
 		state => $const.res.file.state.exists,
+
+		Depend => File["${http_prefix}"],
 	}
 	file "${distroarch_release_http_prefix}" {
 		state => $const.res.file.state.exists,
+
+		Depend => File["${distroarch_http_prefix}"],
 	}
 	file "${distroarch_updates_http_prefix}" {
 		state => $const.res.file.state.exists,
+
+		Depend => File["${distroarch_http_prefix}"],
 	}
 
 	#
@@ -614,35 +650,37 @@ class base:host($name, $config) {
 		"/uefi/shim.efi"	# for uefi clients
 	}
 
-	if $mac != "" {
-		dhcp:host "${name}" {	# the hostname
-			mac => $mac,
-			ip => $ip,	# cidr notation is required
+	if $network != "" {
+		if $mac != "" {
+			dhcp:host "${name}" {	# the hostname
+				mac => $mac,
+				ip => $ip,	# cidr notation is required
 
-			nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
-				$nbp_bios	# from base class
-			} else {
-				$nbp_uefi	# from base class
-			},
-			nbp_path => $provision ?: $nbp_path, # with leading slash
+				nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
+					$nbp_bios	# from base class
+				} else {
+					$nbp_uefi	# from base class
+				},
+				nbp_path => $provision ?: $nbp_path, # with leading slash
 
-			Depend => Tftp:Server[":69"],
-		}
-	} else {
-		# Handle ANY mac address since we don't have one specified!
-		# TODO: Our dhcp:range could send/recv a map from ip => mac address!
-		dhcp:range "${name}" {
-			network => "${network}", # eg: 192.168.42.0/24
-			skip => [$router,], # eg: 192.168.42.1/24
+				Depend => Tftp:Server[":69"],
+			}
+		} else {
+			# Handle ANY mac address since we don't have one specified!
+			# TODO: Our dhcp:range could send/recv a map from ip => mac address!
+			dhcp:range "${name}" {
+				network => "${network}", # eg: 192.168.42.0/24
+				skip => [$router,], # eg: 192.168.42.1/24
 
-			nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
-				$nbp_bios	# from base class
-			} else {
-				$nbp_uefi	# from base class
-			},
-			nbp_path => $provision ?: $nbp_path, # with leading slash
+				nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
+					$nbp_bios	# from base class
+				} else {
+					$nbp_uefi	# from base class
+				},
+				nbp_path => $provision ?: $nbp_path, # with leading slash
 
-			Depend => Tftp:Server[":69"],
+				Depend => Tftp:Server[":69"],
+			}
 		}
 	}
 
@@ -866,6 +904,8 @@ class base:host($name, $config) {
 	file "${kickstart_file}" {
 		state => $const.res.file.state.exists,
 		content => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+
+		Depend => File["${kickstart_http_prefix}"],
 	}
 
 	http:server:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`

@@ -4601,14 +4601,27 @@ func (obj *StmtForKV) Output(table interfaces.Table) (*interfaces.Output, error)
 
 	m := expr.Map() // must not panic!
 
+	// We need to use this Cmp loop, because we pull the key from the map if
+	// it has the same *value* not the same *pointer* of course...
+	lookupIterBody := func(key types.Value) (interfaces.Stmt, bool) {
+		for k, v := range obj.iterBody {
+			if k.Cmp(key) == nil {
+				return v, true
+			}
+		}
+		return nil, false
+	}
+
 	for key := range m {
 		// key and val are both an mcl types.Value
 		// XXX: Do we need a mutex around this iterBody access?
-		if _, exists := obj.iterBody[key]; !exists {
+		//stmt, exists := obj.iterBody[key] // ptr not equivalent, use Cmp!
+		stmt, exists := lookupIterBody(key) // woo!
+		if !exists {
 			// programming error
 			return nil, fmt.Errorf("programming error on key: %s", key)
 		}
-		output, err := obj.iterBody[key].Output(table)
+		output, err := stmt.Output(table)
 		if err != nil {
 			return nil, err
 		}

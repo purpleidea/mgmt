@@ -1,0 +1,9 @@
+-- main.mcl --
+import "test"
+forkv $k, $v in test.forkvloop() { # causes bug when forkv map stuff is broken
+	test "${k}-${v}" {}
+}
+# without the fix we get this error:
+# gapi exited with error: function returned nil result
+-- OUTPUT --
+Vertex: test[foo-bar]

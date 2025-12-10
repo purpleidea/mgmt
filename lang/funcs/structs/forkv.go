@@ -179,7 +179,13 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					if !ok {
 						return nil, fmt.Errorf("inputElemFuncVal: expected a MapValue argument")
 					}
-					return m.Map()[ptr], nil
+
+					val, exists := m.Lookup(ptr)
+					if !exists {
+						// programming error
+						return nil, fmt.Errorf("unexpected missing key: %v", ptr)
+					}
+					return val, nil
 				},
 				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameVal, obj.mapType(), obj.ValType)),
 			},

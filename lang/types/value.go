@@ -1575,6 +1575,7 @@ func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 	result, err := obj.V(ctx, args) // call it
 	if result == nil {
 		if err == nil {
+			// programming error?
 			return nil, fmt.Errorf("function returned nil result")
 		}
 		return nil, err

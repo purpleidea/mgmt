@@ -48,9 +48,9 @@ class ssh_keygen($user) {
 
 # $type is rsa or ed25519
 class ssh_keygen_type($user, $type) {
-	panic($user == "") # panic if $user is empty
-	panic($type == "") # panic if $type is empty
-	panic($type != "rsa" and $type != "ed25519") # panic if $type is invalid
+	panic($user == "", "misc:ssh_keygen_type $user is empty") # panic if $user is empty
+	panic($type == "", "misc:ssh_keygen_type $type is empty") # panic if $type is empty
+	panic($type != "rsa" and $type != "ed25519", "misc:ssh_keygen_type $type is not rsa or ed25519") # panic if $type is invalid
 	$p = os.expand_home("~${user}/") # eg: ~james/
 	exec "ssh-keygen-${user}" {
 		cmd => "/usr/bin/ssh-keygen",
@@ -90,7 +90,7 @@ class ssh_keygen_type($user, $type) {
 
 # ssh_authorized_keys pulls down an export key for a $user, from a user@host.
 class ssh_authorized_keys($user, $from) {
-	panic($user == "") # panic if $user is empty
+	panic($user == "", "misc:ssh_authorized_keys $user is empty") # panic if $user is empty
 	$p = os.expand_home("~${user}/") # eg: ~james/
 
 	$all = collect.res("line") # []struct{name str; host str;}
@@ -109,7 +109,7 @@ class ssh_authorized_keys($user, $from) {
 
 # network_rename takes the device with the $mac address and renames it to $dev.
 class network_rename($mac, $dev) {
-	#panic(not net.is_mac("${mac}"))
+	#panic(not net.is_mac("${mac}"), "misc:network_rename $mac is invalid")
 
 	file "/etc/systemd/network/70-rename-${dev}.link" {
 		state => "exists",
@@ -393,7 +393,7 @@ class systemd_daemon_reload($name) {
 
 # Instead of enabling a dnf repo manually, you can use this to accomplish it.
 class yum_repo($id, $st) {
-	panic(golang_strings.has_prefix($id, "_copr")) # can't begin this way
+	panic(golang_strings.has_prefix($id, "_copr"), "misc:yum_repo $id starts with _copr") # can't begin this way
 
 	# baseurl may contain $releasever and $basearch literals (not mcl!)
 	$baseurl = $st->baseurl

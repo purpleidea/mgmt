@@ -122,7 +122,7 @@ class base:printer($name, $st) {
 	$index = local.pool("cups-printer", $name) # the uid will always return the same int
 	# XXX: implement local.pool_max("cups-printer") to use for NextPrinterId
 
-	panic($index < 0 or $index > 65535) # 0xffffh is the maximum
+	panic($index < 0 or $index > 65535, "cups:base:printer $index is out of range") # 0xffffh is the maximum
 	$hex = strings.left_pad(golang_strconv.format_int($index, 16), "0", 4)
 	$tail = strings.substr($hex, 0, 4) # TODO: support $hex[0] or $hex[0:4] ?
 	$uuid = "01234567-89ab-cdef-0000-00000000${tail}"

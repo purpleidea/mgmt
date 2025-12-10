@@ -183,7 +183,7 @@ class postgresql($config) {
 	$sslmode = $config->sslmode || false
 	$listen_port = $config->listen_port || 9187
 
-	panic($port <= 0)
+	panic($port <= 0, "prometheus:postgresql $port is not greater than 0")
 
 	$h = if $host == "" {
 		""

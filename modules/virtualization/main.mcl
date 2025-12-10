@@ -138,7 +138,7 @@ class vm($name, $config) {
 		Depend => Svc["virtnetworkd"],
 	}
 
-	panic($index < 0 or $index > 65535) # 0xffffh is the maximum
+	panic($index < 0 or $index > 65535, "virtualization:vm $index is out of range") # 0xffffh is the maximum
 	$hex = strings.left_pad(golang_strconv.format_int($index, 16), "0", 4)
 	$mac_5 = strings.substr($hex, 0, 1) + strings.substr($hex, 1, 2) # TODO: support $hex[0] or $hex[0:2] ?
 	$mac_6 = strings.substr($hex, 2, 3) + strings.substr($hex, 3, 4) # TODO: support $hex[2] or $hex[2:2] ?

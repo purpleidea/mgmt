@@ -51,7 +51,7 @@ class server($st) {
 		"debian" => "isc-dhcp-server", # debian
 	}
 	$pkg = $pkgs[os.family()] || ""
-	panic("${pkg}" == "") # not specified
+	panic("${pkg}" == "", "dhcp:server $pkg is empty") # not specified
 	pkg "${pkg}" {
 		state => "installed",
 

@@ -87,8 +87,8 @@ class base($config) {
 	$dns = $config->dns || ["8.8.8.8", "1.1.1.1",] # maybe google/cloudflare will sponsor!
 
 	$prefix = $config->prefix || ""
-	panic($prefix == "") # panic if prefix is empty
-	panic(not golang_strings.has_suffix($prefix, "/"))
+	panic($prefix == "", "provisioner:base $prefix is empty") # panic if prefix is empty
+	panic(not golang_strings.has_suffix($prefix, "/"), "provisioner:base $prefix is not absolute")
 
 	file "${prefix}" {	# dir
 		state => $const.res.file.state.exists,
@@ -585,15 +585,18 @@ class base:host($name, $config) {
 	$distro str = $uidst->distro
 	$version str = $uidst->version # not an int!
 	$arch str = $uidst->arch
-	panic($distro == "")
-	panic($version == "")
-	panic($arch == "")
+	panic($distro == "", "provisioner:host $distro is empty")
+	panic($version == "", "provisioner:host $version is empty")
+	panic($arch == "", "provisioner:host $arch is empty")
 	$flavour = $config->flavour || ""
 
 	$mac = $config->mac || ""
 	#panic($mac == "") # provision anyone by default
 	$ip = $config->ip || "" # XXX: auto-generate it inside of the above network somehow (see below)
-	panic($ip == "")
+
+	if $network != "" and $mac != "" {
+		panic($ip == "", "provisioner:host $ip is empty")
+	}
 	#$ns = if $config->ip == "" {
 	#	""
 	#} else {
@@ -602,7 +605,7 @@ class base:host($name, $config) {
 	#$ip = $config->ip || magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Reuse based on $name hash.
 	$bios = $config->bios || false
 	$password = $config->password || ""	# empty means disabled
-	panic(len($password) != 0 and len($password) != 106) # length of salted password
+	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
 
 	$part = $config->part || ""	# partitioning scheme
 	$luks = $config->luks || true	# enable luks encryption
@@ -617,7 +620,7 @@ class base:host($name, $config) {
 	$handoff_exec = $config->handoff_exec || ""
 	$handoff_code = $config->handoff_code || ""
 	$handoff_module_path = $config->handoff_module_path || ""
-	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"))
+	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"), "provisioner:host $handoff_code is not absolute")
 	$handoff_hostname = $config->handoff_hostname || ""
 
 	# This is a giant driver://user:password@host:port/whatever URL...
@@ -794,7 +797,7 @@ class base:host($name, $config) {
 	$deploy_dir_modules = "${deploy_dir}${modules_chunk}/"
 	# TODO: we can customize these more precisely based on $handoff_type
 	$handoff_packages = deploy.bootstrap_packages($distro) # TODO: catch errors here with || []
-	panic($handoff_type != "" and len($handoff_packages) == 0)
+	panic($handoff_type != "" and len($handoff_packages) == 0, "provisioner:host $handoff_packages list is empty")
 	#$handoff_packages_string = golang_strings.join($handoff_packages, " ")
 
 	$sshkey_flag = "sshkey"

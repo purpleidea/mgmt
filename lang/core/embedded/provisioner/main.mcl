@@ -996,6 +996,8 @@ class base:runner($config) {
 	$ssh_hostkey = golang_strings.trim_space($config->ssh_hostkey) # eg: AAAA...
 
 	# use "StrMapSet" with the hostname we provision so it can change itself!
+	# etcdctl put /_mgmt/strings/provisioner/hostname1 '{"uid": "fedora43-x86_64", "flavour": "Workstation", "mac": "00:11:22:33:44:55", "luks": true}'
+	# etcdctl put /_mgmt/strings/provisioner/hostname2 '{"uid": "fedora43-x86_64", "flavour": "Server", "mac": "aa:bb:cc:dd:ee:ff", "luks": false}'
 	$available = world.kvlookup("provisioner") # map{str: str} (val is json)
 	# looks like:
 	#$available = {
@@ -1021,6 +1023,11 @@ class base:runner($config) {
 		$mac str = $st->mac
 		$luks bool = $st->luks
 
+		print "host: ${mac}" {
+			msg => "uid: ${uid}, flavour: ${flavour}",
+
+			Meta:autogroup => false,
+		}
 		include host("${k}", struct{ # TODO: do we need a usable name anywhere?
 			repo => $uid,
 			flavour => $flavour,

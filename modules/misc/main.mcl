@@ -463,7 +463,7 @@ class dnf_update($pkg) {
 		# returns 100 when updates available, zero if nothing to do
 		nifcmd => "/usr/bin/dnf check-upgrade ${pkg}", # (same as check-update)
 		watchfiles => [
-			#"/var/lib/cache/libdnf5/", # TODO: map pkg to repo here?
+			#"/var/cache/libdnf5/", # TODO: map pkg to repo here?
 			"/var/lib/dnf/history.sqlite", # kind of a hack for now
 		],
 

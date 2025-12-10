@@ -74,6 +74,16 @@ func init() {
 		//},
 		F: Panic,
 	})
+	simple.Register("panic_debug", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false, // n/a
+			Memo: false,
+			Fast: true,
+			Spec: false, // important!
+		},
+		T: types.NewType("func(x bool, err str) bool"),
+		F: Panic,
+	})
 }
 
 // Panic returns an error when it receives a non-empty string or a true boolean.
@@ -83,6 +93,9 @@ func Panic(ctx context.Context, input []types.Value) (types.Value, error) {
 	switch k := input[0].Type().Kind; k {
 	case types.KindBool:
 		if input[0].Bool() {
+			if len(input) > 1 {
+				return nil, fmt.Errorf("bool panic occurred: %s", input[1].Str())
+			}
 			return nil, fmt.Errorf("bool panic occurred")
 		}
 	case types.KindStr:

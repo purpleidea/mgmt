@@ -1016,8 +1016,12 @@ panic:
 	//}
 	PANIC_IDENTIFIER OPEN_PAREN call_args CLOSE_PAREN
 	{
+		funcName := $1.str
+		if len($3.exprs) == 2 {
+			funcName = "panic_debug"
+		}
 		call := &ast.ExprCall{
-			Name: $1.str, // the function name
+			Name: funcName, // the function name
 			Args: $3.exprs,
 			//Var: false, // default
 		}

@@ -31,6 +31,7 @@
 package txn
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -545,7 +546,7 @@ func (obj *GraphTxn) commit() error {
 		//if err := g.ExecGraphviz(fmt.Sprintf("/tmp/txn-graphviz-%d.dot", d)); err != nil {
 		//	panic("no graphviz")
 		//}
-		if err := g.ExecGraphviz(""); err != nil {
+		if err := g.ExecGraphviz(context.TODO(), ""); err != nil {
 			panic(err) // XXX: improve me
 		}
 

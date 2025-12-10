@@ -66,7 +66,7 @@ type Graphvizable interface {
 	// get this location overwritten if there is something already there. If
 	// the string is empty, it might create a file in a temporary directory
 	// somewhere.
-	ExecGraphviz(filename string) error
+	ExecGraphviz(ctx context.Context, filename string) error
 }
 
 // Graphviz adds some visualization features for pgraph.

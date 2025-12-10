@@ -33,12 +33,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func init() {
-	simple.Register("panic", &simple.Scaffold{
+	simple.Register(funcs.PanicFuncName, &simple.Scaffold{
 		I: &simple.Info{
 			Pure: false, // n/a
 			Memo: false,
@@ -74,7 +75,7 @@ func init() {
 		//},
 		F: Panic,
 	})
-	simple.Register("panic_debug", &simple.Scaffold{
+	simple.Register(funcs.PanicDebugFuncName, &simple.Scaffold{
 		I: &simple.Info{
 			Pure: false, // n/a
 			Memo: false,

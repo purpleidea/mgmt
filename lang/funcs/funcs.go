@@ -61,6 +61,12 @@ const (
 	// the main source code root.
 	FunctionsRelDir = "lang/core/"
 
+	// PanicFuncName is the name of the core panic function in mcl.
+	PanicFuncName = "panic"
+
+	// PanicDebugFuncName is the name of the panic debug function in mcl.
+	PanicDebugFuncName = "panic_debug"
+
 	// ConcatFuncName is the name the concat function is registered as. It
 	// is listed here because it needs a well-known name that can be used by
 	// the string interpolation code.

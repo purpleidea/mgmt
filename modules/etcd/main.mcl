@@ -84,19 +84,13 @@ class server($st) {
 	}
 
 	# export the server information for provisioners to read it...
-	# XXX: eventually export as `mapped => true` for multiple servers
-	kv "etcd_server" {
-		value => "${host}",
-	}
 	$port_str = convert.int_to_str($port)
-	kv "etcd_server_port" {
-		value => "${port_str}",
-	}
-
 	# for some buggy reason, these .pub files end the key with a space
-	$ssh_hostkey = strings.split(golang_strings.trim_space(os.readfile("/etc/ssh/ssh_host_ed25519_key.pub")), " ")[1]
-	kv "etcd_server_hostkey" {
-		value => "${ssh_hostkey}", # TODO: support other options
+	$hostkey = strings.split(golang_strings.trim_space(os.readfile("/etc/ssh/ssh_host_ed25519_key.pub")), " ")[1] # TODO: support other options
+	$json = "{\"host\": \"${host}\", \"port\": ${port_str}, \"hostkey\": \"${hostkey}\"}" # TODO: encoding.encode_json
+	# XXX: eventually export as `mapped => true` for multiple servers
+	kv "provisioner_etcd_server" {
+		value => $json,
 	}
 }
 

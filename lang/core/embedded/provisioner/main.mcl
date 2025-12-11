@@ -995,68 +995,77 @@ class base:host($name, $config) {
 }
 
 class base:runner($config) {
+	$sshkey = $config->sshkey || ""
 
-	$ssh_url = $config->ssh_url # eg: ssh://etcd@example.com:22
-	$ssh_hostkey = golang_strings.trim_space($config->ssh_hostkey) # eg: AAAA...
+	$etcd_server = world.getval("provisioner_etcd_server")->value # struct{value str; exists bool}
+	if $etcd_server != "" {
+		# all one json str so they all change at the same instant
+		$etcd_server_st = encoding.decode_json_flexible($etcd_server, "struct{host str; port int; hostkey str;}")
+		$etcd_server_host = $etcd_server_st->host
+		$etcd_server_port = convert.int_to_str($etcd_server_st->port)
+		$etcd_server_hostkey = golang_strings.trim_space($etcd_server_st->hostkey) # AAAA...
+		$etcd_server_sshurl = "ssh://etcd@${etcd_server_host}:${etcd_server_port}" # eg: ssh://etcd@example.com:22
 
-	# use "StrMapSet" with the hostname we provision so it can change itself!
-	# etcdctl put /_mgmt/strings/provisioner/hostname1 '{"uid": "fedora43-x86_64", "flavour": "Workstation", "mac": "00:11:22:33:44:55", "luks": true}'
-	# etcdctl put /_mgmt/strings/provisioner/hostname2 '{"uid": "fedora43-x86_64", "flavour": "Server", "mac": "aa:bb:cc:dd:ee:ff", "luks": false}'
-	$available = world.kvlookup("provisioner") # map{str: str} (val is json)
-	# looks like:
-	#$available = {
-	#	"hostname1" => struct{
-	#		mac => "00:11:22:33:44:55",
-	#		luks => true,
-	#	},
-	#	"hostname2" => struct{
-	#		mac => "aa:bb:cc:dd:ee:ff",
-	#		flavour => "Server",
-	#	},
-	#}
+		# use "StrMapSet" with the hostname we provision so it can change itself!
+		# etcdctl put /_mgmt/strings/provisioner/hostname1 '{"uid": "fedora43-x86_64", "flavour": "Workstation", "mac": "00:11:22:33:44:55", "luks": true}'
+		# etcdctl put /_mgmt/strings/provisioner/hostname2 '{"uid": "fedora43-x86_64", "flavour": "Server", "mac": "aa:bb:cc:dd:ee:ff", "luks": false}'
+		$available = world.kvlookup("provisioner") # map{str: str} (val is json)
+		# looks like:
+		#$available = {
+		#	"hostname1" => struct{
+		#		mac => "00:11:22:33:44:55",
+		#		luks => true,
+		#	},
+		#	"hostname2" => struct{
+		#		mac => "aa:bb:cc:dd:ee:ff",
+		#		flavour => "Server",
+		#	},
+		#}
 
-	$handoff_exec = "mgmt run --ssh-url='${ssh_url}' --ssh-hostkey='${ssh_hostkey}' --seeds=http://127.0.0.1:2379 --no-server --no-magic --no-autoedges --no-pgp empty"
+		$handoff_exec = "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-server --no-magic --no-autoedges --no-pgp empty"
 
-	forkv $k, $json_str in $available {
-		# The "flexible" version here lets us add new struct fields over
-		# time, even if they aren't initially present in the data yet...
-		$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; luks bool;}")
+		forkv $k, $json_str in $available {
+			# The "flexible" version here lets us add new struct fields over
+			# time, even if they aren't initially present in the data yet...
+			$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; luks bool;}")
 
-		$uid str = $st->uid
-		$flavour str = $st->flavour
-		$mac str = $st->mac
-		$luks bool = $st->luks
+			$uid str = $st->uid
+			$flavour str = $st->flavour
+			$mac str = $st->mac
+			$luks bool = $st->luks
 
-		print "host: ${mac}" {
-			msg => "uid: ${uid}, flavour: ${flavour}",
+			print "host: ${mac}" {
+				msg => "uid: ${uid}, flavour: ${flavour}",
 
-			Meta:autogroup => false,
-		}
-		include host("${k}", struct{ # TODO: do we need a usable name anywhere?
-			repo => $uid,
-			flavour => $flavour,
-			mac => $mac,
-			#ip => "",
-			#bios => false, # false or absent means use uefi
-			#password => "", # openssl passwd -6
-			#part => $st->part,
-			luks => $luks,
-			#packages => $st->packages,
-			#provision => true, # default if unspecified
-			#handoff => $handoff, # alternatively some code word or querystring
-			handoff_exec => $handoff_exec,
-			#handoff_code => "/etc/mgmt/", # one way to do it
-			#handoff_module_path => "/etc/mgmt/modules/",
-			handoff_hostname => $k,
-			#bmc_uri => $st->bmc_uri,
-		}) as host0
+				Meta:autogroup => false,
+			}
+			include host("${k}", struct{ # TODO: do we need a usable name anywhere?
+				repo => $uid,
+				flavour => $flavour,
+				mac => $mac,
+				#ip => "",
+				#bios => false, # false or absent means use uefi
+				#password => "", # openssl passwd -6
+				sshkey => "${sshkey}", # root ssh pub key to add
+				#part => $st->part,
+				luks => $luks,
+				#packages => $st->packages,
+				#provision => true, # default if unspecified
+				handoff => "exec", # sets up mgmt with handoff_exec
+				handoff_exec => $handoff_exec,
+				#handoff_code => "/etc/mgmt/", # one way to do it
+				#handoff_module_path => "/etc/mgmt/modules/",
+				handoff_hostname => $k,
+				#bmc_uri => $st->bmc_uri,
+			}) as host0
 
-		if $host0.provisioned {
-			# remove the entry once provisioned
-			kv "provisioner" {
-				mapped => true,
-				#state => "absent",
-				#value => # absent to delete key
+			if $host0.provisioned {
+				# remove the entry once provisioned
+				kv "provisioner" {
+					mapped => true,
+					#state => "absent",
+					#value => # absent to delete key
+				}
 			}
 		}
 	}

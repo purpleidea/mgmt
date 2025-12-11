@@ -606,6 +606,7 @@ class base:host($name, $config) {
 	$bios = $config->bios || false
 	$password = $config->password || ""	# empty means disabled
 	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
+	$sshkey = $config->sshkey || ""	# root ssh pub key to add
 
 	$part = $config->part || ""	# partitioning scheme
 	$luks = $config->luks || true	# enable luks encryption
@@ -891,6 +892,9 @@ class base:host($name, $config) {
 		#	"/usr/bin/dnf --enablerepo=fedora,updates install --assumeyes ${handoff_packages_string}",
 		#],
 		hostname => $handoff_hostname,
+		sshkeys => {
+			"root" => "${sshkey}", # root ssh pub key to add
+		},
 		post => [
 			$setup_sshkey, # setup the ssh key
 			$handoff_binary, # copy over the binary
@@ -966,7 +970,7 @@ class base:host($name, $config) {
 	$provisioned = $st_done->ready and $st_done->value == "true" # export this value to parent scope
 
 	$st_sshkey = value.get_str("${name}-sshkey")
-	$sshkey = $st_sshkey->value # export this value to parent scope
+	$host_sshkey = $st_sshkey->value # export this value to parent scope
 
 	if $provisioned {
 		ssh:authorized_key "provisioner:${name}" { # magic name for collect
@@ -980,7 +984,7 @@ class base:host($name, $config) {
 			#	"permitopen=\"127.0.0.1:2379\"",
 			#],
 			type => "ssh-${sshkey_type}", # TODO: support other options
-			key => "${sshkey}",
+			key => "${host_sshkey}",
 			comment => "root@${name}", # XXX: is this the right comment?
 			state => "exists",
 

@@ -53,7 +53,9 @@ services --enabled=sshd,NetworkManager,chronyd
 {{ if .sshkeys -}}
 # TODO: sort in a deterministic order
 {{ range $user, $pubkey := .sshkeys -}}
+{{ if $pubkey -}}
 sshkey --username {{ $user }} "{{ $pubkey }}"
+{{- end -}}
 {{- end -}}
 {{- end }}
 

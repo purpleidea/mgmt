@@ -361,6 +361,72 @@ mac-address={{ .mac }}
 	}
 }
 
+# setup wifi
+# XXX: needs proper password handling to avoid storing secrets here!
+class network_manager_wifi($st) {
+	$name = $st->name
+	$ssid = $st->ssid || "${name}"
+	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	$dev = $st->dev || "*" # any
+	$psk = $st->password || "" # XXX: secret!
+
+	$tmpl =
+"
+[connection]
+id=${name}
+{{ if .uuid -}}
+uuid={{ .uuid }}
+{{ end -}}
+type=wifi
+#interface-name=wlp0s20f3
+#interface-name=*
+interface-name=${dev}
+autoconnect=true
+
+[wifi]
+cloned-mac-address=permanent
+#mac-address=00:11:22:33:44:55
+#mac-address-randomization=1
+mode=infrastructure
+ssid=${ssid}
+
+[wifi-security]
+key-mgmt=wpa-psk
+{{ if .psk -}}
+psk={{ .psk }}
+{{ end -}}
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
+addr-gen-mode=stable-privacy
+
+[proxy]
+"
+
+	$args = struct{
+		name => $name,
+		uuid => $uuid,
+		ssid => $ssid,
+		dev => $dev,
+		psk => $psk,
+	}
+
+	file "/etc/NetworkManager/system-connections/${name}.nmconnection" {
+		state => "exists",
+		content => golang.template($tmpl, $args),
+		mode => "u=rw,go=",
+		owner => "root",
+
+		Notify => Svc["NetworkManager"],
+	}
+
+	svc "NetworkManager" {
+	}
+}
+
 # systemd_daemon_reload creates an exec which runs a systemctl daemon-reload if
 # one is needed. The exec resource uses the input name, to make it easy to
 # attach an edge to it.

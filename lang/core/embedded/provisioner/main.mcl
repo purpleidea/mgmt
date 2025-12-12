@@ -606,7 +606,7 @@ class base:host($name, $config) {
 	$bios = $config->bios || false
 	$password = $config->password || ""	# empty means disabled
 	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
-	$sshkey = $config->sshkey || ""	# root ssh pub key to add
+	$sshkey = golang_strings.trim_space($config->sshkey || "")	# root ssh pub key to add
 
 	$part = $config->part || ""	# partitioning scheme
 	$luks = $config->luks || true	# enable luks encryption

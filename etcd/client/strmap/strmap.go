@@ -51,7 +51,7 @@ const (
 // something goes wrong.
 func WatchStrMap(ctx context.Context, client interfaces.Client, key string) (chan error, error) {
 	// new key structure is $NS/strings/$key/$hostname = $data
-	path := fmt.Sprintf("%s/strings/%s", ns, key)
+	path := fmt.Sprintf("%s/strings/%s/", ns, key)
 	return client.Watcher(ctx, path, etcd.WithPrefix())
 }
 
@@ -62,7 +62,7 @@ func GetStrMap(ctx context.Context, client interfaces.Client, hostnameFilter []s
 	// FIXME: if we have the $key as the last token (old key structure), we
 	// can allow the key to contain the slash char, otherwise we need to
 	// verify that one isn't present in the input string.
-	path := fmt.Sprintf("%s/strings/%s", ns, key)
+	path := fmt.Sprintf("%s/strings/%s/", ns, key)
 	keyMap, err := client.Get(ctx, path, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not get strings in: %s", key)
@@ -73,21 +73,18 @@ func GetStrMap(ctx context.Context, client interfaces.Client, hostnameFilter []s
 			continue
 		}
 
-		str := strings.Split(key[len(path):], "/")
-		if len(str) != 2 {
-			return nil, fmt.Errorf("unexpected chunk count of %d", len(str))
-		}
-		_, hostname := str[0], str[1]
-
+		hostname := key[len(path):]
 		if hostname == "" {
-			return nil, fmt.Errorf("unexpected chunk length of %d", len(hostname))
+			return nil, fmt.Errorf("unexpected empty hostname")
+		}
+		if strings.Contains(hostname, "/") {
+			return nil, fmt.Errorf("hostname unexpectedly contains slash")
 		}
 
 		// FIXME: ideally this would be a server side filter instead!
 		if len(hostnameFilter) > 0 && !util.StrInList(hostname, hostnameFilter) {
 			continue
 		}
-		//log.Printf("Etcd: GetStr(%s): (Hostname, Data): (%s, %s)", key, hostname, val)
 		result[hostname] = val
 	}
 	return result, nil

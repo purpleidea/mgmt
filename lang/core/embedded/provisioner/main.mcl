@@ -621,6 +621,10 @@ class base:host($name, $config) {
 	$handoff_exec = $config->handoff_exec || ""
 	$handoff_code = $config->handoff_code || ""
 	$handoff_module_path = $config->handoff_module_path || ""
+	$handoff_svc_sshurl = $config->handoff_svc_sshurl || ""
+	$handoff_svc_hostkey = $config->handoff_svc_hostkey || ""
+	panic(($handoff_svc_sshurl != "") != ($handoff_svc_hostkey != ""), "provisioner:host $handoff_svc needs sshurl (${handoff_svc_sshurl}) and hostkey (${handoff_svc_hostkey})")
+
 	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"), "provisioner:host $handoff_code is not absolute")
 	$handoff_hostname = $config->handoff_hostname || ""
 
@@ -825,11 +829,18 @@ class base:host($name, $config) {
 	} else {
 		""
 	}
-	$handoff_service = if $handoff_type == "code" { # TODO: maybe add it in other scenarios
-		# Setup the mgmt service, which starts on firstboot.
-		"${handoff_binary_path} setup svc --binary-path='${handoff_binary_path}' --install --enable"
+	$handoff_service = if $handoff_type == "svc" { # TODO: maybe add it in other scenarios
+		# Setup the remote mgmt service, which starts on firstboot.
+		# NOTE: We use the short mgmt path because it's easier to pivot.
+		# XXX: read the ssh hostkey from a .known_hosts file instead
+		"${handoff_binary_path} setup svc --binary-path='mgmt' --install --enable --ssh-url='${handoff_svc_sshurl}' --ssh-hostkey='${handoff_svc_hostkey}' --seeds='http://127.0.0.1:2379' --no-server"
 	} else {
-		""
+		if $handoff_type == "code" {
+			# Setup the mgmt service, which starts on firstboot.
+			"${handoff_binary_path} setup svc --binary-path='${handoff_binary_path}' --install --enable"
+		} else {
+			""
+		}
 	}
 	$handoff_firstboot = if $handoff_type == "" {
 		""
@@ -1022,8 +1033,6 @@ class base:runner($config) {
 		#	},
 		#}
 
-		$handoff_exec = "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-server --no-magic --no-autoedges --no-pgp empty"
-
 		forkv $k, $json_str in $available {
 			# The "flexible" version here lets us add new struct fields over
 			# time, even if they aren't initially present in the data yet...
@@ -1051,8 +1060,11 @@ class base:runner($config) {
 				luks => $luks,
 				#packages => $st->packages,
 				#provision => true, # default if unspecified
-				handoff => "exec", # sets up mgmt with handoff_exec
-				handoff_exec => $handoff_exec,
+				handoff => "svc", # sets up mgmt with handoff_svc
+				handoff_svc_sshurl => $etcd_server_sshurl,
+				handoff_svc_hostkey => $etcd_server_hostkey,
+				#handoff => "exec", # sets up mgmt with handoff_exec
+				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-server --no-magic --no-autoedges --no-pgp empty",
 				#handoff_code => "/etc/mgmt/", # one way to do it
 				#handoff_module_path => "/etc/mgmt/modules/",
 				handoff_hostname => $k,

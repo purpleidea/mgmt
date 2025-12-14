@@ -254,7 +254,7 @@ func (obj *MapLookupFunc) Call(ctx context.Context, args []types.Value) (types.V
 		return args[2], nil
 	}
 
-	return nil, fmt.Errorf("map key not present, got: %v", key)
+	return nil, fmt.Errorf("map key not present, want: %v in %v", key, m)
 }
 
 // Validate tells us if the input struct takes a valid form.

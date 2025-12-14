@@ -262,7 +262,7 @@ func (obj *ListLookupFunc) Call(ctx context.Context, args []types.Value) (types.
 		return args[2], nil
 	}
 
-	return nil, fmt.Errorf("list index not present, got: %d, len is: %d", index, len(l.List()))
+	return nil, fmt.Errorf("list index not present, got: %d, len is: %d, in: %v", index, len(l.List()), l)
 }
 
 // Validate tells us if the input struct takes a valid form.

@@ -131,6 +131,9 @@ func (obj *Svc) Run(ctx context.Context) error {
 			argv = append(argv, "--no-magic") // XXX: fix this workaround
 		}
 
+		argv = append(argv, "--no-autoedges") // XXX: not yet fast...
+		argv = append(argv, "--no-pgp")       // XXX: not yet used...
+
 		argv = append(argv, "empty $OPTS")
 		execStart := strings.Join(argv, " ")
 

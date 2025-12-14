@@ -640,6 +640,8 @@ func (obj *Engine) call(ctx context.Context, args []types.Value, f interfaces.Fu
 		// catch programming errors
 		if r := recover(); r != nil {
 			obj.Logf("panic in process: %+v", r)
+			obj.Logf("panic function(%T): %+v", f, f)
+			obj.Logf("panic args(%d): %+v", len(args), args)
 			reterr = fmt.Errorf("panic in process: %+v", r)
 		}
 	}()

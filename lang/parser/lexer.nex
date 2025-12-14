@@ -104,6 +104,11 @@
 			lval.str = yylex.Text()
 			return DIVIDE
 		}
+/\^/		{
+			yylex.pos(lval) // our pos
+			lval.str = yylex.Text()
+			return XOR
+		}
 /==/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

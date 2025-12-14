@@ -99,6 +99,7 @@ func init() {
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
+%token XOR
 %token ELVIS DEFAULT ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER
@@ -117,6 +118,7 @@ func init() {
 // From: https://www.gnu.org/software/bison/manual/html_node/Infix-Calc.html
 // FIXME: a yacc specialist should check the precedence and add more tests!
 %left AND OR
+%left XOR
 %nonassoc LT GT LTE GTE EQ NEQ	// TODO: is %nonassoc correct for all of these?
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
@@ -408,6 +410,20 @@ expr:
 	{
 		$$.expr = &ast.ExprBool{
 			V: $1.bool,
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
+|	expr XOR expr
+	{
+		$$.expr = &ast.ExprCall{
+			Name: operators.OperatorFuncName,
+			Args: []interfaces.Expr{
+				&ast.ExprStr{ // operator first
+					V: $2.str,
+				},
+				$1.expr,
+				$3.expr,
+			},
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}

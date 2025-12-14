@@ -288,6 +288,44 @@ func init() {
 		},
 	})
 
+	// logical xor
+	RegisterOperator("^", &simple.Scaffold{
+		I: info,
+		T: types.NewType("func(?1, ?1) ?1"),
+		C: simple.TypeMatch([]string{
+			"func(int, int) int",
+			"func(bool, bool) bool",
+		}),
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			if l := len(input); l != 2 { // catch programming bugs
+				return nil, fmt.Errorf("invalid len %d", l)
+			}
+			// Both args should be the same type for this function.
+			if err := input[0].Type().Cmp(input[1].Type()); err != nil {
+				// This check is required because of speculation.
+				// Perhaps a bug in our earlier speculation code?
+				return nil, errwrap.Wrapf(err, "invalid arg types")
+				// TODO: speculation error instead?
+				//return nil, funcs.ErrCantSpeculate
+			}
+
+			switch k := input[0].Type().Kind; k {
+			case types.KindInt:
+				return &types.IntValue{
+					V: input[0].Int() ^ input[1].Int(),
+				}, nil
+
+			case types.KindBool:
+				return &types.BoolValue{
+					V: input[0].Bool() != input[1].Bool(),
+				}, nil
+
+			default:
+				return nil, fmt.Errorf("unsupported kind: %+v", k)
+			}
+		},
+	})
+
 	RegisterOperator("!=", &simple.Scaffold{
 		I: info,
 		T: types.NewType("func(?1, ?1) bool"),

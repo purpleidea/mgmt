@@ -52,7 +52,9 @@ func init() {
 	})
 }
 
-// Home returns the $HOME directory of the user.
+// Home returns the $HOME directory of the user. This will error if the user
+// doesn't exist. You may wish to guard access to this with a call to
+// os.user_exists to see if it would work first.
 func Home(ctx context.Context, input []types.Value) (types.Value, error) {
 	usr, err := user.Lookup(input[0].Str())
 	if err != nil {

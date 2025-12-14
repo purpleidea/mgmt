@@ -1,0 +1,14 @@
+import "os"
+
+# this is "live"! you can change the username dynamically and this will update!
+$user = "james"
+if os.user_exists($user) {
+	$home = os.home($user)
+	print "welcome home" {
+		msg => "your home is ${home}",
+	}
+} else {
+	print "intruder alert" {
+		msg => "unknown user: ${user}",
+	}
+}

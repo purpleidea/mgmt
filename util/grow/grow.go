@@ -246,6 +246,9 @@ func (obj *Grow) GrowPart(ctx context.Context, part string) error {
 	}
 	cmdArgs = []string{base}
 	obj.Logf("cmd: %s %s", cmd, strings.Join(cmdArgs, " "))
+	if obj.Noop {
+		return nil
+	}
 	return util.SimpleCmd(ctx, cmd, cmdArgs, obj.cmdOpts())
 }
 

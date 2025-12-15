@@ -37,6 +37,7 @@ import "local"
 import "net"
 import "os"
 import "strings"
+import "sys"
 import "world/collect"
 
 # ssh_keygen creates an ssh key pair in the user's home directory if the private
@@ -645,6 +646,7 @@ class grow($mount) {
 		],
 		creates => $done, # TODO: is there something better?
 		user => "root", # need root to be able to run normally
+		env => {"PATH" => sys.getenv("PATH"),}, # so grow can find deps
 
 		Depend => Pkg["cloud-utils-growpart"],
 	}

@@ -1,0 +1,6 @@
+import "sys"
+
+exec "path test" {
+	cmd => "/usr/bin/env",
+	env => {"PATH" => sys.getenv("PATH"),},
+}

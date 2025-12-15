@@ -234,6 +234,18 @@ func (obj *Grow) GrowPart(ctx context.Context, part string) error {
 	if obj.Noop {
 		return nil
 	}
+	if err := util.SimpleCmd(ctx, cmd, cmdArgs, obj.cmdOpts()); err != nil {
+		return err
+	}
+
+	// It can take a moment for the kernel to see the change. We can run
+	// the partprobe command to hurry it up.
+	cmd, err = exec.LookPath("partprobe")
+	if err != nil {
+		return err
+	}
+	cmdArgs = []string{base}
+	obj.Logf("cmd: %s %s", cmd, strings.Join(cmdArgs, " "))
 	return util.SimpleCmd(ctx, cmd, cmdArgs, obj.cmdOpts())
 }
 

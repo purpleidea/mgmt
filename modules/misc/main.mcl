@@ -71,6 +71,8 @@ class ssh_keygen_type($user, $type) {
 		state => "exists",
 		mode => "u=rwx,go=",
 		owner => $user,
+
+		Depend => File["${p}"], # ensure the dir exists
 	}
 	file "${p}.ssh/id_${type}" {
 		mode => "u=rw,go=",

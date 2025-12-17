@@ -383,7 +383,7 @@ uuid={{ .uuid }}
 type=wifi
 #interface-name=wlp0s20f3
 #interface-name=*
-interface-name=${dev}
+#interface-name=${dev} # was blocking auto connect, idk why.
 autoconnect=true
 
 [wifi]

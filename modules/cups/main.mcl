@@ -34,6 +34,10 @@ import "local"
 import "os"
 import "strings"
 
+# XXX: This should definitely be replaced by a proper printer/queue resource.
+# XXX: It was easy to template this for now, but this is mostly a fast hack.
+# XXX: If you get the typeint values right, then cups and mgmt don't fight back.
+
 class base() {
 	$vardir = local.vardir("cups/")
 
@@ -113,6 +117,7 @@ class base:printer($name, $st) {
 	$location = $st->location || ""
 	$makemodel = $st->makemodel || ""
 	$uri str = $st->uri
+	$typeint int = $st->typeint || 36884 # XXX: some bitmask junk maybe?
 	$ppd str = $st->ppd
 
 	$comment = $st->comment || ""
@@ -136,6 +141,7 @@ class base:printer($name, $st) {
 		location => $location,
 		makemodel => $makemodel,
 		uri => $uri,
+		typeint => $typeint,
 		#ppd => $ppd,
 		comment => $comment,
 	}

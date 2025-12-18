@@ -19,7 +19,7 @@ DeviceURI {{ .uri }}
 State Idle
 StateTime 1735329279
 ConfigTime 1734305561
-Type 36884
+Type {{ .typeint }}
 Accepting Yes
 Shared Yes
 JobSheets none none
@@ -28,6 +28,7 @@ PageLimit 0
 KLimit 0
 OpPolicy default
 ErrorPolicy abort-job
+Option print-color-mode monochrome
 {{ if .default -}}
 </DefaultPrinter>
 {{ else -}}

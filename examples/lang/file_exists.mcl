@@ -1,0 +1,11 @@
+import "os"
+
+$f = "/tmp/secret" # add or delete me
+
+print "does file exist?" {
+	msg => if os.file_exists($f) {
+		"file exists!"
+	} else {
+		"file does not exist"
+	},
+}

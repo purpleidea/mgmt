@@ -1,0 +1,298 @@
+// Mgmt
+// Copyright (C) James Shubin and the project contributors
+// Written by James Shubin <james@shubin.ca> and the project contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
+// Additional permission under GNU GPL version 3 section 7
+//
+// If you modify this program, or any covered work, by linking or combining it
+// with embedded mcl code and modules (and that the embedded mcl code and
+// modules which link with this program, contain a copy of their source code in
+// the authoritative form) containing parts covered by the terms of any other
+// license, the licensors of this program grant you additional permission to
+// convey the resulting work. Furthermore, the licensors of this program grant
+// the original author, James Shubin, additional permission to update this
+// additional permission if he deems it necessary to achieve the goals of this
+// additional permission.
+
+package coreos
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
+)
+
+const (
+	// FileExistsFuncName is the name this function is registered as.
+	FileExistsFuncName = "file_exists"
+
+	// arg names...
+	fileExistsArgNameFilename = "filename"
+)
+
+func init() {
+	funcs.ModuleRegister(ModuleName, FileExistsFuncName, func() interfaces.Func { return &FileExistsFunc{} }) // must register the func and name
+}
+
+// FileExistsFunc is a function that returns if a local file exists or not. This
+// works with directories too.
+type FileExistsFunc struct {
+	init *interfaces.Init
+
+	recWatcher *recwatch.RecWatcher
+	events     chan error // internal events
+
+	input    chan string // stream of inputs
+	filename *string     // the active filename
+}
+
+// String returns a simple name for this function. This is needed so this struct
+// can satisfy the pgraph.Vertex interface.
+func (obj *FileExistsFunc) String() string {
+	return FileExistsFuncName
+}
+
+// ArgGen returns the Nth arg name for this function.
+func (obj *FileExistsFunc) ArgGen(index int) (string, error) {
+	seq := []string{fileExistsArgNameFilename}
+	if l := len(seq); index >= l {
+		return "", fmt.Errorf("index %d exceeds arg length of %d", index, l)
+	}
+	return seq[index], nil
+}
+
+// Validate makes sure we've built our struct properly. It is usually unused for
+// normal functions that users can use directly.
+func (obj *FileExistsFunc) Validate() error {
+	return nil
+}
+
+// Info returns some static info about itself.
+func (obj *FileExistsFunc) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false, // maybe false because the file contents can change
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType(fmt.Sprintf("func(%s str) bool", fileExistsArgNameFilename)),
+	}
+}
+
+// Init runs some startup code for this function.
+func (obj *FileExistsFunc) Init(init *interfaces.Init) error {
+	obj.init = init
+	obj.input = make(chan string)
+	obj.events = make(chan error)
+	return nil
+}
+
+// Stream returns the changing values that this func has over time.
+func (obj *FileExistsFunc) Stream(ctx context.Context) error {
+	//defer close(obj.input)  // if we close, this is a race with the sender
+	defer close(obj.events) // clean up for fun
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+	defer func() {
+		if obj.recWatcher != nil {
+			obj.recWatcher.Close() // close previous watcher
+			wg.Wait()
+		}
+	}()
+	for {
+		select {
+		case filename, ok := <-obj.input:
+			if !ok {
+				obj.input = nil // don't infinite loop back
+				return fmt.Errorf("unexpected close")
+			}
+
+			if obj.filename != nil && *obj.filename == filename {
+				//select {
+				//case obj.ack <- struct{}{}:
+				//case <-ctx.Done():
+				//	// don't block here on shutdown
+				//	return
+				//default:
+				//	// pass, in case we didn't Call()
+				//}
+				continue // nothing changed
+			}
+			obj.filename = &filename
+
+			if obj.recWatcher != nil {
+				obj.recWatcher.Close() // close previous watcher
+				wg.Wait()
+			}
+			// create new watcher
+			obj.recWatcher = &recwatch.RecWatcher{
+				Path:    *obj.filename,
+				Recurse: false,
+				Opts: []recwatch.Option{
+					recwatch.Logf(obj.init.Logf),
+					recwatch.Debug(obj.init.Debug),
+				},
+			}
+			if err := obj.recWatcher.Init(); err != nil {
+				obj.recWatcher = nil
+				// TODO: should we ignore the error and send ""?
+				return errwrap.Wrapf(err, "could not watch file")
+			}
+
+			// FIXME: instead of sending one event here, the recwatch
+			// library should send one initial event at startup...
+			startup := make(chan struct{})
+			close(startup)
+
+			// watch recwatch events in a proxy goroutine, since
+			// changing the recwatch object would panic the main
+			// select when it's nil...
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					var err error
+					select {
+					case <-startup:
+						startup = nil
+						// send an initial event
+
+					case event, ok := <-obj.recWatcher.Events():
+						if !ok {
+							return // file watcher shut down
+						}
+						if err = event.Error; err != nil {
+							err = errwrap.Wrapf(err, "error event received")
+						}
+					}
+
+					// XXX: should we send an ACK event to
+					// Call() right here? This should ideally
+					// be from the Startup event of recWatcher
+					//select {
+					//case obj.ack <- struct{}{}:
+					//case <-ctx.Done():
+					//	// don't block here on shutdown
+					//	return
+					//default:
+					//	// pass, in case we didn't Call()
+					//}
+					select {
+					case obj.events <- err:
+						// send event...
+
+					case <-ctx.Done():
+						// don't block here on shutdown
+						return
+					}
+					//err = nil // reset
+				}
+			}()
+			continue // wait for an actual event or we'd send empty!
+
+		case err, ok := <-obj.events:
+			if !ok {
+				return fmt.Errorf("no more events")
+			}
+			if err != nil {
+				return errwrap.Wrapf(err, "error event received")
+			}
+
+			if err := obj.init.Event(ctx); err != nil { // send event
+				return err
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *FileExistsFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	filename := args[0].Str()
+
+	// TODO: add validation for absolute path?
+	// TODO: add check for empty string
+
+	// Check before we send to a chan where we'd need Stream to be running.
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+
+	// Tell the Stream what we're watching now... This doesn't block because
+	// Stream should always be ready to consume unless it's closing down...
+	// If it dies, then a ctx closure should come soon.
+	select {
+	case obj.input <- filename:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	// XXX: Should we make sure the Stream is ready before we continue here?
+	//select {
+	//case <-obj.ack:
+	//	// received
+	//case <-ctx.Done():
+	//	return nil, ctx.Err()
+	//}
+
+	// stat file...
+	_, err := os.Stat(filename)
+	if err == nil {
+		return &types.BoolValue{
+			V: true, // found
+		}, nil
+	}
+	if os.IsNotExist(err) {
+		return &types.BoolValue{
+			V: false, // not found
+		}, nil
+	}
+
+	if os.IsPermission(err) {
+		return nil, err // XXX: what should we do in this case?
+	}
+
+	// Some other real error...
+	return nil, err
+}
+
+// Cleanup runs after that function was removed from the graph.
+func (obj *FileExistsFunc) Cleanup(ctx context.Context) error {
+	// Even if the filename stops changing, we never shutdown Stream because
+	// those file contents may change. Theoretically if someone sends us an
+	// empty string, and then it shuts down we could close.
+	//if obj.filename == "" { // we require obj.ack to not have a race here
+	//	close(obj.exit) // add a channel into that Stream
+	//}
+	return nil
+}
+
+// Done is a message from the engine to tell us that no more Call's are coming.
+func (obj *FileExistsFunc) Done() error {
+	close(obj.input) // At this point we know obj.input won't be used.
+	return nil
+}

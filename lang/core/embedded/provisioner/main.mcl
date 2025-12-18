@@ -731,7 +731,7 @@ class base:host($name, $config) {
 	$ipxe_menu = if $mac == "" {
 		"menu.ipxe"
 	} else {
-		"${old_mac}.ipxe"
+		"${safe_mac}.ipxe"
 	}
 
 	if $bios {
@@ -748,8 +748,14 @@ class base:host($name, $config) {
 		}
 	}
 
+	# https://<ip>:4280/${mac}.ipxe # works for ipxe scripts!
 	http:server:file "/${ipxe_menu}" {	# for ipxe
 		data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
+	}
+	if $mac != "" { # generate old one but never the menu.ipxe default
+		http:server:file "/${old_mac}.ipxe" {	# for ipxe
+			data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
+		}
 	}
 
 	# If it's a dir we don't need a suffix, otherwise return the last chunk.

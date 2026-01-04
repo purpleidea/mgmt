@@ -359,7 +359,12 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 
 					// Extract the correct list element.
-					return list.List()[i], nil
+					valuesList := list.List()
+					if l := len(valuesList); i >= l {
+						// programming error?
+						return nil, fmt.Errorf("index %d out of range with length %d", i, l)
+					}
+					return valuesList[i], nil
 				},
 				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.listType, obj.Type)),
 			},

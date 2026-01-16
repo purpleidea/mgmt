@@ -161,6 +161,10 @@ func (obj *VirtRes) Validate() error {
 		return fmt.Errorf("can't poll with virt resources")
 	}
 
+	if obj.State != "running" && obj.State != "paused" && obj.State != "shutoff" && obj.State != "" {
+		return fmt.Errorf("state must be either `running`, `paused`, `shutoff` or undefined")
+	}
+
 	if obj.CPUs > obj.MaxCPUs {
 		return fmt.Errorf("the number of CPUs (%d) must not be greater than MaxCPUs (%d)", obj.CPUs, obj.MaxCPUs)
 	}

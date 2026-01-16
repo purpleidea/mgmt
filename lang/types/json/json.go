@@ -155,7 +155,7 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 			panic("malformed map type")
 		}
 
-		m := make(map[types.Value]types.Value)
+		m := types.NewMap(typ)
 		// loop through the list of map keys in undefined order
 		for k, x := range v {
 			kk, err := convertJSON(k, typ.Key, flexible) // recurse
@@ -167,13 +167,12 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 				return nil, err
 			}
 
-			m[kk] = vv
+			if err := m.Set(kk, vv); err != nil {
+				return nil, err
+			}
 		}
 
-		return &types.MapValue{
-			T: typ,
-			V: m,
-		}, nil
+		return m, nil
 
 	case types.KindStruct:
 		v, ok := val.(map[string]interface{})

@@ -1,0 +1,24 @@
+-- main.mcl --
+import "test"
+import "encoding"
+$json_str = "{
+	\"4\": {
+		\"hello\": 13,
+		\"goodbye\": \"abc\"
+	},
+
+	\"7\": {
+		\"hello\": 42,
+		\"goodbye\": \"def\"
+	}
+}"
+
+$json = encoding.decode_json_flexible($json_str, "map{str: struct{hello int; goodbye str;}}")
+forkv $ix_str, $st in $json {
+	test "${ix_str}" {}
+}
+# without the fix we get this error:
+# gapi exited with error: unexpected missing key: "4"
+-- OUTPUT --
+Vertex: test[4]
+Vertex: test[7]

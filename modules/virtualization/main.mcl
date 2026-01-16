@@ -73,6 +73,8 @@ class vm($name, $config) {
 	# TODO: fix secondary auto-indexing with tmp-prefix (let it mutate old machines)
 	$i = local.pool("libvirt-vm", $name) # the uid will always return the same int
 
+	$startup = $config->startup || ""
+
 	$format = $config->format || "qcow2" # used for file extension and parameter name
 	$index = $config->index || $i
 	$distro_uid = $config->distro_uid || "fedora42-x86_64"
@@ -152,6 +154,7 @@ class vm($name, $config) {
 		maxcpus => 8,
 		memory => 1024*1024*16, # 16G of RAM
 		state => "running",
+		startup => $startup, # "enabled" or "disabled" or ""
 		transient => false,
 		boot => ["hd", ],
 		disk => [

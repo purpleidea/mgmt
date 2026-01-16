@@ -44,6 +44,7 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 
 	libvirt "libvirt.org/go/libvirt"       // gitlab.com/libvirt/libvirt-go-module
 	libvirtxml "libvirt.org/go/libvirtxml" // gitlab.com/libvirt/libvirt-go-xml-module
@@ -80,6 +81,10 @@ type VirtRes struct {
 	// State is the desired vm state. Possible values include: `running`,
 	// `paused` and `shutoff`.
 	State string `lang:"state" yaml:"state"`
+
+	// Startup specifies what should happen on startup. Values can be:
+	// enabled, disabled, and undefined (empty string).
+	Startup string `lang:"startup" yaml:"startup"`
 
 	// Transient is whether the vm is defined (false) or undefined (true).
 	Transient bool `lang:"transient" yaml:"transient"`
@@ -163,6 +168,14 @@ func (obj *VirtRes) Validate() error {
 
 	if obj.State != "running" && obj.State != "paused" && obj.State != "shutoff" && obj.State != "" {
 		return fmt.Errorf("state must be either `running`, `paused`, `shutoff` or undefined")
+	}
+
+	if obj.Startup != "enabled" && obj.Startup != "disabled" && obj.Startup != "" {
+		return fmt.Errorf("startup must be either `enabled` or `disabled` or undefined")
+	}
+
+	if obj.Transient && obj.Startup != "" {
+		return fmt.Errorf("can't specify startup when machine is transient")
 	}
 
 	if obj.CPUs > obj.MaxCPUs {
@@ -261,9 +274,18 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 		}
 	}
 
+	// The golang API doesn't give us autostart change events, so we watch
+	// them manually by looking at this directory for symlink changes.
+	recWatcher, err := recwatch.NewRecWatcher("/etc/libvirt/qemu/autostart/", true)
+	if err != nil {
+		return err
+	}
+	defer recWatcher.Close()
+
 	// Our channel event sources...
 	domChan := make(chan libvirt.DomainEventType)
 	gaChan := make(chan *libvirt.DomainEventAgentLifecycle)
+	recChan := recWatcher.Events()
 	errorChan := make(chan error)
 
 	// domain events callback
@@ -395,6 +417,9 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 			case libvirt.DOMAIN_EVENT_CRASHED:
 				send = true
 				//processExited = true // FIXME: is this okay for PMSUSPENDED ?
+
+			default:
+				obj.init.Logf("unexpected event: %+v\n", event)
 			}
 
 			//if obj.processExitWatch && processExited {
@@ -430,6 +455,19 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 			} else {
 				return fmt.Errorf("unknown guest agent state: %v", state)
 			}
+
+		case event, ok := <-recChan:
+			if !ok { // channel shutdown
+				// TODO: Should we restart it?
+				recChan = nil
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
+			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
+			}
+			send = true
 
 		case err, ok := <-errorChan:
 			if !ok {
@@ -843,6 +881,26 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		checkOK = false
 	}
 
+	autostart, err := dom.GetAutostart()
+	if err != nil {
+		return false, errwrap.Wrapf(err, "domain.GetAutostart failed")
+	}
+	// check for autostart
+	if b := (obj.Startup == "enabled"); obj.Startup != "" && (autostart != b) {
+		if !apply {
+			return false, nil
+		}
+		if err := dom.SetAutostart(b); err != nil {
+			return false, errwrap.Wrapf(err, "domain.SetAutostart failed")
+		}
+		if b {
+			obj.init.Logf("domain startup true")
+		} else {
+			obj.init.Logf("domain startup false")
+		}
+		checkOK = false
+	}
+
 	// shutdown here and let the stateCheckApply fix things up...
 	// TODO: i think this is the most straight forward process...
 	//if !obj.absent && restart {
@@ -1193,6 +1251,9 @@ func (obj *VirtRes) Cmp(r engine.Res) error {
 	}
 	if obj.State != res.State {
 		return fmt.Errorf("the State differs")
+	}
+	if obj.Startup != res.Startup {
+		return fmt.Errorf("the Startup differs")
 	}
 	if obj.Transient != res.Transient {
 		return fmt.Errorf("the Transient differs")

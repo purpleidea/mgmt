@@ -27,6 +27,7 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
+import "list"
 import "local"
 import "golang/strconv" as golang_strconv
 import "strings"
@@ -74,6 +75,7 @@ class vm($name, $config) {
 	$i = local.pool("libvirt-vm", $name) # the uid will always return the same int
 
 	$startup = $config->startup || ""
+	$packages = $config->packages || []
 
 	$format = $config->format || "qcow2" # used for file extension and parameter name
 	$index = $config->index || $i
@@ -86,7 +88,7 @@ class vm($name, $config) {
 	$version = $st->version
 	$arch = $st->arch
 	$filename = "/var/lib/libvirt/images/${name}.${format}"
-	$packages = if $distro == "fedora" {
+	$base_packages = if $distro == "fedora" {
 		if $version == "40" {
 			[
 				"@minimal-environment",
@@ -116,7 +118,7 @@ class vm($name, $config) {
 		size => 1024*1024*1024*100, # 100G
 		format => $format,
 		# TODO: What's the debian equivalent of these minimal packages?
-		packages => $packages,
+		packages => list.concat($base_packages, $packages),
 		root_ssh_inject => true,
 		ssh_keys => [
 			struct{

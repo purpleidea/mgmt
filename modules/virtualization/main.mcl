@@ -44,6 +44,7 @@ class base() {
 
 			Before => Svc["virtqemud"],
 			Before => Svc["virtnetworkd"],
+			Before => Svc["virtstoraged"],
 		}
 	}
 	#if os.is_family_debian() {
@@ -140,6 +141,7 @@ class vm($name, $config) {
 		Depend => File["/root/.ssh/id_rsa"],
 		Depend => Svc["virtqemud"],
 		Depend => Svc["virtnetworkd"],
+		Depend => Svc["virtstoraged"],
 	}
 
 	panic($index < 0 or $index > 65535, "virtualization:vm $index is out of range") # 0xffffh is the maximum
@@ -187,6 +189,7 @@ class vm($name, $config) {
 
 		Depend => Svc["virtqemud"],
 		Depend => Svc["virtnetworkd"],
+		Depend => Svc["virtstoraged"],
 		Depend => Virt:Builder["${filename}"],
 	}
 }

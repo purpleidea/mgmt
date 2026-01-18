@@ -110,6 +110,15 @@ func WithoutContext(err error) error {
 	return Join(errs)
 }
 
+// NoContextCanceled return nil if the error is a context.Canceled. Otherwise it
+// returns the error.
+func NoContextCanceled(err error) error {
+	if err == context.Canceled {
+		return nil
+	}
+	return err
+}
+
 // String returns a string representation of the error. In particular, if the
 // error is nil, it returns an empty string instead of panicking.
 func String(err error) string {

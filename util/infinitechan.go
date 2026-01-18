@@ -37,7 +37,7 @@ type InfiniteChan[T any] struct {
 	Out <-chan T
 }
 
-// NewInfiniteChan builds a new InfiniteChat of the correct type.
+// NewInfiniteChan builds a new InfiniteChan of the correct type.
 func NewInfiniteChan[T any]() *InfiniteChan[T] {
 	in := make(chan T)
 	out := make(chan T)

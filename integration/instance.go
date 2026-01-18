@@ -266,10 +266,6 @@ func (obj *Instance) Run(seeds []*Instance) error {
 			cmdArgs = append(cmdArgs, s)
 		}
 	}
-	if obj.EtcdServer {
-		cmdArgs = append(cmdArgs, "--no-server")
-		cmdArgs = append(cmdArgs, "--ideal-cluster-size=1")
-	}
 	gapi := "empty" // empty GAPI (for now)
 	cmdArgs = append(cmdArgs, gapi)
 	obj.Logf("run: %s %s", cmdName, strings.Join(cmdArgs, " "))

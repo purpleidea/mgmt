@@ -38,7 +38,7 @@ import (
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/etcd"
-	"github.com/purpleidea/mgmt/etcd/client"
+	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
@@ -188,15 +188,15 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	uniqueid := uuid.New() // panic's if it can't generate one :P
 
-	etcdClient := client.NewClientFromSeedsNamespace(
+	client := etcdClient.NewClientFromSeedsNamespace(
 		obj.Seeds, // endpoints
 		lib.NS,
 	)
-	if err := etcdClient.Init(); err != nil {
+	if err := client.Init(); err != nil {
 		return false, errwrap.Wrapf(err, "client Init failed")
 	}
 	defer func() {
-		err := errwrap.Wrapf(etcdClient.Close(), "client Close failed")
+		err := errwrap.Wrapf(client.Close(), "client Close failed")
 		if err != nil {
 			// TODO: cause the final exit code to be non-zero
 			Logf("client cleanup error: %+v", err)
@@ -205,7 +205,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	var world engine.World
 	world = &etcd.World{ // XXX: What should some of these fields be?
-		Client: etcdClient, // XXX: remove me when etcdfs below is done
+		Client: client, // XXX: remove me when etcdfs below is done
 		Seeds:  obj.Seeds,
 		NS:     lib.NS,
 		//MetadataPrefix: lib.MetadataPrefix,
@@ -259,7 +259,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	// XXX: Get this from the World API? (Which might need improving!)
 	etcdFs := &etcdfs.Fs{
-		Client: etcdClient,
+		Client: client,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
 		Metadata:   lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
 		DataPrefix: lib.StoragePrefix,

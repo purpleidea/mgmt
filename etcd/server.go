@@ -30,6 +30,7 @@
 package etcd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -37,7 +38,6 @@ import (
 	"time"
 
 	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcdTransport "go.etcd.io/etcd/client/pkg/v3/transport"
@@ -65,53 +65,13 @@ const (
 	ServerRetryWait = 500 * time.Millisecond
 )
 
-// serverAction represents the desired server state.
-type serverAction uint8
-
-const (
-	serverActionStop serverAction = iota
-	serverActionStart
-)
-
-// serverAction returns whether we should do the action requested. The action is
-// either start (true) or stop (false) as input. For example, if we run this as:
-// true -> true, it means we asked if we should start, and the answer is yes.
-func (obj *EmbdEtcd) serverAction(action serverAction) bool {
-	// check if i have actually volunteered first of all...
-	if obj.NoServer || len(obj.ServerURLs) == 0 {
-		obj.Logf("inappropriately nominated, rogue or stale server?")
-		return false // no action
-	}
-
-	_, exists := obj.nominated[obj.Hostname] // am i nominated?
-
-	// if there are no other peers, we create a new server
-	// TODO: do we need an || len(obj.nominated) == 0 if we're the first?
-	newCluster := len(obj.nominated) == 1 && exists
-
-	switch action {
-	case serverActionStart:
-		// we start if...
-		return obj.server == nil && (exists || newCluster)
-
-	case serverActionStop:
-		// we stop if...
-		return obj.server != nil && !exists
-	}
-
-	return false // no action needed
-}
-
 // runServer kicks of a new embedded etcd server. It exits when the server shuts
-// down. The exit can be triggered at any time by running destroyServer or if it
+// down. The exit can be triggered at any time by cancelling the ctx or if it
 // exits due to some condition like an error.
-// FIXME: should peerURLsMap just use obj.nominated instead?
-func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (reterr error) {
+func (obj *EmbdEtcd) runServer(ctx context.Context, newCluster bool, peerURLsMap etcdtypes.URLsMap) (reterr error) {
+	// XXX: use a mutex here?
 	obj.Logf("server: runServer: (newCluster=%t): %+v", newCluster, peerURLsMap)
 	defer obj.Logf("server: runServer: done!")
-	//obj.serverwg.Wait() // bonus, but instead, a mutex would be race free!
-	obj.serverwg.Add(1)
-	defer obj.serverwg.Done()
 	defer obj.serverExitsSignal.Send()
 	dataDir := fmt.Sprintf("%s/", path.Join(obj.Prefix, "server"))
 	if err := os.MkdirAll(dataDir, 0770); err != nil {
@@ -261,10 +221,10 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 	defer func() {
 		obj.serverID = 0 // reset
 	}()
-	obj.addSelfState() // add to endpoints list so self client can connect!
-	obj.setEndpoints() // sync client with new endpoints
-	defer obj.setEndpoints()
-	defer obj.rmMemberState(obj.Hostname)
+	//obj.addSelfState() // add to endpoints list so self client can connect!
+	//obj.setEndpoints() // sync client with new endpoints
+	//defer obj.setEndpoints()
+	//defer obj.rmMemberState(obj.Hostname)
 
 	obj.serverReadySignal.Send() // send a signal, and then reset the signal
 
@@ -272,38 +232,18 @@ func (obj *EmbdEtcd) runServer(newCluster bool, peerURLsMap etcdtypes.URLsMap) (
 		select {
 		case err, ok := <-obj.server.Err():
 			if !ok { // server shut down
-				return errwrap.Wrapf(err, "server shutdown error")
+				return nil
+			}
+			if err != nil {
+				return errwrap.Wrapf(err, "server error")
 			}
 
-		case <-obj.serverExit.Signal():
-			return errwrap.Wrapf(obj.serverExit.Error(), "server signal exit")
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 
 	//return nil // unreachable
-}
-
-// destroyServer shuts down the embedded etcd server portion.
-func (obj *EmbdEtcd) destroyServer() error {
-	// This function must be thread-safe because a destroy request will
-	// cause runServer to return, which then runs the defer of this function
-	// which is meant to clean up when an independent, normal runServer
-	// return happens. Add the mutex to protect against races on this call.
-	obj.servermu.Lock()
-	defer obj.servermu.Unlock()
-	if obj.server == nil {
-		return nil // don't error on redundant calls
-	}
-	obj.Logf("server: destroyServer...")
-	defer obj.Logf("server: destroyServer: done!")
-
-	obj.serverExit.Done(nil) // trigger an exit
-
-	obj.serverwg.Wait() // wait for server to finish shutting down
-	defer func() {
-		obj.serverExit = util.NewEasyExit() // reset
-	}()
-	return obj.serverExit.Error()
 }
 
 // ServerReady returns a channel that closes when we're up and running. This

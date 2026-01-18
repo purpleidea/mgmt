@@ -253,3 +253,10 @@ type EtcdWorld interface {
 	// WatchMembers returns a channel of changing members in the cluster.
 	WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error)
 }
+
+// EmbdEtcdWorld is a world interface that should be implemented if the world
+// backend is implementing embedded etcd.
+// TODO: In theory we could generalize this to support other backends, but lets
+// assume it's specific to etcd only for now.
+type EmbdEtcdWorld interface {
+}

@@ -95,10 +95,6 @@ func (obj *Svc) Run(ctx context.Context) error {
 		Logf:  obj.Logf,
 	}
 
-	if obj.SetupSvcArgs.NoServer && len(obj.SetupSvcArgs.Seeds) == 0 {
-		return fmt.Errorf("--no-server can't be used with zero seeds")
-	}
-
 	if obj.SetupSvcArgs.Install {
 		binaryPath := "/usr/bin/mgmt" // default
 		if s := obj.SetupSvcArgs.BinaryPath; s != "" {
@@ -124,11 +120,6 @@ func (obj *Svc) Run(ctx context.Context) error {
 			// TODO: validate each seed?
 			s := fmt.Sprintf("--seeds=%s", seed)
 			argv = append(argv, s)
-		}
-
-		if obj.SetupSvcArgs.NoServer {
-			argv = append(argv, "--no-server")
-			argv = append(argv, "--no-magic") // XXX: fix this workaround
 		}
 
 		argv = append(argv, "--no-autoedges") // XXX: not yet fast...

@@ -588,7 +588,6 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 				//"--start", // we're in pre-boot env right now
 				"--enable", // start on first boot!
 				fmt.Sprintf("--binary-path=%s", m),
-				"--no-server", // TODO: hardcode this for now
 				//fmt.Sprintf("--seeds=%s", strings.Join(obj.Seeds, ",")),
 			}
 			for _, seed := range obj.Seeds {

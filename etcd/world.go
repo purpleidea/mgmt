@@ -36,7 +36,6 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/etcd/chooser"
 	"github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/etcd/client/resources"
 	"github.com/purpleidea/mgmt/etcd/client/str"
@@ -46,7 +45,6 @@ import (
 	"github.com/purpleidea/mgmt/etcd/interfaces"
 	"github.com/purpleidea/mgmt/etcd/scheduler"
 	"github.com/purpleidea/mgmt/lang/embedded"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -193,51 +191,6 @@ func (obj *World) ResExport(ctx context.Context, resourceExports []*engine.ResEx
 // (false, nil). On any error we return (false, err).
 func (obj *World) ResDelete(ctx context.Context, resourceDeletes []*engine.ResDelete) (bool, error) {
 	return resources.DelResources(ctx, obj.client, obj.init.Hostname, resourceDeletes)
-}
-
-// IdealClusterSizeWatch returns a stream of errors anytime the cluster-wide
-// dynamic cluster size setpoint changes.
-func (obj *World) IdealClusterSizeWatch(ctx context.Context) (chan error, error) {
-	c := client.NewClientFromSimple(obj.client, ChooserPath)
-	if err := c.Init(); err != nil {
-		return nil, err
-	}
-	wg := util.WgFromCtx(ctx)
-	if wg != nil {
-		wg.Add(1)
-	}
-	go func() {
-		if wg != nil {
-			defer wg.Done()
-		}
-		// This must get closed *after* because it will not finish until
-		// the Watcher returns, because it contains a wg.Wait() in it...
-		defer c.Close() // ignore error
-		select {
-		case <-ctx.Done():
-		}
-	}()
-	return c.Watcher(ctx, chooser.IdealDynamicSizePath)
-}
-
-// IdealClusterSizeGet gets the cluster-wide dynamic cluster size setpoint.
-func (obj *World) IdealClusterSizeGet(ctx context.Context) (uint16, error) {
-	c := client.NewClientFromSimple(obj.client, ChooserPath)
-	if err := c.Init(); err != nil {
-		return 0, err
-	}
-	defer c.Close()                       // ignore error
-	return chooser.DynamicSizeGet(ctx, c) // use client with added namespace
-}
-
-// IdealClusterSizeSet sets the cluster-wide dynamic cluster size setpoint.
-func (obj *World) IdealClusterSizeSet(ctx context.Context, size uint16) (bool, error) {
-	c := client.NewClientFromSimple(obj.client, ChooserPath)
-	if err := c.Init(); err != nil {
-		return false, err
-	}
-	defer c.Close() // ignore error
-	return chooser.DynamicSizeSet(ctx, c, size)
 }
 
 // StrWatch returns a channel which spits out events on possible string changes.

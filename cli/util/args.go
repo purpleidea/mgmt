@@ -167,8 +167,7 @@ type SetupSvcArgs struct {
 	SSHURL     string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
 
-	Seeds    []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
-	NoServer bool     `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
+	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 
 	Install bool `arg:"--install" help:"install the systemd mgmt service"`
 	Start   bool `arg:"--start" help:"start the mgmt service"`

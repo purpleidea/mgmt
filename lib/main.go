@@ -35,6 +35,7 @@ package lib
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -49,9 +50,9 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
-	"github.com/purpleidea/mgmt/etcd/chooser"
-	etcdInterfaces "github.com/purpleidea/mgmt/etcd/interfaces"
+	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
+	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/gapi/empty"
 	"github.com/purpleidea/mgmt/pgp"
@@ -183,20 +184,9 @@ type Config struct {
 	// --advertise-peer-urls instead.
 	AdvertiseServerURLs []string `arg:"--advertise-server-urls,separate,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
-	// IdealClusterSize is the ideal number of server peers in cluster. This
-	// value is only read by the initial server.
-	IdealClusterSize int `arg:"--ideal-cluster-size,env:MGMT_IDEAL_CLUSTER_SIZE" default:"-1" help:"ideal number of server peers in cluster; only read by initial server"`
-
-	// NoServer tells the engine to not let other servers peer with me.
-	NoServer bool `arg:"--no-server" help:"do not start embedded etcd server (do not promote from client to peer)"`
-
 	// NoNetwork tells the engine to run a single node instance without
 	// clustering or opening tcp ports to the outside.
 	NoNetwork bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
-
-	// NoMagic turns off some things which aren't needed when used with a
-	// simple Seeds and NoServer option.
-	NoMagic bool `arg:"--no-magic" help:"do not do any etcd magic (for simple clients)"`
 
 	// NoPgp disables pgp functionality.
 	NoPgp bool `arg:"--no-pgp" help:"don't create pgp keys"`
@@ -230,14 +220,15 @@ type Main struct {
 	serverURLs          etcdtypes.URLs // processed server urls value
 	advertiseClientURLs etcdtypes.URLs // processed advertise client urls value
 	advertiseServerURLs etcdtypes.URLs // processed advertise server urls value
-	idealClusterSize    uint16         // processed ideal cluster size value
 
 	pgpKeys *pgp.PGP // agent key pair
 
 	embdEtcd *etcd.EmbdEtcd // TODO: can be an interface in the future...
 	ge       *graph.Engine
 
-	exit    *util.EasyExit // exit signal
+	err      error
+	errMutex *sync.Mutex // guards err
+
 	cleanup []func() error // list of functions to run on close
 }
 
@@ -269,15 +260,6 @@ func (obj *Main) Init() error {
 		obj.NoStreamWatch = true
 	} else if obj.NoStreamWatch {
 		obj.NoWatch = true
-	}
-
-	obj.idealClusterSize = uint16(obj.IdealClusterSize)
-	if obj.IdealClusterSize < 0 { // value is undefined, set to the default
-		obj.idealClusterSize = chooser.DefaultIdealDynamicSize
-	}
-
-	if obj.idealClusterSize < 1 {
-		return fmt.Errorf("the IdealClusterSize (%d) should be at least one", obj.idealClusterSize)
 	}
 
 	// transform the url list inputs into etcd typed lists
@@ -313,19 +295,36 @@ func (obj *Main) Init() error {
 		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
 	}
 
-	obj.exit = util.NewEasyExit()
+	obj.errMutex = &sync.Mutex{}
+
 	obj.cleanup = []func() error{}
 	return nil
 }
 
 // Run is the main execution entrypoint to run mgmt.
-func (obj *Main) Run() error {
+func (obj *Main) Run(ctx context.Context) error {
 	Logf := func(format string, v ...interface{}) {
 		obj.Logf("main: "+format, v...)
 	}
 
-	exitCtx := obj.exit.Context() // local exit signal
-	defer obj.exit.Done(nil)      // ensure this gets called even if Exit doesn't
+	wg := &sync.WaitGroup{} // waitgroup for inner loop & goroutines
+	defer wg.Wait()         // wait in case we have an early exit
+
+	// This ctx should be called to kick off the shutdown. Everything else
+	// is secondary to this initiator, so that the shutdown is sequenced.
+	//
+	// The sequence:
+	//
+	// 1) cancel or ctx is cancelled
+	// 2) as a result, deploys and the deployChan will finish and close
+	// 3) this step also triggers the deployCtx to cancel
+	// 3) when the deploy loop exits, it will cancel geCancel and geCtx
+	// 4) when the graph engine closes, it cancels worldCancel and worldCtx
+	// 5) when that exits, it triggers etcdCancel and etcdCtx
+	// 5) when the etcd client exits, it triggers embdCancel and embdCtx
+	// 5) when embedded etcd exits, convergerCancel and convergerCtx trigger
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	hostname, err := os.Hostname() // a sensible default
 	// allow passing in the hostname, instead of using the system setting
@@ -467,11 +466,6 @@ func (obj *Main) Run() error {
 		// TODO: Import admin key
 	}
 
-	exitchan := make(chan struct{}) // exit on close
-	wg := &sync.WaitGroup{}         // waitgroup for inner loop & goroutines
-	defer wg.Wait()                 // wait in case we have an early exit
-	defer obj.exit.Done(nil)        // trigger exit in case something blocks
-
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := obj.MaxRuntime; i > 0 {
 		wg.Add(1)
@@ -479,8 +473,10 @@ func (obj *Main) Run() error {
 			defer wg.Done()
 			select {
 			case <-time.After(time.Duration(i) * time.Second):
-				obj.exit.Done(fmt.Errorf("max runtime reached")) // trigger exit signal
-			case <-obj.exit.Signal(): // exit early on exit signal
+				obj.errAppend(fmt.Errorf("max runtime reached"))
+				cancel() // trigger an exit!
+
+			case <-ctx.Done():
 				return
 			}
 		}()
@@ -490,6 +486,9 @@ func (obj *Main) Run() error {
 	if !obj.NoRaiseLimits {
 		raiseLimits(Logf) // just alert the user...
 	}
+
+	convergerCtx, convergerCancel := context.WithCancel(context.Background())
+	defer convergerCancel()
 
 	// setup converger
 	converger := converger.New(
@@ -506,45 +505,51 @@ func (obj *Main) Run() error {
 		converger.AddStateFn("converged-exit", func(converged bool) error {
 			if converged {
 				Logf("converged for %d seconds, exiting!", obj.ConvergedTimeout)
-				obj.exit.Done(nil) // trigger an exit!
+				cancel() // trigger an exit!
 			}
 			return nil
 		})
 	}
 
-	// XXX: should this be moved to later in the code?
+	// XXX: pass in the convergerCtx somewhere
 	go converger.Run(true) // main loop for converger, true to start paused
 	converger.Ready()      // block until ready
-	defer func() {
-		// TODO: shutdown converger, but make sure that using it in a
-		// still running embdEtcd struct doesn't block waiting on it...
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		//defer parentCancel()
+		select {
+		case <-convergerCtx.Done():
+		}
 		converger.Shutdown()
+		//err := errwrap.Wrapf(converger.Shutdown(), "converger shutdown failed")
+		//if err == nil {
+		//	return
+		//}
+		//obj.errAppend(err)
+		//Logf("converger shutdown error: %+v", err)
 	}()
 
 	// embedded etcd
+	embdCtx, embdCancel := context.WithCancel(context.Background())
+	defer embdCancel()
+
 	if len(obj.seeds) == 0 {
 		Logf("no seeds specified!")
 	} else {
 		Logf("seeds(%d): %+v", len(obj.seeds), obj.seeds)
 	}
-	var client etcdInterfaces.Client
-	if !obj.NoMagic {
+	if len(obj.seeds) == 0 {
 		obj.embdEtcd = &etcd.EmbdEtcd{
 			Hostname: hostname,
-			Seeds:    obj.seeds,
 
 			ClientURLs:  obj.clientURLs,
 			ServerURLs:  obj.serverURLs,
 			AClientURLs: obj.advertiseClientURLs,
 			AServerURLs: obj.advertiseServerURLs,
 
-			NoServer:  obj.NoServer,
 			NoNetwork: obj.NoNetwork,
-			NoMagic:   obj.NoMagic,
-
-			Chooser: &chooser.DynamicSize{
-				IdealClusterSize: obj.idealClusterSize,
-			},
 
 			Converger: converger,
 
@@ -559,24 +564,36 @@ func (obj *Main) Run() error {
 		if err := obj.embdEtcd.Init(); err != nil {
 			return errwrap.Wrapf(err, "etcd init failed")
 		}
-		defer func() {
-			// cleanup etcd main loop last so it can process everything first
-			err := errwrap.Wrapf(obj.embdEtcd.Close(), "etcd close failed")
-			if err != nil {
-				// TODO: cause the final exit code to be non-zero
-				Logf("cleanup error: %+v", err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer convergerCancel()
+			select {
+			case <-embdCtx.Done():
 			}
+			// cleanup etcd main loop last so it can process everything first
+			err := errwrap.Wrapf(obj.embdEtcd.Cleanup(), "etcd close failed")
+			if err == nil {
+				return
+			}
+			obj.errAppend(err)
+			Logf("etcd embd cleanup error: %+v", err)
 		}()
 
 		var etcdErr error
-		// don't add a wait group here, this is done in embdEtcd.Destroy()
+		wg.Add(1)
 		go func() {
-			etcdErr = obj.embdEtcd.Run()                             // returns when it shuts down...
-			obj.exit.Done(errwrap.Wrapf(etcdErr, "etcd run failed")) // trigger exit
+			defer wg.Done()
+			etcdErr = obj.embdEtcd.Run(embdCtx)          // returns when it shuts down...
+			etcdErr = errwrap.NoContextCanceled(etcdErr) // strip
+			if etcdErr != nil {
+				obj.errAppend(etcdErr)
+				Logf("etcd embd run error: %+v", etcdErr)
+			}
+			// XXX: if this exits before the engine, that engine
+			// might block when trying to store some value...
+			cancel() // try and cancel the main thing anyway
 		}()
-		// tell etcd to shutdown, blocks until done!
-		// TODO: handle/report error?
-		defer obj.embdEtcd.Destroy()
 
 		// wait for etcd to be ready before continuing...
 		// TODO: do we need to add a timeout here?
@@ -594,11 +611,51 @@ func (obj *Main) Run() error {
 			return err
 		}
 		// TODO: should getting a client from EmbdEtcd already come with the NS?
-		client, err = obj.embdEtcd.MakeClientFromNamespace(NS)
-		if err != nil {
-			return errwrap.Wrapf(err, "make Client failed")
+		//client, err = obj.embdEtcd.MakeClientFromNamespace(NS)
+		//if err != nil {
+		//	return errwrap.Wrapf(err, "make Client failed")
+		//}
+
+		// XXX: get the actual client URLs being used from obj.embdEtcd.GetCURLs() or something.
+		obj.seeds = obj.clientURLs // XXX: is this right?
+		if len(obj.seeds) == 0 {
+			u, err := url.Parse(etcd.DefaultClientURL)
+			if err != nil {
+				return err
+			}
+			obj.seeds = []url.URL{*u}
 		}
 	}
+
+	etcdCtx, etcdCancel := context.WithCancel(context.Background())
+	defer etcdCancel()
+
+	//var client etcdInterfaces.Client = etcdClient.NewClientFromSeedsNamespace(
+	client := etcdClient.NewClientFromSeedsNamespace(
+		etcdUtil.FromURLsToStringList(obj.seeds), // endpoints
+		NS,
+	)
+	if err := client.Init(); err != nil {
+		return errwrap.Wrapf(err, "client Init failed")
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if obj.embdEtcd == nil {
+			defer convergerCancel()
+		} else {
+			defer embdCancel()
+		}
+		select {
+		case <-etcdCtx.Done():
+		}
+		err := errwrap.Wrapf(client.Close(), "client Close failed")
+		if err == nil {
+			return
+		}
+		obj.errAppend(err)
+		Logf("etcd client cleanup error: %+v", err)
+	}()
 
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
@@ -610,6 +667,9 @@ func (obj *Main) Run() error {
 	}).Init()
 
 	var gapiInfoResult *gapi.InfoResult
+
+	worldCtx, worldCancel := context.WithCancel(context.Background())
+	defer worldCancel()
 
 	// implementation of the World API (alternatives can be substituted in)
 	// XXX: The "implementation of the World API" should have more than just
@@ -654,16 +714,26 @@ func (obj *Main) Run() error {
 			obj.Logf("world: etcd: "+format, v...)
 		},
 	}
-	if err := world.Connect(exitCtx, worldInit); err != nil {
+	if err := world.Connect(worldCtx, worldInit); err != nil {
 		return errwrap.Wrapf(err, "world Connect failed")
 	}
-	defer func() {
-		err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
-		if err != nil {
-			// TODO: cause the final exit code to be non-zero?
-			Logf("close error: %+v", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer etcdCancel()
+		select {
+		case <-worldCtx.Done():
 		}
+		err := errwrap.Wrapf(world.Cleanup(), "world Cleanup failed")
+		if err == nil {
+			return
+		}
+		obj.errAppend(err)
+		Logf("world cleanup error: %+v", err)
 	}()
+
+	geCtx, geCancel := context.WithCancel(context.Background())
+	defer geCancel()
 
 	obj.ge = &graph.Engine{
 		Program:   obj.Program,
@@ -683,17 +753,27 @@ func (obj *Main) Run() error {
 	if err := obj.ge.Init(); err != nil {
 		return errwrap.Wrapf(err, "engine Init failed")
 	}
-	defer func() {
-		err := errwrap.Wrapf(obj.ge.Shutdown(), "engine Shutdown failed")
-		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("cleanup error: %+v", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer worldCancel()
+		select {
+		case <-geCtx.Done():
 		}
+		err := errwrap.Wrapf(obj.ge.Shutdown(), "engine Shutdown failed")
+		if err == nil {
+			return
+		}
+		obj.errAppend(err)
+		Logf("graph engine shutdown error: %+v", err)
 	}()
+
 	// After this point, the inner "main loop" will run, so that the engine
 	// can get closed with the deploy close via the deploy chan shutdown...
 
 	// main loop logic starts here
+	deployCtx, deployCancel := context.WithCancel(context.Background())
+	defer deployCancel()
 	deployChan := make(chan *gapi.Deploy)
 	var gapiImpl gapi.GAPI // active GAPI implementation
 	gapiImpl = nil         // starts off missing
@@ -702,8 +782,9 @@ func (obj *Main) Run() error {
 	gapiChan = nil              // starts off blocked
 	wg.Add(1)
 	go func() {
-		defer Logf("loop: exited")
 		defer wg.Done()
+		defer geCancel() // at the end of deploy, we trigger this!
+		defer Logf("loop: exited")
 		started := false // track engine started state
 		var mainDeploy *gapi.Deploy
 		for {
@@ -781,7 +862,7 @@ func (obj *Main) Run() error {
 					Logf("gapi: next...")
 				}
 				// this must generate at least one event for it to work
-				gapiChan = gapiImpl.Next(exitCtx) // stream of graph switch events!
+				gapiChan = gapiImpl.Next(deployCtx) // stream of graph switch events!
 				gapiInfoResult = gapiImpl.Info()
 				continue
 
@@ -801,8 +882,9 @@ func (obj *Main) Run() error {
 				// TODO: do we want to block exits and wait?
 				// TODO: we might want to wait for the next GAPI
 				if next.Exit {
-					obj.exit.Done(next.Err) // trigger exit
-					continue                // wait for exitchan
+					obj.errAppend(next.Err)
+					cancel() // trigger an exit!
+					continue // wait for deployChan to exit
 				}
 
 				// the gapi lets us send an error to the channel
@@ -815,7 +897,7 @@ func (obj *Main) Run() error {
 
 				fastPause = next.Fast // should we pause fast?
 
-				//case <-exitchan: // we only exit on deployChan close!
+				//case <-deployCtx.Done(): // we only exit on deployChan close!
 				//	return
 			}
 
@@ -1026,14 +1108,19 @@ func (obj *Main) Run() error {
 			//if !obj.ge.IsClosing() { // XXX: do we need to do this?
 			// skip prune when we're closing
 			//}
-			// FIXME: is this the right ctx?
-			if err := obj.ge.Exporter.Prune(exitCtx, obj.ge.Graph()); err != nil {
+
+			// We use a timeout only when the parent ctx is closing.
+			// XXX: Instead of a timeout, use the second ^C signal?
+			pruneCtx, pruneCancel := util.WithPostCancelTimeout(deployCtx, 5*time.Second)
+			if err := obj.ge.Exporter.Prune(pruneCtx, obj.ge.Graph()); err != nil {
 				// XXX: This should just cause a permanent error
 				// here which turns into a shutdown. Refactor!
 				obj.ge.Abort() // delete graph
 				Logf("error running the exporter Prune: %+v", err)
+				pruneCancel()
 				continue
 			}
+			pruneCancel()
 			Logf("export cleanup took: %s", time.Since(timing))
 
 			// Start needs to be synchronous because we don't want
@@ -1058,7 +1145,7 @@ func (obj *Main) Run() error {
 					},
 				}
 				// FIXME: is this the right ctx?
-				if err := gv.Exec(exitCtx); err != nil {
+				if err := gv.Exec(deployCtx); err != nil {
 					Logf("graphviz: %+v", err)
 				} else {
 					Logf("graphviz: successfully generated graph!")
@@ -1076,9 +1163,10 @@ func (obj *Main) Run() error {
 	// get max id (from all the previous deploys)
 	// this is what the existing cluster is already running
 	// TODO: add a timeout to context?
-	max, err := world.GetMaxDeployID(exitCtx)
+	max, err := world.GetMaxDeployID(ctx)
 	if err != nil {
 		close(deployChan) // because we won't close it downstream...
+		deployCancel()
 		return errwrap.Wrapf(err, "error getting max deploy id")
 	}
 
@@ -1086,6 +1174,7 @@ func (obj *Main) Run() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer deployCancel()
 		defer close(deployChan) // no more are coming ever!
 
 		// if "empty" and we don't want to wait for a fresh deploy...
@@ -1107,28 +1196,20 @@ func (obj *Main) Run() error {
 				if obj.Debug {
 					Logf("deploy: sending new gapi")
 				}
-			case <-exitchan:
+			case <-ctx.Done():
 				return
 			}
 		}
 
 		// now we can wait for future deploys, but if we already had an
 		// initial deploy from run, don't switch to this unless it's new
-		ctx, cancel := context.WithCancel(context.Background())
 		watchChan, err := world.WatchDeploy(ctx)
 		if err != nil {
-			cancel()
+			obj.errAppend(err)
+			cancel() // trigger an exit!
 			Logf("error starting deploy: %+v", err)
 			return
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer cancel() // unblock watch deploy
-			select {       // wait until we're ready to shutdown
-			case <-exitchan:
-			}
-		}()
 		canceled := false
 
 		var last uint64
@@ -1138,7 +1219,7 @@ func (obj *Main) Run() error {
 				// deployChan it's the signal to tell the engine
 				// to actually shutdown...
 				select { // wait until we're ready to shutdown
-				case <-exitchan:
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -1149,7 +1230,7 @@ func (obj *Main) Run() error {
 				if !ok {
 					// TODO: is any of this needed in here?
 					if !canceled {
-						obj.exit.Done(nil) // regular shutdown
+						cancel() // trigger an exit!
 					}
 					return
 				}
@@ -1159,14 +1240,15 @@ func (obj *Main) Run() error {
 				}
 				if err != nil {
 					// TODO: it broke, can we restart?
-					obj.exit.Done(errwrap.Wrapf(err, "deploy: watch error"))
+					obj.errAppend(err)
+					cancel() // trigger an exit!
 					continue
 				}
 				if obj.Debug {
 					Logf("deploy: got activity")
 				}
 
-				//case <-exitchan:
+				//case <-ctx.Done():
 				//	return // exit via channel close instead
 			}
 
@@ -1218,7 +1300,7 @@ func (obj *Main) Run() error {
 						Logf("deploy: sending empty deploy")
 					}
 
-				case <-exitchan:
+				case <-ctx.Done():
 					return
 				}
 				continue
@@ -1240,7 +1322,7 @@ func (obj *Main) Run() error {
 					Logf("deploy: sent new gapi")
 				}
 
-			case <-exitchan:
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -1248,26 +1330,34 @@ func (obj *Main) Run() error {
 
 	Logf("running...")
 
-	reterr := obj.exit.Error() // wait for exit signal (block until arrival)
+	// wait for exit signal (block until arrival)
+	select {
+	case <-ctx.Done():
+	}
 
 	// XXX: The reversals don't get a chance to run if we ^C things.
 	// XXX: Add a singular deploy of those before we shut down completely.
 
 	Logf("destroy...")
 
-	// tell inner main loop to exit
-	close(exitchan)
 	wg.Wait()
 
-	if reterr != nil {
-		Logf("error: %+v", reterr)
+	if obj.err != nil {
+		Logf("error: %+v", obj.err)
 	}
-	return reterr
+	return obj.err
 }
 
-// Close contains a number of methods which must be run after the Run method.
+// errAppend is a simple helper function.
+func (obj *Main) errAppend(err error) {
+	obj.errMutex.Lock()
+	obj.err = errwrap.Append(obj.err, err)
+	obj.errMutex.Unlock()
+}
+
+// Cleanup contains a number of methods which must be run after the Run method.
 // You must run them to properly clean up after the main program execution.
-func (obj *Main) Close() error {
+func (obj *Main) Cleanup() error {
 	var err error
 
 	// run cleanup functions in reverse (defer) order
@@ -1280,17 +1370,11 @@ func (obj *Main) Close() error {
 	return err
 }
 
-// Exit causes a safe shutdown. This is often attached to the ^C signal handler.
-func (obj *Main) Exit(err error) {
-	obj.exit.Done(err) // trigger an exit!
-}
-
 // FastExit causes a faster shutdown. This is often activated on the second ^C.
 func (obj *Main) FastExit(err error) {
 	if obj.ge != nil {
 		obj.ge.SetFastPause()
 	}
-	obj.Exit(err)
 }
 
 // Interrupt causes the fastest shutdown. The only faster method is a kill -9
@@ -1299,8 +1383,4 @@ func (obj *Main) FastExit(err error) {
 func (obj *Main) Interrupt(err error) {
 	// XXX: implement and run Interrupt API for supported resources
 	obj.FastExit(err)
-
-	if obj.embdEtcd != nil {
-		obj.embdEtcd.Interrupt() // unblock borked clusters
-	}
 }

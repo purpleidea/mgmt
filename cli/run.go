@@ -182,8 +182,8 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	// install the exit signal handler
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
-	exit := make(chan struct{})
-	defer close(exit)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -198,30 +198,35 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 			case sig := <-signals: // any signal will do
 				if sig != os.Interrupt {
 					data.Flags.Logf("interrupted by signal")
+					cancel()
 					main.Interrupt(fmt.Errorf("killed by %v", sig))
 					return
 				}
 
+				// XXX: do we want to keep the fast exit stuff?
 				switch count {
 				case 0:
 					data.Flags.Logf("interrupted by ^C")
-					main.Exit(nil)
+					cancel()
+					//main.Exit(nil)
 				case 1:
 					data.Flags.Logf("interrupted by ^C (fast pause)")
+					cancel()
 					main.FastExit(nil)
 				case 2:
 					data.Flags.Logf("interrupted by ^C (hard interrupt)")
+					cancel()
 					main.Interrupt(nil)
 				}
 				count++
 
-			case <-exit:
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	reterr := main.Run()
+	reterr := main.Run(ctx)
 	if reterr != nil {
 		// log the error message returned
 		if data.Flags.Debug {
@@ -229,9 +234,9 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		}
 	}
 
-	if err := main.Close(); err != nil {
+	if err := main.Cleanup(); err != nil {
 		if data.Flags.Debug {
-			data.Flags.Logf("main: Close: %+v", err)
+			data.Flags.Logf("main: Cleanup: %+v", err)
 		}
 		if reterr == nil {
 			return false, err

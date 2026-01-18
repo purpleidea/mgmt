@@ -36,16 +36,15 @@ import (
 )
 
 func TestValidation1(t *testing.T) {
-	// running --no-server with no --seeds should not validate at the moment
+	// running with no --seeds should not validate at the moment
 	embdEtcd := &EmbdEtcd{
 		//Seeds: etcdtypes.URLs{},
-		NoServer: true,
 	}
 	if err := embdEtcd.Validate(); err == nil {
 		t.Errorf("expected validation err, got nil")
 	}
 	if err := embdEtcd.Init(); err == nil {
 		t.Errorf("expected init err, got nil")
-		defer embdEtcd.Close()
+		defer embdEtcd.Cleanup()
 	}
 }

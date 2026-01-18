@@ -518,7 +518,8 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				if obj.Debug {
 					obj.Logf("%s: Watch...", vertex)
 				}
-				err = res.Watch(state.doneCtx) // run the watch normally
+				err = res.Watch(state.doneCtx)       // run the watch normally
+				err = errwrap.NoContextCanceled(err) // strip
 				if s := engineUtil.CleanError(err); err != nil {
 					obj.Logf("%s: Watch Error: %s", vertex, s)
 				} else if obj.Debug {

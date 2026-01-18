@@ -68,6 +68,17 @@ class base() {
 		state => "running",
 		startup => "enabled",
 	}
+
+	file "/etc/libvirt/hooks/" {
+		state => "exists",
+
+		Depend => Pkg["libvirt"],
+	}
+	file "/etc/libvirt/hooks/qemu.d/" {
+		state => "exists",
+
+		Depend => File["/etc/libvirt/hooks/"],
+	}
 }
 
 # Create a vm for the system.

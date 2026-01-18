@@ -32,6 +32,7 @@ package util
 import (
 	"context"
 	"sync"
+	"time"
 )
 
 // ContextWithCloser wraps a context and returns a new one exactly like the
@@ -73,4 +74,27 @@ func WgFromCtx(ctx context.Context) *sync.WaitGroup {
 	}
 	//return &sync.WaitGroup{} // return a dud?
 	return nil
+}
+
+// WithPostCancelTimeout returns a context that is cancelled after a timeout
+// starting when the parent context is cancelled. If you run the cancel function
+// then the returned context is cancelled immediately.
+func WithPostCancelTimeout(parent context.Context, duration time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	go func() {
+		select {
+		case <-parent.Done():
+			// start the timer
+		case <-ctx.Done():
+			return // exit early
+		}
+		select {
+		case <-time.After(duration): // doesn't leak in golang 1.23+
+			cancel(context.DeadlineExceeded)
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, func() {
+		cancel(context.Canceled)
+	}
 }

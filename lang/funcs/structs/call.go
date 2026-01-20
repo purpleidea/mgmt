@@ -151,7 +151,7 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	// methods called on it. Nothing else. It will _not_ call Commit or
 	// Reverse. It adds to the graph, and our Commit and Reverse operations
 	// are the ones that actually make the change.
-	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices, obj.OutputVertex)
+	outputFunc, err := newFuncValue.CallWithFuncs(obj.init.Txn, obj.ArgVertices)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}
@@ -160,11 +160,23 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	edge := &interfaces.FuncEdge{Args: []string{OutputFuncArgName}} // "out"
 	obj.init.Txn.AddVertex(outputFunc)
 
-	// XXX: We don't want to do this for ShapelyFunc's. This is a hack b/c I
-	// wasn't sure how to make this more consistent elsewhere. Look at the
-	// "hack" edge in iter.map and iter.filter as those need this hack.
-	// XXX: maybe this interface could return the funcSubgraphOutput node?
-	if _, ok := outputFunc.(interfaces.ShapelyFunc); !ok {
+	if shapelyFunc, ok := outputFunc.(interfaces.ShapelyFunc); ok {
+		// should receive a dummy nil edge and an "out" edge...
+		funcSubgraphOutput := &OutputFunc{ // the new graph shape thing!
+			//Textarea: obj.Textarea,
+			Name:     "funcSubgraphOutput",
+			Type:     obj.Type,
+			EdgeName: OutputFuncArgName,
+		}
+
+		shapelyFunc.SetShape(obj.ArgVertices, funcSubgraphOutput)
+
+		dummy := &interfaces.FuncEdge{Args: []string{OutputFuncDummyArgName}}
+		obj.init.Txn.AddEdge(outputFunc, funcSubgraphOutput, dummy) // dummy
+
+		obj.init.Txn.AddEdge(funcSubgraphOutput, obj.OutputVertex, edge)
+	} else {
+		// not shapely
 		obj.init.Txn.AddEdge(outputFunc, obj.OutputVertex, edge)
 	}
 

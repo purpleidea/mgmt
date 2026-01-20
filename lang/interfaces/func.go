@@ -60,7 +60,7 @@ func (obj Table) Copy() Table {
 
 // GraphSig is the simple signature that is used throughout our implementations.
 // TODO: Rename this?
-type GraphSig = func(txn Txn, args []Func, out Func) (Func, error)
+type GraphSig = func(txn Txn, args []Func) (Func, error)
 
 // Compile-time guarantee that *types.FuncValue accepts a func of type FuncSig.
 var _ = &types.FuncValue{V: FuncSig(nil)}

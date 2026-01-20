@@ -274,19 +274,6 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	// create the new subgraph
 
-	// XXX: Should we move creation of funcSubgraphOutput into Init() ?
-	funcSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
-		//Textarea: obj.Textarea,
-		Name:     "funcSubgraphOutput",
-		Type:     obj.sig().Out,
-		EdgeName: structs.OutputFuncArgName,
-	}
-	obj.init.Txn.AddVertex(funcSubgraphOutput)
-	obj.init.Txn.AddEdge(funcSubgraphOutput, obj.outputFunc, &interfaces.FuncEdge{Args: []string{structs.OutputFuncArgName}}) // "out"
-
-	// XXX: hack add this edge that I thought would happen in call.go
-	obj.init.Txn.AddEdge(obj, funcSubgraphOutput, &interfaces.FuncEdge{Args: []string{structs.OutputFuncDummyArgName}}) // "dummy"
-
 	// We pack the value pairs into structs that look like this...
 	structType := types.NewType(fmt.Sprintf("struct{v %s; b bool}", obj.Type.String()))
 	getArgName := func(i int) string {
@@ -340,7 +327,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	edge := &interfaces.FuncEdge{Args: []string{structs.OutputFuncArgName}} // "out"
 	obj.init.Txn.AddVertex(outputListFunc)
-	obj.init.Txn.AddEdge(outputListFunc, funcSubgraphOutput, edge)
+	obj.init.Txn.AddEdge(outputListFunc, obj.outputFunc, edge)
 
 	for i := 0; i < obj.lastInputListLength; i++ {
 		i := i
@@ -371,7 +358,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
-		outputElemFunc, err := obj.lastFuncValue.CallWithFuncs(obj.init.Txn, []interfaces.Func{inputElemFunc}, funcSubgraphOutput)
+		outputElemFunc, err := obj.lastFuncValue.CallWithFuncs(obj.init.Txn, []interfaces.Func{inputElemFunc})
 		if err != nil {
 			return errwrap.Wrapf(err, "could not call obj.lastFuncValue.CallWithFuncs()")
 		}

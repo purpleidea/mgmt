@@ -10041,7 +10041,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			//return nil, funcs.ErrCantSpeculate
 			return nil, fmt.Errorf("not implemented")
 		}
-		v := func(innerTxn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 			// Extend the environment with the arguments.
 			extendedEnv := env.Copy() // TODO: Should we copy?
 			for i := range obj.Args {
@@ -10104,7 +10104,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		//	// instead of calling ExprFunc.Graph().
 		//	f = obj.function.Call
 		//}
-		v := func(txn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
+		v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 			// Copy obj.function so that the underlying ExprFunc.function gets
 			// refreshed with a new ExprFunc.Function() call. Otherwise, multiple
 			// calls to this function will share the same Func.
@@ -10128,7 +10128,20 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 
 			// XXX: is this the best way to pass this stuff in?
 			if shapelyFunc, ok := valueTransformingFunc.(interfaces.ShapelyFunc); ok {
-				shapelyFunc.SetShape(args, out)
+				// should receive a dummy nil edge and an "out" edge...
+				funcSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+					//Textarea: obj.Textarea,
+					Name:     "funcSubgraphOutput",
+					Type:     obj.typ.Out,
+					EdgeName: structs.OutputFuncArgName,
+				}
+
+				shapelyFunc.SetShape(args, funcSubgraphOutput)
+
+				dummy := &interfaces.FuncEdge{Args: []string{structs.OutputFuncDummyArgName}}
+				txn.AddEdge(valueTransformingFunc, funcSubgraphOutput, dummy) // dummy
+
+				return funcSubgraphOutput, nil
 			}
 
 			return valueTransformingFunc, nil
@@ -10213,7 +10226,7 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			//return nil, fmt.Errorf("not implemented")
 			return nil, funcs.ErrCantSpeculate
 		}
-		v := func(innerTxn interfaces.Txn, args []interfaces.Func, out interfaces.Func) (interfaces.Func, error) {
+		v := func(innerTxn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 			// There are no ExprParams, so we start with the empty environment.
 			// Extend that environment with the arguments.
 			extendedEnv := interfaces.EmptyEnv()
@@ -11121,7 +11134,7 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		}).Init()
 		txn.AddGraph(graph) // add all of the graphs so far...
 
-		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs, callSubgraphOutput) // XXX: callSubgraphOutput as the last arg?
+		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs)
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
 		}

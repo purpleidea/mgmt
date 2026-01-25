@@ -1,0 +1,37 @@
+# echo false > /tmp/flipflop
+# echo true > /tmp/flipflop
+# debugging: etcdctl get --prefix /_mgmt/scheduler/
+
+import "golang"
+import "golang/strings" as golang_strings
+import "os"
+import "world"
+
+$sched = "xfoo" # something unique
+$set = world.schedule($sched)
+$is_scheduled = $hostname in $set
+
+$is_true = golang_strings.trim_space(os.readfile("/tmp/flipflop")) == "true"
+if $is_true {
+	schedule "${sched}" {
+		strategy => "rr",
+		# TODO: rename max to total or count
+		max => 2,
+		ttl => 10,
+	}
+
+} else {
+	schedule "${sched}" {
+		withdraw => true,
+	}
+}
+$s = if $is_true {
+	"true"
+} else {
+	"false"
+}
+
+file "/tmp/scheduled" {
+	state => "exists",
+	content => golang.template("schedule: ${s}, set: {{ . }}", $set),
+}

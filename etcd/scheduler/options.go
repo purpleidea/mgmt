@@ -46,6 +46,7 @@ type schedulerOptions struct {
 	reuseLease  bool
 	sessionTTL  int // TODO: should this be *int to know when it's set?
 	hostsFilter []string
+	withdraw    bool
 	// TODO: add more options
 }
 
@@ -108,5 +109,13 @@ func SessionTTL(sessionTTL int) Option {
 func HostsFilter(hosts []string) Option {
 	return func(so *schedulerOptions) {
 		so.hostsFilter = hosts
+	}
+}
+
+// Withdraw specifies whether we should try and remove the host from the
+// scheduling pool. It is incompatible with the other "add to" pool options.
+func Withdraw(withdraw bool) Option {
+	return func(so *schedulerOptions) {
+		so.withdraw = withdraw
 	}
 }

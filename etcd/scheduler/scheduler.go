@@ -43,6 +43,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
+	"go.etcd.io/etcd/client/v3/clientv3util"
 	"go.etcd.io/etcd/client/v3/concurrency"
 )
 
@@ -142,6 +143,7 @@ func Schedule(client interfaces.Client, path string, hostname string, opts ...Op
 		reuseLease: false,
 		sessionTTL: DefaultSessionTTL,
 		maxCount:   DefaultMaxCount,
+		withdraw:   false,
 	}
 	for _, optionFunc := range opts { // apply the scheduler options
 		optionFunc(options)
@@ -211,6 +213,18 @@ func Schedule(client interfaces.Client, path string, hostname string, opts ...Op
 	}
 	elsop := []etcd.Op{
 		etcd.OpPut(exchangePathHost, data, etcd.WithLease(leaseID)),
+	}
+
+	// XXX: ideally we would get the elected "chosen" host to still edit the
+	// scheduled result when there's nobody left, but this might not be
+	// plausible or safe to accomplish.
+	if options.withdraw {
+		ifops = []etcd.Cmp{
+			clientv3util.KeyMissing(exchangePathHost),
+		}
+		elsop = []etcd.Op{
+			etcd.OpDelete(exchangePathHost),
+		}
 	}
 
 	// it's important to do this in one transaction, and atomically, because
@@ -441,27 +455,16 @@ func Schedule(client interfaces.Client, path string, hostname string, opts ...Op
 				}
 
 				options.logf("running exchange values get...")
-				resp, err := client.Get(ctx, exchangePathPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
-				if err != nil || resp == nil {
-					if err != nil {
-						send(nil, errwrap.Wrapf(err, "scheduler: could not get exchange values in `%s`", path))
-					} else { // if resp == nil
-						send(nil, fmt.Errorf("scheduler: could not get exchange values in `%s`, resp is nil", path))
-					}
+				hosts, err := getExchanged(ctx, client, path)
+				if err != nil {
+					send(nil, err)
 					continue
 				}
 
 				// FIXME: the value key could instead be host
 				// specific information which is used for some
 				// purpose, eg: seconds active, and other data?
-				hostnames = make(map[string]string) // reset
-				for k, v := range resp {
-					if !strings.HasPrefix(k, exchangePathPrefix) {
-						continue
-					}
-					k = k[len(exchangePathPrefix):] // strip
-					hostnames[k] = v
-				}
+				hostnames = hosts // reset
 				if options.debug {
 					options.logf("available hostnames: %+v", hostnames)
 				}
@@ -617,9 +620,22 @@ func Scheduled(ctx context.Context, client interfaces.Client, path string) (chan
 
 	// stored scheduler results
 	scheduledPath := fmt.Sprintf("%s/scheduled", path)
+
+	exchangePath := fmt.Sprintf("%s/exchange", path)
+	exchangePathPrefix := fmt.Sprintf("%s/", exchangePath)
+
 	ch, err := client.Watcher(ctx, scheduledPath)
 	if err != nil {
 		return nil, err
+	}
+
+	// XXX: This second event stream is so that we can detect withdraw
+	// events from the exchanged data alone. If we could get the scheduler
+	// to always run, then this wouldn't need to happen as we'd only look at
+	// the single scheduled path for the actual results.
+	watchChan, err := client.Watcher(ctx, exchangePathPrefix, etcd.WithPrefix())
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "scheduler: could not watch exchange path")
 	}
 
 	// XXX: What about waitgroups? Does the caller need to know?
@@ -639,6 +655,14 @@ func Scheduled(ctx context.Context, client interfaces.Client, path string) (chan
 					err = event // it may be an error
 				}
 
+			case event, ok := <-watchChan:
+				if !ok {
+					// XXX: should this be an error?
+					err = nil // we shut down I guess
+				} else {
+					err = event // it may be an error
+				}
+
 			case <-ctx.Done():
 				return
 			}
@@ -647,7 +671,7 @@ func Scheduled(ctx context.Context, client interfaces.Client, path string) (chan
 
 			// Get data to send...
 			if err == nil { // did we error above?
-				hosts, err = getScheduled(ctx, client, scheduledPath)
+				hosts, err = getScheduled(ctx, client, path)
 			}
 
 			// Send off that data...
@@ -673,7 +697,9 @@ func Scheduled(ctx context.Context, client interfaces.Client, path string) (chan
 // getScheduled gets the list of hosts which are scheduled for a given namespace
 // in etcd.
 func getScheduled(ctx context.Context, client interfaces.Client, path string) ([]string, error) {
-	keyMap, err := client.Get(ctx, path)
+	scheduledPath := fmt.Sprintf("%s/scheduled", path)
+
+	keyMap, err := client.Get(ctx, scheduledPath)
 	if err != nil {
 		return nil, err
 	}
@@ -688,12 +714,58 @@ func getScheduled(ctx context.Context, client interfaces.Client, path string) ([
 		return nil, fmt.Errorf("returned %d entries", count)
 	}
 
-	val, exists := keyMap[path]
+	val, exists := keyMap[scheduledPath]
 	if !exists {
-		return nil, fmt.Errorf("path `%s` is missing", path)
+		return nil, fmt.Errorf("path `%s` is missing", scheduledPath)
 	}
 
 	hosts := strings.Split(val, hostnameJoinChar)
 
-	return hosts, nil
+	// XXX: special case: if we're a single host, and we're trying to
+	// withdraw, then there won't be an elected member to push a new
+	// scheduling result to the special key where *Scheduled* would read it.
+	// As a result, remove any hosts that aren't also in the exchanged set,
+	// because the withdraw *does* cause its hostname to drop from there.
+	exchanged, err := getExchanged(ctx, client, path)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredHosts := []string{}
+	for _, x := range hosts {
+		if _, exists := exchanged[x]; !exists {
+			continue
+		}
+
+		filteredHosts = append(filteredHosts, x)
+	}
+
+	return filteredHosts, nil
+}
+
+// getExchanged gets the list of hosts which are actually presenting as
+// available for scheduling.
+func getExchanged(ctx context.Context, client interfaces.Client, path string) (map[string]string, error) {
+	exchangePath := fmt.Sprintf("%s/exchange", path)
+	exchangePathPrefix := fmt.Sprintf("%s/", exchangePath)
+
+	resp, err := client.Get(ctx, exchangePathPrefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByKey, etcd.SortAscend))
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "scheduler: could not get exchange values in `%s`", exchangePathPrefix)
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("scheduler: could not get exchange values in `%s`, resp is nil", exchangePathPrefix)
+	}
+
+	// FIXME: the value key could instead be host specific information which
+	// is used for some purpose, eg: seconds active, and other data?
+	hostnames := make(map[string]string) // reset
+	for k, v := range resp {
+		if !strings.HasPrefix(k, exchangePathPrefix) {
+			continue
+		}
+		k = k[len(exchangePathPrefix):] // strip
+		hostnames[k] = v
+	}
+	return hostnames, nil
 }

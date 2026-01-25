@@ -81,6 +81,11 @@ type ScheduleRes struct {
 	// entry for more information.
 	TTL *int `lang:"ttl" yaml:"ttl"`
 
+	// Withdraw specifies whether we should try and remove the host from the
+	// scheduling pool. It is incompatible with the other "add to" pool
+	// options.
+	Withdraw bool `lang:"withdraw" yaml:"withdraw"`
+
 	// once is the startup signal for the scheduler
 	once chan struct{}
 }
@@ -138,6 +143,13 @@ func (obj *ScheduleRes) getOpts() []scheduler.Option {
 		schedulerOpts = append(schedulerOpts, scheduler.SessionTTL(ttl))
 	}
 
+	if obj.Withdraw {
+		if obj.init.Debug {
+			obj.init.Logf("opts: withdraw: %t", obj.Withdraw)
+		}
+		schedulerOpts = append(schedulerOpts, scheduler.Withdraw(obj.Withdraw))
+	}
+
 	return schedulerOpts
 }
 
@@ -151,6 +163,22 @@ func (obj *ScheduleRes) Validate() error {
 	if obj.getNamespace() == "" {
 		return fmt.Errorf("the Namespace must not be empty")
 	}
+
+	if obj.Withdraw {
+		if obj.Strategy != nil {
+			return fmt.Errorf("can't combine Withdraw with Strategy")
+		}
+		if obj.Max != nil {
+			return fmt.Errorf("can't combine Withdraw with Max")
+		}
+		if obj.Reuse != nil {
+			return fmt.Errorf("can't combine Withdraw with Reuse")
+		}
+		if obj.TTL != nil {
+			return fmt.Errorf("can't combine Withdraw with TTL")
+		}
+	}
+
 	return nil
 }
 
@@ -323,6 +351,10 @@ func (obj *ScheduleRes) Cmp(r engine.Res) error {
 		if *obj.TTL != *res.TTL { // compare the values
 			return fmt.Errorf("the contents of TTL differs")
 		}
+	}
+
+	if obj.Withdraw != res.Withdraw {
+		return fmt.Errorf("the Withdraw differs")
 	}
 
 	return nil

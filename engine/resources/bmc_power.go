@@ -348,6 +348,9 @@ func (obj *BmcPowerRes) client() *bmclib.Client {
 	}
 
 	client := bmclib.NewClient(u, obj.getUsername(), obj.Password, opts...)
+	if obj.getDriver() == BmcDriverGofish {
+		client = client.PreferProtocol("redfish") // joel said to do this
+	}
 
 	if obj.getDriver() != "" && obj.getDriver() != BmcDriverRPC {
 		client = client.For(obj.getDriver()) // limit to this provider

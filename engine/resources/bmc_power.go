@@ -390,12 +390,12 @@ func (obj *BmcPowerRes) CheckApply(ctx context.Context, apply bool) (bool, error
 	state = strings.ToLower(state) // normalize
 	obj.init.Logf("get state: %s", state)
 
-	if !apply {
-		return false, nil
-	}
-
 	if obj.State == state {
 		return true, nil
+	}
+
+	if !apply {
+		return false, nil
 	}
 
 	// TODO: should this be "On" and "Off"? Does case matter?

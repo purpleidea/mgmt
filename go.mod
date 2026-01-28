@@ -6,7 +6,7 @@ require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/ashcrow/osrelease v0.0.0-20180626175927-9b292693c55c
 	github.com/aws/aws-sdk-go v1.55.6
-	github.com/bmc-toolbox/bmclib/v2 v2.3.4
+	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260128151524-b234789ec12f
 	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/cyphar/filepath-securejoin v0.4.0
@@ -65,6 +65,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0 // indirect
+	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bytedance/sonic v1.13.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -129,6 +130,7 @@ require (
 	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/raw v0.1.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
+	github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -151,7 +153,7 @@ require (
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/skeema/knownhosts v1.3.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect

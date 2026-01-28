@@ -31,37 +31,41 @@ package resources
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 
-	bmclib "github.com/bmc-toolbox/bmclib/v2"
-	"github.com/bmc-toolbox/bmclib/v2/providers/rpc"
+	"github.com/bmc-toolbox/common"
+	fwUtil "github.com/metal-automata/fw"
 )
 
 func init() {
-	engine.RegisterResource("bmc:power", func() engine.Res { return &BmcPowerRes{} })
+	engine.RegisterResource("bmc:firmware", func() engine.Res { return &BmcFirmwareRes{} })
 }
 
 const (
-	// DefaultBmcPowerPort is the default port we try to connect on.
-	DefaultBmcPowerPort = 443
+	// DefaultBmcFirmwarePort is the default port we try to connect on.
+	DefaultBmcFirmwarePort = 443
 )
 
-// BmcPowerRes is a resource that manages power state of a BMC. This is usually
-// used for turning computers on and off. The name value can be a big URL string
-// in the form: `driver://user:pass@hostname:port` for example you may see:
-// gofishs://ADMIN:hunter2@127.0.0.1:8800 to use the "https" variant of the
-// gofish driver.
+// BmcFirmwareRes is a resource that updates the firmware on a BMC. This is
+// usually done for server grade hardware that requires special API's to perform
+// these actions. This interacts on similar channels as the bmc:power resource
+// and this resource can block the execution of the former as that may be
+// required during the update process.
 //
-// NOTE: New drivers should either not end in "s" or at least not be identical
-// to the name of another driver an "s" is added or removed to the end.
-type BmcPowerRes struct {
+// The use of this resource may cause your server to restart, be prepared for
+// this scenario before attempting an update.
+type BmcFirmwareRes struct {
 	traits.Base // add the base methods without re-implementation
 
 	init *engine.Init
@@ -88,24 +92,31 @@ type BmcPowerRes struct {
 	// InsecurePassword can be set to true to allow a password in the Name.
 	InsecurePassword bool `lang:"insecure_password" yaml:"insecure_password"`
 
-	// Driver to use, such as: "gofish" or "rpc". This is a different
-	// concept than the "bmclib" driver vs provider distinction. Here we
-	// just statically pick what we're using without any magic. If not
-	// specified, we parse this from the Name scheme. If this ends with an
-	// extra "s" then we use https instead of http.
-	Driver string `lang:"driver" yaml:"driver"`
+	// Provider is the machine provider to use. Eg: "supermicro".
+	Provider string `lang:"provider" yaml:"provider"`
 
-	// State of machine power. Can be "on" or "off".
-	State string `lang:"state" yaml:"state"`
+	// File path to the firmware binary to install.
+	File string `lang:"file" yaml:"file"`
 
-	driver string
-	scheme string
+	// Hash is a sha256 sum of the File. This is used for integrity checking
+	// before doing an upload. It's optional to use this field, but it is
+	// recommended.
+	Hash string `lang:"hash" yaml:"hash"`
+
+	// Version is the expected resultant version string of this firmware
+	// binary. This needs to be specified since we can't always inspect the
+	// file to know what version it contains.
+	Version string `lang:"version" yaml:"version"`
+
+	// Block is the Name of a bmc:power resource that should be blocked when
+	// running a firmware update.
+	Block string `lang:"block" yaml:"block"`
 }
 
 // validDriver determines if we are using a valid drive. This does not include
 // the magic "s" bits. This function need to be expanded as we support more
 // drivers.
-func (obj *BmcPowerRes) validDriver(driver string) error {
+func (obj *BmcFirmwareRes) validDriver(driver string) error {
 	if driver == BmcDriverRPC {
 		return nil
 	}
@@ -118,7 +129,7 @@ func (obj *BmcPowerRes) validDriver(driver string) error {
 
 // getHostname returns the hostname that we want to connect to. If the Hostname
 // field is set, we use that, otherwise we parse from the Name.
-func (obj *BmcPowerRes) getHostname() string {
+func (obj *BmcFirmwareRes) getHostname() string {
 	if obj.Hostname != "" {
 		return obj.Hostname
 	}
@@ -145,7 +156,7 @@ func (obj *BmcPowerRes) getHostname() string {
 //
 // NOTE: We return a string since all the bmclib things usually expect a string,
 // but if that gets fixed we should return an int here instead.
-func (obj *BmcPowerRes) getPort() string {
+func (obj *BmcFirmwareRes) getPort() string {
 	if obj.Port != 0 {
 		return strconv.Itoa(obj.Port)
 	}
@@ -160,7 +171,7 @@ func (obj *BmcPowerRes) getPort() string {
 	// host%zone and port.
 	host, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		return strconv.Itoa(DefaultBmcPowerPort) // default port
+		return strconv.Itoa(DefaultBmcFirmwarePort) // default port
 	}
 	_ = host
 
@@ -171,7 +182,7 @@ func (obj *BmcPowerRes) getPort() string {
 // Username field is set, we use that, otherwise we parse from the Name.
 // TODO: If the Username field is not set, should we parse from the Name? It's
 // not really part of the BMC unique identifier so maybe we shouldn't use that.
-func (obj *BmcPowerRes) getUsername() string {
+func (obj *BmcFirmwareRes) getUsername() string {
 	if obj.Username != "" {
 		return obj.Username
 	}
@@ -186,7 +197,7 @@ func (obj *BmcPowerRes) getUsername() string {
 
 // getPassword returns the password that we want to connect with.
 // XXX: Use mgmt magic credentials in the future.
-func (obj *BmcPowerRes) getPassword() string {
+func (obj *BmcFirmwareRes) getPassword() string {
 	if obj.Password != "" || !obj.InsecurePassword {
 		return obj.Password
 	}
@@ -206,57 +217,13 @@ func (obj *BmcPowerRes) getPassword() string {
 	return password
 }
 
-// getRawDriver returns the raw magic driver string. If the Driver field is set,
-// we use that, otherwise we parse from the Name. This version may include the
-// magic "s" at the end.
-func (obj *BmcPowerRes) getRawDriver() string {
-	if obj.Driver != "" {
-		return obj.Driver
-	}
-
-	u, err := url.Parse(obj.Name())
-	if err != nil || u == nil {
-		return ""
-	}
-
-	return u.Scheme
-}
-
-// getDriverAndScheme figures out which driver and scheme we want to use.
-func (obj *BmcPowerRes) getDriverAndScheme() (string, string, error) {
-	driver := obj.getRawDriver()
-	err := obj.validDriver(driver)
-	if err == nil {
-		return driver, "http", nil
-	}
-
-	driver = strings.TrimSuffix(driver, BmcDriverSecureSuffix)
-	if err := obj.validDriver(driver); err == nil {
-		return driver, "https", nil
-	}
-
-	return "", "", err // return the first error
-}
-
-// getDriver returns the actual driver that we want to connect with. If the
-// Driver field is set, we use that, otherwise we parse from the Name. This
-// version does NOT include the magic "s" at the end.
-func (obj *BmcPowerRes) getDriver() string {
-	return obj.driver
-}
-
-// getScheme figures out which scheme we want to use.
-func (obj *BmcPowerRes) getScheme() string {
-	return obj.scheme
-}
-
 // Default returns some sensible defaults for this resource.
-func (obj *BmcPowerRes) Default() engine.Res {
-	return &BmcPowerRes{}
+func (obj *BmcFirmwareRes) Default() engine.Res {
+	return &BmcFirmwareRes{}
 }
 
 // Validate if the params passed in are valid data.
-func (obj *BmcPowerRes) Validate() error {
+func (obj *BmcFirmwareRes) Validate() error {
 	// XXX: Force polling until we have real events...
 	if obj.MetaParams().Poll == 0 {
 		return fmt.Errorf("events are not yet supported, use polling")
@@ -269,88 +236,39 @@ func (obj *BmcPowerRes) Validate() error {
 	//	return fmt.Errorf("need a Username")
 	//}
 
-	if obj.getRawDriver() == "" {
-		return fmt.Errorf("need a Driver")
+	if obj.Provider == "" {
+		return fmt.Errorf("the Provider is empty")
 	}
-	if _, _, err := obj.getDriverAndScheme(); err != nil {
-		return err
+
+	if !strings.HasPrefix(obj.File, "/") {
+		return fmt.Errorf("the File must be an absolute path")
+	}
+	if strings.HasSuffix(obj.File, "/") {
+		return fmt.Errorf("the File must not be a directory")
+	}
+
+	// TODO: can we support a "yolo" variant without a version?
+	if obj.Version == "" {
+		return fmt.Errorf("the Version is empty")
 	}
 
 	return nil
 }
 
 // Init runs some startup code for this resource.
-func (obj *BmcPowerRes) Init(init *engine.Init) error {
+func (obj *BmcFirmwareRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
-
-	driver, scheme, err := obj.getDriverAndScheme()
-	if err != nil {
-		// programming error (we checked in Validate)
-		return err
-	}
-	obj.driver = driver
-	obj.scheme = scheme
 
 	return nil
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
-func (obj *BmcPowerRes) Cleanup() error {
+func (obj *BmcFirmwareRes) Cleanup() error {
 	return nil
 }
 
-// client builds the bmclib client. The API to build it is complicated.
-func (obj *BmcPowerRes) client() *bmclib.Client {
-	// NOTE: The bmclib API is weird, you can't put the port in this string!
-	u := fmt.Sprintf("%s://%s", obj.getScheme(), obj.getHostname())
-
-	uPort := u
-	if p := obj.getPort(); p != "" {
-		uPort = u + ":" + p
-	}
-
-	opts := []bmclib.Option{}
-
-	if obj.getDriver() == BmcDriverRPC {
-		opts = append(opts, bmclib.WithRPCOpt(rpc.Provider{
-			// NOTE: The main API cannot take a port, but here we do!
-			ConsumerURL: uPort,
-		}))
-	}
-
-	if p := obj.getPort(); p != "" {
-		switch obj.getDriver() {
-		case BmcDriverRPC:
-			// TODO: ???
-
-		case BmcDriverGofish:
-			// XXX: Why doesn't this accept an int?
-			opts = append(opts, bmclib.WithRedfishPort(p))
-
-		//case BmcDriverOpenbmc:
-		//	// XXX: Why doesn't this accept an int?
-		//	opts = append(opts, openbmc.WithPort(p))
-
-		default:
-			// TODO: error or pass through?
-			obj.init.Logf("unhandled driver: %s", obj.getDriver())
-		}
-	}
-
-	client := bmclib.NewClient(u, obj.getUsername(), obj.Password, opts...)
-	if obj.getDriver() == BmcDriverGofish {
-		client = client.PreferProtocol("redfish") // joel said to do this
-	}
-
-	if obj.getDriver() != "" && obj.getDriver() != BmcDriverRPC {
-		client = client.For(obj.getDriver()) // limit to this provider
-	}
-
-	return client
-}
-
 // Watch is the primary listener for this resource and it outputs events.
-func (obj *BmcPowerRes) Watch(ctx context.Context) error {
+func (obj *BmcFirmwareRes) Watch(ctx context.Context) error {
 	obj.init.Running() // when started, notify engine that we're running
 
 	select {
@@ -362,34 +280,47 @@ func (obj *BmcPowerRes) Watch(ctx context.Context) error {
 	return nil
 }
 
-// CheckApply method for BmcPower resource. Does nothing, returns happy!
-func (obj *BmcPowerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	bs := bmcStateReserve(obj.Name()) // get a handle to the shared bmc state
+// CheckApply method for BmcFirmware resource. Does nothing, returns happy!
+func (obj *BmcFirmwareRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	bs := bmcStateReserve(obj.Block) // get a handle to the shared bmc state
 	defer bs.Release()
 
 	// We only want one resource touching the bmc at a time.
+	// XXX: put the lock lower perhaps?
 	bs.Lock()
 	defer bs.Unlock()
 
-	client := obj.client()
+	component := common.SlugBMC // "BMC"
 
-	if err := client.Open(ctx); err != nil {
-		return false, err
+	installer := &fwUtil.Installer{
+		//DryRun: true,
+		BMCAddr:      obj.getHostname(), // TODO: port?
+		Component:    component,
+		Username:     obj.getUsername(),
+		Password:     obj.getPassword(),
+		Vendor:       obj.Provider, // eg: "supermicro"
+		Version:      obj.Version,
+		FirmwareFile: obj.File,
+
+		Debug: obj.init.Debug, // TODO: add true?
+		Logf: func(format string, v ...interface{}) {
+			obj.init.Logf("bmc: "+format, v...)
+		},
 	}
-	defer client.Close(ctx) // (err error)
-
-	if obj.init.Debug {
-		obj.init.Logf("connected ok")
+	if err := installer.Connect(ctx); err != nil {
+		return false, nil
 	}
+	// Don't pass in regular ctx because we want to make sure this frees...
+	// TODO: add a timeout to the close ctx?
+	defer installer.Close(context.Background())
 
-	state, err := client.GetPowerState(ctx)
+	version, err := installer.GetVersion(ctx)
 	if err != nil {
 		return false, err
 	}
-	state = strings.ToLower(state) // normalize
-	obj.init.Logf("get state: %s", state)
+	obj.init.Logf("got version: %s", version)
 
-	if obj.State == state {
+	if version == obj.Version {
 		return true, nil
 	}
 
@@ -397,23 +328,68 @@ func (obj *BmcPowerRes) CheckApply(ctx context.Context, apply bool) (bool, error
 		return false, nil
 	}
 
-	// TODO: should this be "On" and "Off"? Does case matter?
-	ok, err := client.SetPowerState(ctx, obj.State)
-	if err != nil {
+	// XXX: There is a TOC TOU issue here in that someone could edit the
+	// file. To do better, we need to read this in to memory, and after
+	// hashing it, send it to the upload via an io.Reader. Unfortunately the
+	// firmware upload API doesn't support that interface yet. This was
+	// because (1) it needed to seek (io.ReadSeeker would be fine) and (2)
+	// some variants required a filename too. (We could pass that in too!)
+	if obj.Hash != "" {
+		h, err := obj.hashFile(obj.File)
+		if err != nil {
+			return false, err
+		}
+		if h != obj.Hash {
+			return false, fmt.Errorf("the Hash does not match, got: %s", h)
+		}
+	}
+
+	// We might wish to block the power state changes and reconciliation by
+	// other resources while this operation is underway. That's what the top
+	// Lock/Unlock is for.
+	obj.init.Logf("installing bmc firmware...")
+	if err := installer.Install(ctx); err != nil {
 		return false, err
 	}
-	if !ok {
-		// TODO: When is this ever false?
-	}
-	obj.init.Logf("set state: %s", obj.State)
+	//actions, err := client.FirmwareInstallSteps(ctx, component) // (actions []constants.FirmwareInstallStep, err error)
+
+	obj.init.Logf("installed bmc version: %s", obj.Version)
 
 	return false, nil
 }
 
+// hashContent is a simple helper to run our hashing function.
+func (obj *BmcFirmwareRes) hashContent(handle io.Reader) (string, error) {
+	hash := sha256.New()
+	if _, err := io.Copy(hash, handle); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// hashFile is a helper that returns the hash of the specified file. If the file
+// doesn't exist, it returns the empty string. Otherwise it errors.
+func (obj *BmcFirmwareRes) hashFile(file string) (string, error) {
+	f, err := os.Open(file) // io.Reader
+	if err != nil && !os.IsNotExist(err) {
+		// This is likely a permissions error.
+		return "", err
+
+	} else if err != nil {
+		return "", err // File doesn't exist!
+	}
+
+	defer f.Close()
+
+	// File exists, lets hash it!
+
+	return obj.hashContent(f)
+}
+
 // Cmp compares two resources and returns an error if they are not equivalent.
-func (obj *BmcPowerRes) Cmp(r engine.Res) error {
-	// we can only compare BmcPowerRes to others of the same resource kind
-	res, ok := r.(*BmcPowerRes)
+func (obj *BmcFirmwareRes) Cmp(r engine.Res) error {
+	// we can only compare BmcFirmwareRes to others of the same resource kind
+	res, ok := r.(*BmcFirmwareRes)
 	if !ok {
 		return fmt.Errorf("not a %s", obj.Kind())
 	}
@@ -434,11 +410,24 @@ func (obj *BmcPowerRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the InsecurePassword differs")
 	}
 
-	if obj.Driver != res.Driver {
-		return fmt.Errorf("the Driver differs")
+	if obj.Provider != res.Provider {
+		return fmt.Errorf("the Provider differs")
 	}
-	if obj.State != res.State {
-		return fmt.Errorf("the State differs")
+	if obj.File != res.File {
+		return fmt.Errorf("the File differs")
+	}
+	if obj.File != res.File {
+		return fmt.Errorf("the File differs")
+	}
+	if obj.Hash != res.Hash {
+		return fmt.Errorf("the Hash differs")
+	}
+	if obj.Version != res.Version {
+		return fmt.Errorf("the Version differs")
+	}
+
+	if obj.Block != res.Block {
+		return fmt.Errorf("the Block differs")
 	}
 
 	return nil
@@ -446,13 +435,13 @@ func (obj *BmcPowerRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *BmcPowerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes BmcPowerRes // indirection to avoid infinite recursion
+func (obj *BmcFirmwareRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes BmcFirmwareRes // indirection to avoid infinite recursion
 
-	def := obj.Default()          // get the default
-	res, ok := def.(*BmcPowerRes) // put in the right format
+	def := obj.Default()             // get the default
+	res, ok := def.(*BmcFirmwareRes) // put in the right format
 	if !ok {
-		return fmt.Errorf("could not convert to BmcPowerRes")
+		return fmt.Errorf("could not convert to BmcFirmwareRes")
 	}
 	raw := rawRes(*res) // convert; the defaults go here
 
@@ -460,6 +449,6 @@ func (obj *BmcPowerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	*obj = BmcPowerRes(raw) // restore from indirection with type conversion!
+	*obj = BmcFirmwareRes(raw) // restore from indirection with type conversion!
 	return nil
 }

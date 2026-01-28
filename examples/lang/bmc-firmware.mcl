@@ -1,0 +1,34 @@
+$bmc_power = "gofishs://ADMIN@192.168.1.52:443"
+bmc:power "${bmc_power}" {
+	#username => "ADMIN",
+	password => "ADMIN",
+	#driver => "gofishs", # https gofish
+
+	state => "on",
+
+	Meta:poll => 10, # required until BMC's support real events!
+}
+
+file "/tmp/firmware.bin" {
+	state => "exists",
+	#content => deploy.readfile("/files/firmware.bin"),
+	content => "<firmware binary>\n",
+}
+
+bmc:firmware "hello" { # TODO: should name be special?
+	hostname => "192.168.1.52",
+	port => 443,
+	username => "ADMIN",
+	password => "ADMIN",
+
+	provider => "supermicro",
+	file => "/tmp/firmware.bin",
+	hash => "362b81bebf6d6f938754b98767080b930383057b1b9519653d861a55e4df3045", # sha256
+	version => "1.72",
+
+	block => "${bmc_power}", # point to bmc:power resource name
+
+	Meta:poll => 60, # required until BMC's support real events!
+
+	Depend => File["/tmp/firmware.bin"],
+}

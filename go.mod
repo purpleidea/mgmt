@@ -7,6 +7,7 @@ require (
 	github.com/ashcrow/osrelease v0.0.0-20180626175927-9b292693c55c
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260128151524-b234789ec12f
+	github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0
 	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/cyphar/filepath-securejoin v0.4.0
@@ -28,6 +29,7 @@ require (
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leonelquinteros/gotext v1.7.2
+	github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
@@ -64,8 +66,6 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
-	github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0 // indirect
-	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bytedance/sonic v1.13.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -93,7 +93,7 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
@@ -130,7 +130,6 @@ require (
 	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/raw v0.1.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
-	github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

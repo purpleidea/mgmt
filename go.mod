@@ -6,7 +6,7 @@ require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/ashcrow/osrelease v0.0.0-20180626175927-9b292693c55c
 	github.com/aws/aws-sdk-go v1.55.6
-	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260128151524-b234789ec12f
+	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260127150247-53e003e1fe5c
 	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/cyphar/filepath-securejoin v0.4.0
@@ -130,7 +130,7 @@ require (
 	github.com/mdlayher/packet v1.1.2 // indirect
 	github.com/mdlayher/raw v0.1.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
-	github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c // indirect
+	github.com/metal-automata/fw v0.0.0-20260201142203-2928c3e2daea // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

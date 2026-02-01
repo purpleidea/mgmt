@@ -371,6 +371,8 @@ github.com/metal-automata/fw v0.0.0-20260128123020-ff3e12b195c8 h1:F/s3u2ND3m1kf
 github.com/metal-automata/fw v0.0.0-20260128123020-ff3e12b195c8/go.mod h1:BUlJ9EOQMdE98narTlJrJKtZvnzWlOfre4usL3skTUY=
 github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c h1:lrnhqdVP9I18aIeaeH1mxDYvsjdmvNNTzIPJEV08x64=
 github.com/metal-automata/fw v0.0.0-20260128143303-fb04578f890c/go.mod h1:BUlJ9EOQMdE98narTlJrJKtZvnzWlOfre4usL3skTUY=
+github.com/metal-automata/fw v0.0.0-20260201142203-2928c3e2daea h1:Coe1AUr6xqzoHgzv9RRI+dgkedCoGtbNHKit1nLboT8=
+github.com/metal-automata/fw v0.0.0-20260201142203-2928c3e2daea/go.mod h1:BUlJ9EOQMdE98narTlJrJKtZvnzWlOfre4usL3skTUY=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d h1:5PJl274Y63IEHC+7izoQE9x6ikvDFZS2mDVS3drnohI=
 github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyexm33Z7vhZRXopbI8J3TDReVlkTgMUxE=
 github.com/miekg/dns v1.1.56 h1:5imZaSeoRNvpM9SzWNhEcP9QliKiz20/dA2QabIGVnE=

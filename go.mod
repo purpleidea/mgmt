@@ -6,7 +6,7 @@ require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/ashcrow/osrelease v0.0.0-20180626175927-9b292693c55c
 	github.com/aws/aws-sdk-go v1.55.6
-	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260127150247-53e003e1fe5c
+	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf
 	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/cyphar/filepath-securejoin v0.4.0

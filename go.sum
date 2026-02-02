@@ -54,6 +54,8 @@ github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260127150247-53e003e1fe5c h1:6iCS9oR
 github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260127150247-53e003e1fe5c/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
 github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260128151524-b234789ec12f h1:9xR8aOT7nvTiOWh3cbwG/i9Xw7D8DNOWdjP27KE6AxU=
 github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260128151524-b234789ec12f/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
+github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf h1:yimDoKt+G4djEM8Z5dLVBvy1uQnZfaI0i8UxDb6r5Vw=
+github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf/go.mod h1:2tYJD9JtY1tJxLHhslICrFOZhxE9O4gYMb1nJ5BKI5w=
 github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0 h1:tsKHYBkzElymKA6Ly4fOkVCodKIJWuPnpG41qK4Qr9o=
 github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0/go.mod h1:Cdnkm+edb6C0pVkyCrwh3JTXAe0iUF9diDG/DztPI9I=
 github.com/bombsimon/logrusr/v2 v2.0.1 h1:1VgxVNQMCvjirZIYaT9JYn6sAVGVEcNtRE0y4mvaOAM=

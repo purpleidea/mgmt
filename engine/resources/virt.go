@@ -703,7 +703,7 @@ func (obj *VirtRes) attrCheckApply(ctx context.Context, apply bool, dom *libvirt
 	obj.mutex.RLock()
 	guestAgentConnected := obj.guestAgentConnected
 	obj.mutex.RUnlock()
-	if obj.HotCPUs && guestAgentConnected && domInfo.State != libvirt.DOMAIN_PAUSED {
+	if obj.HotCPUs && guestAgentConnected && domInfo.State == libvirt.DOMAIN_RUNNING {
 
 		// if hotplugging a cpu without the guest agent, you might need:
 		// manually to: echo 1 > /sys/devices/system/cpu/cpu1/online OR

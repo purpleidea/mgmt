@@ -190,7 +190,7 @@ type HetznerVMRes struct {
 	// ServerType determines the machine type as defined by Hetzner. A complete
 	// and up-to-date list of options must be requested from the Hetzner API,
 	// but hcloud-go-getopts (url) provides a static reference. Basic servertype
-	// options include "cx11", "cx21", "cx31" etc.
+	// options include "cx23", "cx33", "cx43" etc.
 	// NOTE: make sure to check the price of the selected servertype! The listed
 	// examples are usually very cheap, but never free. Price and availability
 	// can also be dependent on the selected datacenter.
@@ -208,7 +208,7 @@ type HetznerVMRes struct {
 	// Image determines the operating system to be installed. A complete and
 	// up-to-date list of options must be requested from the Hetzner API, but
 	// hcloud-go-getopts (url) provides a static reference. The image type
-	// options include "centos-7", "ubuntu-18.04", "debian-10" etc.
+	// options include "rocky-10", "ubuntu-24.04", "debian-13" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	Image string `lang:"image"`
 

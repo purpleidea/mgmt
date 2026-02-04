@@ -1,12 +1,13 @@
 import "os"
+import "golang/strings" as golang_strings
 #import "deploy"
 
 # read token from a local path outside repo:
 $f = "../localsecrets/apitoken.txt"
-$token = os.readfile($f)
+$token = golang_strings.trim_space(os.readfile($f))
 
 # alternatively, read from the deploy:
-# $token = deploy.readfile(...)
+# $token = golang_strings.trim_space(deploy.readfile(...))
 
 # or give the string directly:
 # $token = "..."

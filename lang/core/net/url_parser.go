@@ -78,7 +78,7 @@ func URLParser(ctx context.Context, input []types.Value) (types.Value, error) {
 		return nil, errwrap.Wrapf(err, "error parsing the URL")
 	}
 	if u.Scheme == "" {
-		return nil, errwrap.Wrapf(err, "empty schemes are invalid")
+		return nil, fmt.Errorf("empty schemes are invalid")
 	}
 
 	v := types.NewStruct(types.NewType(urlParserReturnType))

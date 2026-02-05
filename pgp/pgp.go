@@ -36,6 +36,7 @@ import (
 	"bytes"
 	"crypto"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -230,13 +231,13 @@ func ParseIdentity(identity string) (name, comment, email string, err error) {
 	// get name
 	n := strings.Split(identity, " <")
 	if len(n) != 2 {
-		return "", "", "", errwrap.Wrapf(err, "user string malformed")
+		return "", "", "", fmt.Errorf("user string malformed")
 	}
 
 	// get email and comment
 	ec := strings.Split(n[1], "> ")
 	if len(ec) != 2 {
-		return "", "", "", errwrap.Wrapf(err, "user string malformed")
+		return "", "", "", fmt.Errorf("user string malformed")
 	}
 
 	return n[0], ec[1], ec[0], nil

@@ -750,7 +750,7 @@ func (obj *AwsEc2Res) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	case ec2.InstanceStateNameTerminated:
 		err = obj.client.WaitUntilInstanceTerminatedWithContext(innerCtx, waitInput)
 	default:
-		return false, errwrap.Wrapf(err, "unrecognized instance state")
+		return false, fmt.Errorf("unrecognized instance state")
 	}
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {

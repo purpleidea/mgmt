@@ -313,7 +313,7 @@ func inputDirectory(s string, fs engine.Fs) (*ParsedInput, error) {
 		return nil, errwrap.Wrapf(err, "dir: `%s` does not exist", s)
 	}
 	if !fi.IsDir() {
-		return nil, errwrap.Wrapf(err, "dir: `%s` is not a dir", s)
+		return nil, fmt.Errorf("dir: `%s` is not a dir", s)
 	}
 
 	// try looking for a metadata file in the root

@@ -182,7 +182,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 			pHash = "" // don't check this :(
 		}
 		if hash == "" {
-			return false, errwrap.Wrapf(err, "could not get git deploy hash")
+			return false, fmt.Errorf("could not get git deploy hash")
 		}
 	}
 

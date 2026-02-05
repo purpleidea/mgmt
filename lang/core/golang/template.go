@@ -284,58 +284,10 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 		return buf.String(), nil
 	}
 
-	// NOTE: any objects in here can have their methods called by the template!
-	var data interface{} // can be many types, eg a struct!
-	v := vars.Copy()     // make a copy since we make modifications to it...
-Loop:
-	// TODO: simplify with Type.Underlying()
-	for {
-		switch x := v.Type().Kind; x {
-		case types.KindBool:
-			fallthrough
-		case types.KindStr:
-			fallthrough
-		case types.KindInt:
-			fallthrough
-		case types.KindFloat:
-			// standalone values can be used in templates with a dot
-			data = v.Value()
-			break Loop
-
-		case types.KindList:
-			// TODO: can we improve on this to expose indexes?
-			data = v.Value()
-			break Loop
-
-		case types.KindMap:
-			if v.Type().Key.Cmp(types.TypeStr) != nil {
-				return "", errwrap.Wrapf(err, "template: map keys must be str")
-			}
-			m := make(map[string]interface{})
-			for k, v := range v.Map() { // map[Value]Value
-				m[k.Str()] = v.Value()
-			}
-			data = m
-			break Loop
-
-		case types.KindStruct:
-			m := make(map[string]interface{})
-			for k, v := range v.Struct() { // map[string]Value
-				m[k] = v.Value()
-			}
-			data = m
-			break Loop
-
-		// TODO: should we allow functions here?
-		//case types.KindFunc:
-
-		case types.KindVariant:
-			v = v.(*types.VariantValue).V // un-nest and recurse
-			continue Loop
-
-		default:
-			return "", fmt.Errorf("can't use `%+v` as vars input", x)
-		}
+	v := vars.Copy() // make a copy since we make modifications to it...
+	data, err := obj.convert(v)
+	if err != nil {
+		return "", err
 	}
 
 	// run the template
@@ -343,6 +295,60 @@ Loop:
 		return "", errwrap.Wrapf(err, "template: execution error")
 	}
 	return buf.String(), nil
+}
+
+// convert helper function.
+func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
+	// TODO: simplify with Type.Underlying()
+	switch x := v.Type().Kind; x {
+	case types.KindBool:
+		fallthrough
+	case types.KindStr:
+		fallthrough
+	case types.KindInt:
+		fallthrough
+	case types.KindFloat:
+		// standalone values can be used in templates with a dot
+		return v.Value(), nil
+
+	case types.KindList:
+		// TODO: can we improve on this to expose indexes?
+		return v.Value(), nil
+
+	case types.KindMap:
+		if v.Type().Key.Cmp(types.TypeStr) != nil {
+			return nil, fmt.Errorf("template: map keys must be str")
+		}
+		m := make(map[string]interface{})
+		for k, v := range v.Map() { // map[Value]Value
+			val, err := obj.convert(v)
+			if err != nil {
+				return nil, err
+			}
+			m[k.Str()] = val
+		}
+		return m, nil
+
+	case types.KindStruct:
+		m := make(map[string]interface{})
+		for k, v := range v.Struct() { // map[string]Value
+			val, err := obj.convert(v)
+			if err != nil {
+				return nil, err
+			}
+			m[k] = val
+		}
+		return m, nil
+
+	// TODO: should we allow functions here?
+	//case types.KindFunc:
+
+	case types.KindVariant:
+		return obj.convert(v.(*types.VariantValue).V) // un-nest and recurse
+
+	default:
+		return nil, fmt.Errorf("can't use `%+v` as vars input", x)
+	}
 }
 
 // Copy is implemented so that the obj.built value is not lost if we copy this

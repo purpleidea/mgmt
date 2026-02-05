@@ -132,14 +132,14 @@ class vm($name, $config) {
 		# TODO: What's the debian equivalent of these minimal packages?
 		packages => list.concat($base_packages, $packages),
 		root_ssh_inject => true,
-		ssh_keys => [
+		ssh_keys => $sshkey->ssh_key != "" ?: [
 			struct{
 				user => "root", # give the user root access to their vm
 				type => $sshkey->ssh_type,
 				key => $sshkey->ssh_key,
 				comment => $sshkey->ssh_comment,
 			},
-		],
+		], # some user
 		root_password_selector => $root_password_selector,
 		seeds => $seeds,
 

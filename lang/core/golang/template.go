@@ -309,7 +309,7 @@ Loop:
 
 		case types.KindMap:
 			if v.Type().Key.Cmp(types.TypeStr) != nil {
-				return "", errwrap.Wrapf(err, "template: map keys must be str")
+				return "", fmt.Errorf("template: map keys must be str")
 			}
 			m := make(map[string]interface{})
 			for k, v := range v.Map() { // map[Value]Value

@@ -291,13 +291,6 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	var cmdName string
 	var args []string
 	if obj.State == "exists" {
-		if exists {
-			cmdName = "usermod"
-			obj.init.Logf("modifying user: %s", obj.Name())
-		} else {
-			cmdName = "useradd"
-			obj.init.Logf("adding user: %s", obj.Name())
-		}
 		if obj.AllowDuplicateUID {
 			args = append(args, "--non-unique")
 		}
@@ -318,6 +311,16 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		if obj.Shell != nil {
 			args = append(args, "--shell", *obj.Shell)
+		}
+		if exists && len(args) == 0 {
+			return false, nil
+		}
+		if exists {
+			cmdName = "usermod"
+			obj.init.Logf("modifying user: %s", obj.Name())
+		} else {
+			cmdName = "useradd"
+			obj.init.Logf("adding user: %s", obj.Name())
 		}
 	}
 	if obj.State == "absent" {

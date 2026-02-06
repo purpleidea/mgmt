@@ -46,6 +46,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	dockerEvents "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	dockerImage "github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
@@ -402,20 +403,19 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 	eventOpts := types.EventsOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "container", Value: id}),
 	}
-	eventCh, errCh := obj.client.Events(ctx, eventOpts)
+	ch, errCh := obj.client.Events(ctx, eventOpts)
 	// Start the container.
 	if err := obj.client.ContainerStart(ctx, id, opts); err != nil {
 		return errwrap.Wrapf(err, "error starting container")
 	}
 	// Wait for a message on eventChan that says the container has started.
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
-	select {
-	case event := <-eventCh:
-		if event.Status != "start" {
-			return fmt.Errorf("unexpected event: %+v", event)
-		}
-	case err := <-errCh:
+	event, err := dualChannelWaitEvent(ctx, ch, errCh)
+	if err != nil {
 		return errwrap.Wrapf(err, "error waiting for container start")
+	}
+	if event.Status != "start" {
+		return fmt.Errorf("unexpected event: %+v", event)
 	}
 	return nil
 }
@@ -429,10 +429,8 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 	}
 	obj.client.ContainerStop(ctx, id, stopOpts)
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
-	select {
-	case <-ch:
-	case err := <-errCh:
-		return errwrap.Wrapf(err, "error waiting for container to stop")
+	if err := dualChannelWait(ctx, ch, errCh); err != nil {
+		return errwrap.Wrapf(err, "error waiting for container start")
 	}
 	return nil
 }
@@ -444,10 +442,8 @@ func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, o
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
 	obj.client.ContainerRemove(ctx, id, opts)
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
-	select {
-	case <-ch:
-	case err := <-errCh:
-		return errwrap.Wrapf(err, "error waiting for container to be removed")
+	if err := dualChannelWait(ctx, ch, errCh); err != nil {
+		return errwrap.Wrapf(err, "error waiting for container start")
 	}
 	return nil
 }
@@ -574,4 +570,69 @@ func (obj *DockerContainerRes) UnmarshalYAML(unmarshal func(interface{}) error) 
 
 	*obj = DockerContainerRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// dualChannelWait is a helper to wrap the horrendous upstream API.
+func dualChannelWait(ctx context.Context, chEvent <-chan container.WaitResponse, chError <-chan error) error {
+	var ev container.WaitResponse
+	var err error
+	ok1, ok2 := true, true
+
+	for {
+		if !ok1 && !ok2 {
+			// programming error with library's channel API
+			return fmt.Errorf("both channels closed")
+		}
+		select {
+		case ev, ok1 = <-chEvent:
+			if !ok1 {
+				// wait on chError
+				continue
+			}
+			// We might also pass through a nil here if ev.Error is.
+			if ev.Error == nil {
+				return nil
+			}
+			return fmt.Errorf("response contained an error: %s", ev.Error.Message)
+
+		case err, ok2 = <-chError:
+			if !ok2 {
+				// wait on chEvent
+				continue
+			}
+			return errwrap.Wrapf(err, "error waiting for container start")
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+// dualChannelWaitEvent is a helper to wrap the horrendous upstream API.
+func dualChannelWaitEvent(ctx context.Context, chEvent <-chan dockerEvents.Message, chError <-chan error) (*dockerEvents.Message, error) {
+	var ev dockerEvents.Message
+	var err error
+	ok1, ok2 := true, true
+
+	for {
+		if !ok1 && !ok2 {
+			// programming error with library's channel API
+			return nil, fmt.Errorf("both channels closed")
+		}
+		select {
+		case ev, ok1 = <-chEvent:
+			if !ok1 {
+				// wait on chError
+				continue
+			}
+			return &ev, nil
+		case err, ok2 = <-chError:
+			if !ok2 {
+				// wait on chEvent
+				continue
+			}
+			return nil, errwrap.Wrapf(err, "error waiting for container start")
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 }

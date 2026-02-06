@@ -414,7 +414,10 @@ func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, op
 		if event.Status != "start" {
 			return fmt.Errorf("unexpected event: %+v", event)
 		}
-	case err := <-errCh:
+	case err, ok := <-errCh:
+		if !ok {
+			return fmt.Errorf("error waiting for container start: channel closed")
+		}
 		return errwrap.Wrapf(err, "error waiting for container start")
 	}
 	return nil
@@ -431,7 +434,10 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:
-	case err := <-errCh:
+	case err, ok := <-errCh:
+		if !ok {
+			return fmt.Errorf("error waiting for container stop: channel closed")
+		}
 		return errwrap.Wrapf(err, "error waiting for container to stop")
 	}
 	return nil
@@ -446,7 +452,10 @@ func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, o
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:
-	case err := <-errCh:
+	case err, ok := <-errCh:
+		if !ok {
+			return fmt.Errorf("error waiting for container to be removed: channel closed")
+		}
 		return errwrap.Wrapf(err, "error waiting for container to be removed")
 	}
 	return nil

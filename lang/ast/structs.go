@@ -10115,7 +10115,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			funcExprCopy, ok := exprCopy.(*ExprFunc)
 			if !ok {
 				// programming error
-				return nil, errwrap.Wrapf(err, "ExprFunc.Copy() does not produce an ExprFunc")
+				return nil, fmt.Errorf("the ExprFunc.Copy() does not produce an ExprFunc")
 			}
 			valueTransformingFunc := funcExprCopy.function
 			txn.AddVertex(valueTransformingFunc)

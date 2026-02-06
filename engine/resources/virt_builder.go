@@ -679,17 +679,17 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 	exitErr, ok := cmderr.(*exec.ExitError) // embeds an os.ProcessState
 	if !ok {
 		// command failed in some bad way
-		return false, errwrap.Wrapf(err, "cmd failed in some bad way")
+		return false, errwrap.Wrapf(cmderr, "cmd failed in some bad way")
 	}
 	pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 	wStatus, ok := pStateSys.(syscall.WaitStatus)
 	if !ok {
-		return false, errwrap.Wrapf(err, "could not get exit status of cmd")
+		return false, errwrap.Wrapf(cmderr, "could not get exit status of cmd")
 	}
 	exitStatus := wStatus.ExitStatus()
 	if exitStatus == 0 {
 		// i'm not sure if this could happen
-		return false, errwrap.Wrapf(err, "unexpected cmd exit status of zero")
+		return false, errwrap.Wrapf(cmderr, "unexpected cmd exit status of zero")
 	}
 
 	obj.init.Logf("cmd: %s", strings.Join(cmd.Args, " "))
@@ -698,7 +698,7 @@ func (obj *VirtBuilderRes) CheckApply(ctx context.Context, apply bool) (bool, er
 	} else {
 		obj.init.Logf("cmd error:\n%s", out) // newline because it's long
 	}
-	return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
+	return false, errwrap.Wrapf(cmderr, "cmd error") // exit status will be in the error
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.

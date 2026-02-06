@@ -115,7 +115,7 @@ func (obj *Engine) Reversals() error {
 		res, ok := r.(engine.ReversibleRes)
 		if !ok {
 			// this requirement is here to keep things simpler...
-			return errwrap.Wrapf(err, "decoded res with UID: `%s` was not reversible", key)
+			return fmt.Errorf("decoded res with UID: `%s` was not reversible", key)
 		}
 
 		matchFn := func(vertex pgraph.Vertex) (bool, error) {

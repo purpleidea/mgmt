@@ -2887,7 +2887,7 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 			if err := engineUtil.StructFieldCompat(res1.Sends(), sr1, res2, sr2); err != nil {
 				p1 := k1 // print defaults
 				p2 := k2
-				if v, err := obj.EdgeHalfList[0].Name.Value(); err == nil { // statically known
+				if v, e := obj.EdgeHalfList[0].Name.Value(); e == nil { // statically known
 					// display something nicer
 					if v.Type().Kind == types.KindStr {
 						p1 = engine.Repr(k1, v.Str())
@@ -2895,7 +2895,7 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 						p1 = engine.Repr(k1, v.String())
 					}
 				}
-				if v, err := obj.EdgeHalfList[1].Name.Value(); err == nil {
+				if v, e := obj.EdgeHalfList[1].Name.Value(); e == nil {
 					if v.Type().Kind == types.KindStr {
 						p2 = engine.Repr(k2, v.Str())
 					} else if v.Type().Cmp(types.TypeListStr) == nil {

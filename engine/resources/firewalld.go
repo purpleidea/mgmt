@@ -268,7 +268,7 @@ func (obj *FirewalldRes) Watch(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			if event.Error != nil {
+			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "monitor err")
 			}
 			if obj.init.Debug {

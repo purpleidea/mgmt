@@ -398,7 +398,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// NOTE: we have to compare variants with other variants, they are really strings...
 	notFound := (loadState.Value == dbus.MakeVariant("not-found"))
 	if notFound {
-		return false, errwrap.Wrapf(err, "failed to find svc: %s", svc)
+		return false, fmt.Errorf("failed to find svc: %s", svc)
 	}
 
 	//conn.GetUnitPropertiesContexts(svc)

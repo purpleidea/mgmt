@@ -86,7 +86,7 @@ func runGraphCmp(t *testing.T, g1, g2 *Graph) string {
 		str := ""
 		str += fmt.Sprintf("  actual (g1): %v%s", g1, fullPrint(g1))
 		str += fmt.Sprintf("expected (g2): %v%s", g2, fullPrint(g2))
-		str += fmt.Sprintf("cmp error:")
+		str += "cmp error:"
 		str += fmt.Sprintf("%v", err)
 		return str
 	}

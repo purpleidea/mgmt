@@ -9445,7 +9445,7 @@ func (obj *ExprFunc) String() string {
 
 	var a []string
 	for _, x := range obj.Args {
-		a = append(a, fmt.Sprintf("%s", x.String()))
+		a = append(a, x.String())
 	}
 	args := strings.Join(a, ", ")
 	s := fmt.Sprintf("func(%s)", args)
@@ -10360,7 +10360,7 @@ type ExprCall struct {
 func (obj *ExprCall) String() string {
 	var s []string
 	for _, x := range obj.Args {
-		s = append(s, fmt.Sprintf("%s", x.String()))
+		s = append(s, x.String())
 	}
 	name := obj.Name
 	if obj.Name == "" && obj.Anon != nil {

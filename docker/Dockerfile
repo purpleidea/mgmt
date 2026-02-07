@@ -1,21 +1,19 @@
 FROM golang:1.24
 
-MAINTAINER Michał Czeraszkiewicz <contact@czerasz.com>
+LABEL maintainer="Michał Czeraszkiewicz <contact@czerasz.com>"
 
-# Set the reset cache variable
-# Read more here: http://czerasz.com/2014/11/13/docker-tip-and-tricks/#use-refreshedat-variable-for-better-cache-control
-ENV REFRESHED_AT 2020-09-23
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Update the package list to be able to use required packages
-RUN apt-get update
-
-# Change the working directory
 WORKDIR /go/src/mgmt
 
-# Copy all the files to the working directory
+# Copy module files first for better layer caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the full source tree
 COPY . /go/src/mgmt
 
-# Install dependencies
+# Install system and golang dependencies
 RUN make deps
 
 # Build the binary

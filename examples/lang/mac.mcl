@@ -1,0 +1,31 @@
+import "fmt"
+import "net"
+
+
+
+$good_mac = "0a:1b:2c:3d:4f:56"
+$bad_mac = "0a::9b:2z:3d:4f:56"
+print "print0" {
+	msg => fmt.printf("%s: %t", $good_mac, net.is_macaddress($good_mac)),
+}
+print "print1" {
+	msg => fmt.printf("%s: %t", $bad_mac, net.is_macaddress($bad_mac)),
+}
+
+$good_mac1 = "0a-1b-2c-3d-4f-56"
+$bad_mac1 = "0a-9b-2z-3d-4f-56"
+print "print2" {
+	msg => fmt.printf("%s: %t", $good_mac1, net.is_macaddress($good_mac1)),
+}
+print "print3" {
+	msg => fmt.printf("%s: %t", $bad_mac1, net.is_macaddress($bad_mac1)),
+}
+
+$good_mac2 = "0a.1b.2c.3d.4f.56"
+$bad_mac2 = "0a.9b.2z.3d.4f.56"
+print "print4" {
+	msg => fmt.printf("%s: %t", $good_mac2, net.is_macaddress($good_mac2)),
+}
+print "print5" {
+	msg => fmt.printf("%s: %t", $bad_mac2, net.is_macaddress($bad_mac2)),
+}

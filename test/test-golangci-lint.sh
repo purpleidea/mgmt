@@ -25,6 +25,7 @@ glc='golangci-lint run --disable-all'
 glc="$glc --enable=goimports"
 glc="$glc --enable=revive"
 glc="$glc --enable=misspell"
+glc="$glc --enable=durationcheck"
 
 # exclude files and directories here:
 # glc = "$glc --skip-files=EnterFileName"

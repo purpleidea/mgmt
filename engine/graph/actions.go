@@ -297,7 +297,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 			obj.Logf("%s: CheckApply(%t)", res, !noop)
 		}
 		// if this fails, don't UpdateTimestamp()
-		checkOK, err = res.CheckApply(ctx, !noop)
+		checkOK, err = safeCheckApply(ctx, res, !noop)
 		if !checkOK && obj.Debug { // don't log on (checkOK == true)
 			obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 		}
@@ -518,7 +518,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				if obj.Debug {
 					obj.Logf("%s: Watch...", vertex)
 				}
-				err = res.Watch(state.doneCtx)       // run the watch normally
+				err = safeWatch(state.doneCtx, res)  // run the watch normally
 				err = errwrap.NoContextCanceled(err) // strip
 				if s := engineUtil.CleanError(err); err != nil {
 					obj.Logf("%s: Watch Error: %s", vertex, s)
@@ -821,4 +821,27 @@ Loop:
 	} // process loop
 
 	//return nil // unreachable
+}
+
+// safeCheckApply wraps a call to res.CheckApply with a panic recovery so that a
+// buggy resource or upstream library doesn't bring down the entire engine.
+func safeCheckApply(ctx context.Context, res engine.Res, apply bool) (checkOK bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			checkOK = false
+			err = fmt.Errorf("panic in CheckApply: %+v", r)
+		}
+	}()
+	return res.CheckApply(ctx, apply)
+}
+
+// safeWatch wraps a call to res.Watch with a panic recovery so that a buggy
+// resource or upstream library doesn't bring down the entire engine.
+func safeWatch(ctx context.Context, res engine.Res) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic in Watch: %+v", r)
+		}
+	}()
+	return res.Watch(ctx)
 }

@@ -994,8 +994,8 @@ func (obj *VirtRes) getDomainXML() string {
 
 	if obj.HotCPUs {
 		b += fmt.Sprintf("<vcpu current='%d'>%d</vcpu>", obj.CPUs, obj.MaxCPUs)
-		b += fmt.Sprintf("<vcpus>")
-		b += fmt.Sprintf("<vcpu id='0' enabled='yes' hotpluggable='no' order='1'/>") // zeroth cpu can't change
+		b += "<vcpus>"
+		b += "<vcpu id='0' enabled='yes' hotpluggable='no' order='1'/>" // zeroth cpu can't change
 		for i := uint(1); i < obj.MaxCPUs; i++ {                                     // skip first entry
 			enabled := "no"
 			if i < obj.CPUs {
@@ -1004,7 +1004,7 @@ func (obj *VirtRes) getDomainXML() string {
 			// all vcpus must have either set or unset order
 			b += fmt.Sprintf("<vcpu id='%d' enabled='%s' hotpluggable='yes' order='%d'/>", i, enabled, i+1)
 		}
-		b += fmt.Sprintf("</vcpus>")
+		b += "</vcpus>"
 	} else {
 		b += fmt.Sprintf("<vcpu>%d</vcpu>", obj.CPUs)
 	}
@@ -1017,38 +1017,38 @@ func (obj *VirtRes) getDomainXML() string {
 			b += fmt.Sprintf("<boot dev='%s'/>", boot)
 		}
 	}
-	b += fmt.Sprintf("</os>")
+	b += "</os>"
 
 	if obj.HotCPUs {
 		// acpi is needed for cpu hotplug support
-		b += fmt.Sprintf("<features>")
-		b += fmt.Sprintf("<acpi/>")
-		b += fmt.Sprintf("</features>")
+		b += "<features>"
+		b += "<acpi/>"
+		b += "</features>"
 	}
 
-	b += fmt.Sprintf("<devices>") // start devices
+	b += "<devices>" // start devices
 
 	if obj.Disk != nil {
 		for i, disk := range obj.Disk {
-			b += fmt.Sprintf("%s", disk.GetXML(i))
+			b += disk.GetXML(i)
 		}
 	}
 
 	if obj.CDRom != nil {
 		for i, cdrom := range obj.CDRom {
-			b += fmt.Sprintf("%s", cdrom.GetXML(i))
+			b += cdrom.GetXML(i)
 		}
 	}
 
 	if obj.Network != nil {
 		for i, net := range obj.Network {
-			b += fmt.Sprintf("%s", net.GetXML(i))
+			b += net.GetXML(i)
 		}
 	}
 
 	if obj.Filesystem != nil {
 		for i, fs := range obj.Filesystem {
-			b += fmt.Sprintf("%s", fs.GetXML(i))
+			b += fs.GetXML(i)
 		}
 	}
 
@@ -1056,10 +1056,10 @@ func (obj *VirtRes) getDomainXML() string {
 	// it helps because it can ask the host to make them online...
 	if obj.HotCPUs {
 		// enable qemu guest agent (on the host side)
-		b += fmt.Sprintf("<channel type='unix'>")
-		b += fmt.Sprintf("<source mode='bind'/>")
-		b += fmt.Sprintf("<target type='virtio' name='org.qemu.guest_agent.0'/>")
-		b += fmt.Sprintf("</channel>")
+		b += "<channel type='unix'>"
+		b += "<source mode='bind'/>"
+		b += "<target type='virtio' name='org.qemu.guest_agent.0'/>"
+		b += "</channel>"
 	}
 
 	b += "<serial type='pty'><target port='0'/></serial>"

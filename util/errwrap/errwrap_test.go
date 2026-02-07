@@ -313,7 +313,7 @@ func TestString1(t *testing.T) {
 	}
 
 	msg := "this is an error"
-	if err := fmt.Errorf("%s", msg); String(err) != msg {
+	if err := errors.New(msg); String(err) != msg {
 		t.Errorf("expected different result")
 	}
 }

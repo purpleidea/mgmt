@@ -318,6 +318,56 @@ func (obj *HTTPServerFileRes) Cmp(r engine.Res) error {
 	return nil
 }
 
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
+func (obj *HTTPServerFileRes) UIDs() []engine.ResUID {
+	return []engine.ResUID{}
+}
+
+// AutoEdges returns the autoedge data for this resource. If the http:file has a
+// Path set, it creates a reversed edge to the file resource at that path, so
+// the file is ensured to exist before the http server tries to serve it.
+func (obj *HTTPServerFileRes) AutoEdges() (engine.AutoEdge, error) {
+	if obj.Path == "" {
+		return nil, nil // data is inline, no file dependency
+	}
+
+	var reversed = true
+	return &HTTPServerFileResAutoEdges{
+		data: []engine.ResUID{
+			&FileUID{
+				BaseUID: engine.BaseUID{
+					Name:     obj.Name(),
+					Kind:     obj.Kind(),
+					Reversed: &reversed,
+				},
+				path: obj.Path,
+			},
+		},
+	}, nil
+}
+
+// HTTPServerFileResAutoEdges holds the state of the auto edge generator.
+type HTTPServerFileResAutoEdges struct {
+	data []engine.ResUID
+	done bool
+}
+
+// Next returns the next automatic edge.
+func (obj *HTTPServerFileResAutoEdges) Next() []engine.ResUID {
+	if obj.done {
+		return nil
+	}
+	return obj.data
+}
+
+// Test gets results of the earlier Next() call, and returns if we should
+// continue.
+func (obj *HTTPServerFileResAutoEdges) Test(input []bool) bool {
+	obj.done = true
+	return false
+}
+
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
 func (obj *HTTPServerFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {

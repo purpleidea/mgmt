@@ -652,7 +652,7 @@ Loop:
 		}
 		if reserv != nil && d > 0 { // delay
 			state.init.Logf("limited (rate: %v/sec, burst: %d, next: %dms)", res.MetaParams().Limit, res.MetaParams().Burst, d/time.Millisecond)
-			timer := time.NewTimer(time.Duration(d) * time.Millisecond)
+			timer := time.NewTimer(d)
 		LimitWait:
 			for {
 				// This "satellite" select doesn't need a poke

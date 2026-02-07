@@ -131,6 +131,9 @@ type Args struct {
 	// XXX: Can we do it nicely with the new arg parser? can it ignore all args?
 	EtcdCmd *EtcdArgs `arg:"subcommand:etcd" help:"run standalone etcd"`
 
+	// This never runs, it gets preempted in the real main() function.
+	ProvisionerCmd *ProvisionerArgs `arg:"subcommand:provisioner" help:"provision bare metal machines"`
+
 	// version is a private handle for our version string.
 	version string `arg:"-"` // ignored from parsing
 
@@ -187,3 +190,8 @@ func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 // particular one is empty because the `etcd` subcommand is preempted in the
 // real main() function.
 type EtcdArgs struct{}
+
+// ProvisionerArgs is the CLI parsing structure and type of the parsed result.
+// This particular one is empty because the `provisioner` subcommand is
+// preempted in the real main() function via the entry package.
+type ProvisionerArgs struct{}

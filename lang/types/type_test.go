@@ -33,6 +33,7 @@ package types
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/purpleidea/mgmt/util"
@@ -1765,6 +1766,77 @@ func TestUniCmp0(t *testing.T) {
 func TestTypeOf0(t *testing.T) {
 	// TODO: implement testing of the TypeOf function
 	// TODO: implement testing TypeOf for struct field name mappings
+}
+
+// TestTypeOfSkipPrivateFields verifies that ConfigurableTypeOf with
+// SkipPrivateFieldsOpt(true) skips unexported struct fields, so that structs
+// with unexported fields can be converted to mcl types.
+func TestTypeOfSkipPrivateFields(t *testing.T) {
+	type testStruct struct {
+		Name    string
+		Count   int64
+		private string //nolint:unused
+	}
+
+	typ := reflect.TypeOf(testStruct{})
+
+	// With SkipPrivateFieldsOpt(true), only exported fields should appear.
+	result, err := ConfigurableTypeOf(typ, SkipPrivateFieldsOpt(true))
+	if err != nil {
+		t.Fatalf("unexpected error with SkipPrivateFieldsOpt(true): %v", err)
+	}
+	if result.Kind != KindStruct {
+		t.Fatalf("expected struct kind, got: %s", result.Kind)
+	}
+	if len(result.Ord) != 2 {
+		t.Fatalf("expected 2 fields, got %d: %v", len(result.Ord), result.Ord)
+	}
+	if _, ok := result.Map["Name"]; !ok {
+		t.Errorf("expected exported field 'Name' in result")
+	}
+	if _, ok := result.Map["Count"]; !ok {
+		t.Errorf("expected exported field 'Count' in result")
+	}
+	if _, ok := result.Map["private"]; ok {
+		t.Errorf("unexported field 'private' should not be in result")
+	}
+
+	// With SkipPrivateFieldsOpt(false), all fields are included.
+	result2, err := ConfigurableTypeOf(typ, SkipPrivateFieldsOpt(false))
+	if err != nil {
+		t.Fatalf("unexpected error with SkipPrivateFieldsOpt(false): %v", err)
+	}
+	if len(result2.Ord) != 3 {
+		t.Fatalf("expected 3 fields, got %d: %v", len(result2.Ord), result2.Ord)
+	}
+	if _, ok := result2.Map["private"]; !ok {
+		t.Errorf("expected unexported field 'private' in result when not skipping")
+	}
+}
+
+// TestResTypeOfSkipPrivateFields verifies that ResTypeOf (which uses
+// SkipPrivateFieldsOpt(true) internally) skips unexported struct fields.
+func TestResTypeOfSkipPrivateFields(t *testing.T) {
+	type resLike struct {
+		Name   string `lang:"name"`
+		secret string //nolint:unused
+	}
+
+	typ := reflect.TypeOf(resLike{})
+	result, err := ResTypeOf(typ)
+	if err != nil {
+		t.Fatalf("ResTypeOf failed on struct with unexported field: %v", err)
+	}
+	if result.Kind != KindStruct {
+		t.Fatalf("expected struct kind, got: %s", result.Kind)
+	}
+	// ResTypeOf uses StrictStructTagOpt(true), so only tagged fields appear.
+	if len(result.Ord) != 1 {
+		t.Fatalf("expected 1 field, got %d: %v", len(result.Ord), result.Ord)
+	}
+	if _, ok := result.Map["name"]; !ok {
+		t.Errorf("expected field 'name' (from lang tag) in result")
+	}
 }
 
 func TestReflect0(t *testing.T) {

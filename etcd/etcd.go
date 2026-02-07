@@ -302,6 +302,18 @@ func (obj *EmbdEtcd) Validate() error {
 		return fmt.Errorf("the namespace should not end in /")
 	}
 
+	// Check that ClientURLs and ServerURLs don't share the same host:port,
+	// since both services need their own unique socket to listen on.
+	clientHosts := make(map[string]struct{})
+	for _, u := range obj.ClientURLs {
+		clientHosts[u.Host] = struct{}{}
+	}
+	for _, u := range obj.ServerURLs {
+		if _, exists := clientHosts[u.Host]; exists {
+			return fmt.Errorf("the --client-urls and --server-urls share the same host:port (%s), each needs a unique socket", u.Host)
+		}
+	}
+
 	if obj.Prefix == "" || obj.Prefix == "/" {
 		return fmt.Errorf("the prefix of `%s` is invalid", obj.Prefix)
 	}

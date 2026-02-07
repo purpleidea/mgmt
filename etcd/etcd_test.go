@@ -32,7 +32,11 @@
 package etcd
 
 import (
+	"net/url"
+	"strings"
 	"testing"
+
+	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 )
 
 func TestValidation1(t *testing.T) {
@@ -46,5 +50,46 @@ func TestValidation1(t *testing.T) {
 	if err := embdEtcd.Init(); err == nil {
 		t.Errorf("expected init err, got nil")
 		defer embdEtcd.Cleanup()
+	}
+}
+
+func TestValidateOverlappingURLs(t *testing.T) {
+	mustURL := func(s string) url.URL {
+		u, err := url.Parse(s)
+		if err != nil {
+			t.Fatalf("bad test URL %q: %v", s, err)
+		}
+		return *u
+	}
+	logf := func(format string, v ...interface{}) {}
+
+	// Same host:port for both client and server should fail.
+	embdEtcd := &EmbdEtcd{
+		Hostname:   "test",
+		ClientURLs: etcdtypes.URLs{mustURL("http://127.0.0.1:2381")},
+		ServerURLs: etcdtypes.URLs{mustURL("http://127.0.0.1:2381")},
+		NS:         "test",
+		Prefix:     "/tmp/test",
+		Logf:       logf,
+	}
+	err := embdEtcd.Validate()
+	if err == nil {
+		t.Errorf("expected error for overlapping client/server URLs, got nil")
+	} else if !strings.Contains(err.Error(), "share the same host:port") {
+		t.Errorf("expected host:port overlap error, got: %v", err)
+	}
+
+	// Different ports should pass this check (may fail others).
+	embdEtcd2 := &EmbdEtcd{
+		Hostname:   "test",
+		ClientURLs: etcdtypes.URLs{mustURL("http://127.0.0.1:2379")},
+		ServerURLs: etcdtypes.URLs{mustURL("http://127.0.0.1:2380")},
+		NS:         "test",
+		Prefix:     "/tmp/test",
+		Logf:       logf,
+	}
+	err = embdEtcd2.Validate()
+	if err != nil {
+		t.Errorf("expected no error for non-overlapping URLs, got: %v", err)
 	}
 }

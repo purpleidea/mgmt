@@ -32,15 +32,18 @@ package errwrap
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 )
 
 // Wrapf adds a new error onto an existing chain of errors. If the new error to
 // be added is nil, then the old error is returned unchanged.
 func Wrapf(err error, format string, args ...interface{}) error {
-	return errors.Wrapf(err, format, args...)
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", fmt.Sprintf(format, args...), err)
 }
 
 // Append can be used to safely append an error onto an existing one. If you

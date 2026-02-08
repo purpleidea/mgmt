@@ -1,0 +1,7 @@
+group "mgmt-test-rereconcile" {
+	state => "exists",
+}
+user "mgmt-test-rereconcile" {
+	state => "exists",
+	Depend => Group["mgmt-test-rereconcile"],
+}

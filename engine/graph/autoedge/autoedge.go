@@ -31,11 +31,19 @@ package autoedge
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
+
+// vertexInfo holds pre-computed information about a vertex for use during edge
+// matching. This avoids recomputing UIDs() on every comparison.
+type vertexInfo struct {
+	res  engine.EdgeableRes
+	uids []engine.ResUID
+}
 
 // AutoEdge adds the automatic edges to the graph.
 func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
@@ -74,6 +82,34 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 		return errwrap.Wrapf(err, "the auto edges had errors")
 	}
 
+	// Pre-compute vertex info once so we don't call UIDs() on each
+	// comparison. This turns the per-UID cost from O(n) interface calls
+	// into a single slice lookup.
+	verticesInfo := make([]vertexInfo, 0, len(sorted))
+	for _, res := range sorted {
+		verticesInfo = append(verticesInfo, vertexInfo{
+			res:  res,
+			uids: res.UIDs(),
+		})
+	}
+
+	// Build an index from concrete UID type to the vertices that produce
+	// UIDs of that type. Every real IFF() implementation starts with a
+	// type assertion that returns false across kinds, so we can skip
+	// candidates whose UID types don't overlap with the seeking UID.
+	uidTypeIndex := make(map[reflect.Type][]vertexInfo)
+	for _, vi := range verticesInfo {
+		seen := make(map[reflect.Type]struct{})
+		for _, u := range vi.uids {
+			t := reflect.TypeOf(u)
+			if _, ok := seen[t]; ok {
+				continue // don't add same vertex twice per type
+			}
+			seen[t] = struct{}{}
+			uidTypeIndex[t] = append(uidTypeIndex[t], vi)
+		}
+	}
+
 	// now that we're guaranteed error free, we can modify the graph safely
 	for _, res := range sorted { // stable sort order for determinism in logs
 		autoEdgeObj, exists := autoEdgeObjMap[res]
@@ -95,7 +131,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 			}
 
 			// match and add edges
-			result := addEdgesByMatchingUIDS(res, uids, graph, debug, logf)
+			result := addEdgesByMatchingUIDS(res, uids, verticesInfo, uidTypeIndex, graph, debug, logf)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {
@@ -110,8 +146,10 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 }
 
 // addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
-// matches a uid list.
-func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
+// matches a uid list. It uses the pre-computed verticesInfo and uidTypeIndex to
+// avoid recomputing UIDs and to narrow the search to vertices that share a
+// concrete UID type with the seeking UID.
+func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, verticesInfo []vertexInfo, uidTypeIndex map[reflect.Type][]vertexInfo, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -119,36 +157,40 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph 
 	for _, uid := range uids {
 		var found = false
 		// uid is a ResUID object
-		for _, v := range graph.Vertices() { // search
-			r, ok := v.(engine.EdgeableRes)
-			if !ok {
-				continue
-			}
-			if r.AutoEdgeMeta().Disabled { // skip if this res is disabled
-				continue
-			}
-			if res == r { // skip self
+
+		// Look up candidates by UID type. Since IFF() across
+		// different concrete types always returns false, we only
+		// need to check vertices that produce UIDs of the same
+		// type. Fall back to the full list if the type is unknown
+		// (e.g. when using BaseUID directly without overriding).
+		candidates, ok := uidTypeIndex[reflect.TypeOf(uid)]
+		if !ok {
+			candidates = verticesInfo
+		}
+
+		for _, vi := range candidates { // search
+			if res == vi.res { // skip self
 				continue
 			}
 			if debug {
-				logf("match: %s with UID: %s", r, uid)
+				logf("match: %s with UID: %s", vi.res, uid)
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
 			// handle, but it is not necessarily a unique identity!
 			// remember, resources can return multiple UID's each!
-			if UIDExistsInUIDs(uid, r.UIDs()) {
+			if UIDExistsInUIDs(uid, vi.uids) {
 				// add edge from: r -> res
 				if uid.IsReversed() {
-					txt := fmt.Sprintf("%s -> %s", r, res)
+					txt := fmt.Sprintf("%s -> %s", vi.res, res)
 					logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
-					graph.AddEdge(r, res, edge)
+					graph.AddEdge(vi.res, res, edge)
 				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("%s -> %s", res, r)
+					txt := fmt.Sprintf("%s -> %s", res, vi.res)
 					logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
-					graph.AddEdge(res, r, edge)
+					graph.AddEdge(res, vi.res, edge)
 				}
 				found = true
 				break

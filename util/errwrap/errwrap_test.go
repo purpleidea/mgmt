@@ -58,6 +58,30 @@ func TestWrapfErr3(t *testing.T) {
 	}
 }
 
+func TestWrapfErr4(t *testing.T) {
+	reterr := fmt.Errorf("reterr")
+	err := Wrapf(reterr, "whatever: %d", 42)
+	if expected := "whatever: 42: reterr"; err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestWrapfErr5(t *testing.T) {
+	reterr := fmt.Errorf("reterr")
+	err := Wrapf(reterr, "simple message")
+	if expected := "simple message: reterr"; err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
+func TestWrapfErr6(t *testing.T) {
+	reterr := fmt.Errorf("reterr")
+	err := Wrapf(reterr, "hello %s, count %d", "world", 7)
+	if expected := "hello world, count 7: reterr"; err.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, err.Error())
+	}
+}
+
 func TestAppendErr1(t *testing.T) {
 	if err := Append(nil, nil); err != nil {
 		t.Errorf("expected nil result")

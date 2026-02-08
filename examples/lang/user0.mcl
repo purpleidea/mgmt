@@ -1,3 +1,10 @@
+group "mgmttest" {
+	state => "exists",
+}
+
+# The primary group defaults to the username
+# It still must be explicitly created beforehand
 user "mgmttest" {
 	state => "exists",
+	Depend => Group["mgmttest"],
 }

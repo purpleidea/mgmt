@@ -70,6 +70,8 @@ type UserRes struct {
 	GID *uint32 `lang:"gid" yaml:"gid"`
 
 	// Group is the name of the user's primary group.
+	// Defaults to the resource name if neither Group or GID are defined.
+	// The group is NOT created automatically - the resource assumes it exists.
 	Group *string `lang:"group" yaml:"group"`
 
 	// Groups are a list of supplemental groups.
@@ -136,6 +138,10 @@ func (obj *UserRes) Validate() error {
 func (obj *UserRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	if obj.GID == nil && obj.Group == nil {
+		name := obj.Name()
+		obj.Group = &name
+	}
 	return nil
 }
 
@@ -296,6 +302,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			obj.init.Logf("modifying user: %s", obj.Name())
 		} else {
 			cmdName = "useradd"
+			args = append(args, "--no-user-group")
 			obj.init.Logf("adding user: %s", obj.Name())
 		}
 		if obj.AllowDuplicateUID {

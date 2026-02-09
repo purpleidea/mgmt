@@ -1,0 +1,32 @@
+---
+graph: mygraph
+resources:
+  file:
+  - name: d1
+    path: "/tmp/mgmt/d1/"
+    state: exists
+  - name: f1
+    path: "/tmp/mgmt/d1/f1"
+    content: |
+      file one
+    state: exists
+  - name: f2
+    path: "/tmp/mgmt/d1/f2"
+    content: |
+      file two
+    state: exists
+edges:
+- name: explicit-d1-f1
+  from:
+    kind: file
+    name: d1
+  to:
+    kind: file
+    name: f1
+- name: explicit-f1-f2
+  from:
+    kind: file
+    name: f1
+  to:
+    kind: file
+    name: f2

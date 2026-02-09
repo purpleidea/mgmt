@@ -769,19 +769,30 @@ func TestAutoEdgeNonEdgeableVertex(t *testing.T) {
 
 	uid := &TestUID{
 		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
-		key:     "k1",
+		key:     "shared",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
 	}
 
+	// r1 seeks a UID that r2 holds. A non-edgeable vertex is also
+	// present but must not interfere. We verify both that the valid
+	// edge is created and that the non-edgeable vertex has no edges.
 	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
 	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
 	nonEdge := &TestNonEdgeableRes{name: "nope"}
-	g.AddVertex(r1, nonEdge)
+	g.AddVertex(r1, r2, nonEdge)
 
 	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
 		t.Errorf("error running AutoEdge: %v", err)
 	}
-	if i := g.NumEdges(); i != 0 {
-		t.Errorf("non-edgeable vertex should not match, got: %d edges", i)
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge (non-edgeable ignored), got: %d", i)
+	}
+	if e := g.FindEdge(r1, r2); e == nil {
+		t.Errorf("expected edge r1 -> r2, but it was not found")
 	}
 }
 
@@ -1000,6 +1011,240 @@ func TestAutoEdgeBaseUIDFallback(t *testing.T) {
 	}
 	if i := g.NumEdges(); i != 1 {
 		t.Errorf("baseUID fallback should produce 1 edge, got: %d", i)
+	}
+}
+
+// --- Behavioral parity tests ---
+//
+// These tests verify that the refactored code preserves the exact behavior of
+// the original addEdgesByMatchingUIDS implementation. Each test targets a
+// specific guard from the original inner loop.
+
+// TestAutoEdgeDisabledTargetAmongValid verifies that when a disabled target
+// exists alongside a valid target, only the valid target gets an edge.
+func TestAutoEdgeDisabledTargetAmongValid(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeDisabledTargetAmongValid")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	matchUID2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r3", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
+	r2.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	r3 := makeTestRes("r3", "test", []engine.ResUID{matchUID2}, nil)
+	g.AddVertex(r1, r2, r3)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge (skipping disabled target), got: %d", i)
+	}
+	// The edge should connect r1 and r3, not r2.
+	if e := g.FindEdge(r1, r3); e == nil {
+		t.Errorf("expected edge r1 -> r3, but it was not found")
+	}
+	if e := g.FindEdge(r1, r2); e != nil {
+		t.Errorf("disabled target r2 should not have an edge")
+	}
+}
+
+// TestAutoEdgeNonEdgeableAmongValid verifies that a non-EdgeableRes vertex in
+// the graph does not interfere with valid autoedge matches.
+func TestAutoEdgeNonEdgeableAmongValid(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeNonEdgeableAmongValid")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
+	nonEdge := &TestNonEdgeableRes{name: "nope"}
+	g.AddVertex(r1, r2, nonEdge)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge with non-edgeable vertex present, got: %d", i)
+	}
+	if e := g.FindEdge(r1, r2); e == nil {
+		t.Errorf("expected edge r1 -> r2, but it was not found")
+	}
+}
+
+// TestAutoEdgeDisabledBothSeekerAndTarget verifies that a resource that is
+// disabled acts as neither a seeker nor a target.
+func TestAutoEdgeDisabledBothSeekerAndTarget(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeDisabledBothSeekerAndTarget")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+
+	// r1 is disabled. It has an autoedge object (so it would seek), and
+	// r2 has a matching UID (so it would be a target). But since r1 is
+	// disabled, no edges should be created in either direction.
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r1.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
+	g.AddVertex(r1, r2)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("disabled resource should not seek or be a target, got: %d edges", i)
+	}
+}
+
+// TestAutoEdgeReversedWithDisabledAndNonEdgeable verifies that edge direction
+// (IsReversed) is preserved when disabled and non-edgeable vertices are present
+// in the graph.
+func TestAutoEdgeReversedWithDisabledAndNonEdgeable(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeReversedWithDisabledAndNonEdgeable")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(true)},
+		key:     "shared",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	disabledUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r3", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
+	r3 := makeTestRes("r3", "test", []engine.ResUID{disabledUID}, nil)
+	r3.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	nonEdge := &TestNonEdgeableRes{name: "noise"}
+	g.AddVertex(r1, r2, r3, nonEdge)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge, got: %d", i)
+	}
+	// IsReversed=true means the edge goes target -> seeker (r2 -> r1).
+	if e := g.FindEdge(r2, r1); e == nil {
+		t.Errorf("expected reversed edge r2 -> r1, but it was not found")
+	}
+	if e := g.FindEdge(r1, r2); e != nil {
+		t.Errorf("edge should be reversed (r2 -> r1), not r1 -> r2")
+	}
+}
+
+// TestAutoEdgeDisabledTargetNotCounted verifies that a disabled target does not
+// count as a match. The Test() callback should receive false for the UID that
+// would have matched the disabled target.
+func TestAutoEdgeDisabledTargetNotCounted(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeDisabledTargetNotCounted")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
+		key:     "only-r2-has-this",
+	}
+	matchUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "only-r2-has-this",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid}, ae)
+	r2 := makeTestRes("r2", "test", []engine.ResUID{matchUID}, nil)
+	r2.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	g.AddVertex(r1, r2)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("expected 0 edges, got: %d", i)
+	}
+	// The autoedge object should have been called with Test([false])
+	// because the only possible target was disabled.
+	if len(ae.testArgs) != 1 {
+		t.Fatalf("expected 1 Test() call, got: %d", len(ae.testArgs))
+	}
+	if len(ae.testArgs[0]) != 1 || ae.testArgs[0][0] != false {
+		t.Errorf("expected Test([false]), got: %v", ae.testArgs[0])
+	}
+}
+
+// TestAutoEdgeAllDisabled verifies that when all resources are disabled, no
+// edges are created and no errors occur.
+func TestAutoEdgeAllDisabled(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeAllDisabled")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	uid1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r1", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+	uid2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "r2", Kind: "test", Reversed: boolPtr(false)},
+		key:     "shared",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid1}}}
+	r1 := makeTestRes("r1", "test", []engine.ResUID{uid1}, ae)
+	r1.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	r2 := makeTestRes("r2", "test", []engine.ResUID{uid2}, nil)
+	r2.SetAutoEdgeMeta(&engine.AutoEdgeMeta{Disabled: true})
+	g.AddVertex(r1, r2)
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running AutoEdge: %v", err)
+	}
+	if i := g.NumEdges(); i != 0 {
+		t.Errorf("all disabled should produce 0 edges, got: %d", i)
 	}
 }
 

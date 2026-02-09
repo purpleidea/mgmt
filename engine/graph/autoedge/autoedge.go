@@ -45,6 +45,29 @@ type vertexInfo struct {
 	uids []engine.ResUID
 }
 
+// edgeMatcher holds the pre-computed state needed for matching UIDs to
+// vertices. It is built once per AutoEdge run and used for all matching calls,
+// avoiding the need to pass many parameters to each call.
+type edgeMatcher struct {
+	// verticesInfo is the pre-computed list of non-disabled EdgeableRes
+	// vertices and their UIDs.
+	verticesInfo []vertexInfo
+
+	// uidTypeIndex maps concrete UID types to the vertices that produce
+	// UIDs of that type, for fast candidate narrowing.
+	uidTypeIndex map[reflect.Type][]vertexInfo
+
+	// graph is the graph being modified.
+	graph *pgraph.Graph
+
+	// adj is a reference to the graph's adjacency map, obtained once so
+	// that edges added during the run are visible to later iterations.
+	adj map[pgraph.Vertex]map[pgraph.Vertex]pgraph.Edge
+
+	debug bool
+	logf  func(format string, v ...interface{})
+}
+
 // AutoEdge adds the automatic edges to the graph.
 func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
 	logf("building...")
@@ -110,10 +133,18 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 		}
 	}
 
-	// Get a reference to the adjacency map once. Since Adjacency()
-	// returns a direct reference, it reflects edges added during this
-	// run, allowing later iterations to see earlier autoedges.
-	adj := graph.Adjacency()
+	m := &edgeMatcher{
+		verticesInfo: verticesInfo,
+		uidTypeIndex: uidTypeIndex,
+		graph:        graph,
+		// Get a reference to the adjacency map once. Since
+		// Adjacency() returns a direct reference, it reflects edges
+		// added during this run, allowing later iterations to see
+		// earlier autoedges.
+		adj:   graph.Adjacency(),
+		debug: debug,
+		logf:  logf,
+	}
 
 	// now that we're guaranteed error free, we can modify the graph safely
 	for _, res := range sorted { // stable sort order for determinism in logs
@@ -136,7 +167,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 			}
 
 			// match and add edges
-			result := addEdgesByMatchingUIDS(res, uids, verticesInfo, uidTypeIndex, graph, adj, debug, logf)
+			result := m.addEdgesByMatchingUIDS(res, uids)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {
@@ -157,7 +188,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 // whether the edge already exists or whether the target is already reachable
 // through existing edges, to avoid redundant edges that would reduce
 // parallelism.
-func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, verticesInfo []vertexInfo, uidTypeIndex map[reflect.Type][]vertexInfo, graph *pgraph.Graph, adj map[pgraph.Vertex]map[pgraph.Vertex]pgraph.Edge, debug bool, logf func(format string, v ...interface{})) []bool {
+func (obj *edgeMatcher) addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -171,17 +202,20 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, vertic
 		// need to check vertices that produce UIDs of the same
 		// type. Fall back to the full list if the type is unknown
 		// (e.g. when using BaseUID directly without overriding).
-		candidates, ok := uidTypeIndex[reflect.TypeOf(uid)]
+		candidates, ok := obj.uidTypeIndex[reflect.TypeOf(uid)]
 		if !ok {
-			candidates = verticesInfo
+			candidates = obj.verticesInfo
 		}
 
 		for _, vi := range candidates { // search
+			if vi.res.AutoEdgeMeta().Disabled {
+				continue // skip disabled targets
+			}
 			if res == vi.res { // skip self
 				continue
 			}
-			if debug {
-				logf("match: %s with UID: %s", vi.res, uid)
+			if obj.debug {
+				obj.logf("match: %s with UID: %s", vi.res, uid)
 			}
 			// we must match to an effective UID for the resource,
 			// that is to say, the name value of a res is a helpful
@@ -201,19 +235,19 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, vertic
 				// through existing edges (directed DFS).
 				// This avoids redundant transitive edges
 				// that waste memory and reduce parallelism.
-				if graph.FindEdge(from, to) != nil {
-					if debug {
-						logf("skip existing: %s -> %s", from, to)
+				if obj.graph.FindEdge(from, to) != nil {
+					if obj.debug {
+						obj.logf("skip existing: %s -> %s", from, to)
 					}
-				} else if isReachable(adj, from, to) {
-					if debug {
-						logf("skip reachable: %s -> %s", from, to)
+				} else if isReachable(obj.adj, from, to) {
+					if obj.debug {
+						obj.logf("skip reachable: %s -> %s", from, to)
 					}
 				} else {
 					txt := fmt.Sprintf("%s -> %s", from, to)
-					logf("adding: %s", txt)
+					obj.logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
-					graph.AddEdge(from, to, edge)
+					obj.graph.AddEdge(from, to, edge)
 				}
 				found = true
 				break

@@ -92,6 +92,8 @@ type Engine struct {
 	fastPause *atomic.Bool
 	isClosing bool // are we shutting down?
 
+	autoEdgeCache *autoEdgeCacheEntry // cached autoedge results
+
 	errMutex *sync.Mutex // wraps the *state workerErr (one mutex for all)
 }
 
@@ -169,6 +171,7 @@ func (obj *Engine) Abort() error {
 		return fmt.Errorf("there is no pending graph to abort")
 	}
 	obj.nextGraph = nil
+	obj.autoEdgeCache = nil // free cached fingerprint and edge data
 	return nil
 }
 

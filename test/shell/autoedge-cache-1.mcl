@@ -1,0 +1,17 @@
+import "datetime"
+import "fmt"
+
+# datetime.now() ticks every second, causing new graph generations. The
+# graph structure stays the same (same resources, no explicit edges), so
+# autoedge should hit the delta cache on the second and subsequent runs.
+
+$now = datetime.now()
+
+file "/tmp/mgmt/autoedge-cache/" {
+	state => $const.res.file.state.exists,
+}
+
+file "/tmp/mgmt/autoedge-cache/f1" {
+	state => $const.res.file.state.exists,
+	content => fmt.printf("ts: %d\n", $now),
+}

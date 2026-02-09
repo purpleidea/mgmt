@@ -71,6 +71,26 @@ more time, but it is finite, and running a project is not free. Therefore,
 please keep in mind that you don't automatically qualify for free support or
 attention.
 
+## LLM's and AI
+
+If you use LLM's and/or other AI related tooling to help you with programming,
+this does not absolve you of the responsibility for the code submitted. It is
+not our job to review your machine generated code. If you send in something that
+surreptitiously adds bugs, security holes, or otherwise is sloppy code, we will
+hold you responsible, and ultimately this will probably lead to you being banned
+from contributing. If you are not confident enough to thoroughly understand and
+review the generated code you are submitting, then please do not submit it!
+
+## Copyright
+
+You are legally responsible for the code you submit, in so far as respecting the
+terms that the license dictates. This means that you are legally allowed to
+submit it under the license of the project, and that you haven't signed an
+agreement (with for example, your employer) that forbids you from contributing
+such code. This also applies to your use of LLM's and AI related tooling. Please
+make sure that the output from the tooling you're using isn't incompatible with
+the copyright of the project.
+
 ## Attention seeking behaviours
 
 Some folks spend too much time starting discussions, commenting on issues,

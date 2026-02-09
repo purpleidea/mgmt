@@ -1101,3 +1101,978 @@ func BenchmarkUIDExistsInUIDs(b *testing.B) {
 		})
 	}
 }
+
+// --- Redundant edge prevention tests ---
+
+// TestAutoEdgeSkipExistingEdge verifies that when an explicit edge A->B already
+// exists in the graph, autoedge does not overwrite it.
+func TestAutoEdgeSkipExistingEdge(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeSkipExistingEdge")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	uid1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uid2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid1}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uid1}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uid2}, nil)
+	g.AddVertex(a, b)
+
+	// Add an explicit edge before autoedge runs.
+	explicit := &engine.Edge{Name: "explicit", Notify: true}
+	g.AddEdge(a, b, explicit)
+
+	if i := g.NumEdges(); i != 1 {
+		t.Fatalf("expected 1 explicit edge, got: %d", i)
+	}
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// Still 1 edge — not overwritten or duplicated.
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge after autoedge, got: %d", i)
+	}
+
+	// The original edge with Notify=true should be preserved.
+	e := g.FindEdge(a, b)
+	if e == nil {
+		t.Fatalf("edge a -> b should exist")
+	}
+	ee, ok := e.(*engine.Edge)
+	if !ok {
+		t.Fatalf("edge is not *engine.Edge")
+	}
+	if !ee.Notify {
+		t.Errorf("explicit edge Notify flag should be preserved")
+	}
+}
+
+// TestAutoEdgeSkipTransitiveEdge verifies that when A->B and B->C already
+// exist, autoedge does not add the redundant A->C edge.
+func TestAutoEdgeSkipTransitiveEdge(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeSkipTransitiveEdge")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	keyAC := "ac"
+	uidA := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAC,
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     "bonly",
+	}
+	uidC := &TestUID{
+		BaseUID: engine.BaseUID{Name: "c", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAC,
+	}
+
+	// A seeks UID with key "ac" — should match C.
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uidA}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, nil)
+	c := makeTestRes("c", "test", []engine.ResUID{uidC}, nil)
+	g.AddVertex(a, b, c)
+
+	// Explicit chain: a -> b -> c.
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(b, c, &engine.Edge{Name: "b->c"})
+
+	if i := g.NumEdges(); i != 2 {
+		t.Fatalf("expected 2 explicit edges, got: %d", i)
+	}
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// Still 2 edges — a->c was NOT added because a can reach c via b.
+	if i := g.NumEdges(); i != 2 {
+		t.Errorf("expected 2 edges (no transitive a->c), got: %d", i)
+	}
+	if e := g.FindEdge(a, c); e != nil {
+		t.Errorf("transitive edge a->c should not have been added")
+	}
+}
+
+// TestAutoEdgeAddWhenNotReachable verifies that autoedge still adds edges when
+// there is no existing path between the vertices.
+func TestAutoEdgeAddWhenNotReachable(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeAddWhenNotReachable")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	uid1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uid2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid1}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uid1}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uid2}, nil)
+	g.AddVertex(a, b)
+
+	// No existing edges — autoedge should add a -> b.
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge, got: %d", i)
+	}
+	if e := g.FindEdge(a, b); e == nil {
+		t.Errorf("edge a -> b should have been added")
+	}
+}
+
+// TestAutoEdgeTransitiveFromAutoEdge verifies that an autoedge added earlier in
+// the same run prevents a redundant edge later. A->B is added by autoedge
+// first, then B->C exists, so A->C is skipped.
+func TestAutoEdgeTransitiveFromAutoEdge(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeTransitiveFromAutoEdge")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	keyAB := "ab"
+	keyAC := "ac"
+	uidA1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAB,
+	}
+	uidA2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAC,
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAB,
+	}
+	uidC := &TestUID{
+		BaseUID: engine.BaseUID{Name: "c", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAC,
+	}
+
+	// A seeks keyAB first (matches B), then keyAC (matches C).
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uidA1}, {uidA2}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA1, uidA2}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, nil)
+	c := makeTestRes("c", "test", []engine.ResUID{uidC}, nil)
+	g.AddVertex(a, b, c)
+
+	// Explicit edge: b -> c.
+	g.AddEdge(b, c, &engine.Edge{Name: "b->c"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// Expected: b->c (explicit) + a->b (autoedge). a->c skipped
+	// because a can reach c via a->b->c.
+	if i := g.NumEdges(); i != 2 {
+		t.Errorf("expected 2 edges, got: %d", i)
+	}
+	if e := g.FindEdge(a, b); e == nil {
+		t.Errorf("autoedge a -> b should have been added")
+	}
+	if e := g.FindEdge(a, c); e != nil {
+		t.Errorf("transitive edge a -> c should not have been added")
+	}
+}
+
+// TestAutoEdgeMatchReportedOnSkip verifies that Test() receives true for a
+// matched UID even when the edge was skipped as redundant.
+func TestAutoEdgeMatchReportedOnSkip(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeMatchReportedOnSkip")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	uid1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uid2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid1}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uid1}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uid2}, nil)
+	g.AddVertex(a, b)
+
+	// Pre-existing edge — autoedge will skip but should report found.
+	g.AddEdge(a, b, &engine.Edge{Name: "explicit"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// Test() should have been called with [true] (match found).
+	if len(ae.testArgs) != 1 {
+		t.Fatalf("expected 1 Test() call, got: %d", len(ae.testArgs))
+	}
+	if len(ae.testArgs[0]) != 1 || !ae.testArgs[0][0] {
+		t.Errorf("test() should have received [true], got: %v", ae.testArgs[0])
+	}
+}
+
+// TestAutoEdgePreservesNotifyOnSkip verifies that an explicit edge with
+// Notify=true is not overwritten when autoedge discovers the same edge.
+func TestAutoEdgePreservesNotifyOnSkip(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgePreservesNotifyOnSkip")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	uid1 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uid2 := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uid1}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uid1}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uid2}, nil)
+	g.AddVertex(a, b)
+
+	// Explicit edge with Notify=true.
+	g.AddEdge(a, b, &engine.Edge{Name: "notify-edge", Notify: true})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	e := g.FindEdge(a, b)
+	if e == nil {
+		t.Fatalf("edge a -> b should exist")
+	}
+	ee, ok := e.(*engine.Edge)
+	if !ok {
+		t.Fatalf("edge is not *engine.Edge")
+	}
+	if !ee.Notify {
+		t.Errorf("notify flag should be preserved, was overwritten")
+	}
+	if ee.Name != "notify-edge" {
+		t.Errorf("edge name should be preserved, got: %s", ee.Name)
+	}
+}
+
+// TestAutoEdgeDiamondSkip verifies that in a diamond topology A->B, A->C, B->D,
+// C->D, the redundant autoedge A->D is skipped.
+func TestAutoEdgeDiamondSkip(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeDiamondSkip")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	keyAD := "ad"
+	uidA := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAD,
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     "b",
+	}
+	uidC := &TestUID{
+		BaseUID: engine.BaseUID{Name: "c", Kind: "test", Reversed: boolPtr(false)},
+		key:     "c",
+	}
+	uidD := &TestUID{
+		BaseUID: engine.BaseUID{Name: "d", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyAD,
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{uidA}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA}, ae)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, nil)
+	c := makeTestRes("c", "test", []engine.ResUID{uidC}, nil)
+	d := makeTestRes("d", "test", []engine.ResUID{uidD}, nil)
+	g.AddVertex(a, b, c, d)
+
+	// Diamond: a->b, a->c, b->d, c->d.
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(a, c, &engine.Edge{Name: "a->c"})
+	g.AddEdge(b, d, &engine.Edge{Name: "b->d"})
+	g.AddEdge(c, d, &engine.Edge{Name: "c->d"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// 4 explicit edges, a->d NOT added.
+	if i := g.NumEdges(); i != 4 {
+		t.Errorf("expected 4 edges (no a->d shortcut), got: %d", i)
+	}
+	if e := g.FindEdge(a, d); e != nil {
+		t.Errorf("transitive edge a->d should not have been added")
+	}
+}
+
+// TestAutoEdgeLongChainSkip verifies that a long explicit chain A->B->C->D->E
+// prevents the transitive autoedge A->E.
+func TestAutoEdgeLongChainSkip(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeLongChainSkip")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	keyAE := "ae"
+	n := 5
+	resources := make([]*TestEdgeRes, n)
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("r%d", i)
+		key := name
+		if i == 0 || i == n-1 {
+			key = keyAE // first and last share the key
+		}
+		uid := &TestUID{
+			BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+			key:     key,
+		}
+		var ae engine.AutoEdge
+		if i == 0 {
+			seekUID := &TestUID{
+				BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+				key:     keyAE,
+			}
+			ae = &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+		}
+		resources[i] = makeTestRes(name, "test", []engine.ResUID{uid}, ae)
+		g.AddVertex(resources[i])
+	}
+
+	// Chain: r0->r1->r2->r3->r4.
+	for i := 0; i < n-1; i++ {
+		name := fmt.Sprintf("r%d->r%d", i, i+1)
+		g.AddEdge(resources[i], resources[i+1], &engine.Edge{Name: name})
+	}
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// n-1 chain edges, no shortcut r0->r4.
+	if i := g.NumEdges(); i != n-1 {
+		t.Errorf("expected %d edges, got: %d", n-1, i)
+	}
+	if e := g.FindEdge(resources[0], resources[n-1]); e != nil {
+		t.Errorf("transitive edge r0->r4 should not have been added")
+	}
+}
+
+// TestAutoEdgeReversedEdgeSkip verifies that a reversed autoedge is also
+// checked for redundancy. If A->B already exists and autoedge discovers a
+// reversed match that would also produce A->B, it skips.
+func TestAutoEdgeReversedEdgeSkip(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeReversedEdgeSkip")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	// B seeks with IsReversed=true, which produces edge B->A
+	// (matched -> seeker). Wait, reversed means: matched -> seeker.
+	// So if B is the seeker and A is the match, the edge is A->B.
+	seekUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(true)},
+		key:     sharedKey,
+	}
+	uidA := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     "bonly",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA}, nil)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, ae)
+	g.AddVertex(a, b)
+
+	// Explicit edge a->b already exists.
+	g.AddEdge(a, b, &engine.Edge{Name: "explicit"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// Still 1 edge — reversed autoedge was skipped.
+	if i := g.NumEdges(); i != 1 {
+		t.Errorf("expected 1 edge, got: %d", i)
+	}
+}
+
+// TestAutoEdgeReversedNotReachable verifies that a reversed autoedge is added
+// when the reverse direction is not reachable. B->A exists but autoedge wants
+// A->B (reversed), which is a different direction.
+func TestAutoEdgeReversedNotReachable(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeReversedNotReachable")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	sharedKey := "shared"
+	seekUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(true)},
+		key:     sharedKey,
+	}
+	uidA := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     sharedKey,
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     "bonly",
+	}
+
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA}, nil)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, ae)
+	g.AddVertex(a, b)
+
+	// Edge in the OPPOSITE direction: b->a.
+	g.AddEdge(b, a, &engine.Edge{Name: "b->a"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// 2 edges: b->a (explicit) + a->b (autoedge). Different directions.
+	if i := g.NumEdges(); i != 2 {
+		t.Errorf("expected 2 edges, got: %d", i)
+	}
+	if e := g.FindEdge(a, b); e == nil {
+		t.Errorf("autoedge a->b should have been added")
+	}
+}
+
+// TestAutoEdgeParallelPaths verifies that parallel paths don't prevent
+// unrelated edges. A->B and A->C exist. Autoedge discovers B->C. B cannot reach
+// C through A, so B->C should be added.
+func TestAutoEdgeParallelPaths(t *testing.T) {
+	g, err := pgraph.NewGraph("TestAutoEdgeParallelPaths")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+
+	keyBC := "bc"
+	uidA := &TestUID{
+		BaseUID: engine.BaseUID{Name: "a", Kind: "test", Reversed: boolPtr(false)},
+		key:     "a",
+	}
+	uidB := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyBC,
+	}
+	uidC := &TestUID{
+		BaseUID: engine.BaseUID{Name: "c", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyBC,
+	}
+
+	seekUID := &TestUID{
+		BaseUID: engine.BaseUID{Name: "b", Kind: "test", Reversed: boolPtr(false)},
+		key:     keyBC,
+	}
+	ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+	a := makeTestRes("a", "test", []engine.ResUID{uidA}, nil)
+	b := makeTestRes("b", "test", []engine.ResUID{uidB}, ae)
+	c := makeTestRes("c", "test", []engine.ResUID{uidC}, nil)
+	g.AddVertex(a, b, c)
+
+	// Parallel: a->b and a->c. B cannot reach C.
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(a, c, &engine.Edge{Name: "a->c"})
+
+	if err := AutoEdge(g, testing.Verbose(), testLogf(t)); err != nil {
+		t.Errorf("error running autoEdge: %v", err)
+	}
+
+	// 3 edges: a->b, a->c, b->c (autoedge added).
+	if i := g.NumEdges(); i != 3 {
+		t.Errorf("expected 3 edges, got: %d", i)
+	}
+	if e := g.FindEdge(b, c); e == nil {
+		t.Errorf("autoedge b->c should have been added")
+	}
+}
+
+// TestAutoEdgeDeterministicWithSkips verifies that the redundant edge
+// prevention produces identical results across multiple runs.
+func TestAutoEdgeDeterministicWithSkips(t *testing.T) {
+	buildGraph := func() (*pgraph.Graph, []*TestEdgeRes) {
+		g, err := pgraph.NewGraph("Deterministic")
+		if err != nil {
+			t.Fatalf("error creating graph: %v", err)
+		}
+
+		n := 10
+		resources := make([]*TestEdgeRes, n)
+		for i := 0; i < n; i++ {
+			name := fmt.Sprintf("r%02d", i)
+			uid := &TestUID{
+				BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+				key:     fmt.Sprintf("k%d", i%3), // 3 groups
+			}
+			var ae engine.AutoEdge
+			if i%3 == 0 { // every 3rd resource seeks
+				seekUID := &TestUID{
+					BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+					key:     fmt.Sprintf("k%d", i%3),
+				}
+				ae = &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+			}
+			resources[i] = makeTestRes(name, "test", []engine.ResUID{uid}, ae)
+			g.AddVertex(resources[i])
+		}
+		// Add some explicit edges.
+		g.AddEdge(resources[0], resources[3], &engine.Edge{Name: "0->3"})
+		g.AddEdge(resources[3], resources[6], &engine.Edge{Name: "3->6"})
+		return g, resources
+	}
+
+	// Run 10 times and compare edge counts.
+	var firstEdges int
+	for i := 0; i < 10; i++ {
+		g, _ := buildGraph()
+		if err := AutoEdge(g, false, func(string, ...interface{}) {}); err != nil {
+			t.Fatalf("run %d: error: %v", i, err)
+		}
+		if i == 0 {
+			firstEdges = g.NumEdges()
+		} else if g.NumEdges() != firstEdges {
+			t.Errorf("run %d: got %d edges, expected %d", i, g.NumEdges(), firstEdges)
+		}
+	}
+}
+
+// --- isReachable unit tests ---
+
+// simpleVertex is a minimal vertex for isReachable tests.
+type simpleVertex struct {
+	name string
+}
+
+func (v *simpleVertex) String() string { return v.name }
+
+func TestIsReachableDirect(t *testing.T) {
+	g, err := pgraph.NewGraph("Direct")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	g.AddVertex(a, b)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+
+	if !isReachable(g.Adjacency(), a, b) {
+		t.Errorf("a should be able to reach b via direct edge")
+	}
+}
+
+func TestIsReachableTransitive(t *testing.T) {
+	g, err := pgraph.NewGraph("Transitive")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	c := &simpleVertex{"c"}
+	g.AddVertex(a, b, c)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(b, c, &engine.Edge{Name: "b->c"})
+
+	if !isReachable(g.Adjacency(), a, c) {
+		t.Errorf("a should be able to reach c via a->b->c")
+	}
+}
+
+func TestIsReachableNoPath(t *testing.T) {
+	g, err := pgraph.NewGraph("NoPath")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	c := &simpleVertex{"c"}
+	g.AddVertex(a, b, c)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	// c is disconnected from a and b.
+
+	if isReachable(g.Adjacency(), b, c) {
+		t.Errorf("b should not be able to reach c")
+	}
+}
+
+func TestIsReachableDisconnected(t *testing.T) {
+	g, err := pgraph.NewGraph("Disconnected")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	c := &simpleVertex{"c"}
+	d := &simpleVertex{"d"}
+	g.AddVertex(a, b, c, d)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(c, d, &engine.Edge{Name: "c->d"})
+
+	if isReachable(g.Adjacency(), a, d) {
+		t.Errorf("a should not reach d in disconnected components")
+	}
+	if isReachable(g.Adjacency(), c, b) {
+		t.Errorf("c should not reach b in disconnected components")
+	}
+}
+
+func TestIsReachableReverseDirection(t *testing.T) {
+	g, err := pgraph.NewGraph("Reverse")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	g.AddVertex(a, b)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+
+	if isReachable(g.Adjacency(), b, a) {
+		t.Errorf("b should not reach a (directed graph, edge is a->b)")
+	}
+}
+
+func TestIsReachableCycle(t *testing.T) {
+	g, err := pgraph.NewGraph("Cycle")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	c := &simpleVertex{"c"}
+	d := &simpleVertex{"d"}
+	g.AddVertex(a, b, c, d)
+	// Cycle: a->b->c->a.
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(b, c, &engine.Edge{Name: "b->c"})
+	g.AddEdge(c, a, &engine.Edge{Name: "c->a"})
+	// d is separate.
+	g.AddVertex(d)
+
+	// Within the cycle, everything should be reachable.
+	if !isReachable(g.Adjacency(), a, b) {
+		t.Errorf("a should reach b in cycle")
+	}
+	if !isReachable(g.Adjacency(), b, a) {
+		t.Errorf("b should reach a via b->c->a")
+	}
+	if !isReachable(g.Adjacency(), c, b) {
+		t.Errorf("c should reach b via c->a->b")
+	}
+	// d is not reachable from the cycle.
+	if isReachable(g.Adjacency(), a, d) {
+		t.Errorf("a should not reach d outside the cycle")
+	}
+}
+
+func TestIsReachableSelfLoop(t *testing.T) {
+	g, err := pgraph.NewGraph("SelfLoop")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	g.AddVertex(a, b)
+	g.AddEdge(a, a, &engine.Edge{Name: "a->a"})
+
+	// Self-loop should not affect reachability to other vertices.
+	if isReachable(g.Adjacency(), a, b) {
+		t.Errorf("a should not reach b despite self-loop")
+	}
+}
+
+func TestIsReachableLongPath(t *testing.T) {
+	g, err := pgraph.NewGraph("LongPath")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	n := 100
+	vertices := make([]*simpleVertex, n)
+	for i := 0; i < n; i++ {
+		vertices[i] = &simpleVertex{fmt.Sprintf("v%d", i)}
+		g.AddVertex(vertices[i])
+	}
+	for i := 0; i < n-1; i++ {
+		g.AddEdge(vertices[i], vertices[i+1], &engine.Edge{
+			Name: fmt.Sprintf("%d->%d", i, i+1),
+		})
+	}
+
+	if !isReachable(g.Adjacency(), vertices[0], vertices[n-1]) {
+		t.Errorf("first should reach last in 100-vertex chain")
+	}
+	if isReachable(g.Adjacency(), vertices[n-1], vertices[0]) {
+		t.Errorf("last should not reach first (no reverse edges)")
+	}
+}
+
+func TestIsReachableDiamond(t *testing.T) {
+	g, err := pgraph.NewGraph("Diamond")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	c := &simpleVertex{"c"}
+	d := &simpleVertex{"d"}
+	g.AddVertex(a, b, c, d)
+	g.AddEdge(a, b, &engine.Edge{Name: "a->b"})
+	g.AddEdge(a, c, &engine.Edge{Name: "a->c"})
+	g.AddEdge(b, d, &engine.Edge{Name: "b->d"})
+	g.AddEdge(c, d, &engine.Edge{Name: "c->d"})
+
+	if !isReachable(g.Adjacency(), a, d) {
+		t.Errorf("a should reach d via either path")
+	}
+	if isReachable(g.Adjacency(), d, a) {
+		t.Errorf("d should not reach a (no reverse edges)")
+	}
+}
+
+func TestIsReachableNoEdges(t *testing.T) {
+	g, err := pgraph.NewGraph("NoEdges")
+	if err != nil {
+		t.Fatalf("error creating graph: %v", err)
+	}
+	a := &simpleVertex{"a"}
+	b := &simpleVertex{"b"}
+	g.AddVertex(a, b)
+
+	if isReachable(g.Adjacency(), a, b) {
+		t.Errorf("a should not reach b with no edges")
+	}
+}
+
+// --- Benchmarks for redundant edge prevention ---
+
+// benchAutoEdgeWithEdges benchmarks AutoEdge with pre-existing explicit edges
+// in the graph.
+func benchAutoEdgeWithEdges(b *testing.B, n int, explicitFraction float64) {
+	b.Helper()
+	// Build graph once.
+	g, err := pgraph.NewGraph("Bench")
+	if err != nil {
+		b.Fatalf("error creating graph: %v", err)
+	}
+
+	resources := make([]*TestEdgeRes, n)
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("r%04d", i)
+		uid := &TestUID{
+			BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+			key:     fmt.Sprintf("k%d", i),
+		}
+		seekUID := &TestUID{
+			BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+			key:     fmt.Sprintf("k%d", (i+1)%n), // seek next
+		}
+		ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+		resources[i] = makeTestRes(name, "test", []engine.ResUID{uid}, ae)
+		g.AddVertex(resources[i])
+	}
+
+	// Add explicit edges for a fraction of pairs.
+	numExplicit := int(float64(n) * explicitFraction)
+	for i := 0; i < numExplicit && i+1 < n; i++ {
+		g.AddEdge(resources[i], resources[i+1], &engine.Edge{
+			Name: fmt.Sprintf("explicit%d", i),
+		})
+	}
+
+	logf := func(string, ...interface{}) {}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Reset autoedge objects for each iteration.
+		for _, r := range resources {
+			if r.testAutoEdge != nil {
+				r.testAutoEdge.(*testAutoEdgeObj).index = 0
+				r.testAutoEdge.(*testAutoEdgeObj).testArgs = nil
+			}
+		}
+		// Remove any autoedge-added edges from prior iteration but
+		// keep explicit ones by rebuilding the graph.
+		gCopy, _ := pgraph.NewGraph("BenchCopy")
+		for _, r := range resources {
+			gCopy.AddVertex(r)
+		}
+		for i := 0; i < numExplicit && i+1 < n; i++ {
+			gCopy.AddEdge(resources[i], resources[i+1], &engine.Edge{
+				Name: fmt.Sprintf("explicit%d", i),
+			})
+		}
+		AutoEdge(gCopy, false, logf) //nolint:errcheck
+	}
+}
+
+func BenchmarkAutoEdgeWithExistingEdges(b *testing.B) {
+	benchAutoEdgeWithEdges(b, 100, 0.5)
+}
+
+func BenchmarkAutoEdgeChainSkip(b *testing.B) {
+	benchAutoEdgeWithEdges(b, 100, 1.0)
+}
+
+func BenchmarkAutoEdgeDensePreEdges(b *testing.B) {
+	// Dense: each vertex has explicit edges to several others.
+	b.Helper()
+	n := 100
+	g, err := pgraph.NewGraph("DenseBench")
+	if err != nil {
+		b.Fatalf("error creating graph: %v", err)
+	}
+	resources := make([]*TestEdgeRes, n)
+	for i := 0; i < n; i++ {
+		name := fmt.Sprintf("r%04d", i)
+		uid := &TestUID{
+			BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+			key:     fmt.Sprintf("k%d", i%10), // 10 groups
+		}
+		seekUID := &TestUID{
+			BaseUID: engine.BaseUID{Name: name, Kind: "test", Reversed: boolPtr(false)},
+			key:     fmt.Sprintf("k%d", (i+1)%10),
+		}
+		ae := &testAutoEdgeObj{batches: [][]engine.ResUID{{seekUID}}}
+		resources[i] = makeTestRes(name, "test", []engine.ResUID{uid}, ae)
+		g.AddVertex(resources[i])
+	}
+	// Dense edges: connect every 3rd resource forward.
+	for i := 0; i+3 < n; i++ {
+		g.AddEdge(resources[i], resources[i+3], &engine.Edge{
+			Name: fmt.Sprintf("e%d", i),
+		})
+	}
+	logf := func(string, ...interface{}) {}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, r := range resources {
+			if r.testAutoEdge != nil {
+				r.testAutoEdge.(*testAutoEdgeObj).index = 0
+				r.testAutoEdge.(*testAutoEdgeObj).testArgs = nil
+			}
+		}
+		gCopy, _ := pgraph.NewGraph("DenseCopy")
+		for _, r := range resources {
+			gCopy.AddVertex(r)
+		}
+		for i := 0; i+3 < n; i++ {
+			gCopy.AddEdge(resources[i], resources[i+3], &engine.Edge{
+				Name: fmt.Sprintf("e%d", i),
+			})
+		}
+		AutoEdge(gCopy, false, logf) //nolint:errcheck
+	}
+}
+
+func BenchmarkIsReachableShortPath(b *testing.B) {
+	g, err := pgraph.NewGraph("Short")
+	if err != nil {
+		b.Fatalf("error creating graph: %v", err)
+	}
+	n := 100
+	vertices := make([]*simpleVertex, n)
+	for i := 0; i < n; i++ {
+		vertices[i] = &simpleVertex{fmt.Sprintf("v%d", i)}
+		g.AddVertex(vertices[i])
+	}
+	g.AddEdge(vertices[0], vertices[1], &engine.Edge{Name: "0->1"})
+	adj := g.Adjacency()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		isReachable(adj, vertices[0], vertices[1])
+	}
+}
+
+func BenchmarkIsReachableLongPath(b *testing.B) {
+	g, err := pgraph.NewGraph("Long")
+	if err != nil {
+		b.Fatalf("error creating graph: %v", err)
+	}
+	n := 100
+	vertices := make([]*simpleVertex, n)
+	for i := 0; i < n; i++ {
+		vertices[i] = &simpleVertex{fmt.Sprintf("v%d", i)}
+		g.AddVertex(vertices[i])
+	}
+	for i := 0; i < n-1; i++ {
+		g.AddEdge(vertices[i], vertices[i+1], &engine.Edge{
+			Name: fmt.Sprintf("%d->%d", i, i+1),
+		})
+	}
+	adj := g.Adjacency()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		isReachable(adj, vertices[0], vertices[n-1])
+	}
+}
+
+func BenchmarkIsReachableNoPath(b *testing.B) {
+	g, err := pgraph.NewGraph("NoPath")
+	if err != nil {
+		b.Fatalf("error creating graph: %v", err)
+	}
+	n := 100
+	vertices := make([]*simpleVertex, n)
+	for i := 0; i < n; i++ {
+		vertices[i] = &simpleVertex{fmt.Sprintf("v%d", i)}
+		g.AddVertex(vertices[i])
+	}
+	// Chain of 99 vertices, target is disconnected.
+	for i := 0; i < n-2; i++ {
+		g.AddEdge(vertices[i], vertices[i+1], &engine.Edge{
+			Name: fmt.Sprintf("%d->%d", i, i+1),
+		})
+	}
+	// vertices[n-1] is disconnected.
+	adj := g.Adjacency()
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		isReachable(adj, vertices[0], vertices[n-1])
+	}
+}

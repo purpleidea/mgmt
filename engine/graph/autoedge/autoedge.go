@@ -110,6 +110,11 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 		}
 	}
 
+	// Get a reference to the adjacency map once. Since Adjacency()
+	// returns a direct reference, it reflects edges added during this
+	// run, allowing later iterations to see earlier autoedges.
+	adj := graph.Adjacency()
+
 	// now that we're guaranteed error free, we can modify the graph safely
 	for _, res := range sorted { // stable sort order for determinism in logs
 		autoEdgeObj, exists := autoEdgeObjMap[res]
@@ -131,7 +136,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 			}
 
 			// match and add edges
-			result := addEdgesByMatchingUIDS(res, uids, verticesInfo, uidTypeIndex, graph, debug, logf)
+			result := addEdgesByMatchingUIDS(res, uids, verticesInfo, uidTypeIndex, graph, adj, debug, logf)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {
@@ -148,8 +153,11 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 // addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
 // matches a uid list. It uses the pre-computed verticesInfo and uidTypeIndex to
 // avoid recomputing UIDs and to narrow the search to vertices that share a
-// concrete UID type with the seeking UID.
-func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, verticesInfo []vertexInfo, uidTypeIndex map[reflect.Type][]vertexInfo, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
+// concrete UID type with the seeking UID. Before adding an edge, it checks
+// whether the edge already exists or whether the target is already reachable
+// through existing edges, to avoid redundant edges that would reduce
+// parallelism.
+func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, verticesInfo []vertexInfo, uidTypeIndex map[reflect.Type][]vertexInfo, graph *pgraph.Graph, adj map[pgraph.Vertex]map[pgraph.Vertex]pgraph.Edge, debug bool, logf func(format string, v ...interface{})) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -180,17 +188,32 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, vertic
 			// handle, but it is not necessarily a unique identity!
 			// remember, resources can return multiple UID's each!
 			if UIDExistsInUIDs(uid, vi.uids) {
-				// add edge from: r -> res
+				// determine edge direction
+				var from, to pgraph.Vertex
 				if uid.IsReversed() {
-					txt := fmt.Sprintf("%s -> %s", vi.res, res)
+					from, to = vi.res, res
+				} else {
+					from, to = res, vi.res
+				}
+
+				// Skip if the edge already exists (O(1)
+				// check) or the target is already reachable
+				// through existing edges (directed DFS).
+				// This avoids redundant transitive edges
+				// that waste memory and reduce parallelism.
+				if graph.FindEdge(from, to) != nil {
+					if debug {
+						logf("skip existing: %s -> %s", from, to)
+					}
+				} else if isReachable(adj, from, to) {
+					if debug {
+						logf("skip reachable: %s -> %s", from, to)
+					}
+				} else {
+					txt := fmt.Sprintf("%s -> %s", from, to)
 					logf("adding: %s", txt)
 					edge := &engine.Edge{Name: txt}
-					graph.AddEdge(vi.res, res, edge)
-				} else { // edges go the "normal" way, eg: pkg resource
-					txt := fmt.Sprintf("%s -> %s", res, vi.res)
-					logf("adding: %s", txt)
-					edge := &engine.Edge{Name: txt}
-					graph.AddEdge(res, vi.res, edge)
+					graph.AddEdge(from, to, edge)
 				}
 				found = true
 				break
@@ -199,6 +222,29 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, vertic
 		result = append(result, found)
 	}
 	return result
+}
+
+// isReachable returns true if there is a directed path from vertex a to vertex
+// b in the graph. It performs an iterative DFS following outgoing edges only.
+// The visited set ensures termination even if the graph contains cycles.
+func isReachable(adj map[pgraph.Vertex]map[pgraph.Vertex]pgraph.Edge, a, b pgraph.Vertex) bool {
+	visited := make(map[pgraph.Vertex]struct{})
+	stack := []pgraph.Vertex{a}
+	for len(stack) > 0 {
+		v := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if _, ok := visited[v]; ok {
+			continue
+		}
+		visited[v] = struct{}{}
+		for next := range adj[v] {
+			if next == b {
+				return true
+			}
+			stack = append(stack, next)
+		}
+	}
+	return false
 }
 
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.

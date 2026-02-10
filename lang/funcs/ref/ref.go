@@ -46,10 +46,10 @@ type Count struct {
 	mutex *sync.Mutex
 
 	// vertices is a reference count of the number of vertices used.
-	vertices map[interfaces.Func]int64
+	vertices map[interfaces.Func]int
 
 	// edges is a reference count of the number of edges used.
-	edges map[*CountEdge]int64 // TODO: hash *CountEdge as a key instead
+	edges map[*CountEdge]int // TODO: hash *CountEdge as a key instead
 }
 
 // CountEdge is a virtual "hash" entry for the Count edges map key.
@@ -76,8 +76,8 @@ func (obj *Count) String() string {
 // Init must be called to initialized the struct before first use.
 func (obj *Count) Init() *Count {
 	obj.mutex = &sync.Mutex{}
-	obj.vertices = make(map[interfaces.Func]int64)
-	obj.edges = make(map[*CountEdge]int64)
+	obj.vertices = make(map[interfaces.Func]int)
+	obj.edges = make(map[*CountEdge]int)
 	return obj // return self so it can be called in a chain
 }
 

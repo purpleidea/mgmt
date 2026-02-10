@@ -118,19 +118,19 @@ type HTTPServerRes struct {
 	// the value for the other *Timeout values when they aren't used. Put
 	// another way, this makes it easy to set all the different timeouts
 	// with a single parameter.
-	Timeout *uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout *uint `lang:"timeout" yaml:"timeout"`
 
 	// ReadTimeout is the maximum duration in seconds for reading during the
 	// http request. If it is zero, then there is no timeout. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
 	// For more information, see the golang net/http Server documentation.
-	ReadTimeout *uint64 `lang:"read_timeout" yaml:"read_timeout"`
+	ReadTimeout *uint `lang:"read_timeout" yaml:"read_timeout"`
 
 	// WriteTimeout is the maximum duration in seconds for writing during
 	// the http request. If it is zero, then there is no timeout. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
 	// For more information, see the golang net/http Server documentation.
-	WriteTimeout *uint64 `lang:"write_timeout" yaml:"write_timeout"`
+	WriteTimeout *uint `lang:"write_timeout" yaml:"write_timeout"`
 
 	// ShutdownTimeout is the maximum duration in seconds to wait for the
 	// server to shutdown gracefully before calling Close. By default it is
@@ -141,7 +141,7 @@ type HTTPServerRes struct {
 	// indefinitely. The shutdown process can also be cancelled by the
 	// interrupt handler which this resource supports. If this is
 	// unspecified, then the value of Timeout is used instead if it is set.
-	ShutdownTimeout *uint64 `lang:"shutdown_timeout" yaml:"shutdown_timeout"`
+	ShutdownTimeout *uint `lang:"shutdown_timeout" yaml:"shutdown_timeout"`
 
 	// Root is the root directory that we should serve files from. If it is
 	// not specified, then it is not used. Any http file resources will have
@@ -175,7 +175,7 @@ func (obj *HTTPServerRes) getAddress() string {
 
 // getReadTimeout determines the value for ReadTimeout, because if unspecified,
 // this will default to the value of Timeout.
-func (obj *HTTPServerRes) getReadTimeout() *uint64 {
+func (obj *HTTPServerRes) getReadTimeout() *uint {
 	if obj.ReadTimeout != nil {
 		return obj.ReadTimeout
 	}
@@ -184,7 +184,7 @@ func (obj *HTTPServerRes) getReadTimeout() *uint64 {
 
 // getWriteTimeout determines the value for WriteTimeout, because if
 // unspecified, this will default to the value of Timeout.
-func (obj *HTTPServerRes) getWriteTimeout() *uint64 {
+func (obj *HTTPServerRes) getWriteTimeout() *uint {
 	if obj.WriteTimeout != nil {
 		return obj.WriteTimeout
 	}
@@ -193,7 +193,7 @@ func (obj *HTTPServerRes) getWriteTimeout() *uint64 {
 
 // getShutdownTimeout determines the value for ShutdownTimeout, because if
 // unspecified, this will default to the value of Timeout.
-func (obj *HTTPServerRes) getShutdownTimeout() *uint64 {
+func (obj *HTTPServerRes) getShutdownTimeout() *uint {
 	if obj.ShutdownTimeout != nil {
 		return obj.ShutdownTimeout
 	}
@@ -407,11 +407,11 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	// essentially having our own "router" API with AcceptHTTP.
 	obj.serveMux.HandleFunc("/", obj.handler())
 
-	readTimeout := uint64(0)
+	readTimeout := uint(0)
 	if i := obj.getReadTimeout(); i != nil {
 		readTimeout = *i
 	}
-	writeTimeout := uint64(0)
+	writeTimeout := uint(0)
 	if i := obj.getWriteTimeout(); i != nil {
 		writeTimeout = *i
 	}
@@ -664,7 +664,7 @@ func (obj *HTTPServerRes) Interrupt() error {
 // Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
 // TODO: should this copy internal state?
 func (obj *HTTPServerRes) Copy() engine.CopyableRes {
-	var timeout, readTimeout, writeTimeout, shutdownTimeout *uint64
+	var timeout, readTimeout, writeTimeout, shutdownTimeout *uint
 	if obj.Timeout != nil {
 		x := *obj.Timeout
 		timeout = &x

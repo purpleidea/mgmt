@@ -82,8 +82,8 @@ type HistoryFunc struct {
 
 	init *interfaces.Init
 
-	input chan int64
-	delay *int64
+	input chan int
+	delay *int
 
 	value     types.Value // last value
 	buffer    []*valueWithTimestamp
@@ -187,7 +187,7 @@ func (obj *HistoryFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *HistoryFunc) Init(init *interfaces.Init) error {
 	obj.init = init
-	obj.input = make(chan int64)
+	obj.input = make(chan int)
 	obj.mutex = &sync.Mutex{}
 	return nil
 }

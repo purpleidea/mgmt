@@ -181,13 +181,13 @@ func (obj *CPUCount) Call(ctx context.Context, args []types.Value) (types.Value,
 	}
 
 	return &types.IntValue{
-		V: int64(count),
+		V: count,
 	}, nil
 
 }
 
 // getCPUCount looks in sysfs to get the number of CPUs that are online.
-func getCPUCount() (int64, error) {
+func getCPUCount() (int, error) {
 	dat, err := os.ReadFile("/sys/devices/system/cpu/online")
 	if err != nil {
 		return 0, err
@@ -198,18 +198,18 @@ func getCPUCount() (int64, error) {
 // Parses a line of the form X,Y,Z,... where X,Y,Z can be either a single CPU or
 // a contiguous range of CPUs. e.g. "2,4-31,32-63". If there is an error parsing
 // the line the function will return 0.
-func parseCPUList(list string) (int64, error) {
-	var count int64
+func parseCPUList(list string) (int, error) {
+	var count int
 	for _, rg := range strings.Split(list, ",") {
 		cpuRange := strings.SplitN(rg, "-", 2)
 		if len(cpuRange) == 1 {
 			count++
 		} else if len(cpuRange) == 2 {
-			lo, err := strconv.ParseInt(cpuRange[0], 10, 64)
+			lo, err := strconv.Atoi(cpuRange[0])
 			if err != nil {
 				return 0, err
 			}
-			hi, err := strconv.ParseInt(strings.TrimRight(cpuRange[1], "\n"), 10, 64)
+			hi, err := strconv.Atoi(strings.TrimRight(cpuRange[1], "\n"))
 			if err != nil {
 				return 0, err
 			}

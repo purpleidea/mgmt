@@ -98,6 +98,6 @@ func Len(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 
 	return &types.IntValue{
-		V: int64(length),
+		V: length,
 	}, nil
 }

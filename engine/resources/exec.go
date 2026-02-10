@@ -105,7 +105,7 @@ type ExecRes struct {
 	// Timeout is the number of seconds to wait before sending a Kill to the
 	// running command. If the Kill is received before the process exits,
 	// then this be treated as an error.
-	Timeout uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout uint `lang:"timeout" yaml:"timeout"`
 
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_KEY -> value.

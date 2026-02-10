@@ -118,6 +118,6 @@ func (obj *Uptime) Call(ctx context.Context, args []types.Value) (types.Value, e
 	}
 
 	return &types.IntValue{
-		V: uptime,
+		V: int(uptime),
 	}, nil
 }

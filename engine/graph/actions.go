@@ -475,7 +475,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 
 		var err error
 		var retry = res.MetaParams().Retry // lookup the retry value
-		var delay uint64
+		var delay uint
 		for { // retry loop
 			// a retry-delay was requested, wait, but don't block events!
 			if delay > 0 {
@@ -706,7 +706,7 @@ Loop:
 		// retry...
 		var err error
 		//var retry = res.MetaParams().Retry // lookup the retry value
-		var delay uint64
+		var delay uint
 	RetryLoop:
 		for { // retry loop
 			if delay > 0 {

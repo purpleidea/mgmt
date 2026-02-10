@@ -204,7 +204,7 @@ func FileOwnerExpect(p, o string) Step { // path & owner
 			if err != nil {
 				return err
 			}
-			if i != uint64(stat.Uid) {
+			if uint32(i) != stat.Uid {
 				return fmt.Errorf("file uid did not match in %s", p)
 			}
 			return nil

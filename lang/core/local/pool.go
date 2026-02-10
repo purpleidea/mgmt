@@ -145,6 +145,6 @@ func (obj *PoolFunc) Call(ctx context.Context, args []types.Value) (types.Value,
 		return nil, err
 	}
 	return &types.IntValue{
-		V: int64(result),
+		V: result,
 	}, nil
 }

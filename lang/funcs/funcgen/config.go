@@ -31,7 +31,6 @@ package main
 
 import (
 	"fmt"
-	"math/bits"
 
 	"github.com/purpleidea/mgmt/lang/types"
 )
@@ -112,13 +111,9 @@ func (obj *arg) ToGolang(val string) (string, error) {
 		return fmt.Sprintf("%s.Str()", val), nil
 
 	case "int":
-		// TODO: consider switching types.Value int64 to int everywhere
-		if bits.UintSize == 32 { // special case for 32 bit golang
-			return fmt.Sprintf("int(%s.Int())", val), nil
-		}
-		fallthrough
-	case "int64":
 		return fmt.Sprintf("%s.Int()", val), nil
+	case "int64":
+		return fmt.Sprintf("int64(%s.Int())", val), nil
 
 	case "float64":
 		return fmt.Sprintf("%s.Float()", val), nil

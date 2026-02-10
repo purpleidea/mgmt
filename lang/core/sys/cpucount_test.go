@@ -39,7 +39,7 @@ func TestParseCPUList(t *testing.T) {
 	var cpulistTests = []struct {
 		desc   string
 		list   string
-		result int64
+		result int
 	}{
 		{
 			desc:   "single CPU",

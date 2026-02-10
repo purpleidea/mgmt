@@ -74,7 +74,7 @@ type Value interface {
 	Value() interface{}
 	Bool() bool
 	Str() string
-	Int() int64
+	Int() int
 	Float() float64
 	List() []Value
 	Map() map[Value]Value // keys must all have same type, same for values
@@ -141,10 +141,10 @@ func ValueOf(v reflect.Value) (Value, error) {
 		return &StrValue{V: value.String()}, nil
 
 	case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-		return &IntValue{V: value.Int()}, nil
+		return &IntValue{V: int(value.Int())}, nil
 
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		return &IntValue{V: int64(value.Uint())}, nil
+		return &IntValue{V: int(value.Uint())}, nil
 
 	case reflect.Float64, reflect.Float32:
 		return &FloatValue{V: value.Float()}, nil
@@ -374,11 +374,11 @@ func Into(v Value, rv reflect.Value) error {
 		// overflow check
 		switch kind { // match on destination field kind
 		case reflect.Int, reflect.Int64, reflect.Int32, reflect.Int16, reflect.Int8:
-			ff := reflect.Zero(typ)  // test on a non-ptr equivalent
-			if ff.OverflowInt(v.V) { // this is valid!
+			ff := reflect.Zero(typ)        // test on a non-ptr equivalent
+			if ff.OverflowInt(int64(v.V)) { // this is valid!
 				return fmt.Errorf("%+v is an `%s`, and rv `%d` will overflow it", rv.Interface(), rv.Kind(), v.V)
 			}
-			rv.SetInt(v.V)
+			rv.SetInt(int64(v.V))
 			return nil
 
 		case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
@@ -549,7 +549,7 @@ func (obj *Base) Str() string {
 
 // Int represents the value of this type as an integer if it is one. If this is
 // not an integer, then this panics.
-func (obj *Base) Int() int64 {
+func (obj *Base) Int() int {
 	panic("not an int")
 }
 
@@ -782,7 +782,7 @@ func (obj *StrValue) Str() string {
 // IntValue represents an integer value.
 type IntValue struct {
 	Base
-	V int64
+	V int
 }
 
 // NewInt creates a new int value.
@@ -790,7 +790,7 @@ func NewInt() *IntValue { return &IntValue{} }
 
 // String returns a visual representation of this value.
 func (obj *IntValue) String() string {
-	return strconv.FormatInt(obj.V, 10)
+	return strconv.Itoa(obj.V)
 }
 
 // Type returns the type data structure that represents this type.
@@ -829,13 +829,13 @@ func (obj *IntValue) Value() interface{} {
 
 // Hash hashes this value to provide a unique key for referencing this in a map.
 func (obj *IntValue) Hash(seed Seed) Hash {
-	//return Comparable[int64](seed, obj.V)
+	//return Comparable[int](seed, obj.V)
 	return Comparable(seed, obj.V)
 }
 
 // Int represents the value of this type as an integer if it is one. If this is
 // not an integer, then this panics.
-func (obj *IntValue) Int() int64 {
+func (obj *IntValue) Int() int {
 	return obj.V
 }
 
@@ -1676,8 +1676,8 @@ func (obj *VariantValue) Str() string {
 
 // Int represents the value of this type as an integer if it is one. If this is
 // not an integer, then this panics.
-func (obj *VariantValue) Int() int64 {
-	//return obj.V.(int64)
+func (obj *VariantValue) Int() int {
+	//return obj.V.(int)
 	return obj.V.Int()
 }
 

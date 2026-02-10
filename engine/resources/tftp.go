@@ -84,7 +84,7 @@ type TFTPServerRes struct {
 	Address string `lang:"address" yaml:"address"`
 
 	// Timeout is the timeout in seconds to use for server connections.
-	Timeout uint64 `lang:"timeout" yaml:"timeout"`
+	Timeout uint `lang:"timeout" yaml:"timeout"`
 
 	// Root is the root directory that we should serve files from. If it is
 	// not specified, then it is not used. Any tftp file resources will have

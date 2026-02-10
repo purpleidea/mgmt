@@ -145,7 +145,7 @@ type Engine struct {
 	// graphvizCount keeps a running tally of how many graphs we've
 	// generated. This is useful for displaying a sequence (timeline) of
 	// graphs in a linear order.
-	graphvizCount int64
+	graphvizCount int
 
 	// graphvizDirectory stores the generated path for outputting graphviz
 	// files if one is not specified at runtime.
@@ -206,7 +206,7 @@ func (obj *Engine) Run(ctx context.Context) error {
 // process could be combined with Run, but it is left separate in case we try to
 // build a recursive process operation that runs on a subgraph. It would need an
 // incoming graph argument as well, I would expect.
-func (obj *Engine) process(ctx context.Context, epoch int64) error {
+func (obj *Engine) process(ctx context.Context, epoch int) error {
 
 	mapping := make(map[pgraph.Vertex]int)
 	start := 0
@@ -1048,7 +1048,7 @@ type state struct {
 	// epoch represents the "iteration count" through the graph. All values
 	// in a returned table should be part of the same epoch. This guarantees
 	// that they're all consistent with respect to each other.
-	epoch int64 // if this rolls over, we've been running for too many years
+	epoch int // if this rolls over, we've been running for too many years
 
 	// result is the latest output from calling this function.
 	result types.Value

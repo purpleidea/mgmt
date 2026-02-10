@@ -60,8 +60,8 @@ func Hour(ctx context.Context, input []types.Value) (types.Value, error) {
 		return nil, fmt.Errorf("epoch delta must be positive")
 	}
 
-	hour := time.Unix(epochDelta, 0).Hour()
+	hour := time.Unix(int64(epochDelta), 0).Hour()
 	return &types.IntValue{
-		V: int64(hour),
+		V: hour,
 	}, nil
 }

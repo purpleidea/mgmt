@@ -52,6 +52,6 @@ func init() {
 // ToInt converts a float to an integer.
 func ToInt(ctx context.Context, input []types.Value) (types.Value, error) {
 	return &types.IntValue{
-		V: int64(input[0].Float()),
+		V: int(input[0].Float()),
 	}, nil
 }

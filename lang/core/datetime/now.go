@@ -118,6 +118,6 @@ func (obj *Now) Stream(ctx context.Context) error {
 // Call this fact and return the value if it is possible to do so at this time.
 func (obj *Now) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.IntValue{ // seconds since 1970...
-		V: time.Now().Unix(), // .UTC() not necessary
+		V: int(time.Now().Unix()), // .UTC() not necessary
 	}, nil
 }

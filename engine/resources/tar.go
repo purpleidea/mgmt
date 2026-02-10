@@ -61,22 +61,22 @@ func init() {
 		"format": {
 			"unknown": func() interfaces.Var {
 				return &types.IntValue{
-					V: int64(tar.FormatUnknown),
+					V: int(tar.FormatUnknown),
 				}
 			},
 			"ustar": func() interfaces.Var {
 				return &types.IntValue{
-					V: int64(tar.FormatUSTAR),
+					V: int(tar.FormatUSTAR),
 				}
 			},
 			"pax": func() interfaces.Var {
 				return &types.IntValue{
-					V: int64(tar.FormatPAX),
+					V: int(tar.FormatPAX),
 				}
 			},
 			"gnu": func() interfaces.Var {
 				return &types.IntValue{
-					V: int64(tar.FormatGNU),
+					V: int(tar.FormatGNU),
 				}
 			},
 		},

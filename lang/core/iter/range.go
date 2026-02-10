@@ -191,7 +191,7 @@ func (obj *RangeFunc) Call(ctx context.Context, args []types.Value) (types.Value
 
 // loop is the private helper function that calculates the range according to
 // the inputs provided.
-func (obj *RangeFunc) loop(ctx context.Context, start, stop, step int64) (types.Value, error) {
+func (obj *RangeFunc) loop(ctx context.Context, start, stop, step int) (types.Value, error) {
 	if step == 0 {
 		return nil, fmt.Errorf("step value cannot be 0")
 	}

@@ -136,7 +136,7 @@ func TestAstFunc1(t *testing.T) {
 	for _, f := range sorted {
 		// add automatic test case
 		testCases = append(testCases, test{
-			name: fmt.Sprintf("%s", f),
+			name: f,
 			path: f, // <something>.txtar
 		})
 	}
@@ -666,7 +666,7 @@ func TestAstFunc2(t *testing.T) {
 	for _, f := range sorted {
 		// add automatic test case
 		testCases = append(testCases, test{
-			name: fmt.Sprintf("%s", f),
+			name: f,
 			path: f, // <something>.txtar
 		})
 	}
@@ -1542,7 +1542,7 @@ func TestAstFunc3(t *testing.T) {
 	for _, f := range sorted {
 		// add automatic test case
 		testCases = append(testCases, test{
-			name: fmt.Sprintf("%s", f),
+			name: f,
 			path: f, // <something>.txtar
 		})
 	}

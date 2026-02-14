@@ -541,7 +541,7 @@ func (obj *DockerContainerResAutoEdges) Test(input []bool) bool {
 		return false
 	}
 	if len(input) != 1 { // in case we get given bad data
-		panic(fmt.Sprintf("Expecting a single value!"))
+		panic("Expecting a single value!")
 	}
 	return true // keep going
 }

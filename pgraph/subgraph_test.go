@@ -64,7 +64,7 @@ func TestAddEdgeGraph1(t *testing.T) {
 	//expected.AddEdge(v3, v5, NE("v3,v5"))
 
 	if s := runGraphCmp(t, g, expected); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -97,7 +97,7 @@ func TestAddEdgeVertexGraph1(t *testing.T) {
 	expected.AddEdge(v3, v5, NE("v3,v5"))
 
 	if s := runGraphCmp(t, g, expected); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -130,7 +130,7 @@ func TestAddEdgeGraphVertex1(t *testing.T) {
 	expected.AddEdge(v5, v3, NE("v5,v3"))
 
 	if s := runGraphCmp(t, g, expected); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -163,7 +163,7 @@ func TestAddEdgeVertexGraphLight1(t *testing.T) {
 	//expected.AddEdge(v3, v5, NE("v3,v5")) // not needed with light
 
 	if s := runGraphCmp(t, g, expected); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -196,6 +196,6 @@ func TestAddEdgeGraphVertexLight1(t *testing.T) {
 	expected.AddEdge(v5, v3, NE("v5,v3"))
 
 	if s := runGraphCmp(t, g, expected); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }

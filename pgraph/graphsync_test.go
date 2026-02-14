@@ -61,7 +61,7 @@ func TestGraphSync1(t *testing.T) {
 
 	// g should change and become the same
 	if s := runGraphCmp(t, g, newGraph); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestGraphSync2(t *testing.T) {
 
 	// g should change and become the same
 	if s := runGraphCmp(t, g, newGraph); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }
 
@@ -139,6 +139,6 @@ func TestGraphSync3(t *testing.T) {
 	}
 
 	if s := runGraphCmp(t, g, newGraph); s != "" {
-		t.Errorf("%s", s)
+		t.Error(s)
 	}
 }

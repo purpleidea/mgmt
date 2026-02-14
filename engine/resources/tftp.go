@@ -153,6 +153,9 @@ func (obj *TFTPServerRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *TFTPServerRes) Watch(ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
+
 	addr, err := net.ResolveUDPAddr("udp", obj.getAddress())
 	if err != nil {
 		return errwrap.Wrapf(err, "could not resolve address")
@@ -178,48 +181,25 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 	server.SetTimeout(time.Duration(obj.Timeout) * time.Second) // optional
 	server.SetHook(hook)
 
-	var closeError error
-	closeSignal := make(chan struct{})
-
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer close(closeSignal)
 
 		err := server.Serve(conn) // blocks until Shutdown() is called!
 		if err == nil {
+			cancel(nil)
 			return
 		}
-		// if this returned on its own, then closeSignal can be used...
-		closeError = errwrap.Wrapf(err, "the server errored")
+		cancel(errwrap.Wrapf(err, "the server errored"))
 	}()
 	defer server.Shutdown()
 
-	startupChan := make(chan struct{})
-	close(startupChan) // send one initial signal
-
-	for {
-		if obj.init.Debug {
-			obj.init.Logf("Looping...")
-		}
-
-		select {
-		case <-startupChan:
-			startupChan = nil
-
-		case <-closeSignal: // something shut us down early
-			return closeError
-
-		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
-		}
-
-		if err := obj.init.Event(ctx); err != nil {
-			return err
-		}
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+		return ctx.Err()
 	}
 }
 

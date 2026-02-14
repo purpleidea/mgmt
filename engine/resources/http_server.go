@@ -390,6 +390,9 @@ func (obj *HTTPServerRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *HTTPServerRes) Watch(ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
+
 	// TODO: I think we could replace all this with:
 	//obj.conn, err := net.Listen("tcp", obj.getAddress())
 	// ...but what is the advantage?
@@ -478,9 +481,6 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		return err
 	}
 
-	var closeError error
-	closeSignal := make(chan struct{})
-
 	shutdownChan := make(chan struct{}) // server shutdown finished signal
 	wg.Add(1)
 	go func() {
@@ -498,14 +498,13 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer close(closeSignal)
 
 		err := obj.server.Serve(obj.conn) // blocks until Shutdown() is called!
 		if err == nil || err == http.ErrServerClosed {
+			cancel(nil)
 			return
 		}
-		// if this returned on its own, then closeSignal can be used...
-		closeError = errwrap.Wrapf(err, "the server errored")
+		cancel(errwrap.Wrapf(err, "the server errored"))
 	}()
 
 	// When Shutdown is called, Serve, ListenAndServe, and ListenAndServeTLS
@@ -542,11 +541,8 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 				return err
 			}
 
-		case <-closeSignal: // something shut us down early
-			return closeError
-
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

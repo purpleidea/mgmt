@@ -28,12 +28,17 @@
 # additional permission.
 
 SHELL = bash
-.PHONY: all fuzz
+.PHONY: all fuzz seed
+
+FUZZTIME ?= 30s
 
 all: fuzz
 
-fuzz:
-	mkdir -p corpus/
-	find ../.. -name \*.mcl -exec cp {} corpus/ \;
-	go-fuzz-build
-	go-fuzz -bin=./fuzz-fuzz.zip -workdir=.
+# Seed the native Go fuzz corpus from existing .mcl files in the project.
+seed:
+	mkdir -p testdata/fuzz/FuzzLexParse/
+	find ../.. -name \*.mcl -exec sh -c 'cp "$$1" "testdata/fuzz/FuzzLexParse/$$(basename $$1)"' _ {} \;
+
+# Run the native Go fuzz test. Override FUZZTIME to run longer.
+fuzz: seed
+	go test -fuzz=FuzzLexParse -fuzztime=$(FUZZTIME)

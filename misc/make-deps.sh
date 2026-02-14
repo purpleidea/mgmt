@@ -159,7 +159,7 @@ cd / && go install golang.org/x/tools/cmd/goyacc@latest		# formerly `go tool yac
 cd / && go install golang.org/x/tools/cmd/stringer@latest	# for automatic stringer-ing
 cd / && go install golang.org/x/lint/golint@latest		# for `golint`-ing
 cd / && go install golang.org/x/tools/cmd/goimports@latest	# for fmt
-cd / && go install github.com/dvyukov/go-fuzz/go-fuzz@latest	# for fuzzing the mcl lang bits
+# go-fuzz removed: native Go fuzzing (go test -fuzz) is used instead
 if in_env; then
 	go get -u gopkg.in/alecthomas/gometalinter.v1 && \
 	mv "$(dirname $(command -v gometalinter.v1))/gometalinter.v1" "$(dirname $(command -v gometalinter.v1))/gometalinter" && \

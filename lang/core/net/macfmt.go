@@ -73,16 +73,21 @@ func init() {
 }
 
 // IsMac takes a string and returns true if it's a mac in the standard format.
+// Otherwise it returns false.
 func IsMac(ctx context.Context, input []types.Value) (types.Value, error) {
 	mac := input[0].Str()
 
 	// Check if the MAC address is valid.
 	if len(mac) != len("00:00:00:00:00:00") {
-		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+		return &types.BoolValue{
+			V: false,
+		}, nil
 	}
 	hw, err := net.ParseMAC(mac)
 	if err != nil {
-		return nil, err
+		return &types.BoolValue{
+			V: false,
+		}, nil
 	}
 
 	return &types.BoolValue{

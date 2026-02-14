@@ -326,15 +326,17 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 		r := res // bind the variable!
 
 		obj.eventsChanMap[r] = make(chan error)
-		event := func() {
+		event := func(ctx context.Context) error {
 			select {
 			case obj.eventsChanMap[r] <- nil:
-				// send!
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 			// We don't do this here (why?) we instead read from the
 			// above channel and then send on multiplexedChan to the
 			// main loop, where it runs the obj.init.Event function.
-			//obj.init.Event() // notify engine of an event (this can block)
+			//if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 		}
 
 		newInit := &engine.Init{
@@ -472,7 +474,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	}
 	// we block until all the children are started first...
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	var closeError error
 	closeSignal := make(chan struct{})
@@ -551,7 +553,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 

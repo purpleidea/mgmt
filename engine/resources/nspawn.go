@@ -181,7 +181,7 @@ func (obj *NspawnRes) Watch(ctx context.Context) error {
 	bus.Signal(busChan)
 	defer bus.RemoveSignal(busChan) // not needed here, but nice for symmetry
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	for {
 		select {
@@ -203,7 +203,7 @@ func (obj *NspawnRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 

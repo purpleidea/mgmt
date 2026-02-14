@@ -536,10 +536,12 @@ func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 
 		obj.eventsChanMap[r] = make(chan error)
 		obj.notifications[r] = make(map[chan struct{}]struct{})
-		event := func() {
+		event := func(ctx context.Context) error {
 			select {
 			case obj.eventsChanMap[r] <- nil:
 				// send!
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 
 			obj.rwmutex.RLock()
@@ -556,7 +558,9 @@ func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 			// We don't do this here (why?) we instead read from the
 			// above channel and then send on multiplexedChan to the
 			// main loop, where it runs the obj.init.Event function.
-			//obj.init.Event() // notify engine of an event (this can block)
+			//if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
+
+			return nil
 		}
 
 		newInit := &engine.Init{
@@ -664,7 +668,7 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 	}
 	// we block until all the children are started first...
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	startupChan := make(chan struct{})
 	close(startupChan) // send one initial signal
@@ -700,7 +704,7 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 
 	//return nil // unreachable

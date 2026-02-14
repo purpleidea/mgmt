@@ -156,7 +156,7 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "error adding signal match")
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	for {
 		if obj.init.Debug {
@@ -180,7 +180,7 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 
@@ -725,6 +725,12 @@ func InstallOnePackage(ctx context.Context, name string) error {
 	pkg.State = PkgStateInstalled
 
 	init := &engine.Init{
+		Running: func(ctx context.Context) error {
+			return nil
+		},
+		Event: func(ctx context.Context) error {
+			return nil
+		},
 		Debug: false,
 		Logf: func(format string, v ...interface{}) {
 			// noop

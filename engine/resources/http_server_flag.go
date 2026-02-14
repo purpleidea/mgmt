@@ -276,7 +276,7 @@ func (obj *HTTPServerFlagRes) Cleanup() error {
 // and notifies the engine so that CheckApply can then run and return the
 // correct value on send/recv.
 func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	startupChan := make(chan struct{})
 	close(startupChan) // send one initial signal
@@ -303,7 +303,7 @@ func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 

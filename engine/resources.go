@@ -144,10 +144,10 @@ type Init struct {
 	// Called from within Watch:
 
 	// Running must be called after your watches are all started and ready.
-	Running func()
+	Running func(context.Context) error
 
 	// Event sends an event notifying the engine of a possible state change.
-	Event func()
+	Event func(context.Context) error
 
 	// Called from within CheckApply:
 

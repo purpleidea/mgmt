@@ -113,7 +113,7 @@ func (obj *ValueRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ValueRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	// XXX: Should we be using obj.init.Local.ValueWatch ?
 
@@ -121,7 +121,7 @@ func (obj *ValueRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	//obj.init.Event() // notify engine of an event (this can block)
+	//if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 
 	return nil
 }

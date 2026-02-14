@@ -449,7 +449,7 @@ func (obj *AwsEc2Res) Watch(ctx context.Context) error {
 func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 	// We tell the engine that we're running right away. This is not correct,
 	// but the api doesn't have a way to signal when the waiters are ready.
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 
 	// cancellable context used for exiting cleanly
 	innerCtx, cancel := context.WithCancel(context.TODO())
@@ -531,7 +531,7 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 
@@ -611,7 +611,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 			// is confirmed, we are ready to receive events, so we
 			// can notify the engine that we're running.
 			if msg.event == awsEc2EventWatchReady {
-				obj.init.Running() // when started, notify engine that we're running
+				if err := obj.init.Running(ctx); err != nil { return err } // when started, notify engine that we're running
 				continue
 			}
 			obj.init.Logf("State: %v", msg.event)
@@ -620,7 +620,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err } // notify engine of an event (this can block)
 	}
 }
 

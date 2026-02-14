@@ -507,18 +507,22 @@ func TestResources1(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
 			init := &engine.Init{
-				Running: func() {
+				Running: func(ctx context.Context) error {
 					close(readyChan)
 					select { // this always sends one!
 					case eventChan <- struct{}{}:
-
+						return nil
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				},
 				// Watch runs this to send a changed event.
-				Event: func() {
+				Event: func(ctx context.Context) error {
 					select {
 					case eventChan <- struct{}{}:
-
+						return nil
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				},
 
@@ -751,6 +755,14 @@ func TestResources2(t *testing.T) {
 		init := &engine.Init{
 			//Debug: debug,
 			Logf: logf,
+
+			// unused
+			Running: func(ctx context.Context) error {
+				return nil
+			},
+			Event: func(ctx context.Context) error {
+				return nil
+			},
 
 			// unused
 			Send: func(st interface{}) error {

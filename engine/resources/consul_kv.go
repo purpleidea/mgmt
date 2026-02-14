@@ -168,7 +168,7 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 				}
 
 				if !obj.once {
-					obj.init.Running()
+					if err := obj.init.Running(ctx); err != nil { return err }
 					obj.once = true
 					continue
 				}
@@ -198,7 +198,7 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 			if obj.init.Debug {
 				obj.init.Logf("event!")
 			}
-			obj.init.Event()
+			if err := obj.init.Event(ctx); err != nil { return err }
 
 		case <-ctx.Done(): // signal for shutdown request
 			return nil

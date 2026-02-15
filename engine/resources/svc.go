@@ -212,7 +212,9 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		}
 	}()
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	svc := obj.svc() // systemd name
 
@@ -349,7 +351,9 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 			return ctx.Err()
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 

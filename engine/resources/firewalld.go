@@ -260,7 +260,9 @@ func (obj *FirewalldRes) Watch(ctx context.Context) error {
 		return err
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -281,7 +283,9 @@ func (obj *FirewalldRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 

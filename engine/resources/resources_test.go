@@ -97,7 +97,7 @@ type startupStep struct {
 
 func (obj *startupStep) Action() error {
 	select {
-	case <-obj.ch: // called by Running() in Watch
+	case <-obj.ch: // called by Event() in Watch
 	case <-time.After(time.Duration(obj.ms) * time.Millisecond):
 		return fmt.Errorf("took too long to startup")
 	}
@@ -507,18 +507,19 @@ func TestResources1(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
 			init := &engine.Init{
-				Running: func() {
-					close(readyChan)
+				// Watch runs this to send a changed event.
+				Event: func(ctx context.Context) error {
+					if readyChan != nil { // only once!
+						close(readyChan)
+						readyChan = nil
+					}
+
 					select { // this always sends one!
 					case eventChan <- struct{}{}:
+						return nil
 
-					}
-				},
-				// Watch runs this to send a changed event.
-				Event: func() {
-					select {
-					case eventChan <- struct{}{}:
-
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				},
 
@@ -616,7 +617,7 @@ func TestResources1(t *testing.T) {
 
 			// TODO: can we block here if the test fails early?
 			select {
-			case <-readyChan: // called by Running() in Watch
+			case <-readyChan: // called by Event() in Watch
 			}
 			wg.Add(1)
 			go func() { // run timeline
@@ -751,6 +752,11 @@ func TestResources2(t *testing.T) {
 		init := &engine.Init{
 			//Debug: debug,
 			Logf: logf,
+
+			// unused
+			Event: func(ctx context.Context) error {
+				return nil
+			},
 
 			// unused
 			Send: func(st interface{}) error {

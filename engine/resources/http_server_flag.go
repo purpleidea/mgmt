@@ -226,8 +226,7 @@ func (obj *HTTPServerFlagRes) Init(init *engine.Init) error {
 			Hostname: obj.init.Hostname,
 
 			// Watch:
-			//Running: event,
-			//Event:   event,
+			//Event: event,
 
 			// CheckApply:
 			//Refresh: func() bool {
@@ -276,10 +275,9 @@ func (obj *HTTPServerFlagRes) Cleanup() error {
 // and notifies the engine so that CheckApply can then run and return the
 // correct value on send/recv.
 func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
-
-	startupChan := make(chan struct{})
-	close(startupChan) // send one initial signal
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		if obj.init.Debug {
@@ -287,9 +285,6 @@ func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
 		}
 
 		select {
-		case <-startupChan:
-			startupChan = nil
-
 		case err, ok := <-obj.eventStream:
 			if !ok { // shouldn't happen
 				obj.eventStream = nil
@@ -303,7 +298,9 @@ func (obj *HTTPServerFlagRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 

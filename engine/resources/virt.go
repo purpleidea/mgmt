@@ -365,7 +365,9 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 		}
 	}()
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	send := false // send event?
 	for {
@@ -485,7 +487,9 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 		// do all our event sending all together to avoid duplicate msgs
 		if send {
 			send = false
-			obj.init.Event() // notify engine of an event (this can block)
+			if err := obj.init.Event(ctx); err != nil {
+				return err
+			}
 		}
 	}
 }

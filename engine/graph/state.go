@@ -189,8 +189,7 @@ func (obj *State) Init() error {
 		Hostname: obj.Hostname,
 
 		// Watch:
-		Running: obj.event,
-		Event:   obj.event,
+		Event: obj.event,
 
 		// CheckApply:
 		Refresh: func() bool {
@@ -390,15 +389,16 @@ func (obj *State) Resume() {
 // should instead use Poke() to "schedule" a new Process/CheckApply loop when
 // one might be needed. This method will block until we're unpaused and ready to
 // receive on the events channel.
-func (obj *State) event() {
+func (obj *State) event(ctx context.Context) error {
 	obj.setDirty() // assume we're initially dirty
 
 	select {
 	case obj.eventsChan <- nil: // blocks! (this is unbuffered)
-		// send!
-	}
+		return nil
 
-	//return // implied
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // setDirty marks the resource state as dirty. This signals to the engine that
@@ -416,7 +416,9 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -427,13 +429,17 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 
 // hidden is a replacement for Watch when the Hidden metaparameter is used.
 func (obj *State) hidden(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // signal for shutdown request

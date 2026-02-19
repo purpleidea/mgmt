@@ -326,15 +326,18 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 		r := res // bind the variable!
 
 		obj.eventsChanMap[r] = make(chan error)
-		event := func() {
+		event := func(ctx context.Context) error {
 			select {
 			case obj.eventsChanMap[r] <- nil:
-				// send!
+				return nil
+
+			case <-ctx.Done():
+				return ctx.Err()
 			}
 			// We don't do this here (why?) we instead read from the
 			// above channel and then send on multiplexedChan to the
 			// main loop, where it runs the obj.init.Event function.
-			//obj.init.Event() // notify engine of an event (this can block)
+			//if err := obj.init.Event(ctx); err != nil { return err }
 		}
 
 		newInit := &engine.Init{
@@ -343,8 +346,7 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 			Hostname: obj.init.Hostname,
 
 			// Watch:
-			Running: event,
-			Event:   event,
+			Event: event,
 
 			// CheckApply:
 			Refresh: func() bool {
@@ -442,7 +444,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 				}
 			}
 		}()
-		// wait for Watch first Running() call or immediate error...
+		// wait for Watch first Event() call or immediate error...
 		select {
 		case <-obj.eventsChanMap[res]: // triggers on start or on err...
 		}
@@ -472,7 +474,9 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	}
 	// we block until all the children are started first...
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	var closeError error
 	closeSignal := make(chan struct{})
@@ -523,18 +527,12 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		}
 	}()
 
-	startupChan := make(chan struct{})
-	close(startupChan) // send one initial signal
-
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("Looping...")
 		}
 
 		select {
-		case <-startupChan:
-			startupChan = nil
-
 		case err, ok := <-multiplexedChan:
 			if !ok { // shouldn't happen
 				multiplexedChan = nil
@@ -551,7 +549,9 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 

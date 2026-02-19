@@ -143,11 +143,9 @@ type Init struct {
 
 	// Called from within Watch:
 
-	// Running must be called after your watches are all started and ready.
-	Running func()
-
 	// Event sends an event notifying the engine of a possible state change.
-	Event func()
+	// It must first be called after your watches are all started and ready.
+	Event func(context.Context) error
 
 	// Called from within CheckApply:
 
@@ -214,7 +212,6 @@ func (obj *Init) Copy() *Init {
 		Program:  obj.Program,
 		Version:  obj.Version,
 		Hostname: obj.Hostname,
-		Running:  obj.Running,
 		Event:    obj.Event,
 		Refresh:  obj.Refresh,
 		Send:     obj.Send,

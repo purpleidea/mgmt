@@ -352,15 +352,15 @@ func (obj *HTTPServerUIInputRes) Watch(ctx context.Context) error {
 		return obj.worldWatch(ctx)
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	// XXX: do we need to watch on obj.event for normal .Value stuff?
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }
@@ -374,7 +374,9 @@ func (obj *HTTPServerUIInputRes) localWatch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "error during watch")
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -395,7 +397,9 @@ func (obj *HTTPServerUIInputRes) localWatch(ctx context.Context) error {
 		if obj.init.Debug {
 			obj.init.Logf("event!")
 		}
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 
 }
@@ -409,7 +413,9 @@ func (obj *HTTPServerUIInputRes) worldWatch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "error during watch")
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -433,7 +439,9 @@ func (obj *HTTPServerUIInputRes) worldWatch(ctx context.Context) error {
 		if obj.init.Debug {
 			obj.init.Logf("event!")
 		}
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 
 }

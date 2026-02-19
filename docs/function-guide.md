@@ -200,7 +200,7 @@ Stream(context.Context) error
 
 `Stream` is where any evented work is done. This method is started by the
 function engine. It will run this function once. It should call the
-`obj.init.Event()` method when it believes the function engine should run
+`obj.init.Event(ctx)` method when it believes the function engine should run
 `Call()` again.
 
 Implementing this is not required if you don't have events.

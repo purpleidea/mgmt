@@ -332,7 +332,7 @@ to generate one event to notify the `mgmt` engine that we're now listening
 successfully, so that it can run an initial `CheckApply` to ensure we're safely
 tracking a healthy state and that we didn't miss anything when `Watch` was down
 or from before `mgmt` was running. You must do this by calling the
-`obj.init.Running` method.
+`obj.init.Event` method.
 
 #### Converged
 
@@ -359,7 +359,7 @@ func (obj *FooRes) Watch(ctx context.Context) error {
 	defer obj.whatever.CloseFoo() // shutdown our Foo
 
 	// notify engine that we're running
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil { return err }
 
 	for {
 		select {
@@ -378,7 +378,7 @@ func (obj *FooRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil { return err }
 	}
 }
 ```

@@ -85,13 +85,13 @@ func (obj *PrintRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *PrintRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }

@@ -267,6 +267,7 @@ func (obj *Engine) Commit() error {
 		obj.state[vertex] = &State{
 			Graph:  obj.graph, // Update if we swap the graph!
 			Vertex: vertex,
+			paused: obj.paused,
 
 			Program:  obj.Program,
 			Version:  obj.Version,
@@ -502,6 +503,11 @@ func (obj *Engine) Resume() error {
 	return nil
 }
 
+// IsPaused returns true if the engine is currently paused.
+func (obj *Engine) IsPaused() bool {
+	return obj.paused
+}
+
 // SetFastPause puts the graph into fast pause mode. This is usually done via
 // the argument to the Pause command, but this method can be used if a pause was
 // already started, and you'd like subsequent parts to pause quickly. Once in
@@ -520,15 +526,19 @@ func (obj *Engine) Pause(fastPause bool) error {
 	//obj.mutex.Lock()
 	//defer obj.mutex.Unlock()
 
-	if obj.paused {
-		return fmt.Errorf("already paused")
-	}
-
 	obj.fastPause.Store(fastPause)
 	topoSort, _ := obj.graph.TopologicalSort()
 	for _, vertex := range topoSort { // squeeze out the events...
 		// The Event is sent to an unbuffered channel, so this event is
 		// synchronous, and as a result it blocks until it is received.
+		if err := obj.state[vertex].Pause(); err != nil && err != engine.ErrClosed {
+			return err
+		}
+	}
+
+	// now catch anything else that might be in obj.state but not in topoSort
+	// this can happen if a previous commit failed, or for other reasons
+	for vertex := range obj.state {
 		if err := obj.state[vertex].Pause(); err != nil && err != engine.ErrClosed {
 			return err
 		}

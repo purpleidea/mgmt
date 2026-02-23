@@ -806,7 +806,7 @@ func (obj *Main) Run(ctx context.Context) error {
 						gapiChan = nil
 					}
 
-					if started {
+					if started || !obj.ge.IsPaused() {
 						obj.ge.Pause(false)
 					}
 					// must be paused before this is run
@@ -1080,7 +1080,7 @@ func (obj *Main) Run(ctx context.Context) error {
 
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
-			if started { // TODO: we can flatten this check out I think
+			if started || !obj.ge.IsPaused() {
 				converger.Pause()       // FIXME: add sync wait?
 				obj.ge.Pause(fastPause) // sync
 				started = false

@@ -567,6 +567,17 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	var reterr error
 	var failed bool // has Process permanently failed?
 	var closed bool // has the resumeSignal channel closed?
+
+	// if we're started while the engine is paused, wait for resume
+	if state.paused {
+		select {
+		case _, ok := <-state.resumeSignal:
+			if !ok {
+				closed = true
+			}
+		}
+	}
+
 Loop:
 	for { // process loop
 		// This is the main select where things happen and where we exit

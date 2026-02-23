@@ -350,7 +350,7 @@ func (obj *State) Poke() {
 // so only call these one at a time and alternate between the two.
 func (obj *State) Pause() error {
 	if obj.paused {
-		panic("already paused")
+		return nil
 	}
 
 	// wait for ack (or exit signal)

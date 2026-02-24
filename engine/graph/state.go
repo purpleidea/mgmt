@@ -366,22 +366,26 @@ func (obj *State) Pause() error {
 	return nil
 }
 
-// Resume unpauses this resource. It can be safely called once on a brand-new
-// resource that has just started running, without incident. It must not be
+// Resume unpauses this resource. It can and must be called once on a brand-new
+// resource that has just started running as they start paused. It must not be
 // called concurrently with either the Pause() method or itself, so only call
 // these one at a time and alternate between the two.
-func (obj *State) Resume() {
-	// This paused check prevents unnecessary "resume" calls to the resource
-	// on its first run, since resources start in the running state!
-	if !obj.paused { // no need to unpause brand-new resources
-		return
+func (obj *State) Resume() error {
+	if !obj.paused {
+		return fmt.Errorf("not paused")
 	}
 
 	select {
 	case obj.resumeSignal <- struct{}{}:
+		// we're resumed
+
+	case <-obj.doneCtx.Done(): // XXX: do we need this case here too?
+		return engine.ErrClosed
 	}
 
 	obj.paused = false
+
+	return nil
 }
 
 // event is a helper function to send an event to the CheckApply process loop.

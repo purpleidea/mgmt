@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/consul/api v1.31.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/hil v0.0.0-20241119142051-4415e05c565c
-	github.com/hetznercloud/hcloud-go v1.59.2
+	github.com/hetznercloud/hcloud-go/v2 v2.36.0
 	github.com/iancoleman/strcase v0.3.0
 	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
 	github.com/kylelemons/godebug v1.1.0
@@ -66,7 +66,6 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
-	github.com/bombsimon/logrusr/v2 v2.0.1 // indirect
 	github.com/bytedance/sonic v1.13.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect

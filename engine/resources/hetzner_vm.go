@@ -38,7 +38,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/hetznercloud/hcloud-go/hcloud"
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 const (

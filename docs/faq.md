@@ -447,6 +447,30 @@ We have a workaround in place to mitigate it and attempt to show you a helpful
 error message, but it's also documented here in the meantime. The error you will
 see is: `cli parse error: missing equals sign for list element`.
 
+### Can `mgmt` deploy a new version of mcl whenever that source changes?
+
+The short answer is yes, but you probably don't want that. The reason is that
+you can't reliably tell when a file update has *finished* changing. So if you
+watch file system events, and react automatically to run a deploy, then you
+might read a partial (truncated) version of the `mcl` code and deploy something
+incorrect or dangerous.
+
+If you do really want to "yolo" deploy, then you could first run `mgmt` locally:
+
+```bash
+mgmt run --tmp-prefix empty
+```
+
+and then run this dangerous inotify+deploy command to deploy to it:
+
+```bash
+while inotifywait -e close_write main.mcl; do mgmt deploy --no-git --seeds=http://127.0.0.1:2379 lang main.mcl; done
+```
+
+This could also deploy to a cluster of agents anywhere by changing the `--seeds`
+endpoint, or as shown above, if you're just running a single node, this would
+deploy to the standalone binary you've previously run.
+
 ### The docs speaks of `--remote` but the CLI errors out?
 
 The `--remote` flag existed in an earlier version of mgmt. It was removed and

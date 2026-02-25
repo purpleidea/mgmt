@@ -44,6 +44,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
 )
@@ -343,7 +344,14 @@ func (obj *Engine) Commit() error {
 		// wait for exit before starting new graph!
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
 		close(obj.state[vertex].resumeSignal) // unblock (it only closes here)
-		obj.waits[vertex].Wait()              // sync
+
+		// add a watchdog to catch slow exiting or blocked resources
+		watchdogFn := func(msg string) {
+			obj.Logf("res: %s: %s", res, msg)
+		}
+		cancel := util.WatchdogFn(watchdogFn)
+		obj.waits[vertex].Wait() // sync
+		cancel()
 
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?

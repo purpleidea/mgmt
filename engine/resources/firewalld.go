@@ -27,6 +27,8 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+//go:build linux
+
 package resources
 
 import (

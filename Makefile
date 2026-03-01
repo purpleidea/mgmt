@@ -81,14 +81,14 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 
 # The underscores separate the prefix name ("TOKEN") the distro ("BINARY",
 # "FEDORA-LATEST", etc...) and the arch ("AMD64"). The distro can have a dash.
-TOKEN_BINARY_AMD64 = $(shell grep -v '#' releases/binary-amd64.release)
-TOKEN_BINARY_ARM64 = $(shell grep -v '#' releases/binary-arm64.release)
-TOKEN_FEDORA-LATEST = $(shell grep -v '#' releases/fedora-latest.release)
-TOKEN_FEDORA-OLDER = $(shell grep -v '#' releases/fedora-older.release)
-TOKEN_STREAM-LATEST = $(shell grep -v '#' releases/stream-latest.release)
-TOKEN_DEBIAN-STABLE = $(shell grep -v '#' releases/debian-stable.release)
-TOKEN_UBUNTU-LATEST = $(shell grep -v '#' releases/ubuntu-latest.release)
-TOKEN_ARCHLINUX = $(shell grep -v '#' releases/archlinux.release)
+TOKEN_BINARY_AMD64 = $(shell grep -v '\#' releases/binary-amd64.release)
+TOKEN_BINARY_ARM64 = $(shell grep -v '\#' releases/binary-arm64.release)
+TOKEN_FEDORA-LATEST = $(shell grep -v '\#' releases/fedora-latest.release)
+TOKEN_FEDORA-OLDER = $(shell grep -v '\#' releases/fedora-older.release)
+TOKEN_STREAM-LATEST = $(shell grep -v '\#' releases/stream-latest.release)
+TOKEN_DEBIAN-STABLE = $(shell grep -v '\#' releases/debian-stable.release)
+TOKEN_UBUNTU-LATEST = $(shell grep -v '\#' releases/ubuntu-latest.release)
+TOKEN_ARCHLINUX = $(shell grep -v '\#' releases/archlinux.release)
 
 FILE_BINARY_AMD64 = mgmt-linux-amd64-$(VERSION)
 FILE_BINARY_ARM64 = mgmt-linux-arm64-$(VERSION)

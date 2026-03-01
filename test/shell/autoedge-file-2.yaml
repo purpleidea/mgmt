@@ -1,0 +1,29 @@
+---
+graph: autoedge-file-2
+comment: autoedge test - deep directory tree to exercise transitive edge skipping
+resources:
+  file:
+  - name: root
+    path: "/tmp/mgmt/ae2/"
+    state: exists
+  - name: mid
+    path: "/tmp/mgmt/ae2/mid/"
+    state: exists
+  - name: deep
+    path: "/tmp/mgmt/ae2/mid/deep/"
+    state: exists
+  - name: f1
+    path: "/tmp/mgmt/ae2/mid/deep/f1"
+    content: |
+      deep file
+    state: exists
+  - name: f2
+    path: "/tmp/mgmt/ae2/mid/f2"
+    content: |
+      mid file
+    state: exists
+  - name: f3
+    path: "/tmp/mgmt/ae2/f3"
+    content: |
+      root file
+    state: exists

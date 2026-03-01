@@ -1,0 +1,21 @@
+---
+graph: autoedge-file-1
+comment: autoedge test - file resources in a directory hierarchy with no explicit edges
+resources:
+  file:
+  - name: dir1
+    path: "/tmp/mgmt/aedir/"
+    state: exists
+  - name: dir2
+    path: "/tmp/mgmt/aedir/subdir/"
+    state: exists
+  - name: file1
+    path: "/tmp/mgmt/aedir/f1"
+    content: |
+      hello from f1
+    state: exists
+  - name: file2
+    path: "/tmp/mgmt/aedir/subdir/f2"
+    content: |
+      hello from f2
+    state: exists

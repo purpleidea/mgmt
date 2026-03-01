@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+
 # setup a simple golang environment
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
@@ -21,7 +22,7 @@ mingolangversion=20
 golangversion=0
 if [ -x "$GO" ]; then
 	# capture the minor version number
-	golangversion=$(go version | grep -o -P '(?<=go1\.)[0-9]*')
+	golangversion=$(go version | sed 's/.*go1\.\([0-9]*\).*/\1/')
 fi
 
 # if DNF is available use it

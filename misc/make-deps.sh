@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+set -e -o pipefail
+
+traperror() {
+	local el=${1:=??} ec=${2:=??} lc="$BASH_COMMAND"
+	echo >&2 "ERROR[$ec] on line $el of $0 -> $lc"
+}
+trap 'traperror ${LINENO} ${?}' ERR
+
 # setup a simple golang environment
 XPWD=`pwd`
 ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"	# dir!
@@ -9,13 +17,13 @@ cd "${ROOT}" >/dev/null
 
 sudo_command=$(command -v sudo)
 
-GO=`command -v go 2>/dev/null`
-YUM=`command -v yum 2>/dev/null`
-DNF=`command -v dnf 2>/dev/null`
-APT=`command -v apt-get 2>/dev/null`
-NEWAPT=`command -v apt 2>/dev/null`
-BREW=`command -v brew 2>/dev/null`
-PACMAN=`command -v pacman 2>/dev/null`
+GO=`command -v go 2>/dev/null ||:`
+YUM=`command -v yum 2>/dev/null ||:`
+DNF=`command -v dnf 2>/dev/null ||:`
+APT=`command -v apt-get 2>/dev/null ||:`
+NEWAPT=`command -v apt 2>/dev/null ||:`
+BREW=`command -v brew 2>/dev/null ||:`
+PACMAN=`command -v pacman 2>/dev/null ||:`
 
 # set minimum golang version and installed golang version
 mingolangversion=20

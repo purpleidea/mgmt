@@ -184,11 +184,15 @@ command -v fpm &>/dev/null || gem install fpm --user-install --no-document || tr
 # for checking links
 LYCHEE=$(command -v lychee 2>/dev/null) || true
 if [ -z "$LYCHEE" ]; then
-	LYCHEE_VERSION='v0.15.1'	# current stable version
-	LYCHEE_TMP='/tmp/'
-	LYCHEE_FILE="${LYCHEE_TMP}lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-	wget "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -O "$LYCHEE_FILE"
-	$sudo_command tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
+	if [ -n "$BREW" -a "$RUNNER_OS" != "Linux" ]; then
+		$BREW install lychee
+	else
+		LYCHEE_VERSION='v0.15.1'	# current stable version
+		LYCHEE_TMP='/tmp/'
+		LYCHEE_FILE="${LYCHEE_TMP}lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+		wget "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -O "$LYCHEE_FILE"
+		$sudo_command tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
+	fi
 fi
 fold_end "Install miscellaneous tools"
 

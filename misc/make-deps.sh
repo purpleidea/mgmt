@@ -177,8 +177,10 @@ fi
 fold_end "Install golang tools"
 
 fold_start "Install miscellaneous tools"
-command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
-command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
+PATH="$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH"
+command -v mdl &>/dev/null || gem install mdl --user-install --no-document || true	# for linting markdown files
+command -v fpm &>/dev/null || gem install fpm --user-install --no-document || true	# for cross distro packaging
+
 # for checking links
 LYCHEE=$(command -v lychee 2>/dev/null) || true
 if [ -z "$LYCHEE" ]; then

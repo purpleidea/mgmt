@@ -18,6 +18,11 @@ else
 	export STAT="stat"
 fi
 
+# in case the 'mdl' gem bin isn't in the $PATH
+if command -v ruby >/dev/null && command -v gem >/dev/null && ! command -v mdl 2>/dev/null; then
+	PATH="$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH"
+fi
+
 TIMEOUT="$timeout --kill-after=360s --signal=QUIT 300s"
 
 in_env() {

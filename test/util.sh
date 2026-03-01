@@ -63,6 +63,8 @@ fold_start() {
 		echo -e "travis_fold:start:$1\033[33;1m${@:2}\033[0m"
 	elif in_env github; then
 		echo "::group::$@"
+	else
+		echo -e "\n==> $@\n"
 	fi
 }
 fold_end() {

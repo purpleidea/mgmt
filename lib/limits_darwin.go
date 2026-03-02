@@ -27,63 +27,14 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+//go:build darwin
+
 package lib
 
-import (
-	"os"
-	"strconv"
-	"strings"
-)
-
-// raiseLimits is a helper to raise some of our limits to prevent us hitting the
-// maximums too easily.
-func raiseLimits(logf func(format string, v ...interface{})) (bool, error) {
-	b1, err1 := raisePathValue("/proc/sys/fs/inotify/max_user_instances", 512, logf)
-	b2, err2 := raisePathValue("/proc/sys/fs/inotify/max_user_watches", 242940, logf)
-	b := true
-
-	if err1 == nil {
-		b = b && b1
-	} else {
-		logf("error raising limit: %v", err1)
-	}
-	if err2 == nil {
-		b = b && b2
-	} else {
-		logf("error raising limit: %v", err2)
-	}
-
-	if err1 == nil && err2 == nil {
-		return b, nil
-	}
-	if err1 == nil {
-		return false, err2
-	}
-	return false, err1
-}
-
-func raisePathValue(path string, value int, logf func(format string, v ...interface{})) (bool, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		// system or permissions error?
-		return false, err
-	}
-
-	i, err := strconv.Atoi(strings.TrimSpace(string(b)))
-	if err != nil {
-		return false, err
-	}
-
-	if i >= value { // if value is greater, then leave it alone =D
-		return true, nil // did nothing
-	}
-
-	data := []byte(strconv.Itoa(value) + "\n")
-
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return false, err
-	}
-	logf("raised limit of %s to %d", path, value)
-
+// not implemented on Darwin
+func raiseLimits(logf func(format string, v ...any)) (bool, error) {
+	// TODO: kern.maxfiles=242940
+	// TODO: kern.maxfilesperproc=242940
+	logf("raiseLimits is not implemented on Darwin")
 	return false, nil
 }

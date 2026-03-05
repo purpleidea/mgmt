@@ -7,7 +7,7 @@ exit 0
 
 go build -i -o libmgmt libmgmt-change1.go
 # this example should change graphs frequently, and then shutdown...
-$TIMEOUT ./libmgmt &
+timeout_exec 300 ./libmgmt &
 pid=$!
 wait $pid	# get exit status
 e=$?

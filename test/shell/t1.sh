@@ -11,7 +11,7 @@
 set -o errexit
 set -o pipefail
 
-$TIMEOUT "$MGMT" --help # hello world!
+exec_mgmt --help # hello world!
 pid=$!
 wait $pid	# get exit status
 exit $?

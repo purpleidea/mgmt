@@ -3,9 +3,22 @@
 . "$(dirname "$0")/../util.sh"
 
 # run till completion
-$TIMEOUT "$MGMT" run --no-watch --tmp-prefix yaml t6.yaml &
+exec_mgmt run --no-watch --tmp-prefix yaml t6.yaml &
 pid=$!
-sleep 10s	# let it converge
+
+exithandle() {
+	local exitcode=$?
+	kill -2 $pid
+	wait $pid
+	timeout_exitcode=$?
+	if [ $exitcode -ne 0 ]; then
+		exit $exitcode
+	fi
+	exit $timeout_exitcode
+}
+trap 'exithandle' EXIT
+
+sleep 60s	# let it converge
 test -e /tmp/mgmt/f1
 test -e /tmp/mgmt/f2
 test -e /tmp/mgmt/f3
@@ -22,8 +35,3 @@ test "`cat /tmp/mgmt/f2`" = "i am f2"
 rm -f /tmp/mgmt/f2
 sleep 1s
 test -e /tmp/mgmt/f2
-
-killall -SIGINT mgmt	# send ^C to exit mgmt
-
-wait $pid	# get exit status
-exit $?

@@ -1,13 +1,11 @@
 #!/usr/bin/env -S bash -e
 
-exit 0	# XXX: disable for now
-
 . "$(dirname "$0")/../util.sh"
 
 set -x
 
 # run till completion
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml file-mode.yaml &
+exec_mgmt run --converged-timeout=5 --no-watch --tmp-prefix yaml file-mode.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

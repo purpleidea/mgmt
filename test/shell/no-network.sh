@@ -15,11 +15,11 @@ set -o pipefail
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 
 # run empty graph, with standalone enabled
-$TIMEOUT "$MGMT" run --no-network --prefix "$tmpdir" empty &
+exec_mgmt run --no-network --prefix "$tmpdir" empty &
 pid=$!
 
 # kill server on error/exit
-trap 'kill -SIGINT "$pid"' EXIT
+trap 'kill -2 ${pid}' EXIT
 
 # give mgmt a little time to startup
 sleep 10

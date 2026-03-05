@@ -16,7 +16,7 @@ fi
 XSUDO=''
 XTAGS=()
 if [[ "$@" = *"--root"* ]]; then
-	if ! timeout 1s sudo -A true; then
+	if ! timeout_exec 1 sudo -A true; then
 		echo "sudo disabled: can't run as root"
 		exit 1
 	fi

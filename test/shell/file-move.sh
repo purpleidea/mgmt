@@ -8,7 +8,7 @@ mkdir -p /tmp/mgmt/
 rm /tmp/mgmt/f1 &>/dev/null || true
 
 # run empty graph, with prometheus support
-$TIMEOUT "$MGMT" run --tmp-prefix yaml file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
+exec_mgmt run --tmp-prefix yaml file-move.yaml 2>&1 | tee /tmp/mgmt/file-move.log &
 pid=$!
 sleep 5s	# let it converge
 
@@ -38,6 +38,6 @@ then
 	exit 1
 fi
 
-killall -SIGINT mgmt	# send ^C to exit mgmt
+kill -2 $pid	# send ^C to exit mgmt
 wait $pid	# get exit status
 exit $?

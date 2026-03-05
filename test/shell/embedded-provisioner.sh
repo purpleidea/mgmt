@@ -2,6 +2,11 @@
 
 . "$(dirname "$0")/../util.sh"
 
+if [ $(uname) = "Darwin" ]; then
+	echo "net resource not supported on darwin, skipping test!"
+	exit 0
+fi
+
 # misc bash functions, eg: repeat "#" 42
 function repeat() {
 	for ((i=0; i<$2; ++i)); do echo -n "$1"; done
@@ -13,7 +18,7 @@ set -x
 # run unification with a dummy password
 eth=$(for i in /sys/class/net/*; do d=${i##*/}; [[ "$d" != "lo" && $(<"$i/type") -eq 1 ]] && echo "$d" && break; done) # get the first ethernet device
 
-$TIMEOUT "$MGMT" provisioner --interface $eth --only-unify --password $(repeat "#" 106) &
+exec_mgmt provisioner --interface $eth --only-unify --password $(repeat "#" 106) &
 pid=$!
 wait $pid	# get exit status
 e=$?

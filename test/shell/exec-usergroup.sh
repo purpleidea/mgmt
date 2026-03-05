@@ -11,7 +11,7 @@ fi
 set -x
 set -o pipefail
 
-if ! timeout 1s sudo -A true; then
+if ! timeout_exec 1 sudo -A true; then
 	echo "sudo disabled: not checking exec user and group"
 	exit
 fi
@@ -46,7 +46,7 @@ function run_usergroup_test() {
 	setup
 
 	# run till completion
-	sudo -A $TIMEOUT "$MGMT" run --converged-timeout=15 --no-watch --tmp-prefix yaml ./exec-usergroup/${graph} &
+	timeout_exec 300 sudo -A "$MGMT" run --converged-timeout=15 --no-watch --tmp-prefix yaml ./exec-usergroup/${graph} &
 	pid=$!
 	wait $pid	# get exit status
 	e=$?

@@ -7,13 +7,13 @@ exit 0	# XXX: disable for now
 
 set -x
 
-if ! timeout 1s sudo -A true; then
+if ! timeout_exec 1 sudo -A true; then
 	echo "sudo disabled: not checking file owner and group"
 	exit
 fi
 
 # run till completion
-$TIMEOUT sudo -A "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix lang file-source.mcl &
+timeout_exec 300 sudo -A "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix lang file-source.mcl &
 pid=$!
 wait $pid	# get exit status
 e=$?

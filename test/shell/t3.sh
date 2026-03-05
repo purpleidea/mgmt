@@ -18,11 +18,11 @@ fi
 mkdir -p "${MGMT_TMPDIR}"mgmt{A..C}
 
 # run till completion
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-a.yaml &
+exec_mgmt run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-a.yaml &
 pid1=$!
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-b.yaml &
+exec_mgmt run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-b.yaml &
 pid2=$!
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-c.yaml &
+exec_mgmt run --converged-timeout=5 --no-watch --tmp-prefix yaml t3-c.yaml &
 pid3=$!
 
 wait $pid1	# get exit status

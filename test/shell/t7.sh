@@ -2,10 +2,22 @@
 
 . "$(dirname "$0")/../util.sh"
 
+set -x
+
 # run empty graph
-$TIMEOUT "$MGMT" run --tmp-prefix --no-pgp empty &
+exec_mgmt run --tmp-prefix --no-pgp empty &
 pid=$!
+
+exithandle() {
+	local exitcode=$?
+	kill -2 $pid
+	wait $pid
+	timeout_exitcode=$?
+	if [ $exitcode -ne 0 ]; then
+		exit $exitcode
+	fi
+	exit $timeout_exitcode
+}
+trap 'exithandle' EXIT
+
 sleep 10s	# let it converge
-$(sleep 3s && killall -SIGINT mgmt)&	# send ^C to exit mgmt
-wait $pid	# get exit status
-exit $?

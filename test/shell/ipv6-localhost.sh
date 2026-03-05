@@ -6,8 +6,10 @@ set -o errexit
 set -o pipefail
 
 if ! ifconfig lo | grep 'inet6 ::1' >/dev/null; then
-	echo "No IPv6, skipping test"
-	exit 0
+	if ! ifconfig lo0 | grep 'inet6 ::1' >/dev/null; then
+		echo "No IPv6, skipping test"
+		exit 0
+	fi
 fi
 
 if in_env github; then
@@ -19,11 +21,11 @@ fi
 tmpdir="$($mktemp --tmpdir -d tmp.XXX)"
 
 # run empty graph listing only to IPv6 addresses
-$TIMEOUT "$MGMT" run --client-urls "http://[::1]:2379" --server-urls "http://[::1]:2380" --tmp-prefix empty &
+exec_mgmt run --client-urls "http://[::1]:2379" --server-urls "http://[::1]:2380" --tmp-prefix empty &
 pid=$!
 
 # kill server on error/exit
-trap 'pkill -9 mgmt' EXIT
+trap 'kill -2 ${pid}' EXIT
 
 # give mgmt a little time to startup
 sleep 10s

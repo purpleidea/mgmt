@@ -14,11 +14,16 @@ if in_env github; then
 	exit
 fi
 
+if [ $(uname) = "Darwin" ]; then
+	echo "net resource not supported on darwin, skipping test!"
+	exit
+fi
+
 set -x
 set -o pipefail
 
 # can't test net without sudo
-if ! timeout 1s sudo -A true; then
+if ! timeout_exec 1 sudo -A true; then
 	echo "sudo disabled: not checking net"
 	exit
 fi
@@ -58,7 +63,7 @@ sudo mkdir -p /etc/systemd/network
 sudo ip link add $IFACE type dummy || true
 
 # run mgmt net res with $IFACE and $ADDR set as above
-sudo -A $TIMEOUT "$MGMT" run --converged-timeout=5 --tmp-prefix lang ./net0.mcl &
+timeout_exec 300 sudo -A "$MGMT" run --converged-timeout=5 --tmp-prefix lang ./net0.mcl &
 pid1=$!
 
 # give the engine time to start up
@@ -99,7 +104,7 @@ wait $pid1
 e1=$?
 
 # run mgmt net res with $IFACE state => "down"
-sudo -A $TIMEOUT "$MGMT" run --converged-timeout=5 --tmp-prefix lang ./net1.mcl &
+timeout_exec 300 sudo -A "$MGMT" run --converged-timeout=5 --tmp-prefix lang ./net1.mcl &
 
 # give the engine time to start up
 sleep 5

@@ -9,21 +9,43 @@ ROOT="$(realpath "$(dirname "$(realpath "${BASH_SOURCE}")")/..")"
 export MGMT="$ROOT/mgmt"
 
 if [[ $(uname) == "Darwin" ]] ; then
-	export timeout="gtimeout"
 	export mktemp="gmktemp"
 	export STAT="gstat"
+	export pgrep="/usr/bin/pgrep" # brew pgrep does not find parent processes, so use system pgrep
 else
-	export timeout="timeout"
 	export mktemp="mktemp"
 	export STAT="stat"
+	export pgrep="pgrep"
 fi
 
 # in case the 'mdl' gem bin isn't in the $PATH
-if command -v ruby >/dev/null && command -v gem >/dev/null && ! command -v mdl 2>/dev/null; then
+if command -v ruby >/dev/null && command -v gem >/dev/null && ! command -v mdl >/dev/null; then
 	PATH="$(ruby -r rubygems -e 'puts Gem.user_dir')/bin:$PATH"
 fi
 
-TIMEOUT="$timeout --kill-after=360s --signal=QUIT 300s"
+timeout_exec() {
+	local seconds=$1
+	shift
+	exec perl -e '
+		my $sec = shift;
+		my $target_pid = $$;
+
+		if (fork) {
+		    exec @ARGV;
+		} else {
+		    while ($sec > 0) {
+		        sleep 1;
+		        $sec--;
+		        exit if getppid == 1;
+		    }
+		    kill 9, $target_pid;
+		}
+	' "$seconds" "$@"
+}
+
+exec_mgmt() {
+	timeout_exec 300 "$MGMT" "$@"
+}
 
 in_env() {
 	if [ $# -eq 0 ]; then

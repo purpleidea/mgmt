@@ -51,8 +51,8 @@ require (
 	google.golang.org/grpc v1.70.0
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/augeas v0.0.0-20161110001225-ca62e35ed6b8
-	libvirt.org/go/libvirt v1.11006.0
-	libvirt.org/go/libvirtxml v1.11006.0
+	libvirt.org/go/libvirt v1.12001.0
+	libvirt.org/go/libvirtxml v1.12001.0
 )
 
 require (

@@ -187,6 +187,9 @@ func (obj *edgeMatcher) addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []en
 			if vi.res == res { // skip self
 				continue
 			}
+			if vi.res.AutoEdgeMeta().Disabled { // skip if disabled
+				continue
+			}
 			if obj.debug {
 				obj.logf("match: %s with UID: %s", vi.res, uid)
 			}

@@ -297,6 +297,8 @@ func (obj *State) Cleanup() error {
 		return fmt.Errorf("vertex is not a Res")
 	}
 
+	obj.doneCtxCancel() // probably not required, but add as an extra safety
+
 	//if obj.cuid != nil {
 	//	obj.cuid.Unregister() // gets unregistered in Worker()
 	//}

@@ -275,7 +275,10 @@ type Res interface {
 	// the input context cancels, we must return as quickly as possible. We
 	// should never exit immediately if this would cause permanent
 	// corruption of some sort. However it doesn't mean that a resource was
-	// taken to the desired state.
+	// taken to the desired state. The input context is not guaranteed to
+	// cancel when you return from this function. If that's required for
+	// your code to free memory, make sure to wrap it, cancel it on return
+	// with a defer, and wait for any workers to exit with a waitgroup.
 	CheckApply(ctx context.Context, apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they

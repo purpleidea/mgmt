@@ -54,6 +54,9 @@ func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 	}
 	execSends := &ExecSends{}
 	return &engine.Init{
+		Event: func(ctx context.Context) error {
+			return nil
+		},
 		Send: func(st interface{}) error {
 			x, ok := st.(*ExecSends)
 			if !ok {

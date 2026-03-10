@@ -189,8 +189,7 @@ func (obj *State) Init() error {
 		Hostname: obj.Hostname,
 
 		// Watch:
-		Running: obj.event,
-		Event:   obj.event,
+		Event: obj.event,
 
 		// CheckApply:
 		Refresh: func() bool {
@@ -298,6 +297,8 @@ func (obj *State) Cleanup() error {
 		return fmt.Errorf("vertex is not a Res")
 	}
 
+	obj.doneCtxCancel() // probably not required, but add as an extra safety
+
 	//if obj.cuid != nil {
 	//	obj.cuid.Unregister() // gets unregistered in Worker()
 	//}
@@ -367,22 +368,26 @@ func (obj *State) Pause() error {
 	return nil
 }
 
-// Resume unpauses this resource. It can be safely called once on a brand-new
-// resource that has just started running, without incident. It must not be
+// Resume unpauses this resource. It can and must be called once on a brand-new
+// resource that has just started running as they start paused. It must not be
 // called concurrently with either the Pause() method or itself, so only call
 // these one at a time and alternate between the two.
-func (obj *State) Resume() {
-	// This paused check prevents unnecessary "resume" calls to the resource
-	// on its first run, since resources start in the running state!
-	if !obj.paused { // no need to unpause brand-new resources
-		return
+func (obj *State) Resume() error {
+	if !obj.paused {
+		return fmt.Errorf("not paused")
 	}
 
 	select {
 	case obj.resumeSignal <- struct{}{}:
+		// we're resumed
+
+	case <-obj.doneCtx.Done(): // XXX: do we need this case here too?
+		return engine.ErrClosed
 	}
 
 	obj.paused = false
+
+	return nil
 }
 
 // event is a helper function to send an event to the CheckApply process loop.
@@ -390,15 +395,16 @@ func (obj *State) Resume() {
 // should instead use Poke() to "schedule" a new Process/CheckApply loop when
 // one might be needed. This method will block until we're unpaused and ready to
 // receive on the events channel.
-func (obj *State) event() {
+func (obj *State) event(ctx context.Context) error {
 	obj.setDirty() // assume we're initially dirty
 
 	select {
 	case obj.eventsChan <- nil: // blocks! (this is unbuffered)
-		// send!
-	}
+		return nil
 
-	//return // implied
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // setDirty marks the resource state as dirty. This signals to the engine that
@@ -416,7 +422,9 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
@@ -427,13 +435,17 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 
 // hidden is a replacement for Watch when the Hidden metaparameter is used.
 func (obj *State) hidden(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // signal for shutdown request

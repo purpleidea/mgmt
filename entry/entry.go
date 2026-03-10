@@ -192,17 +192,6 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 	// obj.data comes from what the user Registered(): trust this less
 	// cli.data comes from what the mgmt compiler specified: trust this more
 
-	// test for sanity
-	if data == nil {
-		return fmt.Errorf("this CLI was not run correctly")
-	}
-	if data.Program == "" || data.Version == "" {
-		return fmt.Errorf("program was not compiled correctly, see Makefile")
-	}
-	if data.Copying == "" {
-		return fmt.Errorf("program copyrights were removed, can't run")
-	}
-
 	// TODO: If obj.data has any special API's for getting program name,
 	// version, or anything else in particular, we can use those values to
 	// override what we get at compile time from main.main() that comes in

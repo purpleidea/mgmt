@@ -567,6 +567,20 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	var reterr error
 	var failed bool // has Process permanently failed?
 	var closed bool // has the resumeSignal channel closed?
+
+	// Worker starts paused, so wait for resume signal before we CheckApply.
+	// (it's okay to let Watch run immediately)
+	select {
+	case _, ok := <-state.resumeSignal: // channel closes
+		if !ok {
+			closed = true
+		}
+
+		// XXX: Should we have an easy exit here? Or let it exit below?
+		//case <-state.doneCtx.Done():
+		//	return nil
+	}
+
 Loop:
 	for { // process loop
 		// This is the main select where things happen and where we exit

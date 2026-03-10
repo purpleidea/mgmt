@@ -143,11 +143,9 @@ type Init struct {
 
 	// Called from within Watch:
 
-	// Running must be called after your watches are all started and ready.
-	Running func()
-
 	// Event sends an event notifying the engine of a possible state change.
-	Event func()
+	// It must first be called after your watches are all started and ready.
+	Event func(context.Context) error
 
 	// Called from within CheckApply:
 
@@ -177,7 +175,9 @@ type Init struct {
 	// FilteredGraph is a function that returns a filtered variant of the
 	// current graph. Only resource that have allowed themselves to be added
 	// into this graph will appear. If they did not consent, then those
-	// vertices and any associated edges, will not be present.
+	// vertices and any associated edges, will not be present. This must
+	// only be run during CheckApply because during Watch we can't guarantee
+	// that the graph is paused and that a commit/swap isn't happening.
 	FilteredGraph func() (*pgraph.Graph, error)
 
 	// TODO: GraphQuery offers an interface to query the resource graph.
@@ -214,7 +214,6 @@ func (obj *Init) Copy() *Init {
 		Program:  obj.Program,
 		Version:  obj.Version,
 		Hostname: obj.Hostname,
-		Running:  obj.Running,
 		Event:    obj.Event,
 		Refresh:  obj.Refresh,
 		Send:     obj.Send,
@@ -276,7 +275,10 @@ type Res interface {
 	// the input context cancels, we must return as quickly as possible. We
 	// should never exit immediately if this would cause permanent
 	// corruption of some sort. However it doesn't mean that a resource was
-	// taken to the desired state.
+	// taken to the desired state. The input context is not guaranteed to
+	// cancel when you return from this function. If that's required for
+	// your code to free memory, make sure to wrap it, cancel it on return
+	// with a defer, and wait for any workers to exit with a waitgroup.
 	CheckApply(ctx context.Context, apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they

@@ -44,6 +44,7 @@ import (
 	"github.com/purpleidea/mgmt/engine/local"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/semaphore"
 )
@@ -99,9 +100,6 @@ type Engine struct {
 // If the struct does not validate, or it cannot initialize, then this errors.
 // Initially it will contain an empty graph.
 func (obj *Engine) Init() error {
-	if obj.Program == "" {
-		return fmt.Errorf("the Program is empty")
-	}
 	if obj.Hostname == "" {
 		return fmt.Errorf("the Hostname is empty")
 	}
@@ -265,7 +263,11 @@ func (obj *Engine) Commit() error {
 
 		obj.waits[vertex] = &sync.WaitGroup{}
 		obj.state[vertex] = &State{
-			Graph:  obj.graph, // Update if we swap the graph!
+			// XXX: We are building a new node but it's getting the
+			// old graph right away? We do set it at the end of the
+			// commit, maybe make it nil right now and avoid that?
+			//Graph: obj.graph,
+			Graph:  nil, // Update if we swap the graph!
 			Vertex: vertex,
 
 			Program:  obj.Program,
@@ -281,6 +283,8 @@ func (obj *Engine) Commit() error {
 			Logf: func(format string, v ...interface{}) {
 				obj.Logf(res.String()+": "+format, v...)
 			},
+
+			paused: true, // start paused
 		}
 		if err := obj.state[vertex].Init(); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Init")
@@ -306,7 +310,13 @@ func (obj *Engine) Commit() error {
 				if obj.Debug {
 					obj.Logf("%s: Working...", v)
 				}
-				// contains the Watch and CheckApply loops
+				// This contains the Watch and CheckApply loops!
+				// When we start the Worker, Watch and then
+				// CheckApply would start running immediately,
+				// even though we're still in Commit and didn't
+				// Resume from Pause yet! This is *not* what we
+				// want. Watch can run but CheckApply must wait,
+				// so Worker makes sure that it starts paused...
 				err := obj.Worker(v)
 				if s := engineUtil.CleanError(err); err != nil {
 					obj.Logf("%s: Error: %s", v, s)
@@ -343,7 +353,14 @@ func (obj *Engine) Commit() error {
 		// wait for exit before starting new graph!
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
 		close(obj.state[vertex].resumeSignal) // unblock (it only closes here)
-		obj.waits[vertex].Wait()              // sync
+
+		// add a watchdog to catch slow exiting or blocked resources
+		watchdogFn := func(msg string) {
+			obj.Logf("res: %s: %s", res, msg)
+		}
+		cancel := util.WatchdogFn(watchdogFn)
+		obj.waits[vertex].Wait() // sync
+		cancel()
 
 		// close the state and resource
 		// FIXME: will this mess up the sync and block the engine?
@@ -458,11 +475,13 @@ func (obj *Engine) Commit() error {
 	return nil
 }
 
-// Resume runs the currently active graph. It also un-pauses the graph if it was
-// paused. Very little that is interesting should happen here. It all happens in
-// the Commit method. After Commit, new things are already started, but we still
-// need to Resume any pre-existing resources. Do not call this concurrently with
-// the Pause method.
+// Resume un-pauses the active graph. Very little that is interesting should
+// happen here. It all happens in the Commit method. During Commit, the Worker
+// method starts which in turn causes Watch to start, however the main body of
+// the Worker starts in a paused mode. It waits for the resume signal before it
+// lets CheckApply run for the first time. No CheckApply methods may run when we
+// are paused. This also needs to Resume any pre-existing resources. Do not call
+// this concurrently with the Pause method.
 func (obj *Engine) Resume() error {
 	// It would be safer to lock this, but it would be slower and mask bugs.
 	//obj.mutex.Lock()
@@ -485,13 +504,11 @@ func (obj *Engine) Resume() error {
 		// more convenient to just have a state struct field (paused) to
 		// track things for this instead. As a bonus, it helps us know
 		// if a resource is paused or not if we print for debugging.
-		//if !obj.state[vertex].initialStartupDone {
-		//	obj.state[vertex].initialStartupDone = true
-		//	continue
-		//}
 
 		//obj.state[vertex].starter = (indegree[vertex] == 0)
-		obj.state[vertex].Resume() // doesn't error
+		if err := obj.state[vertex].Resume(); err != nil && err != engine.ErrClosed {
+			return err
+		}
 		// This always works because if a resource errored while it was
 		// paused, then we're in the paused state and we can still exit
 		// from there. If a resource errors when we're trying to Pause

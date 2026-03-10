@@ -238,13 +238,6 @@ func (obj *Main) Validate() error {
 		return fmt.Errorf("config struct is nil")
 	}
 
-	if obj.Program == "" || obj.Version == "" {
-		return fmt.Errorf("you must set the Program and Version strings")
-	}
-	if strings.Contains(obj.Program, " ") {
-		return fmt.Errorf("the Program string contains unexpected spaces")
-	}
-
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
 	}
@@ -807,7 +800,13 @@ func (obj *Main) Run(ctx context.Context) error {
 					}
 
 					if started {
-						obj.ge.Pause(false)
+						if err := obj.ge.Pause(false); err != nil {
+							// programming error ?
+							Logf("error pausing graph: %+v", err)
+							obj.errAppend(err)
+							cancel() // trigger an exit!
+							continue // wait for deployChan to exit
+						}
 					}
 					// must be paused before this is run
 					//obj.ge.Shutdown() // run in defer instead
@@ -1081,8 +1080,14 @@ func (obj *Main) Run(ctx context.Context) error {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			if started { // TODO: we can flatten this check out I think
-				converger.Pause()       // FIXME: add sync wait?
-				obj.ge.Pause(fastPause) // sync
+				converger.Pause()                               // FIXME: add sync wait?
+				if err := obj.ge.Pause(fastPause); err != nil { // sync
+					// programming error ?
+					Logf("error pausing graph: %+v", err)
+					obj.errAppend(err)
+					cancel() // trigger an exit!
+					continue // wait for deployChan to exit
+				}
 				started = false
 			}
 
@@ -1128,8 +1133,11 @@ func (obj *Main) Run(ctx context.Context) error {
 			// Commit already starts things, but we still need to
 			// resume anything that was pre-existing and was paused.
 			if err := obj.ge.Resume(); err != nil { // sync
+				// programming error ?
 				Logf("error resuming graph: %+v", err)
-				continue
+				obj.errAppend(err)
+				cancel() // trigger an exit!
+				continue // wait for deployChan to exit
 			}
 			converger.Resume() // after Start()
 			started = true

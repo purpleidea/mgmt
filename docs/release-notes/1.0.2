@@ -1,0 +1,187 @@
+I've just released version 1.0.2 of mgmt!
+
+> 204 files changed, 7519 insertions(+), 4040 deletions(-)
+
+This is a new release for folks who like more obvious "stable" checkpoints.
+
+With that, here are a few highlights from the release:
+
+* Many cleanups make it so that mgmt should almost always shut down in ~1 sec.
+
+* Superfluous arg graph shape issue got fixed!
+
+* Added a bmc:firmware resource. (Thanks to Joel Rebello for the collaboration!)
+
+* We're moving to "discussions by default" https://github.com/purpleidea/mgmt/issues/871
+
+* We added an LLM/AI policy.
+
+And much more...
+
+
+SPONSORS
+
+The `mgmt` project is generously sponsored by:
+
+m9rx corporation - https://m9rx.com/
+
+Please reach out if you'd like to sponsor!
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/1.0.2
+
+You can also track the `git master` repo on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/repo/master/
+
+
+NEWS
+
+* Added basic gettext support in case we want to think about translations.
+
+* The virtualization module got a lot of improvements.
+
+* We got a new ssh authorized_key resource.
+
+* We moved to a more accurate, modern map implementation.
+
+* We added an encoding package for json decoding and "flexible" json decoding.
+
+* We added some initial stub mgmt and etcd modules for managing those in mcl.
+
+* The exec resource now uses env everywhere by default.
+
+* We allow duplicate exported resources.
+
+* Add os.home and os.uid functions.
+
+* Added an mtimes field for the exec resource.
+
+* Added a panic() variant that takes an error message.
+
+* A bunch of small improvements to the provisioner were done.
+
+* Fixed a bug in the mcl grow tool code.
+
+* Virt resource gained an autostart param.
+
+* Embedded elastic etcd code got removed. Everything shuts down in ~1sec now. If
+this is not the case, please file a discussion "bug".
+
+* We optimized the graph shape to remove a superfluous arg.
+
+* Added a new bmc firmware resource.
+
+* Fixed a bug that prevented nested structs from being used in golang.template.
+
+* Improved the hetzner:vm ecosystem and got some more testing in there.
+
+* Fixed a bunch of incorrectly handled (but rare) error scenarios.
+
+* Added some new string functions to the core imported "strings" library.
+
+* CheckApply and Watch are both now wrapped with panic recovery catchers.
+
+* Fixed the is_mac function.
+
+* Added a func to parse floats.
+
+* We're looking for help writing Amazon, Google, DigitalOcean, Hetzner, etc,
+resources if anyone is interested, reach out to us. Particularly if there is
+support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but it's not a
+blocker, but it would definitely be useful. We're looking into it.
+
+* We don't have any aarch64 hardware, so no more arm64 builds or testing until
+we get a donation or sponsor for that unfortunately.
+
+* We don't have the <|> operator merged yet. Expect that when we do this, we'll
+consider removing the || (default) operator. This is the only pending language
+change that I know of, and these cases are easily caught by the compiler and can
+be easily patched.
+
+* Autoedge performance isn't great. It can easily be disabled. Most of the time
+I just specify my edges, so this is really a convenience feature, but it should
+be looked into when we have a chance.
+
+* There was a small bug in my contrib script which mis-calculated a few
+erroneous authorship numbers. This didn't affect things much, but has been
+updated so that "Co-authored-by" bots aren't counted, and nobody is counted
+twice.
+
+
+TALKS
+
+James doesn't have anything planned until CfgMgmtCamp 2027. If you'd like to
+book him for a private event, or sponsor his travel for your conference, please
+let us know.
+
+A recording from CfgMgmtCamp 2026 is available:
+
+See James demo some upcoming scheduler magic and more:
+https://www.youtube.com/watch?v=f8TrYow6gdY
+
+A second talk of Andrew demoing some magic clustering has not yet been posted.
+You can see a similar demo here: https://www.youtube.com/watch?v=8vz1MMGkuik
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat employees use
+their infrastructure. We're looking for a new home. I've opened a ticket with
+Freedesktop. If you have any sway with them or other recommendations, please let
+me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and while there are easy, medium and
+hard issues available! You're also welcome to suggest your own! Please join us
+in #mgmtconfig on Matrix and ping us if you'd like help getting started! For
+details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-contribute-to-the-project-if-i-dont-know-golang
+
+Many tagged issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen
+
+Although asking in matrix is the best way to find something to work on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get involved. This is
+fun and friendly! You get to improve your skills, and we get some patches in
+return. Ping me off-list for details.
+
+
+PARTNERS
+
+James, the `mgmt config` project, and m9rx corporation, are working with
+partners to deliver products and solutions built with `mgmt`. Please reach out
+to m9rx or one of them to support our work. https://m9rx.com/about/partners/
+
+
+THANKS
+
+To the Fedora project for their continued donation of space and bandwidth.
+
+Thanks (alphabetically) to everyone who contributed to the latest release:
+Daniel Podwysocki, James Shubin, Joe Groocock, Menno, Sam Crauwels, Samuel Gélineau
+We had 6 unique committers since 1.0.1, and have had 103 overall.
+run 'git log 1.0.1..1.0.2' to see what has changed since 1.0.1
+
+Please see the THANKS file for more thanking.
+
+
+Happy hacking,
+James
+@purpleidea

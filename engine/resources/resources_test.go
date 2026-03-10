@@ -97,7 +97,7 @@ type startupStep struct {
 
 func (obj *startupStep) Action() error {
 	select {
-	case <-obj.ch: // called by Running() in Watch
+	case <-obj.ch: // called by Event() in Watch
 	case <-time.After(time.Duration(obj.ms) * time.Millisecond):
 		return fmt.Errorf("took too long to startup")
 	}
@@ -497,6 +497,10 @@ func TestResources1(t *testing.T) {
 
 			changedChan := make(chan bool, 1) // buffered!
 			readyChan := make(chan struct{})
+			readyOnce := &sync.Once{}
+			readyOnceFn := func() {
+				close(readyChan)
+			}
 			eventChan := make(chan struct{})
 			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 			defer doneCtxCancel()
@@ -507,18 +511,16 @@ func TestResources1(t *testing.T) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
 			init := &engine.Init{
-				Running: func() {
-					close(readyChan)
+				// Watch runs this to send a changed event.
+				Event: func(ctx context.Context) error {
+					readyOnce.Do(readyOnceFn) // only once!
+
 					select { // this always sends one!
 					case eventChan <- struct{}{}:
+						return nil
 
-					}
-				},
-				// Watch runs this to send a changed event.
-				Event: func() {
-					select {
-					case eventChan <- struct{}{}:
-
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				},
 
@@ -607,7 +609,7 @@ func TestResources1(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				t.Logf("test #%d: running Watch", index)
-				if err := res.Watch(doneCtx); err != nil {
+				if err := res.Watch(doneCtx); err != nil && err != context.Canceled {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: Watch failed: %s", index, err.Error())
 				}
@@ -616,7 +618,7 @@ func TestResources1(t *testing.T) {
 
 			// TODO: can we block here if the test fails early?
 			select {
-			case <-readyChan: // called by Running() in Watch
+			case <-readyChan: // called by Event() in Watch
 			}
 			wg.Add(1)
 			go func() { // run timeline
@@ -751,6 +753,11 @@ func TestResources2(t *testing.T) {
 		init := &engine.Init{
 			//Debug: debug,
 			Logf: logf,
+
+			// unused
+			Event: func(ctx context.Context) error {
+				return nil
+			},
 
 			// unused
 			Send: func(st interface{}) error {

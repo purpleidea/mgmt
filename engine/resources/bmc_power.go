@@ -27,6 +27,8 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+//go:build !nobmc
+
 package resources
 
 import (
@@ -351,13 +353,13 @@ func (obj *BmcPowerRes) client() *bmclib.Client {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *BmcPowerRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }

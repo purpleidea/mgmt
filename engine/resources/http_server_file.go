@@ -274,13 +274,13 @@ func (obj *HTTPServerFileRes) Cleanup() error {
 // particular one does absolutely nothing but block until we've received a done
 // signal.
 func (obj *HTTPServerFileRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }

@@ -198,7 +198,9 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 		if dockerClient.IsErrConnectionFailed(err) && !obj.sflag {
 			// notify engine that we're running so that CheckApply
 			// can start...
-			obj.init.Running()
+			if err := obj.init.Event(ctx); err != nil {
+				return err
+			}
 			select {
 			case <-obj.start:
 				obj.sflag = true
@@ -219,7 +221,9 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 
 	// notify engine that we're running
 	if !obj.sflag {
-		obj.init.Running()
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 
 	for {
@@ -242,7 +246,9 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 			return nil
 		}
 
-		obj.init.Event() // notify engine of an event (this can block)
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
 	}
 }
 

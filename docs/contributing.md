@@ -79,7 +79,9 @@ not our job to review your machine generated code. If you send in something that
 surreptitiously adds bugs, security holes, or otherwise is sloppy code, we will
 hold you responsible, and ultimately this will probably lead to you being banned
 from contributing. If you are not confident enough to thoroughly understand and
-review the generated code you are submitting, then please do not submit it!
+review the generated code you are submitting, then please do not submit it! If
+you do use any such tools, then you must disclose their use in each
+contribution.
 
 ## Copyright
 

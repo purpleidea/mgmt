@@ -51,17 +51,6 @@ func init() {
 
 // CLI is the entry point for using mgmt normally from the CLI.
 func CLI(ctx context.Context, data *cliUtil.Data) error {
-	// test for sanity
-	if data == nil {
-		return fmt.Errorf("this CLI was not run correctly")
-	}
-	if data.Program == "" || data.Version == "" {
-		return fmt.Errorf("program was not compiled correctly")
-	}
-	if data.Copying == "" {
-		return fmt.Errorf("program copyrights were removed, can't run")
-	}
-
 	args := Args{}
 	args.version = data.Version // copy this in
 	args.description = data.Tagline

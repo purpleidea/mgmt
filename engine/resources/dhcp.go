@@ -450,6 +450,9 @@ func (obj *DHCPServerRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *DHCPServerRes) Watch(ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
+
 	addr, err := net.ResolveUDPAddr("udp", obj.getAddress()) // *net.UDPAddr
 	if err != nil {
 		return errwrap.Wrapf(err, "could not resolve address")
@@ -484,12 +487,11 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "could not start listener") // it's inside
 	}
 
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 	//defer obj.mutex.RLock()
 	//obj.mutex.RUnlock() // it's safe to let CheckApply proceed
-
-	var closeError error
-	closeSignal := make(chan struct{})
 
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
@@ -497,40 +499,22 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		defer close(closeSignal)
 
 		err := server.Serve() // blocks until Close() is called I hope!
 		// TODO: getting this error is probably a bug, please see:
 		// https://github.com/insomniacslk/dhcp/issues/376
 		isClosing := errors.Is(err, net.ErrClosed)
 		if err == nil || isClosing {
+			cancel(nil)
 			return
 		}
-		// if this returned on its own, then closeSignal can be used...
-		closeError = errwrap.Wrapf(err, "the server errored")
+		cancel(errwrap.Wrapf(err, "the server errored"))
 	}()
 	defer server.Close()
 
-	startupChan := make(chan struct{})
-	close(startupChan) // send one initial signal
-
-	for {
-		if obj.init.Debug {
-			obj.init.Logf("Looping...")
-		}
-
-		select {
-		case <-startupChan:
-			startupChan = nil
-
-		case <-closeSignal: // something shut us down early
-			return closeError
-
-		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
-		}
-
-		obj.init.Event() // notify engine of an event (this can block)
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+		return ctx.Err()
 	}
 }
 
@@ -1134,13 +1118,13 @@ func (obj *DHCPHostRes) Cleanup() error {
 // particular one does absolutely nothing but block until we've received a done
 // signal.
 func (obj *DHCPHostRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }
@@ -1727,13 +1711,13 @@ func (obj *DHCPRangeRes) Cleanup() error {
 // particular one does absolutely nothing but block until we've received a done
 // signal.
 func (obj *DHCPRangeRes) Watch(ctx context.Context) error {
-	obj.init.Running() // when started, notify engine that we're running
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
-
-	//obj.init.Event() // notify engine of an event (this can block)
 
 	return nil
 }

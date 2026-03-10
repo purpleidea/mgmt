@@ -52,11 +52,6 @@ import (
 const (
 	// StdPrompt is the usual text that we would use to ask for a password.
 	StdPrompt = "Password: "
-
-	// XXX: these two are different on BSD, and were taken from:
-	// golang.org/x/term/term_unix_other.go
-	ioctlReadTermios  = unix.TCGETS
-	ioctlWriteTermios = unix.TCSETS
 )
 
 // ReadPassword reads a password from stdin and returns the result. It hides the

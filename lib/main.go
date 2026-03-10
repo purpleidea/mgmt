@@ -238,13 +238,6 @@ func (obj *Main) Validate() error {
 		return fmt.Errorf("config struct is nil")
 	}
 
-	if obj.Program == "" || obj.Version == "" {
-		return fmt.Errorf("you must set the Program and Version strings")
-	}
-	if strings.Contains(obj.Program, " ") {
-		return fmt.Errorf("the Program string contains unexpected spaces")
-	}
-
 	if obj.Prefix != nil && obj.TmpPrefix {
 		return fmt.Errorf("choosing a prefix and the request for a tmp prefix is illogical")
 	}

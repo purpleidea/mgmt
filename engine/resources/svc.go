@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"os/user"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -345,6 +346,22 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 				obj.init.Logf("unexpected nil error")
 				continue
 			}
+
+			// If we saw "Remote peer disconnected", we should retry.
+			// We see this if systemd restarts (eg: during a package update).
+			if strings.Contains(err.Error(), "Remote peer disconnected") {
+				obj.init.Logf("Watch Error: %s", err.Error())
+				obj.init.Logf("retrying in 1 second...")
+				select {
+				case <-time.After(time.Second):
+					// Restart the subscription
+					chSub, chSubErr = set.Subscribe()
+					continue
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+
 			return errwrap.Wrapf(err, "unknown error")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown

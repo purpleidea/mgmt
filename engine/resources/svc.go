@@ -221,17 +221,34 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 	set := conn.NewSubscriptionSet() // no error should be returned
 	// XXX: dynamic bugs: https://github.com/coreos/go-systemd/issues/474
 	set.Add(svc) // it's okay if the svc doesn't exist yet
-	chSub, chSubErr := set.Subscribe()
+	chSub, chSubErr := set.SubscribeContext(ctx)
 	//defer close(chSub) // cannot close receive-only channel
 	//defer close(chSubErr) // cannot close receive-only channel
+	defer func() { // drain to avoid deadlock with this crappy function
+		// XXX: https://github.com/coreos/go-systemd/pull/514 or similar
+		chSubClosed := false
+		chSubErrClosed := false
+		for {
+			if chSubClosed && chSubErrClosed {
+				return
+			}
 
-	//chSubClosed := false
-	//chSubErrClosed := false
+			select {
+			case _, ok := <-chSub:
+				if !ok {
+					chSubClosed = true
+					chSub = nil
+				}
+			case _, ok := <-chSubErr:
+				if !ok {
+					chSubErrClosed = true
+					chSubErr = nil
+				}
+			}
+		}
+	}()
+
 	for {
-		//if chSubClosed && chSubErrClosed {
-		//
-		//}
-
 		if obj.init.Debug {
 			obj.init.Logf("watching...")
 		}
@@ -294,7 +311,6 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		case event, ok := <-chSub:
 			if !ok {
 				chSub = nil
-				//chSubClosed = true
 				continue
 			}
 			if obj.init.Debug {
@@ -338,7 +354,6 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		case err, ok := <-chSubErr:
 			if !ok {
 				chSubErr = nil
-				//chSubErrClosed = true
 				continue
 			}
 			if err == nil {

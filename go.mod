@@ -9,7 +9,7 @@ require (
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf
 	github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0
 	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
-	github.com/coreos/go-systemd/v22 v22.6.0
+	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/cyphar/filepath-securejoin v0.4.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/deniswernert/go-fstab v0.0.0-20141204152952-eb4090f26517
@@ -18,7 +18,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-git/v5 v5.13.2
-	github.com/godbus/dbus/v5 v5.1.0
+	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/nftables v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/consul/api v1.31.0
@@ -45,7 +45,7 @@ require (
 	go.etcd.io/etcd/server/v3 v3.5.18
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.48.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.42.0
 	golang.org/x/time v0.9.0
 	golang.org/x/tools v0.41.0
 	google.golang.org/grpc v1.70.0

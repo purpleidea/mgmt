@@ -115,6 +115,10 @@ function reflowed-comments() {
 		return 0
 	fi
 
+	if [ "$1" = './lang/parser/y.go' ]; then
+		return 0
+	fi
+
 	if [ "$1" = './lang/parser/lexer.nn.go' ]; then
 		return 0
 	fi

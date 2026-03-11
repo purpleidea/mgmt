@@ -33,10 +33,8 @@ import (
 	"fmt"
 )
 
-%%{
-	machine interpolate;
-	write data;
-}%%
+%% machine interpolate;
+%% write data;
 
 // Parse performs string interpolation on the input. It returns the list of
 // tokens found. It looks for variables of the format ${foo}. The curly braces
@@ -68,11 +66,10 @@ func Parse(data string) (out Stream, _ error) {
 		# usually used with the entry transition (>) to start capturing
 		# the string when a state machine is entered.
 		#
-		# fpc is the current position in the string (basically the same
-		# as the variable `p` but a special Ragel keyword) so after
-		# executing `start`, data[idx:fpc+1] is the string from when
-		# start was called to the current position (inclusive).
-		action start { idx = fpc }
+		# fpc is the current position in the string so after
+		# executing `start`, data[idx:fpc] is the string from when
+		# start was called to the current position.
+		action start { idx = fpc - 1 }
 
 		# A variable always starts with an lowercase alphabetical char
 		# and contains lowercase alphanumeric characters or numbers,
@@ -82,7 +79,7 @@ func Parse(data string) (out Stream, _ error) {
 		var_name = ( [a-z] ([a-z0-9_] | ('.' | '_') [a-z0-9_])* )
 		>start
 		@{
-			v.Name = data[idx:fpc+1]
+			v.Name = data[idx:fpc]
 		};
 
 		# var is a reference to a variable.
@@ -91,7 +88,7 @@ func Parse(data string) (out Stream, _ error) {
 		# Any special escape characters are matched here.
 		escaped_lit = '\\' (any)
 		@{
-			switch s := data[fpc:fpc+1]; s {
+			switch s := data[fpc-1:fpc]; s {
 			case "a":
 				x = "\a"
 			case "b":
@@ -127,14 +124,14 @@ func Parse(data string) (out Stream, _ error) {
 		# declares a var match is attempted first, else a `lit` and thus this.
 		dollar_lit = '$'
 		@{
-			l = Literal{Value: data[fpc:fpc+1]}
+			l = Literal{Value: data[fpc-1:fpc]}
 		};
 
 		# Literal strings that don't contain '$' or '\'.
 		simple_lit = (any - '$' - '\\')+
 		>start
 		@{
-			l = Literal{Value: data[idx:fpc + 1]}
+			l = Literal{Value: data[idx:fpc]}
 		};
 
 		lit = escaped_lit | dollar_lit | simple_lit;
@@ -144,12 +141,12 @@ func Parse(data string) (out Stream, _ error) {
 		token = (var @{ t = v }) | (lit @{ t = l });
 
 		main := (token %{ out = append(out, t) })**;
-
-		write init;
-		write exec;
 	}%%
 
-	if cs < %%{ write first_final; }%% {
+	%% write init;
+	%% write exec;
+
+	if cs < interpolate_first_final {
 		return nil, fmt.Errorf("cannot parse string: %s", data)
 	}
 

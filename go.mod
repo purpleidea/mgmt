@@ -1,6 +1,6 @@
 module github.com/purpleidea/mgmt
 
-go 1.24.10
+go 1.25.7
 
 require (
 	github.com/alexflint/go-arg v1.5.1

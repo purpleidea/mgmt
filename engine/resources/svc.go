@@ -345,6 +345,19 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 				obj.init.Logf("unexpected nil error")
 				continue
 			}
+			// I think this happens if systemd package is updating.
+			// XXX: if chSubErr returns an err does it keep working?
+			// XXX: Do we have to restart the set.Subscribe ?
+			if err.Error() == "Remote peer disconnected" {
+				obj.init.Logf("remote peer disconnected")
+				select {
+				case <-time.After(1 * time.Second):
+					obj.init.Logf("remote peer retrying")
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				continue
+			}
 			return errwrap.Wrapf(err, "unknown error")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown

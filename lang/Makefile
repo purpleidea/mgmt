@@ -53,10 +53,9 @@ parser/y.go: parser/parser.y
 
 interpolate/parse.generated.go: interpolate/parse.rl
 	@echo "Generating: interpolation..."
-	ragel -Z -G2 -o $@ $<
-	# remove the ragel header so our header test passes
-	sed -i -e 1,2d $@
+	ragel-go -G2 -o $@ $<
 	gofmt -s -w $@
+	@ROOT="$$( cd "$$( dirname "$${BASH_SOURCE[0]}" )" && cd .. && pwd )" && $$ROOT/misc/header.sh '$@'
 
 fuzz:
 	@$(MAKE) --quiet -C fuzz

@@ -149,7 +149,7 @@ func Parse(data string) (out Stream, _ error) {
 		write exec;
 	}%%
 
-	if cs < %%{ write first_final; }%% {
+	if cs < interpolate_first_final {
 		return nil, fmt.Errorf("cannot parse string: %s", data)
 	}
 

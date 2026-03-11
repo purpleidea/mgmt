@@ -35,7 +35,7 @@ import "git://github.com/purpleidea/mgmt/modules/purpleidea/"
 import "git://github.com/purpleidea/mgmt/modules/shorewall/"
 
 class router($st) {
-	$net_dev = $st->net_dev || "eth0"
+	$net_dev = $st->net_dev || "meth0"
 	$net_mac = $st->net_mac
 
 	#$net_uuid = $st->net_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
@@ -133,7 +133,7 @@ class router($st) {
 		include firewall.zone("aux", struct{})
 	}
 
-	# eg: eth0
+	# eg: meth0
 	include firewall.interface("${net_dev}", "net", struct{
 		interface => "NET_IF",	# default if not specified
 		options => [
@@ -162,7 +162,7 @@ class router($st) {
 	})
 
 	if $aux_dev != "" {
-		# eg: eth2
+		# eg: meth2
 		include firewall.interface("${aux_dev}", "aux", struct{
 			interface => "AUX_IF",	# default if not specified
 			options => [

@@ -245,7 +245,7 @@ Metric=1001
 class network_manager_dhcp($st) {
 	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
 	$mac = $st->mac || ""
-	$dev = $st->dev || "eth0"
+	$dev = $st->dev || "meth0"
 
 	$dns = $st->dns || ["8.8.8.8",]
 	$dns_str = golang_strings.join($dns, ";") # the line also ends with a semicolon
@@ -298,7 +298,7 @@ mac-address={{ .mac }}
 class network_manager_static($st) {
 	$uuid = $st->uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
 	$mac = $st->mac || ""
-	$dev = $st->dev || "eth0"
+	$dev = $st->dev || "meth0"
 	$cidr = $st->cidr # cidr
 	$ip = net.cidr_to_ip($cidr)
 	$prefix = net.cidr_to_prefix($cidr)

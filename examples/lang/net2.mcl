@@ -1,3 +1,3 @@
-net "eth0" {
+net "meth0" {
 	state => "up",
 }

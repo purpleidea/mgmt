@@ -95,7 +95,7 @@ type DHCPServerRes struct {
 	// addresses.
 	Address string `lang:"address" yaml:"address"`
 
-	// Interface is interface to bind to. For example `eth0` for the common
+	// Interface is interface to bind to. For example `meth0` for the common
 	// case. You may leave this field blank to not run any specific binding.
 	// XXX: You need to actually specify an interface here at the moment. :(
 	// BUG: https://github.com/insomniacslk/dhcp/issues/372

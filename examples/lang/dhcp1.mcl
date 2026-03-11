@@ -1,4 +1,4 @@
-#$iface = "lo"	# replace with your desired interface like eth0
+#$iface = "lo"	# replace with your desired interface like meth0
 $iface = "enp0s31f6"
 
 net $iface {

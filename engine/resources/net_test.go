@@ -44,7 +44,7 @@ var unitFileContentsTests = []struct {
 	out []byte
 }{
 	{
-		"eth0",
+		"meth0",
 		&NetRes{
 			State:   "up",
 			Addrs:   []string{"192.168.42.13/24"},
@@ -54,7 +54,7 @@ var unitFileContentsTests = []struct {
 			strings.Join(
 				[]string{
 					"[Match]",
-					"Name=eth0",
+					"Name=meth0",
 					"[Network]",
 					"Address=192.168.42.13/24",
 					"Gateway=192.168.42.1",

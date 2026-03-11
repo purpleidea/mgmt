@@ -139,7 +139,7 @@ const (
 // NetRes is a network interface resource based on netlink. It manages the state
 // of a network link. Configuration is also stored in a networkd configuration
 // file, so the network is available upon reboot. The name of the resource is
-// the string representing the network interface name. This could be "eth0" for
+// the string representing the network interface name. This could be "meth0" for
 // example. It supports flipping the state if you ask for it to be reversible.
 type NetRes struct {
 	traits.Base // add the base methods without re-implementation

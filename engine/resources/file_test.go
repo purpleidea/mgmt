@@ -277,45 +277,67 @@ func TestFileAbsolute1(t *testing.T) {
 }
 
 func TestFileSELinuxValidate(t *testing.T) {
-	// SELinuxContext should not be allowed with State: absent
+	s1 := "system_u:object_r:tmp_t:s0"
+	// SELinux should not be allowed with State: absent
 	f := &FileRes{
-		Path:           "/tmp/foo",
-		State:          FileStateAbsent,
-		SELinuxContext: "system_u:object_r:tmp_t:s0",
+		Path:    "/tmp/foo",
+		State:   FileStateAbsent,
+		SELinux: &s1,
 	}
 	if err := f.Validate(); err == nil {
-		t.Errorf("SELinuxContext with State: absent should fail validation")
+		t.Errorf("SELinux with State: absent should fail validation")
 	}
 
-	// SELinuxContext should be allowed with State: exists
+	// SELinux should be allowed with State: exists
 	f = &FileRes{
-		Path:           "/tmp/foo",
-		State:          FileStateExists,
-		SELinuxContext: "system_u:object_r:tmp_t:s0",
+		Path:    "/tmp/foo",
+		State:   FileStateExists,
+		SELinux: &s1,
 	}
 	if err := f.Validate(); err != nil {
-		t.Errorf("SELinuxContext with State: exists should pass validation: %v", err)
+		t.Errorf("SELinux with State: exists should pass validation: %v", err)
+	}
+
+	// SELinux as nil should be allowed with State: absent
+	f = &FileRes{
+		Path:    "/tmp/foo",
+		State:   FileStateAbsent,
+		SELinux: nil,
+	}
+	if err := f.Validate(); err != nil {
+		t.Errorf("SELinux as nil with State: absent should pass validation: %v", err)
 	}
 }
 
 func TestFileSELinuxCmp(t *testing.T) {
+	s1 := "system_u:object_r:tmp_t:s0"
+	s2 := "system_u:object_r:user_tmp_t:s0"
+
 	f1 := &FileRes{
-		Path:           "/tmp/foo",
-		SELinuxContext: "system_u:object_r:tmp_t:s0",
+		Path:    "/tmp/foo",
+		SELinux: &s1,
 	}
 	f2 := &FileRes{
-		Path:           "/tmp/foo",
-		SELinuxContext: "system_u:object_r:tmp_t:s0",
+		Path:    "/tmp/foo",
+		SELinux: &s1,
 	}
 	if err := f1.Cmp(f2); err != nil {
-		t.Errorf("identical SELinuxContext should match: %v", err)
+		t.Errorf("identical SELinux should match: %v", err)
 	}
 
 	f3 := &FileRes{
-		Path:           "/tmp/foo",
-		SELinuxContext: "system_u:object_r:user_tmp_t:s0",
+		Path:    "/tmp/foo",
+		SELinux: &s2,
 	}
 	if err := f1.Cmp(f3); err == nil {
-		t.Errorf("different SELinuxContext should not match")
+		t.Errorf("different SELinux should not match")
+	}
+
+	f4 := &FileRes{
+		Path:    "/tmp/foo",
+		SELinux: nil,
+	}
+	if err := f1.Cmp(f4); err == nil {
+		t.Errorf("SELinux vs nil SELinux should not match")
 	}
 }

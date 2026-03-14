@@ -1665,6 +1665,7 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Recurse:   obj.Recurse,
 		Force:     obj.Force,
 		Purge:     obj.Purge,
+		Symlink:   obj.Symlink,
 	}
 }
 

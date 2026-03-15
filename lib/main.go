@@ -982,7 +982,7 @@ func (obj *Main) Run(ctx context.Context) error {
 			// XXX: can we change this into a ge.Apply operation?
 			// run autogroup; modifies the graph
 			timing = time.Now()
-			if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+			if err := obj.ge.AutoGroup(&autogroup.NonReachabilityFastGrouper{}); err != nil {
 				obj.ge.Abort() // delete graph
 				Logf("error running auto grouping: %+v", err)
 				continue

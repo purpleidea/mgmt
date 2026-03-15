@@ -179,7 +179,7 @@ func NE(s string) pgraph.Edge {
 
 type testGrouper struct {
 	// TODO: this algorithm may not be correct in all cases. replace if needed!
-	NonReachabilityGrouper // "inherit" what we want, and reimplement the rest
+	NonReachabilityFastGrouper // "inherit" what we want, and reimplement the rest
 }
 
 func (obj *testGrouper) Name() string {
@@ -188,7 +188,7 @@ func (obj *testGrouper) Name() string {
 
 func (obj *testGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	// call existing vertexCmp first
-	if err := obj.NonReachabilityGrouper.VertexCmp(v1, v2); err != nil {
+	if err := obj.NonReachabilityFastGrouper.VertexCmp(v1, v2); err != nil {
 		return err
 	}
 

@@ -82,8 +82,11 @@ func AutoGroup(ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(for
 		}
 	}
 
-	// It would be great to ensure we didn't add any graph cycles here, but
-	// instead of checking now, we'll move the check into the main loop.
+	// Safety-net DAG check: the VertexMerge no longer validates the DAG on
+	// each merge for performance, so we verify once at the end instead.
+	if _, err := g.TopologicalSort(); err != nil {
+		return errwrap.Wrapf(err, "the TopologicalSort failed after autogroup")
+	}
 
 	return nil
 }

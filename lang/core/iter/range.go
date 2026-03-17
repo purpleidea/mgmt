@@ -56,6 +56,8 @@ var _ interfaces.BuildableFunc = &RangeFunc{}
 // its contents to a subset of all the numbers between start and stop. This
 // function only takes ints as inputs, and outputs a list of ints.
 type RangeFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type
 
 	init   *interfaces.Init
@@ -141,6 +143,8 @@ func (obj *RangeFunc) Build(typ *types.Type) (*types.Type, error) {
 // function.
 func (obj *RangeFunc) Copy() interfaces.Func {
 	return &RangeFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 
 		init: obj.init, // likely gets overwritten anyways

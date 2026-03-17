@@ -57,6 +57,8 @@ var _ interfaces.BuildableFunc = &StructLookupFunc{} // ensure it meets this exp
 
 // StructLookupFunc is a struct field lookup function.
 type StructLookupFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // Kind == Struct, that is used as the struct we lookup
 	Out  *types.Type // type of field we're extracting
 
@@ -225,6 +227,8 @@ func (obj *StructLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 // been lost by the time we used it in Build.
 func (obj *StructLookupFunc) Copy() interfaces.Func {
 	return &StructLookupFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 		Out:  obj.Out,
 

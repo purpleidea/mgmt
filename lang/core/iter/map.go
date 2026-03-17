@@ -69,6 +69,8 @@ var _ interfaces.BuildableFunc = &MapFunc{} // ensure it meets this expectation
 // TODO: should we extend this to support iterating over map's and structs, or
 // should that be a different function? I think a different function is best.
 type MapFunc struct {
+	interfaces.Textarea
+
 	Type  *types.Type // this is the type of the elements in our input list
 	RType *types.Type // this is the type of the elements in our output list
 
@@ -419,6 +421,8 @@ func (obj *MapFunc) Cleanup(ctx context.Context) error {
 // function.
 func (obj *MapFunc) Copy() interfaces.Func {
 	return &MapFunc{
+		Textarea: obj.Textarea,
+
 		Type:  obj.Type,  // don't copy because we use this after unification
 		RType: obj.RType, // don't copy because we use this after unification
 

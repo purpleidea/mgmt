@@ -51,6 +51,8 @@ func init() {
 
 // Uptime is a fact which returns the current uptime of your system.
 type Uptime struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 }
 

@@ -95,6 +95,8 @@ var _ interfaces.InferableFunc = &CollectFunc{} // ensure it meets this expectat
 // in most cases because it lets you play type games since the field name in one
 // resource kind might be a different type in another.
 type CollectFunc struct {
+	interfaces.Textarea
+
 	// Type is the type of the second arg that we receive. (When known.)
 	Type *types.Type
 
@@ -250,6 +252,8 @@ func (obj *CollectFunc) Build(typ *types.Type) (*types.Type, error) {
 // been lost by the time we used it in Build.
 func (obj *CollectFunc) Copy() interfaces.Func {
 	return &CollectFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 
 		init: obj.init, // likely gets overwritten anyways

@@ -1025,6 +1025,7 @@ panic:
 			Args: $3.exprs,
 			//Var: false, // default
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], call)
 		name := &ast.ExprStr{
 			V: $1.str, // any constant, non-empty name
 		}
@@ -1073,6 +1074,7 @@ collect:
 				res.Name, // expr (hopefully one of those types)
 			},
 		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], call)
 		collect := &ast.StmtResCollect{ // special field
 			Kind:  kind, // might as well tell it directly
 			Value: call,

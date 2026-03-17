@@ -61,6 +61,8 @@ func init() {
 // string. If the file re-appears, it returns those new contents. This function
 // will eventually be deprecated when the function graph error system is stable.
 type ReadFileWaitFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	recWatcher *recwatch.RecWatcher

@@ -57,6 +57,8 @@ func init() {
 // ScheduleFunc is special function which determines where code should run in
 // the cluster.
 type ScheduleFunc struct {
+	interfaces.Textarea
+
 	init  *interfaces.Init
 	world engine.SchedulerWorld
 

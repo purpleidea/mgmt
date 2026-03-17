@@ -12,3 +12,7 @@ import "x.mcl" as f
 $y = $f.x + " and this is y.mcl"
 -- OUTPUT --
 # err: errSetScope: var `$g.x` does not exist in this scope: /main.mcl @ 3:6-3:14
+interpolate: var `$g.x` does not exist in this scope: /main.mcl @ 3:6-3:14
+
+test "${g.x}" {}	# should fail
+     ^^^^^^^^

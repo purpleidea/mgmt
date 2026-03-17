@@ -182,6 +182,8 @@ var _ interfaces.BuildableFunc = &Func{} // ensure it meets this expectation
 // function API, but that can run a very simple, static, pure, polymorphic
 // function.
 type Func struct {
+	interfaces.Textarea
+
 	*docsUtil.Metadata
 	*WrappedFunc // *wrapped.Func as a type alias to pull in the base impl.
 

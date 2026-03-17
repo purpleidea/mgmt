@@ -64,6 +64,8 @@ var _ interfaces.BuildableFunc = &ListLookupFunc{} // ensure it meets this expec
 // omitted, then this function errors if the list index is not present. Passing
 // a negative index will always result in an error.
 type ListLookupFunc struct {
+	interfaces.Textarea
+
 	*wrapped.Func // *wrapped.Func as a type alias to pull in the base impl.
 
 	Type *types.Type // Kind == List, that is used as the list we lookup in
@@ -227,6 +229,8 @@ func (obj *ListLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 // have been lost by the time we used it in Build.
 func (obj *ListLookupFunc) Copy() interfaces.Func {
 	return &ListLookupFunc{
+		Textarea: obj.Textarea,
+
 		Type:       obj.Type, // don't copy because we use this after unification
 		hasDefault: obj.hasDefault,
 

@@ -155,6 +155,13 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "could not call newFuncValue.Call()")
 	}
+	// Propagate source position to dynamically created functions so that
+	// dage errors include file/line info.
+	if obj.Textarea.IsSet() {
+		if tf, ok := outputFunc.(interfaces.TextareaSettable); ok {
+			tf.SetTextarea(obj.Textarea)
+		}
+	}
 
 	// create the new subgraph
 	edge := &interfaces.FuncEdge{Args: []string{OutputFuncArgName}} // "out"

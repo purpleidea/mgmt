@@ -62,6 +62,8 @@ var _ interfaces.BuildableFunc = &MapLookupFunc{} // ensure it meets this expect
 // will be returned if the map key is not present. If the third argument is
 // omitted, then this function errors if the map key is not present.
 type MapLookupFunc struct {
+	interfaces.Textarea
+
 	*wrapped.Func // *wrapped.Func as a type alias to pull in the base impl.
 
 	Type *types.Type // Kind == Map, that is used as the map we lookup
@@ -229,6 +231,8 @@ func (obj *MapLookupFunc) Build(typ *types.Type) (*types.Type, error) {
 // have been lost by the time we used it in Build.
 func (obj *MapLookupFunc) Copy() interfaces.Func {
 	return &MapLookupFunc{
+		Textarea: obj.Textarea,
+
 		Type:       obj.Type, // don't copy because we use this after unification
 		hasDefault: obj.hasDefault,
 

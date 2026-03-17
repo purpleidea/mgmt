@@ -24,7 +24,9 @@ bad_files=$(
 	#fi
 	for i in $(find_files); do
 		# search for at least one leading space, to ensure we use tabs
-		if grep -q '^ ' "$i"; then
+		# if following the leading spaces we have a caret, then skip...
+		# (the caret scenario is to exclude txtar tests with a textarea)
+		if grep -q -E '^ +[^ ^]' "$i"; then
 			echo "$i"
 		fi
 	done

@@ -63,6 +63,8 @@ var _ interfaces.InferableFunc = &StructLookupOptionalFunc{} // ensure it meets 
 // bit different from the "default" mechanism that is used by list and map
 // lookup functions.
 type StructLookupOptionalFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // Kind == Struct, that is used as the struct we lookup
 	Out  *types.Type // type of field we're extracting (also the type of optional)
 
@@ -225,6 +227,8 @@ func (obj *StructLookupOptionalFunc) Build(typ *types.Type) (*types.Type, error)
 // been lost by the time we used it in Build.
 func (obj *StructLookupOptionalFunc) Copy() interfaces.Func {
 	return &StructLookupOptionalFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 		Out:  obj.Out,
 

@@ -54,6 +54,8 @@ func init() {
 
 // Load is a fact which returns the current system load.
 type Load struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 }
 

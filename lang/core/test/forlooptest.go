@@ -50,6 +50,8 @@ func init() {
 
 // ForLoopFunc is a function that is used for testing.
 type ForLoopFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	count int

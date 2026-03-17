@@ -8,3 +8,7 @@ Test["${name}"] -> Test["test"] # must fail
 
 -- OUTPUT --
 # err: errUnify: type error: str != list: /main.mcl @ 6:1-6:16
+type error: str != list: /main.mcl @ 6:1-6:16
+
+Test["${name}"] -> Test["test"] # must fail
+^^^^^^^^^^^^^^^

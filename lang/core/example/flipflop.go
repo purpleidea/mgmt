@@ -53,6 +53,8 @@ func init() {
 // is not meant for serious computing. This would be better served by a flip
 // function which you could specify an interval for.
 type FlipFlop struct {
+	interfaces.Textarea
+
 	init  *interfaces.Init
 	mutex *sync.Mutex
 	value bool

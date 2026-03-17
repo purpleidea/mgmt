@@ -68,6 +68,8 @@ var _ interfaces.DataFunc = &VarDirFunc{}
 // empty string, you'll just get the absolute deploy directory path that you're
 // in.
 type VarDirFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
@@ -126,6 +128,8 @@ func (obj *VarDirFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *VarDirFunc) Copy() interfaces.Func {
 	return &VarDirFunc{
+		Textarea: obj.Textarea,
+
 		init: obj.init, // likely gets overwritten anyways
 		data: obj.data, // needed because we don't call SetData twice
 	}

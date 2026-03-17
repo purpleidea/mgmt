@@ -160,6 +160,8 @@ var _ interfaces.BuildableFunc = &Func{} // ensure it meets this expectation
 // function. This function API is unique in that it lets you provide your own
 // `Make` builder function to create the function implementation.
 type Func struct {
+	interfaces.Textarea
+
 	*docsUtil.Metadata
 	*WrappedFunc // *wrapped.Func as a type alias to pull in the base impl.
 

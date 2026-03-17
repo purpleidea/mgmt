@@ -68,6 +68,8 @@ var _ interfaces.InferableFunc = &DecodeJSONFunc{} // ensure it meets this expec
 // represented by the type in your mcl code, and you gradually expand it over
 // time before the data has caught up and added all those new fields.
 type DecodeJSONFunc struct {
+	interfaces.Textarea
+
 	flexible bool // "flexible" version of this function
 
 	// Type is the type of the type specification (2nd) arg if one is
@@ -249,6 +251,8 @@ func (obj *DecodeJSONFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *DecodeJSONFunc) Copy() interfaces.Func {
 	return &DecodeJSONFunc{
+		Textarea: obj.Textarea,
+
 		flexible: obj.flexible,
 
 		Type:   obj.Type, // don't copy because we use this after unification

@@ -65,6 +65,8 @@ var _ interfaces.BuildableFunc = &LookupDefaultFunc{} // ensure it meets this ex
 // TODO: Eventually we will deprecate this function when the function engine can
 // support passing a value for erroring functions. (Bad index could be an err!)
 type LookupDefaultFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // Kind == List OR Map, that is used as the list/map we lookup in
 
 	//init *interfaces.Init
@@ -142,6 +144,8 @@ func (obj *LookupDefaultFunc) Build(typ *types.Type) (*types.Type, error) {
 // function.
 func (obj *LookupDefaultFunc) Copy() interfaces.Func {
 	fn := &LookupDefaultFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 		//fn: get this through Build()
 

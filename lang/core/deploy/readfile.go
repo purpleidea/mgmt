@@ -59,6 +59,8 @@ var _ interfaces.DataFunc = &ReadFileFunc{}
 // static. Please note that this is different from the readfile function in the
 // os package.
 type ReadFileFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	data *interfaces.FuncData
 }
@@ -114,6 +116,8 @@ func (obj *ReadFileFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *ReadFileFunc) Copy() interfaces.Func {
 	return &ReadFileFunc{
+		Textarea: obj.Textarea,
+
 		init: obj.init, // likely gets overwritten anyways
 		data: obj.data, // needed because we don't call SetData twice
 	}

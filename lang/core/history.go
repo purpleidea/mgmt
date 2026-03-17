@@ -78,6 +78,8 @@ var _ interfaces.BuildableFunc = &HistoryFunc{} // ensure it meets this expectat
 // XXX: This function needs another look. We likely we to snapshot everytime we
 // get a new value in obj.Call instead of having a ticker.
 type HistoryFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // type of input value (same as output type)
 
 	init *interfaces.Init
@@ -157,6 +159,8 @@ func (obj *HistoryFunc) Build(typ *types.Type) (*types.Type, error) {
 // function.
 func (obj *HistoryFunc) Copy() interfaces.Func {
 	return &HistoryFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 
 		init: obj.init, // likely gets overwritten anyways

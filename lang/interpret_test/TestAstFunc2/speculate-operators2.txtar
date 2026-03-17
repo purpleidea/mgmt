@@ -5,3 +5,7 @@ test "hello" {
 }
 -- OUTPUT --
 # err: errUnify: type error: str != int: /main.mcl @ 3:16-3:33
+type error: str != int: /main.mcl @ 3:16-3:33
+
+	anotherstr => "hello world" + $x + "\n",
+	              ^^^^^^^^^^^^^^^^^

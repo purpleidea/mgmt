@@ -9499,6 +9499,9 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 			return fmt.Errorf("func is being re-built")
 		}
 		obj.function = obj.Function() // build it
+		if tf, ok := obj.function.(interfaces.TextareaSettable); ok {
+			tf.SetTextarea(obj.Textarea)
+		}
 		// pass in some data to the function
 		// TODO: do we want to pass in the full obj.data instead ?
 		if dataFunc, ok := obj.function.(interfaces.DataFunc); ok {
@@ -10118,6 +10121,9 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 				return nil, fmt.Errorf("the ExprFunc.Copy() does not produce an ExprFunc")
 			}
 			valueTransformingFunc := funcExprCopy.function
+			if tf, ok := valueTransformingFunc.(interfaces.TextareaSettable); ok {
+				tf.SetTextarea(obj.Textarea)
+			}
 			txn.AddVertex(valueTransformingFunc)
 			for i, arg := range args {
 				argName := obj.typ.Ord[i]
@@ -10300,7 +10306,7 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 		// *full.FuncValue implementation to make new functions when it
 		// gets called. We'll need more than one so they're not the same
 		// pointer!
-		return structs.FuncToFullFuncValue(copyFunc, obj.typ), nil
+		return structs.FuncToFullFuncValue(copyFunc, obj.typ, obj.Textarea), nil
 	}
 	// else if /* len(obj.Values) > 0 */
 
@@ -11137,6 +11143,11 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		outputFunc, err := exprFuncValue.CallWithFuncs(txn, argFuncs)
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "could not construct the static graph for a function call")
+		}
+		// Propagate ExprCall source position to functions created
+		// during speculation so dage errors include file/line info.
+		if tf, ok := outputFunc.(interfaces.TextareaSettable); ok && obj.Textarea.IsSet() {
+			tf.SetTextarea(obj.Textarea)
 		}
 		txn.AddVertex(outputFunc)
 

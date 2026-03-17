@@ -60,6 +60,8 @@ var _ interfaces.StreamableFunc = &GetValFunc{}
 // GetValFunc is special function which returns the value of a given key in the
 // exposed world.
 type GetValFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	input chan string // stream of inputs

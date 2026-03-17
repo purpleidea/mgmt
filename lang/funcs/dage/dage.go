@@ -365,7 +365,13 @@ Start:
 					if err == nil {
 						return
 					}
-					obj.errAppend(err)
+					// Don't wrap context errors with source
+					// positions, they're shutdown signals.
+					if ctx.Err() != nil {
+						obj.errAppend(err)
+					} else {
+						obj.errAppend(interfaces.HighlightHelper(f, obj.Logf, err))
+					}
 					obj.cancel() // error
 				}()
 				node.started = true
@@ -535,7 +541,7 @@ Start:
 				return fmt.Errorf("function didn't interrupt correctly: %s", node)
 			}
 			if err != nil {
-				return err
+				return interfaces.HighlightHelper(f, obj.Logf, err)
 			}
 			if node.result == nil && len(obj.graph.OutgoingGraphVertices(f)) > 0 {
 				// XXX: this check may not work if we have our
@@ -642,7 +648,7 @@ func (obj *Engine) call(ctx context.Context, args []types.Value, f interfaces.Fu
 			obj.Logf("panic in process: %+v", r)
 			obj.Logf("panic function(%T): %+v", f, f)
 			obj.Logf("panic args(%d): %+v", len(args), args)
-			reterr = fmt.Errorf("panic in process: %+v", r)
+			reterr = interfaces.HighlightHelper(f, obj.Logf, fmt.Errorf("panic in process: %+v", r))
 		}
 	}()
 

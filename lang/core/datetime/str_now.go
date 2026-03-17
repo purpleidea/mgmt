@@ -51,6 +51,8 @@ func init() {
 
 // StrNow is a fact which returns the current date and time.
 type StrNow struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 }
 

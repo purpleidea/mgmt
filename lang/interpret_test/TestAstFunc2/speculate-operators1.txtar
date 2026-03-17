@@ -4,3 +4,7 @@ test "hello" {
 }
 -- OUTPUT --
 # err: errUnify: type error: str != bool: /main.mcl @ 2:16-2:36
+type error: str != bool: /main.mcl @ 2:16-2:36
+
+	anotherstr => "hello world" + true + "\n",
+	              ^^^^^^^^^^^^^^^^^^^^

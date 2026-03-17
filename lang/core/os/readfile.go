@@ -59,6 +59,8 @@ func init() {
 // Please note that this is different from the readfile function in the deploy
 // package.
 type ReadFileFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	recWatcher *recwatch.RecWatcher

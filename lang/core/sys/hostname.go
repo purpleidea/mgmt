@@ -61,6 +61,8 @@ func init() {
 // Hostname is a function that returns the hostname.
 // TODO: support hostnames that change in the future.
 type Hostname struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 }
 

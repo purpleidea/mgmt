@@ -649,6 +649,8 @@ func LookupOperator(operator string, size int) (*types.Type, error) {
 // OperatorFunc is an operator function that performs an operation on N values.
 // XXX: Can we wrap SimpleFunc instead of having the boilerplate here ourselves?
 type OperatorFunc struct {
+	interfaces.Textarea
+
 	*docsUtil.Metadata
 
 	Type *types.Type // Kind == Function, including operator arg
@@ -842,6 +844,8 @@ func (obj *OperatorFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *OperatorFunc) Copy() interfaces.Func {
 	return &OperatorFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 
 		init: obj.init, // likely gets overwritten anyways

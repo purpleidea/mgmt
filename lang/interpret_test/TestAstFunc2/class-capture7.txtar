@@ -10,3 +10,7 @@ include foo
 include bar # nope!
 -- OUTPUT --
 # err: errSetScope: class `bar` does not exist in this scope: /main.mcl @ 9:1-9:12
+class `bar` does not exist in this scope: /main.mcl @ 9:1-9:12
+
+include bar # nope!
+^^^^^^^^^^^

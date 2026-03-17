@@ -61,6 +61,8 @@ var _ interfaces.DataFunc = &PoolFunc{}
 // a simple mechanism to allocate numbers to different inputs when we don't have
 // a hashing alternative. It does not allocate zero.
 type PoolFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
@@ -119,6 +121,8 @@ func (obj *PoolFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *PoolFunc) Copy() interfaces.Func {
 	return &PoolFunc{
+		Textarea: obj.Textarea,
+
 		init: obj.init, // likely gets overwritten anyways
 		data: obj.data, // needed because we don't call SetData twice
 	}

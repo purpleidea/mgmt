@@ -53,6 +53,8 @@ func init() {
 // yet merged any clever function engine optimizations. Once we do, this
 // function can be deprecated.
 type WeekdayFast struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 }
 

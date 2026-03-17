@@ -56,6 +56,8 @@ var _ interfaces.BuildableFunc = &ListConcatFunc{} // ensure it meets this expec
 // ListConcatFunc is a function which combines a number of lists into one list.
 // It can take one or more arguments. It combines them in argument order.
 type ListConcatFunc struct {
+	interfaces.Textarea
+
 	*wrapped.Func // *wrapped.Func as a type alias to pull in the base impl.
 
 	Type *types.Type // Kind == List, that is used as every list type
@@ -183,6 +185,8 @@ func (obj *ListConcatFunc) Build(typ *types.Type) (*types.Type, error) {
 // been lost by the time we used it in Build.
 func (obj *ListConcatFunc) Copy() interfaces.Func {
 	return &ListConcatFunc{
+		Textarea: obj.Textarea,
+
 		Type:   obj.Type, // don't copy because we use this after unification
 		length: obj.length,
 

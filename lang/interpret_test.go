@@ -871,6 +871,24 @@ func TestAstFunc2(t *testing.T) {
 			fail := errStr != ""
 			expstr = strings.Trim(expstr, "\n")
 
+			logCache := "" // save for comparing logs in tests
+			logCacher := func(format string, v ...interface{}) {
+				logCache += fmt.Sprintf(format, v...) + "\n"
+			}
+			expFilter := func(expstr string) string {
+				parts := strings.SplitN(expstr, "\n", 2)
+				if len(parts) == 1 {
+					return ""
+				}
+				var filtered []string
+				for _, line := range strings.Split(parts[1], "\n") {
+					if !strings.HasPrefix(line, magicError) {
+						filtered = append(filtered, line)
+					}
+				}
+				return strings.Join(filtered, "\n")
+			}
+
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
 			logf := func(format string, v ...interface{}) {
@@ -1015,6 +1033,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			importGraph.AddVertex(importVertex)
 
+			logCache = "" // reset
 			data := &interfaces.Data{
 				// TODO: add missing fields here if/when needed
 				Fs:       output.FS, // formerly: fs
@@ -1032,6 +1051,7 @@ func TestAstFunc2(t *testing.T) {
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("ast: "+format, v...)
+					logCacher(format, v...) // cache a copy
 				},
 			}
 			// some of this might happen *after* interpolate in SetScope or Unify...
@@ -1094,6 +1114,13 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+
+				// multiline error matching from logf
+				if s := expFilter(expstr); s != "" && !strings.Contains(logCache, s) {
+					t.Errorf("test #%d: err:\n%s", index, logCache)
+					t.Errorf("test #%d: exp:\n%s", index, s)
+				}
+
 				return // fail happened during set scope, don't run unification!
 			}
 			if failSetScope && err == nil {
@@ -1127,9 +1154,11 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}
 
+			logCache = "" // reset
 			// apply type unification
 			xlogf := func(format string, v ...interface{}) {
 				logf("unification: "+format, v...)
+				logCacher(format, v...) // cache a copy
 			}
 			solver, err := unification.LookupDefault()
 			if err != nil {
@@ -1158,6 +1187,13 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+
+				// multiline error matching from logf
+				if s := expFilter(expstr); s != "" && !strings.Contains(logCache, s) {
+					t.Errorf("test #%d: err:\n%s", index, logCache)
+					t.Errorf("test #%d: exp:\n%s", index, s)
+				}
+
 				return // fail happened during unification, don't run Graph!
 			}
 			if failUnify && err == nil {
@@ -1240,6 +1276,7 @@ func TestAstFunc2(t *testing.T) {
 				}
 			}
 
+			logCache = "" // reset
 			// run the function engine once to get some real output
 			funcs := &dage.Engine{
 				Name:     "test",
@@ -1250,6 +1287,7 @@ func TestAstFunc2(t *testing.T) {
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
 					logf("funcs: "+format, v...)
+					logCacher(format, v...) // cache a copy
 				},
 			}
 
@@ -1320,6 +1358,13 @@ func TestAstFunc2(t *testing.T) {
 					//	t.Logf("test #%d: err: %s", index, s)
 					//	t.Logf("test #%d: exp: %s", index, expstr)
 					//}
+
+					// multiline error matching from logf
+					if s := expFilter(expstr); s != "" && !strings.Contains(logCache, s) {
+						t.Errorf("test #%d: err:\n%s", index, logCache)
+						t.Errorf("test #%d: exp:\n%s", index, s)
+					}
+
 					return
 				}
 				if failStream && err == nil {

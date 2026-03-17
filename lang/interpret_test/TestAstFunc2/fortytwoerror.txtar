@@ -16,3 +16,7 @@ test ["x",] {
 }
 -- OUTPUT --
 # err: errUnify: type error: int != float: /main.mcl @ 10:6-10:25
+type error: int != float: /main.mcl @ 10:6-10:25
+
+$b = $myfortytwo() + 3.0
+     ^^^^^^^^^^^^^^^^^^^

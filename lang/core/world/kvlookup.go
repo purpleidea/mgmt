@@ -58,6 +58,8 @@ var _ interfaces.StreamableFunc = &KVLookupFunc{}
 // Since exchange has been deprecated, you will want to use this in conjunction
 // with a resource to set the desired value.
 type KVLookupFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	input     chan string // stream of inputs

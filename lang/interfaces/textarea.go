@@ -65,6 +65,11 @@ type Textarea struct {
 	Bug5819 interface{} // XXX: workaround
 }
 
+// SetTextarea copies the source position from another Textarea.
+func (obj *Textarea) SetTextarea(t Textarea) {
+	*obj = t
+}
+
 // Setup is used during AST initialization in order to store in each AST node
 // the name of the source file from which it was generated.
 func (obj *Textarea) Setup(data *Data) {
@@ -198,8 +203,16 @@ func (obj *Textarea) HighlightText() string {
 	return result.String()
 }
 
-// HighlightHelper gives the user better file/line number feedback.
-func HighlightHelper(node Node, logf func(format string, v ...interface{}), err error) error {
+// HighlightHelper gives the user better file/line number feedback. Node can be
+// a Node or a Func.
+func HighlightHelper(node interface{}, logf func(format string, v ...interface{}), err error) error {
+	type isSetChecker interface {
+		IsSet() bool
+	}
+	if checker, ok := node.(isSetChecker); ok && !checker.IsSet() {
+		return err
+	}
+
 	displayer, ok := node.(TextDisplayer)
 	if !ok {
 		return err
@@ -208,5 +221,14 @@ func HighlightHelper(node Node, logf func(format string, v ...interface{}), err 
 	if highlight := displayer.HighlightText(); highlight != "" {
 		logf("%s: %s", err.Error(), highlight)
 	}
+	//return errwrap.Wrapf(err, "%s", displayer.Byline()) // alternate
 	return fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
+}
+
+// TextareaSettable is implemented by functions that can receive source position
+// info. The embedded Textarea struct satisfies this interface automatically.
+type TextareaSettable interface {
+
+	// SetTextarea stores this Textarea on the struct in question.
+	SetTextarea(Textarea)
 }

@@ -71,6 +71,8 @@ func init() {
 // coordination. If you are using this for an intermediate value, or a
 // non-declarative system, then it's likely you are using this wrong.
 type SystemFunc struct {
+	interfaces.Textarea
+
 	init   *interfaces.Init
 	cancel context.CancelFunc
 

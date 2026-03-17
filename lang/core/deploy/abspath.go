@@ -58,6 +58,8 @@ var _ interfaces.DataFunc = &AbsPathFunc{}
 // empty string, you'll just get the absolute deploy directory path that you're
 // in.
 type AbsPathFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	data *interfaces.FuncData
 	last types.Value // last value received to use for diff
@@ -118,6 +120,8 @@ func (obj *AbsPathFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *AbsPathFunc) Copy() interfaces.Func {
 	return &AbsPathFunc{
+		Textarea: obj.Textarea,
+
 		init: obj.init, // likely gets overwritten anyways
 		data: obj.data, // needed because we don't call SetData twice
 	}

@@ -4,3 +4,7 @@ test "t1" {
 }
 -- OUTPUT --
 # err: errUnify: type error: str != int: /main.mcl @ 2:2-2:18
+type error: str != int: /main.mcl @ 2:2-2:18
+
+	stringptr => 42, # int, not str
+	^^^^^^^^^^^^^^^^

@@ -4,3 +4,7 @@ panic("please panic")
 test "hello" {}
 -- OUTPUT --
 # err: errStream: func `panic @ 0x0000000000` stopped before it was loaded
+str panic occurred: please panic: /main.mcl @ 2:1-2:22
+
+panic("please panic")
+^^^^^^^^^^^^^^^^^^^^^

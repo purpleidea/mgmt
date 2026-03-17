@@ -50,6 +50,8 @@ func init() {
 
 // ForKVLoopFunc is a function that is used for testing.
 type ForKVLoopFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	count int

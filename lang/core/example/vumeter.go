@@ -62,6 +62,8 @@ func init() {
 
 // VUMeterFunc is a gimmic function to display a vu meter from the microphone.
 type VUMeterFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 

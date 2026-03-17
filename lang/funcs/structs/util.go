@@ -103,10 +103,13 @@ func SimpleFnToConstFunc(name string, fv *types.FuncValue) interfaces.Func {
 // FuncToFullFuncValue creates a *full.FuncValue which adds the given
 // interfaces.Func to the graph. Note that this means the *full.FuncValue can
 // only be called once.
-func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type) *full.FuncValue {
+func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type, textarea interfaces.Textarea) *full.FuncValue {
 
 	v := func(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
 		valueTransformingFunc := makeFunc() // do this once here
+		if tf, ok := valueTransformingFunc.(interfaces.TextareaSettable); ok {
+			tf.SetTextarea(textarea)
+		}
 		if buildableFunc, ok := valueTransformingFunc.(interfaces.BuildableFunc); ok {
 			// Set the type in case it's not already done.
 			if _, err := buildableFunc.Build(typ); err != nil {

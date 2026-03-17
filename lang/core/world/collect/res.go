@@ -73,6 +73,8 @@ func init() {
 // filter as a second or third arg to attempt to reduce the amount of raw data
 // that we have to filter out in mcl.
 type ResFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	input chan string // stream of inputs

@@ -58,6 +58,8 @@ func init() {
 // UserExistsFunc is a function that determines if a linux user exists. It only
 // looks at /etc/passwd at this time.
 type UserExistsFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 }

@@ -61,6 +61,8 @@ func init() {
 // is loaded. This is similar to what you can determine from the `lsmod`
 // command. If the module does not even exist, this also returns false.
 type ModinfoLoadedFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 

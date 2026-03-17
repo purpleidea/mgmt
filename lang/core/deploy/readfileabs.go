@@ -59,6 +59,8 @@ var _ interfaces.DataFunc = &ReadFileAbsFunc{}
 // deploy. In general, you should use `deploy.readfile` instead. Please note
 // that this is different from the readfile function in the os package.
 type ReadFileAbsFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 	data *interfaces.FuncData
 }
@@ -114,6 +116,8 @@ func (obj *ReadFileAbsFunc) Init(init *interfaces.Init) error {
 // function.
 func (obj *ReadFileAbsFunc) Copy() interfaces.Func {
 	return &ReadFileAbsFunc{
+		Textarea: obj.Textarea,
+
 		init: obj.init, // likely gets overwritten anyways
 		data: obj.data, // needed because we don't call SetData twice
 	}

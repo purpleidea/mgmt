@@ -57,6 +57,8 @@ func init() {
 // FileExistsFunc is a function that returns if a local file exists or not. This
 // works with directories too.
 type FileExistsFunc struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	recWatcher *recwatch.RecWatcher

@@ -67,6 +67,8 @@ var _ interfaces.BuildableFunc = &FilterFunc{} // ensure it meets this expectati
 // languages that support partial function application, the former variant that
 // we implemented is much more readable when using an inline lambda.
 type FilterFunc struct {
+	interfaces.Textarea
+
 	Type *types.Type // this is the type of the elements in our input list
 
 	init *interfaces.Init
@@ -478,6 +480,8 @@ func (obj *FilterFunc) Cleanup(ctx context.Context) error {
 // function.
 func (obj *FilterFunc) Copy() interfaces.Func {
 	return &FilterFunc{
+		Textarea: obj.Textarea,
+
 		Type: obj.Type, // don't copy because we use this after unification
 
 		init: obj.init, // likely gets overwritten anyways

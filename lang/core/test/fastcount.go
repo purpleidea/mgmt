@@ -51,6 +51,8 @@ func init() {
 
 // FastCount is a fact that counts up as fast as possible from zero forever.
 type FastCount struct {
+	interfaces.Textarea
+
 	init *interfaces.Init
 
 	mutex *sync.Mutex

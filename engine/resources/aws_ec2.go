@@ -455,6 +455,7 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 
 	// cancellable context used for exiting cleanly
 	innerCtx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	// clean up when we're done
 	defer obj.wg.Wait()

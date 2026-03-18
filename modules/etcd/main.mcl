@@ -138,7 +138,7 @@ class service_file($path, $st) {
 	file "${path}" {
 		state => "exists",
 		content => golang.template(deploy.readfile("/files/etcd.service.tmpl"), $tmpl),
-		mode => "u=rw,go=",
+		mode => "u=rw,go=r", # systemd likes world readable
 		owner => "root",
 		group => "root",
 	}

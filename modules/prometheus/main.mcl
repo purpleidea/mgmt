@@ -161,7 +161,7 @@ class postgresql_base() {
 		content => deploy.readfile("/files/prometheus-postgres-exporter.service"),
 		owner => "root",
 		group => "root",
-		mode => "u=rw,go=r",
+		mode => "u=rw,go=r", # systemd likes world readable
 
 #		Depend => Pkg["prometheus-postgres-exporter"],
 #		Before => Svc["prometheus-postgres-exporter"],

@@ -194,7 +194,7 @@ func (obj *DeployTar) CheckApply(ctx context.Context, apply bool) (bool, error) 
 
 	filesystem, err := obj.init.World.Fs(uri) // open the remote file system
 	if err != nil {
-		return false, errwrap.Wrapf(err, "can't load code from file system `%s`", uri)
+		return false, errwrap.Wrapf(err, "can't load data from file system `%s`", uri)
 	}
 
 	h1, err := obj.hashFile(obj.getPath()) // output

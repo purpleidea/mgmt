@@ -152,7 +152,7 @@ func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Va
 	}
 	fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "can't load code from file system `%s`", obj.data.FsURI)
+		return nil, errwrap.Wrapf(err, "can't load data from file system `%s`", obj.data.FsURI)
 	}
 	// this is relative to the module dir the func is in!
 	content, err := fs.ReadFile(path) // open the remote file system

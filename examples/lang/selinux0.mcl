@@ -1,0 +1,9 @@
+file "/tmp/selinux-yes" {
+	content => "look at this file with ls -Z",
+	state => "exists",
+	selinux => "system_u:object_r:bin_t:s0",
+}
+file "/tmp/selinux-no" {
+	content => "look at this file with ls -Z",
+	state => "exists",
+}

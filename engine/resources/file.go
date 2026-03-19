@@ -55,6 +55,8 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -212,6 +214,9 @@ type FileRes struct {
 	// relative path.
 	Symlink bool `lang:"symlink" yaml:"symlink"`
 
+	// SELinux specifies the SELinux security context for the file.
+	SELinux *string `lang:"selinux" yaml:"selinux"`
+
 	sha256sum string
 }
 
@@ -310,6 +315,10 @@ func (obj *FileRes) Validate() error {
 
 	if obj.State == FileStateAbsent && (isContent || isSrc || isFrag) {
 		return fmt.Errorf("can't specify file Content, Source, or Fragments when State is %s", FileStateAbsent)
+	}
+
+	if obj.State == FileStateAbsent && obj.SELinux != nil {
+		return fmt.Errorf("can't specify SELinux when State is %s", FileStateAbsent)
 	}
 
 	// The path and Source must either both be dirs or both not be.
@@ -1361,6 +1370,62 @@ func (obj *FileRes) symlinkCheckApply(ctx context.Context, apply bool) (bool, er
 	return false, os.Symlink(obj.Source, p)
 }
 
+// selinuxCheckApply checks the file SELinux security context.
+func (obj *FileRes) selinuxCheckApply(ctx context.Context, apply bool) (bool, error) {
+	if obj.init.Debug {
+		obj.init.Logf("selinuxCheckApply(%t)", apply)
+	}
+
+	if obj.SELinux == nil { // nothing specified, we're done
+		return true, nil
+	}
+
+	// TODO: use https://github.com/opencontainers/selinux instead?
+	// use Lgetxattr for symlinks...
+	buf := make([]byte, 4096) // should be plenty for context
+	size, err := unix.Lgetxattr(obj.getPath(), "security.selinux", buf)
+	if err != nil && err != unix.ENODATA && err != unix.EOPNOTSUPP && err != unix.ENOTSUP {
+		return false, err
+	}
+
+	currentContext := ""
+	hasContext := false
+	if err == nil {
+		// SELinux contexts can be null terminated on disk
+		currentContext = string(bytes.Trim(buf[:size], "\x00"))
+		hasContext = true
+	}
+
+	if hasContext && *obj.SELinux == currentContext {
+		return true, nil
+	}
+	if !hasContext && *obj.SELinux == "" {
+		return true, nil
+	}
+
+	if !apply {
+		return false, nil
+	}
+
+	if *obj.SELinux == "" {
+		obj.init.Logf("removing selinux context")
+		err = unix.Lremovexattr(obj.getPath(), "security.selinux")
+	} else {
+		obj.init.Logf("selinux chcon: %s", *obj.SELinux)
+		// use Lsetxattr for symlinks...
+		err = unix.Lsetxattr(obj.getPath(), "security.selinux", []byte(*obj.SELinux), 0)
+	}
+
+	if err == unix.EOPNOTSUPP || err == unix.ENOTSUP {
+		return false, fmt.Errorf("setting SELinux context not supported on this filesystem")
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
@@ -1409,6 +1474,11 @@ func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		checkOK = false
 	}
 	if c, err := obj.chmodCheckApply(ctx, apply); err != nil {
+		return false, err
+	} else if !c {
+		checkOK = false
+	}
+	if c, err := obj.selinuxCheckApply(ctx, apply); err != nil {
 		return false, err
 	} else if !c {
 		checkOK = false
@@ -1478,6 +1548,15 @@ func (obj *FileRes) Cmp(r engine.Res) error {
 	}
 	if obj.Symlink != res.Symlink {
 		return fmt.Errorf("the Symlink option differs")
+	}
+
+	if (obj.SELinux == nil) != (res.SELinux == nil) { // xor
+		return fmt.Errorf("the SELinux option differs")
+	}
+	if obj.SELinux != nil && res.SELinux != nil {
+		if *obj.SELinux != *res.SELinux {
+			return fmt.Errorf("the contents of SELinux differ")
+		}
 	}
 
 	return nil
@@ -1651,7 +1730,7 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 	for _, frag := range obj.Fragments {
 		fragments = append(fragments, frag)
 	}
-	return &FileRes{
+	res := &FileRes{
 		Path:      obj.Path,
 		Dirname:   obj.Dirname,
 		Basename:  obj.Basename,
@@ -1666,7 +1745,13 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 		Force:     obj.Force,
 		Purge:     obj.Purge,
 		Symlink:   obj.Symlink,
+		SELinux:   obj.SELinux,
 	}
+	if obj.SELinux != nil {
+		s := *obj.SELinux
+		res.SELinux = &s
+	}
+	return res
 }
 
 // Reversed returns the "reverse" or "reciprocal" resource. This is used to
@@ -1753,6 +1838,7 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 	res.Owner = ""
 	res.Group = ""
 	res.Mode = ""
+	res.SELinux = nil
 	if err == nil {
 		stUnix, ok := fileInfo.Sys().(*syscall.Stat_t)
 		// XXX: add a !ok error scenario or some alternative?
@@ -1768,6 +1854,20 @@ func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
 		// TODO: use Mode().String() when we support full rwx style mode specs!
 		if obj.Mode != "" {
 			res.Mode = fmt.Sprintf("%#o", fileInfo.Mode().Perm()) // 0400, 0777, etc.
+		}
+
+		if obj.SELinux != nil { // XXX: test this scenario
+			// use Lgetxattr for symlinks...
+			buf := make([]byte, 4096) // should be plenty for context
+			size, err := unix.Lgetxattr(obj.getPath(), "security.selinux", buf)
+			if err != nil && err != unix.ENODATA && err != unix.EOPNOTSUPP && err != unix.ENOTSUP {
+				return nil, errwrap.Wrapf(err, "could not get selinux context for reversal")
+			}
+			res.SELinux = new(string) // default to empty string if missing
+			if err == nil {
+				// SELinux contexts can be null terminated on disk
+				*res.SELinux = string(bytes.Trim(buf[:size], "\x00"))
+			}
 		}
 	}
 

@@ -300,6 +300,18 @@ class router($st) {
 			#port => "",
 			comment => "remote administration",
 		})
+		include firewall.rule("111-accept-dns-fw-aux", struct{
+			action => "DNS(ACCEPT)",
+			source => "$FW",
+			dest => "aux",
+			comment => "Accept DNS connections from the firewall to the aux",
+		})
+		include firewall.rule("222-accept-fw-aux", struct{
+			action => "ACCEPT", # TODO: HTTP/HTTPS only?
+			source => "$FW",
+			dest => "aux",
+			comment => "Allow the firewall to make connections to the aux",
+		})
 		include firewall.rule("997-drop-ping-aux-fw", struct{
 			action => "Ping(DROP)",
 			source => "aux",
@@ -313,6 +325,34 @@ class router($st) {
 			proto => "icmp",
 		})
 	}
+
+	include firewall.rule("111-accept-dns-fw-net", struct{
+		action => "DNS(ACCEPT)",
+		source => "$FW",
+		dest => "net",
+		comment => "Accept DNS connections from the firewall to the network",
+	})
+
+	include firewall.rule("222-accept-fw-net", struct{
+		action => "ACCEPT", # TODO: HTTP/HTTPS only?
+		source => "$FW",
+		dest => "net",
+		comment => "Allow the firewall to make connections to the net",
+	})
+
+	include firewall.rule("222-accept-ping-fw-loc", struct{
+		action => "Ping(ACCEPT)",
+		source => "$FW",
+		dest => "loc",
+		comment => "Allow Ping from local network to the firewall",
+	})
+	include firewall.rule("222-accept-ping-loc-fw", struct{
+		action => "Ping(ACCEPT)",
+		source => "loc",
+		dest => "$FW",
+		comment => "Allow Ping from firewall to the local network",
+	})
+
 }
 
 class router:dhcp_host($st) {

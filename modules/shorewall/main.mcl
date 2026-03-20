@@ -27,8 +27,8 @@
 # additional permission if he deems it necessary to achieve the goals of this
 # additional permission.
 
+import "convert"
 import "deploy"
-import "fmt"
 import "golang"
 import "local"
 import "golang/strings" as golang_strings
@@ -370,7 +370,7 @@ class firewall:rule($name, $st) {
 	$valid_port = if $port == 0 {
 		"-"
 	} else {
-		fmt.printf("%d", $port)
+		convert.int_to_str($port)
 	}
 
 	# TODO: tabs for beautifying, replace with a padding function eventually.
@@ -549,7 +549,7 @@ class firewall:snat($name, $st) {
 	$valid_port = if $port == 0 {
 		"-"
 	} else {
-		fmt.printf("%d", $port)
+		convert.int_to_str($port)
 	}
 
 	# TODO: tabs for beautifying, replace with a padding function eventually.

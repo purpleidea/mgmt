@@ -65,7 +65,7 @@ class base($config) {
 	#$interface = _struct_lookup_optional($config, "interface", "eth0")
 
 	$http_port = $config->http_port || 4280	# using :4280 avoids needing root and isn't in /etc/services
-	$http_port_str = fmt.printf("%d", $http_port)
+	$http_port_str = convert.int_to_str($http_port)
 
 	# if $network is the empty string, then we don't do any dhcp ourselves!
 	# if $network is the empty string, then we don't bring up the interface!

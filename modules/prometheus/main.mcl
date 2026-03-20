@@ -1,3 +1,4 @@
+import "convert"
 import "deploy"
 import "fmt"
 import "golang"
@@ -94,7 +95,7 @@ class server:job($name, $st) {
 	$tmpl = struct{
 		name => "${name}",
 		host => "${host}",
-		port => fmt.printf("%d", $port),
+		port => convert.int_to_str($port),
 		comment => "${comment}",
 	}
 

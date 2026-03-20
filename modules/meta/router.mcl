@@ -255,7 +255,7 @@ class router($st) {
 		source => "loc",
 		dest => "$FW",
 		#proto => "",
-		#port => "",
+		#port => 22,
 		comment => "local administration",
 	})
 	include firewall.rule("111-accept-ssh-net-fw", struct{
@@ -263,7 +263,7 @@ class router($st) {
 		source => "net",
 		dest => "$FW",
 		#proto => "",
-		#port => "",
+		#port => 22,
 		comment => "remote administration",
 	})
 	include firewall.rule("997-drop-ping-net-fw", struct{
@@ -297,7 +297,7 @@ class router($st) {
 			source => "aux",
 			dest => "$FW",
 			#proto => "",
-			#port => "",
+			#port => 22,
 			comment => "remote administration",
 		})
 		include firewall.rule("111-accept-dns-fw-aux", struct{

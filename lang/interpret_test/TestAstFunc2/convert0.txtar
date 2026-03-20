@@ -1,0 +1,25 @@
+-- main.mcl --
+import "fmt"
+import "golang"
+#import "convert"
+
+class rule($st) {
+	$port = $st->port || 0
+
+	#$rule = fmt.printf("%d", $port)
+	$tmpl = struct{
+		#rule => "${rule}",
+		rule => fmt.printf("%d", $port),
+		#rule => convert.int_to_str($port), # safer
+	}
+	print "print" {
+		msg => golang.template("{{ .rule }}", $tmpl),
+
+	}
+}
+
+include rule(struct{
+	port => "51820", # not an int!
+})
+-- OUTPUT --
+# err: errUnify: func `printf` infer error: inconsistent type at arg index 1: type error: str != int

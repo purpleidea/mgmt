@@ -209,7 +209,7 @@ func HighlightHelper(node interface{}, logf func(format string, v ...interface{}
 	type isSetChecker interface {
 		IsSet() bool
 	}
-	if checker, ok := node.(isSetChecker); ok && !checker.IsSet() {
+	if checker, ok := node.(TextareaHasIsSet); ok && !checker.IsSet() {
 		return err
 	}
 
@@ -231,4 +231,10 @@ type TextareaSettable interface {
 
 	// SetTextarea stores this Textarea on the struct in question.
 	SetTextarea(Textarea)
+}
+
+// TextareaHasIsSet is implemented when a Node has an embedded textarea. We use
+// this to know if the location was set or not.
+type TextareaHasIsSet interface {
+	IsSet() bool
 }

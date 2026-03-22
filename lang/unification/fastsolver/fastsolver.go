@@ -139,6 +139,10 @@ func (obj *FastInvariantSolver) Solve(ctx context.Context, data *unification.Dat
 				obj.Logf("not displayable: %v\n", x.Node)
 				return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
 			}
+			if checker, ok := x.Node.(interfaces.TextareaHasIsSet); ok && !checker.IsSet() {
+				obj.Logf("not set: %v\n", x.Node)
+				return nil, errwrap.Wrapf(err, "unify error with: %s", x.Expr)
+			}
 			if highlight := displayer.HighlightText(); highlight != "" {
 				obj.Logf("%s: %s", err.Error(), highlight)
 			}

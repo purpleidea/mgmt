@@ -75,4 +75,10 @@ $foo = iter.map([$id1, $id2,], $generate)
 $name = $foo[0] || "fail"
 test "${name}" {}
 -- OUTPUT --
-# err: errUnify: unify error with: param(idn): type error: str != int
+# err: errUnify: type error: str != int: /main.mcl @ 64:13-69:2
+type error: str != int: /main.mcl @ 64:13-69:2
+
+$generate = func($idn) {
+            ^ from here ...
+}
+^ ... to here

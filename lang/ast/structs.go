@@ -3871,6 +3871,7 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 		obj.Index,
 		typExprIndex,
 	)
+	obj.indexParam.Textarea = obj.Textarea // inherit location from parent
 
 	typExprValue := obj.TypeValue
 	if obj.TypeValue == nil {
@@ -3883,6 +3884,7 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 		obj.Value,
 		typExprValue,
 	)
+	obj.valueParam.Textarea = obj.Textarea // inherit location from parent
 
 	newScope := scope.Copy()
 	newScope.Iterated = true // important!
@@ -4384,6 +4386,7 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 		obj.Key,
 		typExprKey,
 	)
+	obj.keyParam.Textarea = obj.Textarea // inherit location from parent
 
 	typExprVal := obj.TypeVal
 	if obj.TypeVal == nil {
@@ -4396,6 +4399,7 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 		obj.Val,
 		typExprVal,
 	)
+	obj.valParam.Textarea = obj.Textarea // inherit location from parent
 
 	newScope := scope.Copy()
 	newScope.Iterated = true // important!
@@ -9740,6 +9744,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				arg.Name,
 				arg.Type,
 			)
+			param.Textarea = obj.Textarea // inherit location from parent func
 			obj.params[i] = param
 			sctxBody[arg.Name] = param
 		}
@@ -11023,7 +11028,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 			// return them directly.
 			typ, invars, err := inferableFn.FuncInfer(partialType, partialValues)
 			if err != nil {
-				return nil, nil, errwrap.Wrapf(err, "func `%s` infer error", exprFunc.Title)
+				return nil, nil, interfaces.HighlightHelper(obj, obj.data.Logf, errwrap.Wrapf(err, "func `%s` infer error", exprFunc.Title))
 			}
 			invariants = append(invariants, invars...)
 			if typ == nil { // should get a sig, not a nil!
@@ -11640,6 +11645,8 @@ func (obj *ExprVar) Value() (types.Value, error) {
 
 // ExprParam represents a parameter to a function.
 type ExprParam struct {
+	interfaces.Textarea
+
 	typ *types.Type
 
 	Name string // name of the parameter
@@ -11670,8 +11677,9 @@ func (obj *ExprParam) Init(*interfaces.Data) error {
 // on any child elements and builds the new node with those new node contents.
 func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 	expr := &ExprParam{
-		typ:  obj.typ,
-		Name: obj.Name,
+		Textarea: obj.Textarea,
+		typ:      obj.typ,
+		Name:     obj.Name,
 	}
 	expr.envKey = expr
 	return expr, nil
@@ -11684,9 +11692,10 @@ func (obj *ExprParam) Interpolate() (interfaces.Expr, error) {
 // and they won't be able to have different values.
 func (obj *ExprParam) Copy() (interfaces.Expr, error) {
 	return &ExprParam{
-		typ:    obj.typ,
-		Name:   obj.Name,
-		envKey: obj.envKey, // don't copy
+		Textarea: obj.Textarea,
+		typ:      obj.typ,
+		Name:     obj.Name,
+		envKey:   obj.envKey, // don't copy
 	}, nil
 }
 

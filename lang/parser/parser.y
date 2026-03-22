@@ -1515,6 +1515,8 @@ var_identifier:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $2.str // don't include the leading $
+		$$.endRow = $2.endRow // propagate end position from identifier
+		$$.endCol = $2.endCol
 	}
 ;
 colon_identifier:
@@ -1550,6 +1552,8 @@ dotted_var_identifier:
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.str = $2.str // don't include the leading $
+		$$.endRow = $2.endRow // propagate end position from identifier
+		$$.endCol = $2.endCol
 	}
 ;
 capitalized_res_identifier:

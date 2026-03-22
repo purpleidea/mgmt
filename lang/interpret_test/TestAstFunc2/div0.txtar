@@ -1,0 +1,14 @@
+-- main.mcl --
+import "fmt"
+
+$result = 42/0 # should error here!
+
+print "math" {
+	msg => fmt.printf("42/0 = %f", $result),
+}
+-- OUTPUT --
+# err: errStream: /main.mcl @ 3:11-3:15: can't divide by zero
+can't divide by zero: /main.mcl @ 3:11-3:15
+
+$result = 42/0 # should error here!
+          ^^^^

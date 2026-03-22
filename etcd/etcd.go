@@ -169,16 +169,16 @@ const (
 	DefaultMaxTxnOps = 512
 
 	// ClientDialTimeout is the DialTimeout option in the client config.
-	ClientDialTimeout = 5 * time.Second
+	ClientDialTimeout = 15 * time.Second
 
 	// ClientDialKeepAliveTime is the DialKeepAliveTime config value for the
 	// etcd client. It is recommended that you use this so that dead
 	// endpoints don't block any cluster operations.
-	ClientDialKeepAliveTime = 2 * time.Second // from etcdctl
+	ClientDialKeepAliveTime = 10 * time.Second
 	// ClientDialKeepAliveTimeout is the DialKeepAliveTimeout config value
 	// for the etcd client. It is recommended that you use this so that dead
 	// endpoints don't block any cluster operations.
-	ClientDialKeepAliveTimeout = 6 * time.Second // from etcdctl
+	ClientDialKeepAliveTimeout = 20 * time.Second
 
 	// MemberChangeInterval is the polling interval to use when watching for
 	// member changes during add or remove.

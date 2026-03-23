@@ -52,6 +52,14 @@ class server($st) {
 		Before => File["/etc/systemd/system/etcd.service"],
 	}
 
+	file "/var/lib/etcd/" {
+		mode => "u=rwx,go=",
+		owner => "etcd",
+		#group => "etcd", # TODO: add me if we add an etcd group
+
+		Depend => User["etcd"],
+	}
+
 	include service_file("/etc/systemd/system/etcd.service", struct{
 		exec => "mgmt etcd", # full path to mgmt is optional
 		user => "etcd",

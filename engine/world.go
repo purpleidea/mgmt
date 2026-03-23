@@ -78,8 +78,9 @@ type FsWorld interface {
 
 	// Fs takes a URI and returns the filesystem that corresponds to that.
 	// This is a way to turn a unique string handle into an appropriate
-	// filesystem object that we can interact with.
-	Fs(uri string) (Fs, error)
+	// filesystem object that we can interact with. The ctx is used to
+	// cancel any operations that it can.
+	Fs(ctx context.Context, uri string) (Fs, error)
 }
 
 // DeployWorld is a world interface with all of the deploy functions.

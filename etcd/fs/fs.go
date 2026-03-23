@@ -62,8 +62,6 @@ const (
 	// Scheme is the unique name for this filesystem type.
 	Scheme = "etcdfs"
 
-	// EtcdTimeout is the timeout to wait before erroring.
-	EtcdTimeout = 5 * time.Second // FIXME: chosen arbitrarily
 	// DefaultDataPrefix is the default path for data storage in etcd.
 	DefaultDataPrefix = "/_etcdfs/data"
 	// DefaultHash is the default hashing algorithm to use.
@@ -113,6 +111,10 @@ type Fs struct {
 	DataPrefix string // prefix of data storage (no trailing slashes)
 	Hash       string // eg: sha256
 
+	// Ctx is the context to use for all etcd operations. If this is nil,
+	// then context.Background() will be used as a fallback.
+	Ctx context.Context
+
 	Debug bool
 	Logf  func(format string, v ...interface{})
 
@@ -138,11 +140,18 @@ func NewEtcdFs(client interfaces.Client, metadata string) afero.Fs {
 	}
 }
 
+// context returns the context to use for etcd operations. If Ctx is nil, it
+// falls back to context.Background().
+func (obj *Fs) context() context.Context {
+	if obj.Ctx != nil {
+		return obj.Ctx
+	}
+	return context.Background()
+}
+
 // get a number of values from etcd.
 func (obj *Fs) get(path string, opts ...etcd.OpOption) (map[string][]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
-	resp, err := obj.Client.Get(ctx, path, opts...)
-	cancel()
+	resp, err := obj.Client.Get(obj.context(), path, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,9 +170,7 @@ func (obj *Fs) get(path string, opts ...etcd.OpOption) (map[string][]byte, error
 
 // put a value into etcd.
 func (obj *Fs) set(path string, data []byte, opts ...etcd.OpOption) error {
-	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
-	err := obj.Client.Set(ctx, path, string(data), opts...)
-	cancel()
+	err := obj.Client.Set(obj.context(), path, string(data), opts...)
 	if err != nil {
 		switch err {
 		case context.Canceled:
@@ -181,10 +188,7 @@ func (obj *Fs) set(path string, data []byte, opts ...etcd.OpOption) error {
 
 // txn runs a txn in etcd.
 func (obj *Fs) txn(ifcmps []etcd.Cmp, thenops, elseops []etcd.Op) (*etcd.TxnResponse, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), EtcdTimeout)
-	resp, err := obj.Client.Txn(ctx, ifcmps, thenops, elseops)
-	cancel()
-	return resp, err
+	return obj.Client.Txn(obj.context(), ifcmps, thenops, elseops)
 }
 
 // hash is a small helper that does the hashing for us.

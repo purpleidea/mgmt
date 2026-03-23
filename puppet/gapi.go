@@ -175,7 +175,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 	}
 	obj.data = data // store for later
 
-	fs, err := obj.data.World.Fs(obj.InputURI) // open the remote file system
+	fs, err := obj.data.World.Fs(context.TODO(), obj.InputURI) // open the remote file system
 	if err != nil {
 		return errwrap.Wrapf(err, "can't load data from file system `%s`", obj.InputURI)
 	}

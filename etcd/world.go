@@ -273,7 +273,7 @@ func (obj *World) URI() string {
 // execution that doesn't span more than a single host, this file system might
 // actually be a local or memory backed file system, so actually only
 // distributed within the boredom that is a single host cluster.
-func (obj *World) Fs(uri string) (engine.Fs, error) {
+func (obj *World) Fs(ctx context.Context, uri string) (engine.Fs, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, err
@@ -300,6 +300,8 @@ func (obj *World) Fs(uri string) (engine.Fs, error) {
 	}
 
 	etcdFs := &etcdfs.Fs{
+		Ctx: ctx,
+
 		Client:     obj.client, // TODO: do we need to add a namespace?
 		Metadata:   u.Path,
 		DataPrefix: obj.StoragePrefix,

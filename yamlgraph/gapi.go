@@ -130,7 +130,7 @@ func (obj *GAPI) graph() (*pgraph.Graph, error) {
 		return nil, fmt.Errorf("%s: GAPI is not initialized", Name)
 	}
 
-	fs, err := obj.data.World.Fs(obj.InputURI) // open the remote file system
+	fs, err := obj.data.World.Fs(context.TODO(), obj.InputURI) // open the remote file system
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't load yaml from file system `%s`", obj.InputURI)
 	}

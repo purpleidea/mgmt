@@ -150,7 +150,7 @@ func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Va
 	if obj.init == nil || obj.data == nil {
 		return nil, funcs.ErrCantSpeculate
 	}
-	fs, err := obj.init.World.Fs(obj.data.FsURI) // open the remote file system
+	fs, err := obj.init.World.Fs(ctx, obj.data.FsURI) // open the remote file system
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't load data from file system `%s`", obj.data.FsURI)
 	}

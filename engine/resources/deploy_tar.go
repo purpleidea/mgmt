@@ -192,7 +192,7 @@ func (obj *DeployTar) Watch(ctx context.Context) error {
 func (obj *DeployTar) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	uri := obj.init.World.URI() // request each time to ensure it's fresh!
 
-	filesystem, err := obj.init.World.Fs(uri) // open the remote file system
+	filesystem, err := obj.init.World.Fs(ctx, uri) // open the remote file system
 	if err != nil {
 		return false, errwrap.Wrapf(err, "can't load data from file system `%s`", uri)
 	}

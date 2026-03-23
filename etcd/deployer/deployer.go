@@ -40,7 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
-	etcdutil "go.etcd.io/etcd/client/v3/clientv3util"
+	etcdUtil "go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 const (
@@ -193,14 +193,14 @@ func (obj *SimpleDeploy) AddDeploy(ctx context.Context, id uint64, hash, pHash s
 
 	// we're append only, so ensure this unique deploy id doesn't exist
 	//ifs = append(ifs, etcd.Compare(etcd.Version(path), "=", 0)) // KeyMissing
-	ifs = append(ifs, etcdutil.KeyMissing(path))
+	ifs = append(ifs, etcdUtil.KeyMissing(path))
 
 	// don't look for previous deploy if this is the first deploy ever
 	if id > 1 {
 		// we append sequentially, so ensure previous key *does* exist
 		prev := fmt.Sprintf("%s/%s/%d/%s", obj.ns, deployPath, id-1, payloadPath)
 		//ifs = append(ifs, etcd.Compare(etcd.Version(prev), ">", 0)) // KeyExists
-		ifs = append(ifs, etcdutil.KeyExists(prev))
+		ifs = append(ifs, etcdUtil.KeyExists(prev))
 
 		if hash != "" && pHash != "" {
 			// does the previously stored hash match what we expect?

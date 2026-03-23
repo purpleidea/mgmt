@@ -39,7 +39,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
-	etcdutil "go.etcd.io/etcd/client/v3/clientv3util"
+	etcdUtil "go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 const (
@@ -100,7 +100,7 @@ func SetStrMap(ctx context.Context, client interfaces.Client, hostname, key stri
 	ops := []etcd.Op{}  // list of ops in this transaction (then)
 	els := []etcd.Op{}  // list of ops in this transaction (else)
 	if data == nil {    // perform a delete
-		ifs = append(ifs, etcdutil.KeyExists(path))
+		ifs = append(ifs, etcdUtil.KeyExists(path))
 		//ifs = append(ifs, etcd.Compare(etcd.Version(path), ">", 0))
 		ops = append(ops, etcd.OpDelete(path))
 	} else {

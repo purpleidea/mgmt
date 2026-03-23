@@ -43,7 +43,7 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	etcd "go.etcd.io/etcd/client/v3"
-	etcdutil "go.etcd.io/etcd/client/v3/clientv3util"
+	etcdUtil "go.etcd.io/etcd/client/v3/clientv3util"
 )
 
 func init() {
@@ -276,7 +276,7 @@ func (obj *File) Sync() error {
 	p := obj.path() // store file data at this path in etcd
 
 	//cmp := etcd.Compare(etcd.Version(p), "=", 0) // KeyMissing
-	cmp := etcdutil.KeyMissing(p)
+	cmp := etcdUtil.KeyMissing(p)
 	op := etcd.OpPut(p, string(obj.data)) // this pushes contents to server
 
 	// it's important to do this in one transaction, and atomically, because

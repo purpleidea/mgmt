@@ -187,13 +187,12 @@ RouteMetric={{ .metric }}
 	}
 }
 
-# networkd_static sets up a static ip address with systemd-networkd.
+# networkd_static sets up a static ip address with systemd-networkd for local
+# or public networks.
 class networkd_static($dev, $st) {
-	$cidr = $st->cidr # cidr
-	$ip = net.cidr_to_ip($cidr)
-	$prefix = net.cidr_to_prefix($cidr)
-	#$router = $st->router || ""
-	$dns []str = $st->dns || [] # usually we don't by default!
+	$cidr = $st->cidr # cidr # the ip address in cidr format
+	$gateway = $st->gateway || ""
+	$dns []str = $st->dns || [] # we usually use this with the gateway interface
 	#$vips []str = $st->vips || [] # []cidr
 
 	#$metric = $st->metric || 50
@@ -204,7 +203,10 @@ class networkd_static($dev, $st) {
 Name=${dev}
 
 [Network]
-Address=${ip}/${prefix}
+Address=${cidr}
+{{ if .gateway -}}
+Gateway=${gateway}
+{{ end -}}
 {{ range .dns -}}
 DNS={{ . }}
 {{ end -}}
@@ -221,6 +223,7 @@ Metric=1001
 
 	$args = struct{
 		#dev => $dev,
+		gateway => $gateway,
 		dns => $dns,
 	}
 

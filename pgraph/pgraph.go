@@ -857,6 +857,46 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	return result, nil
 }
 
+// ReachabilityUnsafe is identical to Reachability but without the
+// TopologicalSort() DAG validation on every call and recursion. The caller must
+// ensure the graph is a DAG before calling this method.
+func (g *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
+	if a == nil || b == nil {
+		return nil, fmt.Errorf("empty vertex")
+	}
+
+	vertices := g.OutgoingGraphVertices(a) // what points away from a ?
+	if len(vertices) == 0 {
+		return []Vertex{}, nil // nope
+	}
+	if VertexContains(b, vertices) {
+		return []Vertex{a, b}, nil // found
+	}
+	// TODO: parallelize this with go routines?
+	var collected = make([][]Vertex, len(vertices))
+	var err error
+	pick := -1
+	for i, v := range vertices {
+		collected[i], err = g.ReachabilityUnsafe(v, b) // find b by recursion
+		if err != nil {
+			return nil, err
+		}
+		if l := len(collected[i]); l > 0 {
+			// pick shortest path
+			// TODO: technically i should return a tree
+			if pick < 0 || l < len(collected[pick]) {
+				pick = i
+			}
+		}
+	}
+	if pick < 0 {
+		return []Vertex{}, nil // nope
+	}
+	result := []Vertex{a} // tack on a
+	result = append(result, collected[pick]...)
+	return result, nil
+}
+
 // VertexMatchFn searches for a vertex in the graph and returns the vertex if
 // one matches. It uses a user defined function to match. That function must
 // return true on match, and an error if anything goes wrong.

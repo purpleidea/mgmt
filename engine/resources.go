@@ -33,7 +33,6 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -79,7 +78,7 @@ func RegisterResource(kind string, fn func() Res) {
 	}
 
 	if err := docsUtil.RegisterResource(kind, &docsUtil.Metadata{
-		Filename: filepath.Base(filename),
+		Filename: trimPath(filename),
 		Typename: sp[1],
 	}); err != nil {
 		panic(fmt.Sprintf("could not register resource metadata for %s", kind))
@@ -426,4 +425,13 @@ type YAMLRes interface {
 	Res
 
 	yaml.Unmarshaler // UnmarshalYAML(unmarshal func(interface{}) error) error
+}
+
+// trimPath is a helper used to find the path for documentation generation.
+func trimPath(s string) string {
+	const marker = "mgmt/engine/resources/" // dir base for mgmt resources
+	if idx := strings.LastIndex(s, marker); idx != -1 {
+		return s[idx+len(marker):]
+	}
+	return s
 }

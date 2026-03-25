@@ -178,6 +178,8 @@ type Simple struct {
 	Debug bool
 	Logf  func(format string, v ...interface{})
 
+	Context context.Context // user-specified default context
+
 	method method
 	wg     *sync.WaitGroup
 
@@ -212,6 +214,7 @@ func (obj *Simple) config() etcd.Config {
 		// RetryDialer chooses the next endpoint to use
 		// it comes with a default dialer if unspecified
 		DialTimeout: 5 * time.Second,
+		Context:     obj.Context,
 	}
 	return cfg
 }

@@ -42,6 +42,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/etcd"
@@ -107,6 +108,9 @@ type World struct {
 	init *engine.WorldInit
 
 	cleanups []func() error
+
+	sshMu       sync.Mutex
+	sshCleanups []func() error
 }
 
 // keySigners gets a list of possible key signers. These are used to get the
@@ -467,8 +471,6 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		HostKeyAlgorithms: obj.prioritizeHostKeyAlgorithms(preferredAlgoOrder, keyTypes),
 	}
 
-	sshCleanups := []func() error{}
-
 	// This runs repeatedly when etcd tries to reconnect.
 	grpcWithContextDialerFunc := func(ctx context.Context, addr string) (net.Conn, error) {
 
@@ -478,15 +480,17 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				continue // not what we're expecting
 			}
 
+			obj.sshMu.Lock()
 			// Cleanup previous connection...
 			var errs error
-			for i := len(sshCleanups) - 1; i >= 0; i-- { // reverse
-				f := sshCleanups[i]
+			for i := len(obj.sshCleanups) - 1; i >= 0; i-- { // reverse
+				f := obj.sshCleanups[i]
 				if err := f(); err != nil {
 					errs = errwrap.Append(errs, err)
 				}
 			}
-			sshCleanups = nil // clean
+			obj.sshCleanups = nil // clean
+			obj.sshMu.Unlock()
 			if errs != nil {
 				obj.init.Logf("error cleaning on reconnect: %+v", errs)
 			}
@@ -498,13 +502,15 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				obj.init.Logf("ssh dial error: %v", err)
 				continue
 			}
-			sshCleanups = append(sshCleanups, func() error {
+			obj.sshMu.Lock()
+			obj.sshCleanups = append(obj.sshCleanups, func() error {
 				e := sshClient.Close()
 				if obj.init.Debug && e != nil {
 					obj.init.Logf("ssh client close error: %+v", e)
 				}
 				return e
 			})
+			obj.sshMu.Unlock()
 
 			obj.init.Logf("tunnel: %s", addr)
 			tunnel, err := sshClient.Dial("tcp", addr)
@@ -514,8 +520,8 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				continue
 			}
 
-			// TODO: do we need a mutex around adding these?
-			sshCleanups = append(sshCleanups, func() error {
+			obj.sshMu.Lock()
+			obj.sshCleanups = append(obj.sshCleanups, func() error {
 				e := tunnel.Close()
 				if e == io.EOF { // XXX: why does this happen?
 					return nil // ignore
@@ -525,6 +531,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				}
 				return e
 			})
+			obj.sshMu.Unlock()
 
 			obj.init.Logf("ssh tunnel connected")
 			return tunnel, nil // connected successfully
@@ -540,17 +547,22 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		Backoff: backoff.DefaultConfig,
 		//MinConnectTimeout: ???
 	}
+
+	etcdCtx, etcdCancel := context.WithCancel(context.Background())
 	etcdClient, err := clientv3.New(clientv3.Config{
 		Endpoints: obj.Seeds,
 		DialOptions: []grpc.DialOption{
 			grpc.WithConnectParams(grpcConnectParams),
 			grpc.WithContextDialer(grpcWithContextDialerFunc),
 		},
+		Context: etcdCtx,
 	})
 	if err != nil {
+		etcdCancel()
 		return errwrap.Append(obj.cleanup(), err)
 	}
 	obj.cleanups = append(obj.cleanups, func() error {
+		etcdCancel()
 		e := etcdClient.Close()
 		if obj.init.Debug && e != nil {
 			obj.init.Logf("etcd client close error: %+v", e)
@@ -592,6 +604,17 @@ func (obj *World) cleanup() error {
 		}
 	}
 	obj.cleanups = nil // clean
+
+	obj.sshMu.Lock()
+	for i := len(obj.sshCleanups) - 1; i >= 0; i-- { // reverse
+		f := obj.sshCleanups[i]
+		if err := f(); err != nil {
+			errs = errwrap.Append(errs, err)
+		}
+	}
+	obj.sshCleanups = nil // clean
+	obj.sshMu.Unlock()
+
 	return errs
 }
 

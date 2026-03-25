@@ -86,10 +86,17 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 			obj.Seeds, // endpoints
 			obj.NS,
 		)
+
+		etcdCtx, etcdCancel := context.WithCancel(context.Background())
+		c.Context = etcdCtx
+
 		if err := c.Init(); err != nil {
+			etcdCancel()
 			return errwrap.Wrapf(err, "client Init failed")
 		}
+
 		obj.cleanups = append(obj.cleanups, func() error {
+			etcdCancel()
 			e := c.Close()
 			if obj.init.Debug && e != nil {
 				obj.init.Logf("etcd client close error: %+v", e)

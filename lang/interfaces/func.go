@@ -40,6 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 // FuncSig is the simple signature that is used throughout our implementations.
@@ -56,6 +57,34 @@ func (obj Table) Copy() Table {
 		cp[k] = v
 	}
 	return cp
+}
+
+// Cmp returns an error if this table isn't the same as the arg passed in.
+func (obj Table) Cmp(val Table) error {
+	if len(obj) != len(val) {
+		return fmt.Errorf("tables have different lengths")
+	}
+
+	for k, v := range obj {
+		v2, exists := val[k]
+		if !exists {
+			return fmt.Errorf("key %s does not exist", k)
+		}
+
+		if v == nil && v2 == nil {
+			continue
+		}
+
+		if v == nil || v2 == nil {
+			return fmt.Errorf("key %s has nil mismatch", k)
+		}
+
+		if err := v.Cmp(v2); err != nil {
+			return errwrap.Wrapf(err, "key %s did not cmp", k)
+		}
+	}
+
+	return nil
 }
 
 // GraphSig is the simple signature that is used throughout our implementations.

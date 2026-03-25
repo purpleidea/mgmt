@@ -128,6 +128,9 @@ type Engine struct {
 	// streamChan is used to send the stream of tables to the outside world.
 	streamChan chan interfaces.Table
 
+	// lastTable stores the last table that was sent to streamChan.
+	lastTable interfaces.Table
+
 	// interrupt specifies that a txn "commit" just happened.
 	interrupt bool
 
@@ -281,6 +284,7 @@ Start:
 			// and those transactions run obj.effect() which resets
 			// this interrupt value back to true!
 			obj.interrupt = false            // reset
+			obj.lastTable = nil              // structural change, always send!
 			start = 0                        // restart the loop
 			for i, v := range obj.topoSort { // TODO: Do it once here, or repeatedly below?
 				mapping[v] = i
@@ -575,18 +579,24 @@ Start:
 		// The table must get cleaned up over time to be consistent. It
 		// currently happens in interrupt as a result of a node delete.
 
-		cp := table.Copy()
-		if obj.Debug {
-			obj.Logf("table:")
-			for k, v := range cp {
-				obj.Logf("table[%p %v]: %p %+v", k, k, v, v)
+		if obj.lastTable != nil && obj.lastTable.Cmp(table) == nil {
+			if obj.Debug {
+				obj.Logf("skipping table send, no change")
 			}
-		}
-		select {
-		case obj.streamChan <- cp:
-
-		case <-ctx.Done():
-			return ctx.Err()
+		} else {
+			cp := table.Copy()
+			if obj.Debug {
+				obj.Logf("table:")
+				for k, v := range cp {
+					obj.Logf("table[%p %v]: %p %+v", k, k, v, v)
+				}
+			}
+			select {
+			case obj.streamChan <- cp:
+				obj.lastTable = cp
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
 
 		// XXX: implement epoch rollover by relabelling all nodes

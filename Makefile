@@ -60,7 +60,17 @@ endif
 ifeq ($(MGMT_NOGOLANGRACE),true)
 	GOLANGRACE =
 else
-	GOLANGRACE = -race
+	# can't use -race with CGO_ENABLED=0
+	ifeq ($(MGMT_NOCGO),true)
+		GOLANGRACE =
+	else
+		GOLANGRACE = -race
+	endif
+endif
+ifeq ($(MGMT_NOCGO),true)
+	GOLANGCGO = CGO_ENABLED=0
+else
+	GOLANGCGO =
 endif
 ARCH = $(uname -m)
 SPEC = rpmbuild/SPECS/$(PROGRAM).spec
@@ -248,7 +258,7 @@ build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum |
 	@# XXX: leave race detector on by default for now. For production
 	@# builds, we can consider turning it off for performance improvements.
 	@# XXX: ./mgmt run --tmp-prefix lang something_fast.mcl > /tmp/race 2>&1 # search for "WARNING: DATA RACE"
-	time env GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) $(GOLANGRACE) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+	time env $(GOLANGCGO) GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) $(GOLANGRACE) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
 
 # create a list of binary file names to use as make targets
 # to use this you might want to run something like:

@@ -201,7 +201,7 @@ type StmtBind struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtBind) String() string {
-	return fmt.Sprintf("bind(%s)", obj.Ident)
+	return "bind(" + obj.Ident + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -403,7 +403,7 @@ type StmtRes struct {
 // String returns a short representation of this statement.
 func (obj *StmtRes) String() string {
 	// TODO: add .String() for Contents and Name
-	return fmt.Sprintf("res(%s)", obj.Kind)
+	return "res(" + obj.Kind + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -1617,7 +1617,7 @@ type StmtResField struct {
 // String returns a short representation of this statement.
 func (obj *StmtResField) String() string {
 	// TODO: add .String() for Condition and Value
-	return fmt.Sprintf("resfield(%s)", obj.Field)
+	return "resfield(" + obj.Field + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -1902,7 +1902,7 @@ type StmtResEdge struct {
 // String returns a short representation of this statement.
 func (obj *StmtResEdge) String() string {
 	// TODO: add .String() for Condition and EdgeHalf
-	return fmt.Sprintf("resedge(%s)", obj.Property)
+	return "resedge(" + obj.Property + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -2154,7 +2154,7 @@ type StmtResMeta struct {
 // String returns a short representation of this statement.
 func (obj *StmtResMeta) String() string {
 	// TODO: add .String() for Condition and MetaExpr
-	return fmt.Sprintf("resmeta(%s)", obj.Property)
+	return "resmeta(" + obj.Property + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -2508,7 +2508,7 @@ type StmtResCollect struct {
 // String returns a short representation of this statement.
 func (obj *StmtResCollect) String() string {
 	// TODO: add .String() for Condition and Value
-	return fmt.Sprintf("rescollect(%s)", obj.Kind)
+	return "rescollect(" + obj.Kind + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -3058,7 +3058,7 @@ type StmtEdgeHalf struct {
 // String returns a short representation of this statement.
 func (obj *StmtEdgeHalf) String() string {
 	// TODO: add .String() for Name
-	return fmt.Sprintf("edgehalf(%s)", obj.Kind)
+	return "edgehalf(" + obj.Kind + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -3229,15 +3229,15 @@ type StmtIf struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtIf) String() string {
-	s := fmt.Sprintf("if( %s )", obj.Condition.String())
+	s := "if( " + obj.Condition.String() + " )"
 
 	if obj.ThenBranch != nil {
-		s += fmt.Sprintf(" { %s }", obj.ThenBranch.String())
+		s += " { " + obj.ThenBranch.String() + " }"
 	} else {
 		s += " { }"
 	}
 	if obj.ElseBranch != nil {
-		s += fmt.Sprintf(" else { %s }", obj.ElseBranch.String())
+		s += " else { " + obj.ElseBranch.String() + " }"
 	}
 
 	return s
@@ -3626,10 +3626,10 @@ type StmtFor struct {
 // String returns a short representation of this statement.
 func (obj *StmtFor) String() string {
 	// TODO: improve/change this if needed
-	s := fmt.Sprintf("for($%s, $%s)", obj.Index, obj.Value)
-	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	s := "for($" + obj.Index + ", $" + obj.Value + ")"
+	s += " in " + obj.Expr.String()
 	if obj.Body != nil {
-		s += fmt.Sprintf(" { %s }", obj.Body.String())
+		s += " { " + obj.Body.String() + " }"
 	}
 	return s
 }
@@ -4144,10 +4144,10 @@ type StmtForKV struct {
 // String returns a short representation of this statement.
 func (obj *StmtForKV) String() string {
 	// TODO: improve/change this if needed
-	s := fmt.Sprintf("forkv($%s, $%s)", obj.Key, obj.Val)
-	s += fmt.Sprintf(" in %s", obj.Expr.String())
+	s := "forkv($" + obj.Key + ", $" + obj.Val + ")"
+	s += " in " + obj.Expr.String()
 	if obj.Body != nil {
-		s += fmt.Sprintf(" { %s }", obj.Body.String())
+		s += " { " + obj.Body.String() + " }"
 	}
 	return s
 }
@@ -6255,7 +6255,7 @@ type StmtFunc struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtFunc) String() string {
-	return fmt.Sprintf("func(%s)", obj.Name)
+	return "func(" + obj.Name + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -6471,7 +6471,7 @@ type StmtClass struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtClass) String() string {
-	return fmt.Sprintf("class(%s)", obj.Name)
+	return "class(" + obj.Name + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -6686,7 +6686,7 @@ type StmtInclude struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtInclude) String() string {
-	return fmt.Sprintf("include(%s)", obj.Name)
+	return "include(" + obj.Name + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -7180,7 +7180,7 @@ type StmtImport struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtImport) String() string {
-	return fmt.Sprintf("import(%s)", obj.Name)
+	return "import(" + obj.Name + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -7287,7 +7287,7 @@ type StmtComment struct {
 
 // String returns a short representation of this statement.
 func (obj *StmtComment) String() string {
-	return fmt.Sprintf("comment(%s)", obj.Value)
+	return "comment(" + obj.Value + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -7372,7 +7372,7 @@ type ExprBool struct {
 }
 
 // String returns a short representation of this expression.
-func (obj *ExprBool) String() string { return fmt.Sprintf("bool(%t)", obj.V) }
+func (obj *ExprBool) String() string { return "bool(" + strconv.FormatBool(obj.V) + ")" }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
 // is not used as the primary AST traversal function because it is less readable
@@ -7528,7 +7528,7 @@ type ExprStr struct {
 }
 
 // String returns a short representation of this expression.
-func (obj *ExprStr) String() string { return fmt.Sprintf("str(%s)", strconv.Quote(obj.V)) }
+func (obj *ExprStr) String() string { return "str(" + strconv.Quote(obj.V) + ")" }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
 // is not used as the primary AST traversal function because it is less readable
@@ -7726,7 +7726,7 @@ type ExprInt struct {
 }
 
 // String returns a short representation of this expression.
-func (obj *ExprInt) String() string { return fmt.Sprintf("int(%d)", obj.V) }
+func (obj *ExprInt) String() string { return "int(" + strconv.FormatInt(obj.V, 10) + ")" }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
 // is not used as the primary AST traversal function because it is less readable
@@ -7882,7 +7882,8 @@ type ExprFloat struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprFloat) String() string {
-	return fmt.Sprintf("float(%g)", obj.V) // TODO: %f instead?
+	//return fmt.Sprintf("float(%g)", obj.V) // TODO: %f instead?
+	return "float(" + strconv.FormatFloat(obj.V, 'g', -1, 64) + ")" // %g with Sprintf
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -8045,7 +8046,7 @@ func (obj *ExprList) String() string {
 	for _, x := range obj.Elements {
 		s = append(s, x.String())
 	}
-	return fmt.Sprintf("list(%s)", strings.Join(s, ", "))
+	return "list(" + strings.Join(s, ", ") + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -8327,7 +8328,7 @@ func (obj *ExprList) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		}
 		graph.AddGraph(g)
 
-		fieldName := fmt.Sprintf("%d", index) // argNames as integers!
+		fieldName := strconv.Itoa(index) // argNames as integers!
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 		graph.AddEdge(f, function, edge) // element -> list
 	}
@@ -8409,9 +8410,9 @@ type ExprMap struct {
 func (obj *ExprMap) String() string {
 	var s []string
 	for _, x := range obj.KVs {
-		s = append(s, fmt.Sprintf("%s: %s", x.Key.String(), x.Val.String()))
+		s = append(s, x.Key.String()+": "+x.Val.String())
 	}
-	return fmt.Sprintf("map(%s)", strings.Join(s, ", "))
+	return "map(" + strings.Join(s, ", ") + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -8479,7 +8480,7 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 	}
 
 	// The `nil` type is not important, we just need any stand-in.
-	mapTyp := types.NewType(fmt.Sprintf("map{%s: nil}", typ.String()))
+	mapTyp := types.NewType("map{" + typ.String() + ": nil}")
 	m := mapTyp.New().(*types.MapValue)
 	if m == nil {
 		// If you build a map with an invalid type, then it will be nil.
@@ -8842,7 +8843,7 @@ func (obj *ExprMap) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, 
 		graph.AddGraph(g)
 
 		// do the key names ever change? -- yes
-		fieldName := fmt.Sprintf("key:%d", index) // stringify map key
+		fieldName := "key:" + strconv.Itoa(index) // stringify map key
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 		graph.AddEdge(f, function, edge) // key -> map
 	}
@@ -8855,7 +8856,7 @@ func (obj *ExprMap) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, 
 		}
 		graph.AddGraph(g)
 
-		fieldName := fmt.Sprintf("val:%d", index) // stringify map val
+		fieldName := "val:" + strconv.Itoa(index) // stringify map val
 		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
 		graph.AddEdge(f, function, edge) // val -> map
 	}
@@ -8982,9 +8983,9 @@ type ExprStruct struct {
 func (obj *ExprStruct) String() string {
 	var s []string
 	for _, x := range obj.Fields {
-		s = append(s, fmt.Sprintf("%s: %s", x.Name, x.Value.String()))
+		s = append(s, x.Name+": "+x.Value.String())
 	}
-	return fmt.Sprintf("struct(%s)", strings.Join(s, "; "))
+	return "struct(" + strings.Join(s, "; ") + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -9428,18 +9429,18 @@ type ExprFunc struct {
 func (obj *ExprFunc) String() string {
 	if len(obj.Values) == 1 {
 		if obj.Title != "" {
-			return fmt.Sprintf("func() { <built-in:%s (simple)> }", obj.Title)
+			return "func() { <built-in:" + obj.Title + " (simple)> }"
 		}
 		return "func() { <built-in (simple)> }"
 	} else if len(obj.Values) > 0 {
 		if obj.Title != "" {
-			return fmt.Sprintf("func() { <built-in:%s (simple, poly)> }", obj.Title)
+			return "func() { <built-in:" + obj.Title + " (simple, poly)> }"
 		}
 		return "func() { <built-in (simple, poly)> }"
 	}
 	if obj.Function != nil {
 		if obj.Title != "" {
-			return fmt.Sprintf("func() { <built-in:%s> }", obj.Title)
+			return "func() { <built-in:" + obj.Title + "> }"
 		}
 		return "func() { <built-in> }"
 	}
@@ -9452,14 +9453,14 @@ func (obj *ExprFunc) String() string {
 		a = append(a, x.String())
 	}
 	args := strings.Join(a, ", ")
-	s := fmt.Sprintf("func(%s)", args)
+	s := "func(" + args + ")"
 	if obj.Title != "" {
-		s = fmt.Sprintf("func:%s(%s)", obj.Title, args) // overwrite!
+		s = "func:" + obj.Title + "(" + args + ")" // overwrite!
 	}
 	if obj.Return != nil {
-		s += fmt.Sprintf(" %s", obj.Return.String())
+		s += " " + obj.Return.String()
 	}
-	s += fmt.Sprintf(" { %s }", obj.Body.String())
+	s += " { " + obj.Body.String() + " }"
 	return s
 }
 
@@ -10177,7 +10178,7 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		simpleFn := obj.Values[index]
 		simpleFn.T = obj.typ
 
-		funcValueFunc = structs.SimpleFnToConstFunc(fmt.Sprintf("title: %s", obj.Title), simpleFn)
+		funcValueFunc = structs.SimpleFnToConstFunc("title: "+obj.Title, simpleFn)
 	}
 
 	outerGraph, err := pgraph.NewGraph("ExprFunc")
@@ -10377,7 +10378,7 @@ func (obj *ExprCall) String() string {
 	if obj.Name == "" && obj.Anon != nil {
 		name = "<anon>"
 	}
-	return fmt.Sprintf("call:%s(%s)", name, strings.Join(s, ", "))
+	return "call:" + name + "(" + strings.Join(s, ", ") + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -11366,7 +11367,7 @@ type ExprVar struct {
 }
 
 // String returns a short representation of this expression.
-func (obj *ExprVar) String() string { return fmt.Sprintf("var(%s)", obj.Name) }
+func (obj *ExprVar) String() string { return "var(" + obj.Name + ")" }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
 // is not used as the primary AST traversal function because it is less readable
@@ -11655,9 +11656,7 @@ type ExprParam struct {
 }
 
 // String returns a short representation of this expression.
-func (obj *ExprParam) String() string {
-	return fmt.Sprintf("param(%s)", obj.Name)
-}
+func (obj *ExprParam) String() string { return "param(" + obj.Name + ")" }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
 // is not used as the primary AST traversal function because it is less readable
@@ -11873,7 +11872,7 @@ type ExprIterated struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprIterated) String() string {
-	return fmt.Sprintf("iterated(%v %s)", obj.Definition, obj.Name)
+	return "iterated(" + obj.Definition.String() + " " + obj.Name + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -12056,7 +12055,7 @@ type ExprPoly struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprPoly) String() string {
-	return fmt.Sprintf("polymorphic(%s)", obj.Definition.String())
+	return "polymorphic(" + obj.Definition.String() + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -12180,7 +12179,7 @@ type ExprTopLevel struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprTopLevel) String() string {
-	return fmt.Sprintf("topLevel(%s)", obj.Definition.String())
+	return "topLevel(" + obj.Definition.String() + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -12364,7 +12363,7 @@ type ExprSingleton struct {
 
 // String returns a short representation of this expression.
 func (obj *ExprSingleton) String() string {
-	return fmt.Sprintf("singleton(%s)", obj.Definition.String())
+	return "singleton(" + obj.Definition.String() + ")"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It
@@ -12582,7 +12581,7 @@ func (obj *ExprIf) String() string {
 	condition := obj.Condition.String()
 	thenBranch := obj.ThenBranch.String()
 	elseBranch := obj.ElseBranch.String()
-	return fmt.Sprintf("if( %s ) { %s } else { %s }", condition, thenBranch, elseBranch)
+	return "if( " + condition + " ) { " + thenBranch + " } else { " + elseBranch + " }"
 }
 
 // Apply is a general purpose iterator method that operates on any AST node. It

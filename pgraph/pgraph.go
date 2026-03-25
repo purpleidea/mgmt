@@ -75,13 +75,13 @@ type Edge interface {
 }
 
 // Init initializes the graph which populates all the internal structures.
-func (g *Graph) Init() error {
-	if g.Name == "" { // FIXME: is this really a good requirement?
+func (obj *Graph) Init() error {
+	if obj.Name == "" { // FIXME: is this really a good requirement?
 		return fmt.Errorf("can't initialize graph with empty name")
 	}
 
-	g.adjacency = make(map[Vertex]map[Vertex]Edge)
-	//g.kv = make(map[string]interface{}) // not required
+	obj.adjacency = make(map[Vertex]map[Vertex]Edge)
+	//obj.kv = make(map[string]interface{}) // not required
 	return nil
 }
 
@@ -94,33 +94,33 @@ func NewGraph(name string) (*Graph, error) {
 }
 
 // Value returns a value stored alongside the graph in a particular key.
-func (g *Graph) Value(key string) (interface{}, bool) {
-	val, exists := g.kv[key]
+func (obj *Graph) Value(key string) (interface{}, bool) {
+	val, exists := obj.kv[key]
 	return val, exists
 }
 
 // SetValue sets a value to be stored alongside the graph in a particular key.
-func (g *Graph) SetValue(key string, val interface{}) {
-	if g.kv == nil { // initialize on first use
-		g.kv = make(map[string]interface{})
+func (obj *Graph) SetValue(key string, val interface{}) {
+	if obj.kv == nil { // initialize on first use
+		obj.kv = make(map[string]interface{})
 	}
-	g.kv[key] = val
+	obj.kv[key] = val
 }
 
 // Copy makes a copy of the graph struct. This doesn't copy the individual
 // vertices or edges, those pointers remain untouched. This lets you modify the
 // structure of the graph without changing the original. If you also want to
 // copy the nodes, please use CopyWithFn instead.
-func (g *Graph) Copy() *Graph {
-	if g == nil { // allow nil graphs through
-		return g
+func (obj *Graph) Copy() *Graph {
+	if obj == nil { // allow nil graphs through
+		return obj
 	}
 	newGraph := &Graph{
-		Name:      g.Name,
-		adjacency: make(map[Vertex]map[Vertex]Edge, len(g.adjacency)),
-		kv:        g.kv,
+		Name:      obj.Name,
+		adjacency: make(map[Vertex]map[Vertex]Edge, len(obj.adjacency)),
+		kv:        obj.kv,
 	}
-	for v1, m := range g.adjacency {
+	for v1, m := range obj.adjacency {
 		newGraph.adjacency[v1] = make(map[Vertex]Edge)
 		for v2, e := range m {
 			newGraph.adjacency[v1][v2] = e // copy
@@ -132,20 +132,20 @@ func (g *Graph) Copy() *Graph {
 // CopyWithFn makes a copy of the graph struct but lets you provide a function
 // to copy the vertices.
 // TODO: add tests
-func (g *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, error) {
-	if g == nil { // allow nil graphs through
-		return g, nil
+func (obj *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, error) {
+	if obj == nil { // allow nil graphs through
+		return obj, nil
 	}
-	if l := len(g.adjacency); vertexCpFn == nil && l > 0 {
+	if l := len(obj.adjacency); vertexCpFn == nil && l > 0 {
 		return nil, fmt.Errorf("graph has %d vertices, but vertexCpFn is nil", l)
 	}
 	newGraph := &Graph{
-		Name:      g.Name,
-		adjacency: make(map[Vertex]map[Vertex]Edge, len(g.adjacency)),
-		kv:        g.kv,
+		Name:      obj.Name,
+		adjacency: make(map[Vertex]map[Vertex]Edge, len(obj.adjacency)),
+		kv:        obj.kv,
 	}
 	vm := make(map[Vertex]Vertex) // copy mapping from old ptr to new ptr...
-	for v1, m := range g.adjacency {
+	for v1, m := range obj.adjacency {
 		// We copy each vertex, but then we need to do a lookup so that
 		// when (if) we see that old pointer again, we use the new one.
 		v, err := vertexCpFn(v1) // copy
@@ -178,7 +178,7 @@ func (g *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, err
 // structure but with replacements done according to the translation map passed
 // in. If a vertex is not found in the graph, then it is not substituted.
 // TODO: add tests
-func (g *Graph) VertexSwap(vs map[Vertex]Vertex) (*Graph, error) {
+func (obj *Graph) VertexSwap(vs map[Vertex]Vertex) (*Graph, error) {
 	vertexCpFn := func(v Vertex) (Vertex, error) {
 		if vs == nil { // pass through
 			return v, nil
@@ -191,76 +191,76 @@ func (g *Graph) VertexSwap(vs map[Vertex]Vertex) (*Graph, error) {
 	}
 
 	// We can implement the logic we want on top of CopyWithFn easily!
-	return g.CopyWithFn(vertexCpFn)
+	return obj.CopyWithFn(vertexCpFn)
 }
 
 // GetName returns the name of the graph.
-func (g *Graph) GetName() string {
-	return g.Name
+func (obj *Graph) GetName() string {
+	return obj.Name
 }
 
 // SetName sets the name of the graph.
-func (g *Graph) SetName(name string) {
-	g.Name = name
+func (obj *Graph) SetName(name string) {
+	obj.Name = name
 }
 
 // AddVertex uses variadic input to add all listed vertices to the graph.
-func (g *Graph) AddVertex(xv ...Vertex) {
-	if g.adjacency == nil { // initialize on first use
-		g.adjacency = make(map[Vertex]map[Vertex]Edge)
+func (obj *Graph) AddVertex(xv ...Vertex) {
+	if obj.adjacency == nil { // initialize on first use
+		obj.adjacency = make(map[Vertex]map[Vertex]Edge)
 	}
 	for _, v := range xv {
 		if v == nil {
 			panic("nil vertex")
 		}
-		if _, exists := g.adjacency[v]; !exists {
-			g.adjacency[v] = make(map[Vertex]Edge)
+		if _, exists := obj.adjacency[v]; !exists {
+			obj.adjacency[v] = make(map[Vertex]Edge)
 		}
 	}
 }
 
 // DeleteVertex uses variadic input to delete all listed vertices from the
 // graph.
-func (g *Graph) DeleteVertex(xv ...Vertex) {
+func (obj *Graph) DeleteVertex(xv ...Vertex) {
 	if len(xv) == 1 {
 		v := xv[0]
 		if v == nil {
 			panic("nil vertex")
 		}
-		delete(g.adjacency, v)
-		for k := range g.adjacency {
-			delete(g.adjacency[k], v)
+		delete(obj.adjacency, v)
+		for k := range obj.adjacency {
+			delete(obj.adjacency[k], v)
 		}
 		return
 	}
 
 	// handles case len(xv) == 0 and len(xv) > 1
 	for _, v := range xv {
-		g.DeleteVertex(v)
+		obj.DeleteVertex(v)
 	}
 }
 
 // AddEdge adds a directed edge to the graph from v1 to v2.
-func (g *Graph) AddEdge(v1, v2 Vertex, e Edge) {
+func (obj *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	// NOTE: this doesn't allow more than one edge between two vertices...
-	g.AddVertex(v1, v2) // supports adding N vertices now
+	obj.AddVertex(v1, v2) // supports adding N vertices now
 	// TODO: check if an edge exists to avoid overwriting it!
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
 	// NOTE: Interpret() depends on overwriting it at the moment...
-	g.adjacency[v1][v2] = e
+	obj.adjacency[v1][v2] = e
 }
 
 // DeleteEdge uses variadic input to delete all the listed edges from the graph.
-func (g *Graph) DeleteEdge(xe ...Edge) {
+func (obj *Graph) DeleteEdge(xe ...Edge) {
 	if len(xe) == 0 {
 		return
 	}
 	// handles case len(xv) > 0
-	for v1 := range g.adjacency {
-		for v2, edge := range g.adjacency[v1] {
+	for v1 := range obj.adjacency {
+		for v2, edge := range obj.adjacency[v1] {
 			for _, e := range xe {
 				if e == edge {
-					delete(g.adjacency[v1], v2)
+					delete(obj.adjacency[v1], v2)
 				}
 			}
 		}
@@ -268,23 +268,23 @@ func (g *Graph) DeleteEdge(xe ...Edge) {
 }
 
 // HasVertex returns if the input vertex exists in the graph.
-func (g *Graph) HasVertex(v Vertex) bool {
-	if _, exists := g.adjacency[v]; exists {
+func (obj *Graph) HasVertex(v Vertex) bool {
+	if _, exists := obj.adjacency[v]; exists {
 		return true
 	}
 	return false
 }
 
 // NumVertices returns the number of vertices in the graph.
-func (g *Graph) NumVertices() int {
-	return len(g.adjacency)
+func (obj *Graph) NumVertices() int {
+	return len(obj.adjacency)
 }
 
 // NumEdges returns the number of edges in the graph.
-func (g *Graph) NumEdges() int {
+func (obj *Graph) NumEdges() int {
 	count := 0
-	for k := range g.adjacency {
-		count += len(g.adjacency[k])
+	for k := range obj.adjacency {
+		count += len(obj.adjacency[k])
 	}
 	return count
 }
@@ -292,13 +292,13 @@ func (g *Graph) NumEdges() int {
 // Adjacency returns the adjacency map representing this graph. This is useful
 // for users who which to operate on the raw data structure more efficiently.
 // This works because maps are reference types so we can edit this at will.
-func (g *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
-	return g.adjacency
+func (obj *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
+	return obj.adjacency
 }
 
 // FindEdge returns the edge from v1 -> v2 if it exists. Otherwise nil.
-func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
-	x, exists := g.adjacency[v1]
+func (obj *Graph) FindEdge(v1, v2 Vertex) Edge {
+	x, exists := obj.adjacency[v1]
 	if !exists {
 		return nil // not found
 	}
@@ -312,8 +312,8 @@ func (g *Graph) FindEdge(v1, v2 Vertex) Edge {
 // LookupEdge takes an edge and tries to find the vertex pair that connects it.
 // If it finds a match, then it returns the pair and true. Otherwise it returns
 // false.
-func (g *Graph) LookupEdge(e Edge) (Vertex, Vertex, bool) {
-	for v1, x := range g.adjacency {
+func (obj *Graph) LookupEdge(e Edge) (Vertex, Vertex, bool) {
+	for v1, x := range obj.adjacency {
 		for v2, edge := range x {
 			if edge == e {
 				return v1, v2, true
@@ -326,9 +326,9 @@ func (g *Graph) LookupEdge(e Edge) (Vertex, Vertex, bool) {
 
 // Vertices returns a randomly sorted slice of all vertices in the graph. The
 // order is random, because the map implementation is intentionally so!
-func (g *Graph) Vertices() []Vertex {
+func (obj *Graph) Vertices() []Vertex {
 	var vertices []Vertex
-	for k := range g.adjacency {
+	for k := range obj.adjacency {
 		vertices = append(vertices, k)
 	}
 	return vertices
@@ -336,10 +336,10 @@ func (g *Graph) Vertices() []Vertex {
 
 // Edges returns a randomly sorted slice of all edges in the graph. The order is
 // random, because the map implementation is intentionally so!
-func (g *Graph) Edges() []Edge {
+func (obj *Graph) Edges() []Edge {
 	var edges []Edge
-	for vertex := range g.adjacency {
-		for _, edge := range g.adjacency[vertex] {
+	for vertex := range obj.adjacency {
+		for _, edge := range obj.adjacency[vertex] {
 			edges = append(edges, edge)
 		}
 	}
@@ -347,10 +347,10 @@ func (g *Graph) Edges() []Edge {
 }
 
 // VerticesChan returns a channel of all vertices in the graph.
-func (g *Graph) VerticesChan() chan Vertex {
+func (obj *Graph) VerticesChan() chan Vertex {
 	ch := make(chan Vertex)
 	go func(ch chan Vertex) {
-		for k := range g.adjacency {
+		for k := range obj.adjacency {
 			ch <- k
 		}
 		close(ch)
@@ -382,9 +382,9 @@ func (vs VertexSlice) Sort() { sort.Sort(vs) }
 
 // VerticesSorted returns a sorted slice of all vertices in the graph. The order
 // is sorted by String() to avoid the non-determinism in the map type.
-func (g *Graph) VerticesSorted() []Vertex {
+func (obj *Graph) VerticesSorted() []Vertex {
 	var vertices []Vertex
-	for k := range g.adjacency {
+	for k := range obj.adjacency {
 		vertices = append(vertices, k)
 	}
 	sort.Sort(VertexSlice(vertices)) // add determinism
@@ -392,32 +392,32 @@ func (g *Graph) VerticesSorted() []Vertex {
 }
 
 // String makes the graph pretty print.
-func (g *Graph) String() string {
-	if g == nil { // don't panic if we're printing a nil graph
+func (obj *Graph) String() string {
+	if obj == nil { // don't panic if we're printing a nil graph
 		return fmt.Sprintf("%v", nil) // prints a <nil>
 	}
-	return fmt.Sprintf("Vertices(%d), Edges(%d)", g.NumVertices(), g.NumEdges())
+	return fmt.Sprintf("Vertices(%d), Edges(%d)", obj.NumVertices(), obj.NumEdges())
 }
 
 // Sprint prints a full graph in textual form out to a string. To log this you
 // might want to use Logf, which will keep everything aligned with whatever your
 // logging prefix is. This function returns the result in a deterministic order.
-func (g *Graph) Sprint() string {
-	if g == nil {
+func (obj *Graph) Sprint() string {
+	if obj == nil {
 		return ""
 	}
 	var str string
-	for _, v := range g.VerticesSorted() {
+	for _, v := range obj.VerticesSorted() {
 		str += fmt.Sprintf("Vertex: %s\n", v)
 	}
-	for _, v1 := range g.VerticesSorted() {
+	for _, v1 := range obj.VerticesSorted() {
 		vs := []Vertex{}
-		for v2 := range g.Adjacency()[v1] {
+		for v2 := range obj.Adjacency()[v1] {
 			vs = append(vs, v2)
 		}
 		sort.Sort(VertexSlice(vs)) // deterministic order
 		for _, v2 := range vs {
-			e := g.Adjacency()[v1][v2]
+			e := obj.Adjacency()[v1][v2]
 			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
 		}
 	}
@@ -426,18 +426,18 @@ func (g *Graph) Sprint() string {
 
 // Logf logs a printed representation of the graph with the logf of your choice.
 // This is helpful to ensure each line of logged output has the prefix you want.
-func (g *Graph) Logf(logf func(format string, v ...interface{})) {
-	for _, x := range strings.Split(g.Sprint(), "\n") {
+func (obj *Graph) Logf(logf func(format string, v ...interface{})) {
+	for _, x := range strings.Split(obj.Sprint(), "\n") {
 		logf("%s", x)
 	}
 }
 
 // IncomingGraphVertices returns an array (slice) of all directed vertices to
 // vertex v (??? -> v). OKTimestamp should probably use this.
-func (g *Graph) IncomingGraphVertices(v Vertex) []Vertex {
+func (obj *Graph) IncomingGraphVertices(v Vertex) []Vertex {
 	var s []Vertex
-	for k := range g.adjacency { // reverse paths
-		if _, exists := g.adjacency[k][v]; exists {
+	for k := range obj.adjacency { // reverse paths
+		if _, exists := obj.adjacency[k][v]; exists {
 			s = append(s, k)
 		}
 	}
@@ -446,9 +446,9 @@ func (g *Graph) IncomingGraphVertices(v Vertex) []Vertex {
 
 // OutgoingGraphVertices returns an array (slice) of all vertices that vertex v
 // points to (v -> ???). Poke should probably use this.
-func (g *Graph) OutgoingGraphVertices(v Vertex) []Vertex {
+func (obj *Graph) OutgoingGraphVertices(v Vertex) []Vertex {
 	var s []Vertex
-	for k := range g.adjacency[v] { // forward paths
+	for k := range obj.adjacency[v] { // forward paths
 		s = append(s, k)
 	}
 	return s
@@ -456,19 +456,19 @@ func (g *Graph) OutgoingGraphVertices(v Vertex) []Vertex {
 
 // GraphVertices returns an array (slice) of all vertices that connect to vertex
 // v. This is the union of IncomingGraphVertices and OutgoingGraphVertices.
-func (g *Graph) GraphVertices(v Vertex) []Vertex {
+func (obj *Graph) GraphVertices(v Vertex) []Vertex {
 	var s []Vertex
-	s = append(s, g.IncomingGraphVertices(v)...)
-	s = append(s, g.OutgoingGraphVertices(v)...)
+	s = append(s, obj.IncomingGraphVertices(v)...)
+	s = append(s, obj.OutgoingGraphVertices(v)...)
 	return s
 }
 
 // IncomingGraphEdges returns all of the edges that point to vertex v.
 // Eg: (??? -> v).
-func (g *Graph) IncomingGraphEdges(v Vertex) []Edge {
+func (obj *Graph) IncomingGraphEdges(v Vertex) []Edge {
 	var edges []Edge
-	for v1 := range g.adjacency { // reverse paths
-		for v2, e := range g.adjacency[v1] {
+	for v1 := range obj.adjacency { // reverse paths
+		for v2, e := range obj.adjacency[v1] {
 			if v2 == v {
 				edges = append(edges, e)
 			}
@@ -479,9 +479,9 @@ func (g *Graph) IncomingGraphEdges(v Vertex) []Edge {
 
 // OutgoingGraphEdges returns all of the edges that point from vertex v.
 // Eg: (v -> ???).
-func (g *Graph) OutgoingGraphEdges(v Vertex) []Edge {
+func (obj *Graph) OutgoingGraphEdges(v Vertex) []Edge {
 	var edges []Edge
-	for _, e := range g.adjacency[v] { // forward paths
+	for _, e := range obj.adjacency[v] { // forward paths
 		edges = append(edges, e)
 	}
 	return edges
@@ -489,18 +489,18 @@ func (g *Graph) OutgoingGraphEdges(v Vertex) []Edge {
 
 // GraphEdges returns an array (slice) of all edges that connect to vertex v.
 // This is the union of IncomingGraphEdges and OutgoingGraphEdges.
-func (g *Graph) GraphEdges(v Vertex) []Edge {
+func (obj *Graph) GraphEdges(v Vertex) []Edge {
 	var edges []Edge
-	edges = append(edges, g.IncomingGraphEdges(v)...)
-	edges = append(edges, g.OutgoingGraphEdges(v)...)
+	edges = append(edges, obj.IncomingGraphEdges(v)...)
+	edges = append(edges, obj.OutgoingGraphEdges(v)...)
 	return edges
 }
 
 // DFS returns a depth first search for the graph, starting at the input vertex.
-func (g *Graph) DFS(start Vertex) []Vertex {
+func (obj *Graph) DFS(start Vertex) []Vertex {
 	var d []Vertex // discovered
 	var s []Vertex // stack
-	if _, exists := g.adjacency[start]; !exists {
+	if _, exists := obj.adjacency[start]; !exists {
 		return nil // TODO: error
 	}
 	v := start
@@ -511,7 +511,7 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 		if !VertexContains(v, d) { // if not discovered
 			d = append(d, v) // label as discovered
 
-			for _, w := range g.GraphVertices(v) {
+			for _, w := range obj.GraphVertices(v) {
 				s = append(s, w)
 			}
 		}
@@ -520,22 +520,22 @@ func (g *Graph) DFS(start Vertex) []Vertex {
 }
 
 // FilterGraph builds a new graph containing only vertices from the list.
-func (g *Graph) FilterGraph(vertices []Vertex) (*Graph, error) {
+func (obj *Graph) FilterGraph(vertices []Vertex) (*Graph, error) {
 	fn := func(v Vertex) (bool, error) {
 		return VertexContains(v, vertices), nil
 	}
-	return g.FilterGraphWithFn(fn)
+	return obj.FilterGraphWithFn(fn)
 }
 
 // FilterGraphWithFn builds a new graph containing only vertices which match. It
 // uses a user defined function to match. That function must return true on
 // match, and an error if anything goes wrong.
-func (g *Graph) FilterGraphWithFn(fn func(Vertex) (bool, error)) (*Graph, error) {
-	newGraph, err := NewGraph(g.Name)
+func (obj *Graph) FilterGraphWithFn(fn func(Vertex) (bool, error)) (*Graph, error) {
+	newGraph, err := NewGraph(obj.Name)
 	if err != nil {
 		return nil, err
 	}
-	for k1, x := range g.adjacency {
+	for k1, x := range obj.adjacency {
 		contains, err := fn(k1)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "fn in FilterGraphWithFn() errored")
@@ -556,25 +556,25 @@ func (g *Graph) FilterGraphWithFn(fn func(Vertex) (bool, error)) (*Graph, error)
 }
 
 // DisconnectedGraphs returns a list containing the N disconnected graphs.
-func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
+func (obj *Graph) DisconnectedGraphs() ([]*Graph, error) {
 	graphs := []*Graph{}
 	var start Vertex
 	var d []Vertex // discovered
-	c := g.NumVertices()
+	c := obj.NumVertices()
 	for len(d) < c {
 
 		// get an undiscovered vertex to start from
-		for _, s := range g.Vertices() {
+		for _, s := range obj.Vertices() {
 			if !VertexContains(s, d) {
 				start = s
 			}
 		}
 
 		// dfs through the graph
-		dfs := g.DFS(start)
+		dfs := obj.DFS(start)
 		// filter all the collected elements into a new graph
 		// TODO: is this method of filtering correct here? && or || ?
-		newGraph, err := g.FilterGraph(dfs)
+		newGraph, err := obj.FilterGraph(dfs)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not run DisconnectedGraphs() properly")
 		}
@@ -592,17 +592,17 @@ func (g *Graph) DisconnectedGraphs() ([]*Graph, error) {
 
 // InDegree returns the count of vertices that point to me in one big lookup
 // map.
-func (g *Graph) InDegree() map[Vertex]int {
+func (obj *Graph) InDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
-	if g == nil || g.adjacency == nil {
+	if obj == nil || obj.adjacency == nil {
 		return result
 	}
-	for k := range g.adjacency {
+	for k := range obj.adjacency {
 		result[k] = 0 // initialize
 	}
 
-	for k := range g.adjacency {
-		for z := range g.adjacency[k] {
+	for k := range obj.adjacency {
+		for z := range obj.adjacency[k] {
 			result[z]++
 		}
 	}
@@ -611,14 +611,14 @@ func (g *Graph) InDegree() map[Vertex]int {
 
 // OutDegree returns the count of vertices that point away in one big lookup
 // map.
-func (g *Graph) OutDegree() map[Vertex]int {
+func (obj *Graph) OutDegree() map[Vertex]int {
 	result := make(map[Vertex]int)
-	if g == nil || g.adjacency == nil {
+	if obj == nil || obj.adjacency == nil {
 		return result
 	}
-	for k := range g.adjacency {
+	for k := range obj.adjacency {
 		result[k] = 0 // initialize
-		for range g.adjacency[k] {
+		for range obj.adjacency[k] {
 			result[k]++
 		}
 	}
@@ -628,12 +628,12 @@ func (g *Graph) OutDegree() map[Vertex]int {
 // TopologicalSort returns the sort of graph vertices in that order. It is based
 // on descriptions and code from wikipedia and rosetta code.
 // TODO: add memoization, and cache invalidation to speed this up :)
-func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
+func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	var L []Vertex                    // empty list that will contain the sorted elements
 	var S []Vertex                    // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int) // amount of edges remaining
 
-	for v, d := range g.InDegree() {
+	for v, d := range obj.InDegree() {
 		if d == 0 {
 			// accumulate set of all nodes with no incoming edges
 			S = append(S, v)
@@ -648,7 +648,7 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
-		for n := range g.adjacency[v] {
+		for n := range obj.adjacency[v] {
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {
@@ -663,9 +663,9 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	// if graph has edges, eg if any value in rem is > 0
 	for c, in := range remaining {
 		if in > 0 {
-			for n := range g.adjacency[c] {
+			for n := range obj.adjacency[c] {
 				if remaining[n] > 0 {
-					cycle := g.findCycleDFS(c)
+					cycle := obj.findCycleDFS(c)
 					if len(cycle) == 0 {
 						// Hopefully this doesn't happen!
 						return nil, fmt.Errorf("programming error")
@@ -681,7 +681,7 @@ func (g *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 
 // findCycleDFS is a helper for the TopologicalSort functions.
 // XXX: A professional should look over this function and try and find issues.
-func (g *Graph) findCycleDFS(start Vertex) []Vertex {
+func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 	visited := make(map[Vertex]bool)
 	stack := make(map[Vertex]bool)
 	var path []Vertex
@@ -697,7 +697,7 @@ func (g *Graph) findCycleDFS(start Vertex) []Vertex {
 		stack[v] = true
 		path = append(path, v)
 
-		for n := range g.adjacency[v] {
+		for n := range obj.adjacency[v] {
 			if !visited[n] {
 				if dfs(n) {
 					return true
@@ -723,7 +723,7 @@ func (g *Graph) findCycleDFS(start Vertex) []Vertex {
 	}
 
 	// run DFS from all potentially cyclic nodes
-	for v := range g.adjacency {
+	for v := range obj.adjacency {
 		if !visited[v] {
 			if dfs(v) {
 				break
@@ -738,18 +738,18 @@ func (g *Graph) findCycleDFS(start Vertex) []Vertex {
 // topological sort order. It's slower than the TopologicalSort implementation,
 // but guarantees that two identical graphs produce the same sort each time.
 // TODO: add memoization, and cache invalidation to speed this up :)
-func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's algorithm
+func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	var L []Vertex                    // empty list that will contain the sorted elements
 	var S []Vertex                    // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int) // amount of edges remaining
 
 	var vertices []Vertex
-	indegree := g.InDegree()
+	indegree := obj.InDegree()
 	for k := range indegree {
 		vertices = append(vertices, k)
 	}
 	sort.Sort(VertexSlice(vertices)) // add determinism
-	//for v, d := range g.InDegree()
+	//for v, d := range obj.InDegree()
 	for _, v := range vertices { // map[Vertex]int
 		d := indegree[v]
 		if d == 0 {
@@ -768,7 +768,7 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 		L = append(L, v) // add v to tail of L
 
 		var vertices []Vertex
-		for n := range g.adjacency[v] { // map[Vertex]Edge
+		for n := range obj.adjacency[v] { // map[Vertex]Edge
 			vertices = append(vertices, n)
 		}
 		sort.Sort(VertexSlice(vertices)) // add determinism
@@ -787,9 +787,9 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 	// if graph has edges, eg if any value in rem is > 0
 	for c, in := range remaining {
 		if in > 0 {
-			for n := range g.adjacency[c] {
+			for n := range obj.adjacency[c] {
 				if remaining[n] > 0 {
-					cycle := g.findCycleDFS(c)
+					cycle := obj.findCycleDFS(c)
 					if len(cycle) == 0 {
 						// Hopefully this doesn't happen!
 						return nil, fmt.Errorf("programming error")
@@ -812,15 +812,15 @@ func (g *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's alg
 //
 // This operates by a recursive algorithm; a more efficient version is likely.
 // If you don't give this function a DAG, you might cause infinite recursion!
-func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
+func (obj *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	if a == nil || b == nil {
 		return nil, fmt.Errorf("empty vertex")
 	}
-	if _, err := g.TopologicalSort(); err != nil {
+	if _, err := obj.TopologicalSort(); err != nil {
 		return nil, err // not a dag
 	}
 
-	vertices := g.OutgoingGraphVertices(a) // what points away from a ?
+	vertices := obj.OutgoingGraphVertices(a) // what points away from a ?
 	if len(vertices) == 0 {
 		return []Vertex{}, nil // nope
 	}
@@ -832,7 +832,7 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	var err error
 	pick := -1
 	for i, v := range vertices {
-		collected[i], err = g.Reachability(v, b) // find b by recursion
+		collected[i], err = obj.Reachability(v, b) // find b by recursion
 		if err != nil {
 			return nil, err
 		}
@@ -855,12 +855,12 @@ func (g *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 // ReachabilityUnsafe is identical to Reachability but without the
 // TopologicalSort() DAG validation on every call and recursion. The caller must
 // ensure the graph is a DAG before calling this method.
-func (g *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
+func (obj *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
 	if a == nil || b == nil {
 		return nil, fmt.Errorf("empty vertex")
 	}
 
-	vertices := g.OutgoingGraphVertices(a) // what points away from a ?
+	vertices := obj.OutgoingGraphVertices(a) // what points away from a ?
 	if len(vertices) == 0 {
 		return []Vertex{}, nil // nope
 	}
@@ -872,7 +872,7 @@ func (g *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
 	var err error
 	pick := -1
 	for i, v := range vertices {
-		collected[i], err = g.ReachabilityUnsafe(v, b) // find b by recursion
+		collected[i], err = obj.ReachabilityUnsafe(v, b) // find b by recursion
 		if err != nil {
 			return nil, err
 		}
@@ -895,8 +895,8 @@ func (g *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
 // VertexMatchFn searches for a vertex in the graph and returns the vertex if
 // one matches. It uses a user defined function to match. That function must
 // return true on match, and an error if anything goes wrong.
-func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
-	for v := range g.adjacency {
+func (obj *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
+	for v := range obj.adjacency {
 		if b, err := fn(v); err != nil {
 			return nil, errwrap.Wrapf(err, "fn in VertexMatchFn() errored")
 		} else if b {
@@ -910,25 +910,25 @@ func (g *Graph) VertexMatchFn(fn func(Vertex) (bool, error)) (Vertex, error) {
 // they're equal. It uses a user defined function to compare topologically
 // equivalent vertices, and edges.
 // FIXME: add more test cases
-func (g *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
-	if graph == nil || g == nil {
-		if graph != g {
+func (obj *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), edgeCmpFn func(Edge, Edge) (bool, error)) error {
+	if graph == nil || obj == nil {
+		if graph != obj {
 			return fmt.Errorf("one graph is nil")
 		}
 		return nil
 	}
-	n1, n2 := g.NumVertices(), graph.NumVertices()
+	n1, n2 := obj.NumVertices(), graph.NumVertices()
 	if n1 != n2 {
 		return fmt.Errorf("base graph has %d vertices, while input graph has %d", n1, n2)
 	}
-	if e1, e2 := g.NumEdges(), graph.NumEdges(); e1 != e2 {
+	if e1, e2 := obj.NumEdges(), graph.NumEdges(); e1 != e2 {
 		return fmt.Errorf("base graph has %d edges, while input graph has %d", e1, e2)
 	}
 
-	var m = make(map[Vertex]Vertex) // g to graph vertex correspondence
+	var m = make(map[Vertex]Vertex) // obj to graph vertex correspondence
 Loop:
 	// check vertices
-	for v1 := range g.Adjacency() { // for each vertex in g
+	for v1 := range obj.Adjacency() { // for each vertex in g
 		for v2 := range graph.Adjacency() { // does it match in graph ?
 			b, err := vertexCmpFn(v1, v2)
 			if err != nil {
@@ -964,14 +964,14 @@ Loop:
 	}
 
 	// check edges
-	for v1 := range g.Adjacency() { // for each vertex in g
+	for v1 := range obj.Adjacency() { // for each vertex in g
 		v2 := m[v1] // lookup in map to get correspondence
-		// g.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
-		if e1, e2 := len(g.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
+		// obj.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
+		if e1, e2 := len(obj.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
 			return fmt.Errorf("base graph, vertex(%s) has %d edges, while input graph, vertex(%s) has %d", v1, e1, v2, e2)
 		}
 
-		for vv1, ee1 := range g.Adjacency()[v1] {
+		for vv1, ee1 := range obj.Adjacency()[v1] {
 			vv2 := m[vv1]
 			ee2 := graph.Adjacency()[v2][vv2]
 

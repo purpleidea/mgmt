@@ -30,16 +30,16 @@
 package pgraph
 
 // AddGraph adds the set of edges and vertices of a graph to the existing graph.
-func (g *Graph) AddGraph(graph *Graph) {
-	g.addEdgeVertexGraphHelper(nil, graph, nil, false, false)
+func (obj *Graph) AddGraph(graph *Graph) {
+	obj.addEdgeVertexGraphHelper(nil, graph, nil, false, false)
 }
 
 // AddEdgeVertexGraph adds a directed edge to the graph from a vertex. This is
 // useful for flattening the relationship between a subgraph and an existing
 // graph, without having to run the subgraph recursively. It adds the maximum
 // number of edges, creating a relationship to every vertex.
-func (g *Graph) AddEdgeVertexGraph(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
-	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, false)
+func (obj *Graph) AddEdgeVertexGraph(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
+	obj.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, false)
 }
 
 // AddEdgeVertexGraphLight adds a directed edge to the graph from a vertex. This
@@ -47,16 +47,16 @@ func (g *Graph) AddEdgeVertexGraph(vertex Vertex, graph *Graph, edgeGenFn func(v
 // graph, without having to run the subgraph recursively. It adds the minimum
 // number of edges, creating a relationship to the vertices with indegree equal
 // to zero.
-func (g *Graph) AddEdgeVertexGraphLight(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
-	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, true)
+func (obj *Graph) AddEdgeVertexGraphLight(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge) {
+	obj.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, false, true)
 }
 
 // AddEdgeGraphVertex adds a directed edge to the vertex from a graph. This is
 // useful for flattening the relationship between a subgraph and an existing
 // graph, without having to run the subgraph recursively. It adds the maximum
 // number of edges, creating a relationship from every vertex.
-func (g *Graph) AddEdgeGraphVertex(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
-	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, false)
+func (obj *Graph) AddEdgeGraphVertex(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
+	obj.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, false)
 }
 
 // AddEdgeGraphVertexLight adds a directed edge to the vertex from a graph. This
@@ -64,8 +64,8 @@ func (g *Graph) AddEdgeGraphVertex(graph *Graph, vertex Vertex, edgeGenFn func(v
 // graph, without having to run the subgraph recursively. It adds the minimum
 // number of edges, creating a relationship from the vertices with outdegree
 // equal to zero.
-func (g *Graph) AddEdgeGraphVertexLight(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
-	g.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, true)
+func (obj *Graph) AddEdgeGraphVertexLight(graph *Graph, vertex Vertex, edgeGenFn func(v1, v2 Vertex) Edge) {
+	obj.addEdgeVertexGraphHelper(vertex, graph, edgeGenFn, true, true)
 }
 
 // addEdgeVertexGraphHelper is a helper function to add a directed edges to the
@@ -77,7 +77,7 @@ func (g *Graph) AddEdgeGraphVertexLight(graph *Graph, vertex Vertex, edgeGenFn f
 // it is true, it adds the minimum number of edges, creating a relationship to
 // or from the vertices with an indegree or outdegree equal to zero depending on
 // if we specified reverse or not.
-func (g *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge, reverse, light bool) {
+func (obj *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenFn func(v1, v2 Vertex) Edge, reverse, light bool) {
 	if graph == nil {
 		return // if the graph is empty, there's nothing to do!
 	}
@@ -101,21 +101,21 @@ func (g *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenFn 
 			continue
 		}
 
-		g.AddVertex(v) // ensure vertex is part of the graph
+		obj.AddVertex(v) // ensure vertex is part of the graph
 
 		if vertex != nil && reverse {
 			edge := edgeGenFn(v, vertex) // generate a new unique edge
-			g.AddEdge(v, vertex, edge)
+			obj.AddEdge(v, vertex, edge)
 		} else if vertex != nil { // && !reverse
 			edge := edgeGenFn(vertex, v)
-			g.AddEdge(vertex, v, edge)
+			obj.AddEdge(vertex, v, edge)
 		}
 	}
 
 	// also remember to suck in all of the graph's edges too!
 	for v1 := range graph.Adjacency() {
 		for v2, e := range graph.Adjacency()[v1] {
-			g.AddEdge(v1, v2, e)
+			obj.AddEdge(v1, v2, e)
 		}
 	}
 }

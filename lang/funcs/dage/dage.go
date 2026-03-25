@@ -128,6 +128,9 @@ type Engine struct {
 	// streamChan is used to send the stream of tables to the outside world.
 	streamChan chan interfaces.Table
 
+	// lastTable stores the last table that was sent to streamChan.
+	lastTable interfaces.Table
+
 	// interrupt specifies that a txn "commit" just happened.
 	interrupt bool
 
@@ -285,6 +288,7 @@ Start:
 			for i, v := range obj.topoSort { // TODO: Do it once here, or repeatedly below?
 				mapping[v] = i
 			}
+			//obj.lastTable = nil // XXX: structural change, always send?
 
 			goto PreIterate // skip waiting for a new event
 		}
@@ -581,6 +585,12 @@ Start:
 		// The table must get cleaned up over time to be consistent. It
 		// currently happens in interrupt as a result of a node delete.
 
+		if obj.lastTable != nil && obj.lastTable.Cmp(table) == nil {
+			if obj.Debug || true { // leave on for initial testing
+				obj.Logf("table skip")
+			}
+			continue
+		}
 		cp := table.Copy()
 		if obj.Debug {
 			obj.Logf("table:")
@@ -588,8 +598,10 @@ Start:
 				obj.Logf("table[%p %v]: %p %+v", k, k, v, v)
 			}
 		}
+
 		select {
 		case obj.streamChan <- cp:
+			obj.lastTable = cp // store new table
 
 		case <-ctx.Done():
 			return ctx.Err()

@@ -80,9 +80,7 @@ func (g *Graph) Init() error {
 		return fmt.Errorf("can't initialize graph with empty name")
 	}
 
-	if g.adjacency == nil {
-		g.adjacency = make(map[Vertex]map[Vertex]Edge)
-	}
+	g.adjacency = make(map[Vertex]map[Vertex]Edge)
 	//g.kv = make(map[string]interface{}) // not required
 	return nil
 }
@@ -92,10 +90,7 @@ func NewGraph(name string) (*Graph, error) {
 	g := &Graph{
 		Name: name,
 	}
-	if err := g.Init(); err != nil {
-		return nil, err
-	}
-	return g, nil
+	return g, g.Init()
 }
 
 // Value returns a value stored alongside the graph in a particular key.

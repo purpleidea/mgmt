@@ -50,7 +50,7 @@ if [ -n "$YUM" ]; then
 	$sudo_command $YUM install -y augeas-devel
 	$sudo_command $YUM install -y ruby-devel rubygems
 	$sudo_command $YUM install -y time
-	$sudo_command $APT install -y gettext || true
+	$sudo_command $YUM install -y gettext || true
 	if ! in_env; then
 		$sudo_command $YUM install -y ragel
 	fi

@@ -994,6 +994,15 @@ func (obj *VirtRes) getDomainXML() string {
 	b += obj.getDomainType() // start domain
 
 	b += fmt.Sprintf("<name>%s</name>", obj.Name())
+
+	// with this, live migrate only runs safely with identical host hardware
+	//b += "<cpu mode='host-passthrough' check='none' migratable='on' />"
+
+	// this gets us avx instructions, otherwise if not specified, cpu is bad
+	b += "<cpu mode='host-model'>" // check='partial' is added automatically
+	b += "<model fallback='forbid'>qemu64</model>"
+	b += "</cpu>"
+
 	b += fmt.Sprintf("<memory unit='KiB'>%d</memory>", obj.Memory)
 
 	if obj.HotCPUs {

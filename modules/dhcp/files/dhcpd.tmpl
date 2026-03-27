@@ -1,0 +1,21 @@
+# WARNING: This file is NOT used anymore.
+
+# If you are here to restrict what interfaces should dhcpd listen on,
+# be aware that dhcpd listens *only* on interfaces for which it finds subnet
+# declaration in dhcpd.conf. It means that explicitly enumerating interfaces
+# also on command line should not be required in most cases.
+
+# If you still insist on adding some command line options,
+# copy dhcpd.service from /lib/systemd/system to /etc/systemd/system and modify
+# it there.
+# https://fedoraproject.org/wiki/Systemd#How_do_I_customize_a_unit_file.2F_add_a_custom_unit_file.3F
+
+# example:
+# $ cp /usr/lib/systemd/system/dhcpd.service /etc/systemd/system/
+# $ vi /etc/systemd/system/dhcpd.service
+# $ ExecStart=/usr/sbin/dhcpd -f -cf /etc/dhcp/dhcpd.conf -user dhcpd -group dhcpd --no-pid <your_interface_name(s)>
+# $ systemctl --system daemon-reload
+# $ systemctl restart dhcpd.service
+{{ if .interfaces -}}
+DHCPDARGS="{{ golang_strings_join .interfaces " " }}"
+{{ interfaces -}}

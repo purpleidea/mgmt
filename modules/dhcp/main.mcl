@@ -35,6 +35,7 @@ import "golang/strings" as golang_strings
 import "os"
 
 class server($st) {
+	$interfaces []str = $st->interfaces || []
 	$authoritative = $st->authoritative || true
 	$defaultleasetime = $st->defaultleasetime || 600
 	$maxleasetime = $st->maxleasetime || 7200
@@ -79,6 +80,20 @@ class server($st) {
 		Notify => Svc["dhcpd"],
 
 		Depend => File["/etc/dhcp/"],
+	}
+
+	$sysconfig_tmpl = struct{
+		interfaces => $interfaces,
+	}
+	file "/etc/sysconfig/dhcpd" { # not officially used anymore
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/dhcpd.tmpl"), $sysconfig_tmpl),
+		owner => "root",
+		group => "root",
+		mode => "u=rw,go=r",
+
+		Notify => Svc["dhcpd"],
+		Depend => Pkg["${pkg}"],
 	}
 
 	svc "dhcpd" {

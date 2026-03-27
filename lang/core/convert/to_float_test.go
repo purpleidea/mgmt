@@ -36,7 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
-func testToFloat(t *testing.T, input int64, expected float64) {
+func testToFloat(t *testing.T, input int, expected float64) {
 	got, err := ToFloat(context.Background(), []types.Value{&types.IntValue{V: input}})
 	if err != nil {
 		t.Error(err)

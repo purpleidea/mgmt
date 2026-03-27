@@ -724,7 +724,7 @@ func TestType2(t *testing.T) {
 		"string": {
 			Kind: KindStr,
 		},
-		"int64": {
+		"int": {
 			Kind: KindInt,
 		},
 		"float64": {
@@ -744,7 +744,7 @@ func TestType2(t *testing.T) {
 				Kind: KindStr,
 			},
 		},
-		"[]int64": {
+		"[]int": {
 			Kind: KindList,
 			Val: &Type{
 				Kind: KindInt,
@@ -761,7 +761,7 @@ func TestType2(t *testing.T) {
 				},
 			},
 		},
-		"[][]int64": {
+		"[][]int": {
 			Kind: KindList,
 			Val: &Type{
 				Kind: KindList,
@@ -793,7 +793,7 @@ func TestType2(t *testing.T) {
 				Kind: KindStr,
 			},
 		},
-		"map[string]int64": {
+		"map[string]int": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -804,7 +804,7 @@ func TestType2(t *testing.T) {
 		},
 
 		// nested maps
-		"map[string]map[int64]bool": {
+		"map[string]map[int]bool": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -820,7 +820,7 @@ func TestType2(t *testing.T) {
 			},
 		},
 		// FIXME: should we prevent this in our implementation as well?
-		//"map[map[int64]bool]string": &Type{ // no map keys in golang!
+		//"map[map[int]bool]string": &Type{ // no map keys in golang!
 		//	Kind: KindMap,
 		//	Key: &Type{
 		//		Kind: KindMap,
@@ -835,7 +835,7 @@ func TestType2(t *testing.T) {
 		//		Kind: KindStr,
 		//	},
 		//},
-		//"map[map[string]int64]map[int64]bool": &Type{
+		//"map[map[string]int]map[int]bool": &Type{
 		//	Kind: KindMap,
 		//	Key: &Type{
 		//		Kind: KindMap,
@@ -856,7 +856,7 @@ func TestType2(t *testing.T) {
 		//		},
 		//	},
 		//},
-		"map[string]map[int64]map[int64]bool": {
+		"map[string]map[int]map[int]bool": {
 			Kind: KindMap,
 			Key: &Type{
 				Kind: KindStr,
@@ -894,7 +894,7 @@ func TestType2(t *testing.T) {
 				},
 			},
 		},
-		"struct { A bool; Bb int64 }": {
+		"struct { A bool; Bb int }": {
 			Kind: KindStruct,
 			Ord: []string{
 				"A",
@@ -909,7 +909,7 @@ func TestType2(t *testing.T) {
 				},
 			},
 		},
-		"struct { A bool; Bb int64; Ccc string }": {
+		"struct { A bool; Bb int; Ccc string }": {
 			Kind: KindStruct,
 			Ord: []string{
 				"A",
@@ -953,7 +953,7 @@ func TestType2(t *testing.T) {
 				},
 			},
 		},
-		"struct { A bool; Bb struct { Z bool; Yy int64 }; Ccc string }": {
+		"struct { A bool; Bb struct { Z bool; Yy int }; Ccc string }": {
 			Kind: KindStruct,
 			Ord: []string{
 				"A",
@@ -984,7 +984,7 @@ func TestType2(t *testing.T) {
 				},
 			},
 		},
-		"struct { A bool; Bb struct { Z bool; Yy struct { Struct int64; Nested bool } }; Ccc string }": {
+		"struct { A bool; Bb struct { Z bool; Yy struct { Struct int; Nested bool } }; Ccc string }": {
 			Kind: KindStruct,
 			Ord: []string{
 				"A",
@@ -1057,7 +1057,7 @@ func TestType2(t *testing.T) {
 			},
 		},
 
-		"struct { A map[string]map[struct { Deeply int64; Nested bool }]map[int64]bool; Bb struct { Z bool; Yy int64 }; Ccc string }": {
+		"struct { A map[string]map[struct { Deeply int; Nested bool }]map[int]bool; Bb struct { Z bool; Yy int }; Ccc string }": {
 			Kind: KindStruct,
 			Ord: []string{
 				"A",
@@ -1149,7 +1149,7 @@ func TestType2(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(string, int64) bool": {
+		"func(string, int) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -1168,7 +1168,7 @@ func TestType2(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
-		"func(string, []int64, float64) bool": {
+		"func(string, []int, float64) bool": {
 			Kind: KindFunc,
 			// key names are arbitrary...
 			Map: map[string]*Type{
@@ -1774,7 +1774,7 @@ func TestTypeOf0(t *testing.T) {
 func TestTypeOfSkipPrivateFields(t *testing.T) {
 	type testStruct struct {
 		Name    string
-		Count   int64
+		Count   int
 		private string //nolint:unused
 	}
 

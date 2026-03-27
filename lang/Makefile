@@ -53,10 +53,10 @@ parser/y.go: parser/parser.y
 
 interpolate/parse.generated.go: interpolate/parse.rl
 	@echo "Generating: interpolation..."
-	ragel -Z -G2 -o $@ $<
-	# remove the ragel header so our header test passes
-	sed -i -e 1,2d $@
+	ragel-go -G2 -o $@ $<
+	sed -i '/func Parse(data string)/i // Parse performs string interpolation on the input. It returns the list of\n// tokens found. It looks for variables of the format $${foo}. The curly braces\n// are required.\n// XXX: Pull dollar sign and curly chars from VarPrefix and other constants.' $@
 	gofmt -s -w $@
+	../misc/header.sh $@
 
 fuzz:
 	@$(MAKE) --quiet -C fuzz

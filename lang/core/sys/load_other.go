@@ -27,24 +27,13 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-//go:build darwin && cgo
+//go:build darwin && !cgo
 
 package coresys
 
-/*
-#include <stdlib.h>
-*/
-import "C"
+import "fmt"
 
-// macOS/Darwin specific implementation to get load.
+// used when CGO_ENABLED=0 on darwin.
 func load() (one, five, fifteen float64, err error) {
-	avg := []C.double{0, 0, 0}
-
-	C.getloadavg(&avg[0], C.int(len(avg)))
-
-	one = float64(avg[0])
-	five = float64(avg[1])
-	fifteen = float64(avg[2])
-
-	return
+	return 0, 0, 0, fmt.Errorf("not implemented on this os/arch")
 }

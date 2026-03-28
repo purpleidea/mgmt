@@ -64,7 +64,7 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)
 		e := g.Adjacency()[x][v2] // previous edge
-		r, err := g.Reachability(x, v1)
+		r, err := g.ReachabilityUnsafe(x, v1)
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
 	for _, x := range g.OutgoingGraphVertices(v2) { // all from vertex v (v -> ???)
 		e := g.Adjacency()[v2][x] // previous edge
-		r, err := g.Reachability(v1, x)
+		r, err := g.ReachabilityUnsafe(v1, x)
 		if err != nil {
 			return err
 		}
@@ -144,10 +144,11 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	}
 	g.DeleteVertex(v2) // remove grouped vertex
 
-	// 5) creation of a cyclic graph should throw an error
-	if _, err := g.TopologicalSort(); err != nil { // am i a dag or not?
-		return errwrap.Wrapf(err, "the TopologicalSort failed") // not a dag
-	}
+	// NOTE: We skip the per-merge TopologicalSort check here. The DAG
+	// property is preserved by construction since we only merge
+	// non-reachable pairs and edge reattachment follows existing
+	// reachability paths. A safety-net DAG check runs after the main
+	// AutoGroup loop exits.
 	return nil // success
 }
 

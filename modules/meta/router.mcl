@@ -42,7 +42,7 @@ class router($st) {
 
 	#$net_uuid = $st->net_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
 
-	$loc_dev = $st->loc_dev || ""
+	$loc_dev = $st->loc_dev || "meth1"
 	$loc_mac = $st->loc_mac || ""
 
 	#$loc_uuid = $st->loc_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
@@ -116,6 +116,7 @@ class router($st) {
 
 	include dhcp.server(struct{
 		authoritative => true,
+		interfaces => [$loc_dev,], # bonus safety
 	}) as dhcp_server # good!
 
 	include dhcp_server.subnet("loc", struct{

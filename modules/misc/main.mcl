@@ -656,3 +656,47 @@ class grow($mount) {
 		Depend => Pkg["cloud-utils-growpart"],
 	}
 }
+
+class console($st) {
+	$dev = $st->dev || "ttyS0"
+	#$file = $st->file || "/etc/default/grub" # TODO: do we need a file param?
+
+	# This adds the console=${dev} inside the quotes if it's not present!
+	exec "console-${dev}" {
+		# sed -i '/^GRUB_CMDLINE_LINUX=/ {/console=ttyS0/! s/^\(GRUB_CMDLINE_LINUX="[^"]*\)"/\1 console=ttyS0"/}' /etc/default/grub # works!
+		cmd => "/usr/bin/sed",
+		args => [
+			"-i",
+			"/^GRUB_CMDLINE_LINUX=/ {/console=${dev}/! s/^\\(GRUB_CMDLINE_LINUX=\"[^\"]*\\)\"/\\1 console=${dev}\"/}", # works!
+			"/etc/default/grub",
+		],
+		# grep -Pq '^GRUB_CMDLINE_LINUX="(?![^"]*console=ttyS0)[^"]*"' /etc/default/grub # returns 0 if change is needed
+		ifcmd => "/usr/bin/grep -Pq ^GRUB_CMDLINE_LINUX=\"(?![^\"]*console=${dev})[^\"]*\" /etc/default/grub",
+	}
+
+	# XXX: do we need to run `stty -F /dev/ttyS0 speed 9600` ?
+
+	exec "grub2-mkconfig-${dev}" {
+		cmd => "/usr/sbin/grub2-mkconfig",
+		args => [
+			"-o",
+			"/boot/efi/EFI/fedora/grub.cfg", # formerly: /boot/grub2/grub.cfg
+		],
+		mtimes => [
+			"/etc/default/grub",
+		],
+		ifcmd => "/bin/false", # used with mtimes
+
+		# XXX: add a semaphore if we have another grub2-mkconfig somewhere?
+
+		Before => Svc["${svc}"],
+		Depend => Exec["console-${dev}"],
+	}
+
+	# XXX: historically on CentOS we would use "getty@" not "serial-getty@"
+	$svc = "serial-getty@${dev}" # .service
+	svc "${svc}" {
+		state => "running",
+		startup => "enabled",
+	}
+}

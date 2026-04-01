@@ -3990,7 +3990,7 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 					Textarea: obj.Textarea, // XXX: advance by `for ` chars?
 
 					Value: &types.IntValue{
-						V: int64(index),
+						V: index,
 					},
 					NameHint: obj.Index, // XXX: is this right?
 				}
@@ -7722,7 +7722,7 @@ type ExprInt struct {
 	data  *interfaces.Data
 	scope *interfaces.Scope // store for referencing this later
 
-	V int64
+	V int
 }
 
 // String returns a short representation of this expression.

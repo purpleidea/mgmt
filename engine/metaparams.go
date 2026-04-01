@@ -90,7 +90,7 @@ type MetaParams struct {
 
 	// Delay is the number of milliseconds to wait between retries. This
 	// value is used for both Watch and CheckApply.
-	Delay uint64 `yaml:"delay"`
+	Delay uint `yaml:"delay"`
 
 	// Poll is the number of seconds between poll intervals. Use 0 to Watch.
 	Poll uint32 `yaml:"poll"`

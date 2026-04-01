@@ -1037,7 +1037,7 @@ func (obj *Type) Reflect() reflect.Type {
 	case KindStr:
 		return reflect.TypeOf(string(""))
 	case KindInt:
-		return reflect.TypeOf(int64(0))
+		return reflect.TypeOf(int(0))
 	case KindFloat:
 		return reflect.TypeOf(float64(0))
 

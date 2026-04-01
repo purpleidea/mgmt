@@ -103,10 +103,10 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 		}
 		v, err := num.Int64()
 		if err != nil {
-			return nil, fmt.Errorf("num doesn't contain int64")
+			return nil, fmt.Errorf("num doesn't contain int")
 		}
 
-		return &types.IntValue{V: v}, nil
+		return &types.IntValue{V: int(v)}, nil
 
 	case types.KindFloat:
 		num, ok := val.(json.Number)

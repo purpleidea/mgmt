@@ -118,6 +118,6 @@ func (obj *FastCount) Call(ctx context.Context, args []types.Value) (types.Value
 	count := obj.count
 	obj.mutex.Unlock()
 	return &types.IntValue{
-		V: int64(count),
+		V: count,
 	}, nil
 }

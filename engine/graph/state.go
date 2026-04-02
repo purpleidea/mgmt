@@ -174,7 +174,7 @@ func (obj *State) Init() error {
 
 	obj.pokeChan = make(chan struct{}, 1) // must be buffered
 
-	//obj.paused = false // starts off as started
+	obj.paused = true // starts off as paused
 	obj.pauseSignal = make(chan struct{})
 	obj.resumeSignal = make(chan struct{})
 
@@ -352,8 +352,17 @@ func (obj *State) Poke() {
 // so only call these one at a time and alternate between the two.
 func (obj *State) Pause() error {
 	if obj.paused {
+		// programming error
 		panic("already paused")
 	}
+
+	// Pause runs here, but if this resource has already errored (eg:
+	// CheckApply errored for some reason) then that resource will exit and
+	// instead of sending the `obj.pauseSignal`, we'll hit the
+	// `obj.doneCtx.Done()` case and return without setting `obj.paused`.
+	//
+	// As a result, during the Resume call, it would normally error because
+	// it is only expecting resources with `obj.paused = true`.
 
 	// wait for ack (or exit signal)
 	select {
@@ -373,15 +382,25 @@ func (obj *State) Pause() error {
 // called concurrently with either the Pause() method or itself, so only call
 // these one at a time and alternate between the two.
 func (obj *State) Resume() error {
-	if !obj.paused {
-		return fmt.Errorf("not paused")
+	if !obj.paused { // for debug
+		select {
+		case <-obj.doneCtx.Done():
+			//return engine.ErrClosed // happens below the same way
+		default:
+			// programming error
+			panic("not paused or exited")
+		}
 	}
+
+	// If the resource already errored/exited, then we'll skip the
+	// `obj.resumeSignal` case here and not touch the `obj.paused` flag.
+	// Please read the comments in the corresponding Pause() function too.
 
 	select {
 	case obj.resumeSignal <- struct{}{}:
 		// we're resumed
 
-	case <-obj.doneCtx.Done(): // XXX: do we need this case here too?
+	case <-obj.doneCtx.Done():
 		return engine.ErrClosed
 	}
 

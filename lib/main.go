@@ -785,7 +785,7 @@ func (obj *Main) Run(ctx context.Context) error {
 		defer wg.Done()
 		defer geCancel() // at the end of deploy, we trigger this!
 		defer Logf("loop: exited")
-		started := false // track engine started state
+		started := true // track engine started state
 		var mainDeploy *gapi.Deploy
 		for {
 			Logf("waiting...")
@@ -808,8 +808,8 @@ func (obj *Main) Run(ctx context.Context) error {
 
 					if started {
 						if err := obj.ge.Pause(false); err != nil {
-							// programming error ?
-							Logf("error pausing graph: %+v", err)
+							// programming error
+							Logf("programming error exiting graph: %+v", err)
 							obj.errAppend(err)
 							cancel() // trigger an exit!
 							continue // wait for deployChan to exit
@@ -1086,17 +1086,15 @@ func (obj *Main) Run(ctx context.Context) error {
 
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
-			if started { // TODO: we can flatten this check out I think
-				converger.Pause()                               // FIXME: add sync wait?
-				if err := obj.ge.Pause(fastPause); err != nil { // sync
-					// programming error ?
-					Logf("error pausing graph: %+v", err)
-					obj.errAppend(err)
-					cancel() // trigger an exit!
-					continue // wait for deployChan to exit
-				}
-				started = false
+			converger.Pause()                               // FIXME: add sync wait?
+			if err := obj.ge.Pause(fastPause); err != nil { // sync
+				// programming error
+				Logf("programming error pausing graph: %+v", err)
+				obj.errAppend(err)
+				cancel() // trigger an exit!
+				continue // wait for deployChan to exit
 			}
+			started = false
 
 			Logf("commit...")
 			if err := obj.ge.Commit(); err != nil {
@@ -1125,11 +1123,13 @@ func (obj *Main) Run(ctx context.Context) error {
 			// XXX: Instead of a timeout, use the second ^C signal?
 			pruneCtx, pruneCancel := util.WithPostCancelTimeout(deployCtx, 5*time.Second)
 			if err := obj.ge.Exporter.Prune(pruneCtx, obj.ge.Graph()); err != nil {
-				// XXX: This should just cause a permanent error
-				// here which turns into a shutdown. Refactor!
+				// This should just cause a permanent error here
+				// which turns into a shutdown.
 				obj.ge.Abort() // delete graph
 				Logf("error running the exporter Prune: %+v", err)
 				pruneCancel()
+				obj.errAppend(err)
+				cancel() // trigger an exit!
 				continue
 			}
 			pruneCancel()
@@ -1140,8 +1140,8 @@ func (obj *Main) Run(ctx context.Context) error {
 			// Commit already starts things, but we still need to
 			// resume anything that was pre-existing and was paused.
 			if err := obj.ge.Resume(); err != nil { // sync
-				// programming error ?
-				Logf("error resuming graph: %+v", err)
+				// programming error
+				Logf("programming error resuming graph: %+v", err)
 				obj.errAppend(err)
 				cancel() // trigger an exit!
 				continue // wait for deployChan to exit

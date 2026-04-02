@@ -55,7 +55,13 @@ const (
 	StateDir = "state"
 )
 
-// Engine encapsulates a generic graph and manages its operations.
+// Engine encapsulates a generic graph and manages its operations. The engine
+// starts off running (unpaused) but with an empty graph. It then cycles through
+// being paused, gets vertices added, and then (unpause) resuming. The vertices
+// have state which includes the running Worker (Watch for Res) and those start
+// paused, which resume and start up after Commit. Getting the architectural
+// dance right and knowing what starts paused vs running was tricky, but I think
+// it's correct now.
 type Engine struct {
 	Program  string
 	Version  string
@@ -133,7 +139,7 @@ func (obj *Engine) Init() error {
 
 	obj.wg = &sync.WaitGroup{}
 
-	obj.paused = true // start off true, so we can Resume after first Commit
+	//obj.paused = false // start off running (but empty)
 	obj.fastPause = &atomic.Bool{}
 
 	obj.errMutex = &sync.Mutex{}
@@ -287,7 +293,7 @@ func (obj *Engine) Commit() error {
 				obj.Logf(res.String()+": "+format, v...)
 			},
 
-			paused: true, // start paused
+			//paused: true, // start paused (set in Init)
 		}
 		if err := obj.state[vertex].Init(); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Init")
@@ -491,6 +497,7 @@ func (obj *Engine) Resume() error {
 	//defer obj.mutex.Unlock()
 
 	if !obj.paused {
+		// programming error
 		return fmt.Errorf("already resumed")
 	}
 
@@ -541,6 +548,7 @@ func (obj *Engine) Pause(fastPause bool) error {
 	//defer obj.mutex.Unlock()
 
 	if obj.paused {
+		// programming error
 		return fmt.Errorf("already paused")
 	}
 

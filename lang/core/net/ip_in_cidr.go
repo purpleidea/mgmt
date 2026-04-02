@@ -47,13 +47,13 @@ func init() {
 			Spec: true,
 		},
 		T: types.NewType("func(ip str, cidr str) bool"),
-		F: IpInCidr,
+		F: IPInCidr,
 	})
 }
 
-// IpInCidr returns true if the input ip is part of a CIDR network. If either
+// IPInCidr returns true if the input ip is part of a CIDR network. If either
 // value is invalid this errors.
-func IpInCidr(ctx context.Context, input []types.Value) (types.Value, error) {
+func IPInCidr(ctx context.Context, input []types.Value) (types.Value, error) {
 	s := input[0].Str()
 	ip := net.ParseIP(s)
 	if ip == nil {

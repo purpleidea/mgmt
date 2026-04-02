@@ -179,7 +179,7 @@ func NE(s string) pgraph.Edge {
 
 type testGrouper struct {
 	// TODO: this algorithm may not be correct in all cases. replace if needed!
-	NonReachabilityGrouper // "inherit" what we want, and reimplement the rest
+	NonReachabilityFastGrouper // "inherit" what we want, and reimplement the rest
 }
 
 func (obj *testGrouper) Name() string {
@@ -188,7 +188,7 @@ func (obj *testGrouper) Name() string {
 
 func (obj *testGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	// call existing vertexCmp first
-	if err := obj.NonReachabilityGrouper.VertexCmp(v1, v2); err != nil {
+	if err := obj.NonReachabilityFastGrouper.VertexCmp(v1, v2); err != nil {
 		return err
 	}
 
@@ -1129,4 +1129,155 @@ func TestPgraphGroupingKinds5(t *testing.T) {
 		g2.AddVertex(a, b)
 	}
 	runGraphCmp(t, g1, g2)
+}
+
+// TestKindFamily tests that the kindFamily function correctly partitions vertex
+// kinds into grouping families.
+func TestKindFamily(t *testing.T) {
+	tests := []struct {
+		kind   string
+		family string
+	}{
+		{"nooptest", "nooptest"},
+		{"nooptestkind:foo", "nooptestkind"},
+		{"nooptestkind:foo:hello", "nooptestkind"},
+		{"nooptestkind:foo:world:big", "nooptestkind"},
+		{"nooptestkind:this:is:very:long", "nooptestkind"},
+	}
+	for _, tt := range tests {
+		v := NewKindNoopResTest(tt.kind, "x1")
+		got := kindFamily(v)
+		if got != tt.family {
+			t.Errorf("kindFamily(%s) = %s, want %s", tt.kind, got, tt.family)
+		}
+	}
+}
+
+// TestReachCache tests that the precomputed reachability cache gives correct
+// results for a simple DAG.
+func TestReachCache(t *testing.T) {
+	g, _ := pgraph.NewGraph("g")
+	a := NewNoopResTest("a1")
+	b := NewNoopResTest("b1")
+	c := NewNoopResTest("c1")
+	d := NewNoopResTest("d1")
+	g.AddEdge(a, b, NE("e1"))
+	g.AddEdge(b, c, NE("e2"))
+	g.AddVertex(d) // isolated vertex
+
+	rc, err := buildReachCache(g)
+	if err != nil {
+		t.Fatalf("buildReachCache: %v", err)
+	}
+
+	// a -> b -> c (transitive: a can reach c)
+	if !rc.isReachable(a, b) {
+		t.Error("expected a -> b reachable")
+	}
+	if !rc.isReachable(a, c) {
+		t.Error("expected a -> c reachable (transitive)")
+	}
+	if !rc.isReachable(b, c) {
+		t.Error("expected b -> c reachable")
+	}
+
+	// reverse should not be reachable
+	if rc.isReachable(b, a) {
+		t.Error("expected b -> a NOT reachable")
+	}
+	if rc.isReachable(c, a) {
+		t.Error("expected c -> a NOT reachable")
+	}
+
+	// isolated vertex
+	if rc.isReachable(a, d) {
+		t.Error("expected a -> d NOT reachable")
+	}
+	if rc.isReachable(d, a) {
+		t.Error("expected d -> a NOT reachable")
+	}
+}
+
+// benchmarkAutoGroup runs the autogroup algorithm on a graph with n same-kind
+// groupable vertices, each having no edges (maximum grouping scenario).
+func benchmarkAutoGroup(b *testing.B, n int) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < n; j++ {
+			v := NewNoopResTest(fmt.Sprintf("a%d", j))
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(&testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkAutoGroup10(b *testing.B)    { benchmarkAutoGroup(b, 10) }
+func BenchmarkAutoGroup100(b *testing.B)   { benchmarkAutoGroup(b, 100) }
+func BenchmarkAutoGroup1000(b *testing.B)  { benchmarkAutoGroup(b, 1000) }
+func BenchmarkAutoGroup10000(b *testing.B) { benchmarkAutoGroup(b, 10000) }
+
+// BenchmarkAutoGroupMixed benchmarks with multiple different kinds where no
+// cross-kind grouping is possible, testing partition effectiveness.
+func BenchmarkAutoGroupMixed(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("a%d", j))
+			g.AddVertex(v)
+		}
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("b%d", j))
+			g.AddVertex(v)
+		}
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("c%d", j))
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(&testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkAutoGroupHierarchical benchmarks hierarchical kind grouping.
+func BenchmarkAutoGroupHierarchical(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		a4 := NewKindNoopResTest("nooptestkind:foo:world:bad", "a4")
+		a5 := NewKindNoopResTest("nooptestkind:foo:world:bazzz", "a5")
+		g.AddVertex(a1, a2, a3, a4, a5)
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(&testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkAutoGroupNoMatch benchmarks with vertices that cannot group (all
+// different starting letters), measuring overhead of the partition and cache.
+func BenchmarkAutoGroupNoMatch(b *testing.B) {
+	letters := "abcdefghijklmnopqrstuvwxyz"
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < 100; j++ {
+			name := fmt.Sprintf("%c%d", letters[j%len(letters)], j)
+			v := NewNoopResTest(name)
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(&testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
 }

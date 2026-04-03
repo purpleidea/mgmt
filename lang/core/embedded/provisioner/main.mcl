@@ -1070,7 +1070,7 @@ class base:runner($config) {
 				handoff_svc_sshurl => $etcd_server_sshurl,
 				handoff_svc_hostkey => $etcd_server_hostkey,
 				#handoff => "exec", # sets up mgmt with handoff_exec
-				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-autoedges --no-pgp empty",
+				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-autoedges --no-autogroup --no-pgp empty",
 				#handoff_code => "/etc/mgmt/", # one way to do it
 				#handoff_module_path => "/etc/mgmt/modules/",
 				handoff_hostname => $k,

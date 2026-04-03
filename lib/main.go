@@ -121,6 +121,9 @@ type Config struct {
 	// NoAutoEdges tells the engine to not try and build autoedges.
 	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
 
+	// NoAutoGroup tells the engine to not try and autogroup.
+	NoAutoGroup bool `arg:"--no-autogroup" help:"skip the autogroup stage"`
+
 	// Noop globally forces all resources into no-op mode.
 	Noop bool `arg:"--noop" help:"globally force all resources into no-op mode"`
 
@@ -981,13 +984,17 @@ func (obj *Main) Run(ctx context.Context) error {
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run autogroup; modifies the graph
-			timing = time.Now()
-			if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
-				obj.ge.Abort() // delete graph
-				Logf("error running auto grouping: %+v", err)
-				continue
+			if mainDeploy.NoAutoGroup {
+				Logf("skipping auto grouping...")
+			} else {
+				timing = time.Now()
+				if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+					obj.ge.Abort() // delete graph
+					Logf("error running auto grouping: %+v", err)
+					continue
+				}
+				Logf("auto grouping took: %s", time.Since(timing))
 			}
-			Logf("auto grouping took: %s", time.Since(timing))
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run reversals; modifies the graph

@@ -144,6 +144,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 			//Update: obj.Update,
 
 			NoAutoEdges: obj.NoAutoEdges,
+			NoAutoGroup: obj.NoAutoGroup,
 		},
 
 		Fs:    standaloneFs,

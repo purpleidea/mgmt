@@ -53,6 +53,7 @@ type Deploy struct {
 	Sema int // sema override
 
 	NoAutoEdges bool
+	NoAutoGroup bool
 
 	GAPI GAPI
 }

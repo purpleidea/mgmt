@@ -76,6 +76,7 @@ type DeployArgs struct {
 	Force bool     `arg:"--force" help:"force a new deploy, even if the safety chain would break"`
 
 	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
+	NoAutoGroup bool `arg:"--no-autogroup" help:"skip the autogroup stage"`
 
 	DeployEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"deploy empty payload"`
 	DeployLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
@@ -299,6 +300,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	deploy.Sema = obj.Sema
 
 	deploy.NoAutoEdges = obj.NoAutoEdges
+	deploy.NoAutoGroup = obj.NoAutoGroup
 
 	str, err := deploy.ToB64()
 	if err != nil {

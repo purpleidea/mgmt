@@ -491,6 +491,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		Sema: info.Flags.Sema,
 
 		NoAutoEdges: info.Flags.NoAutoEdges,
+		NoAutoGroup: info.Flags.NoAutoGroup,
 
 		GAPI: &GAPI{
 			InputURI: fs.URI(),

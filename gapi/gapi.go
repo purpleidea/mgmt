@@ -74,6 +74,7 @@ type Flags struct {
 	Sema int
 
 	NoAutoEdges bool
+	NoAutoGroup bool
 }
 
 // Info is the set of input values passed into the Cli method so that the GAPI

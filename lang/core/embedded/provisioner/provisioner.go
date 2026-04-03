@@ -523,6 +523,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 	//	fastsolver.TODO,
 	//}
 	libConfig.TmpPrefix = true
+	libConfig.NoAutoGroup = false // required
 	libConfig.NoPgp = true
 
 	runArgs.Config = libConfig // store any changes we made

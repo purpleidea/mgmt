@@ -5,8 +5,8 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: cli/deploy.go:145 cli/docs.go:98 cli/firstboot.go:99 cli/run.go:130
-#: cli/setup.go:128 cli/tools.go:98
+#: cli/deploy.go:145 cli/deploy.go:146 cli/docs.go:98 cli/firstboot.go:99
+#: cli/run.go:130 cli/setup.go:128 cli/tools.go:98
 msgid "goodbye!"
 msgstr "goodbye!"
 

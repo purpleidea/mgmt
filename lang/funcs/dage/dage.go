@@ -585,6 +585,13 @@ Start:
 		// The table must get cleaned up over time to be consistent. It
 		// currently happens in interrupt as a result of a node delete.
 
+		// XXX: implement epoch rollover by relabelling all nodes
+		epoch++ // increment it after a successful traversal
+		if obj.Debug {
+			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
+		}
+
+		// NOTE: increment epoch above b/c it's needed for table skip!
 		if obj.lastTable != nil && obj.lastTable.Cmp(table) == nil {
 			if obj.Debug || true { // leave on for initial testing
 				obj.Logf("table skip")
@@ -605,12 +612,6 @@ Start:
 
 		case <-ctx.Done():
 			return ctx.Err()
-		}
-
-		// XXX: implement epoch rollover by relabelling all nodes
-		epoch++ // increment it after a successful traversal
-		if obj.Debug {
-			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
 		}
 
 	} // end big for loop

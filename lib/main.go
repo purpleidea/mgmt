@@ -1011,65 +1011,7 @@ func (obj *Main) Run(ctx context.Context) error {
 			// is now different than the equivalent resource in this
 			// new incoming graph!
 			timing = time.Now()
-			if err := obj.ge.Apply(func(g *pgraph.Graph) error { // apply runs on nextGraph (new)
-				old := obj.ge.Graph()
-				if old.NumVertices() == 0 { // skip initial empty graph
-					return nil
-				}
-				mapped, err := engine.ResGraphMapper(old, g) // (map[engine.RecvableRes]engine.RecvableRes, error)
-				if err != nil {
-					return err
-				}
-
-				for _, v := range g.Vertices() {
-					res, ok := v.(engine.RecvableRes)
-					if !ok {
-						continue // we'll catch the error later!
-					}
-
-					if obj.Debug {
-						Logf("SendRecv: %s", res) // receiving here
-					}
-
-					// This mapping function is used to
-					// replace the Recv() function that is
-					// called in Send/Recv so that our new
-					// resources in the graph we're about to
-					// graphsync on can use the Recv() func
-					// from the current (possibly stale)
-					// resources so that they have the
-					// current values they've already
-					// received. This is needed so that the
-					// compare doesn't fail unnecessarily if
-					// the new resource doesn't happen to
-					// have the field value as whatever the
-					// older one previously received. It is
-					// important to not remake resources
-					// unnecessarily because doing so resets
-					// any important private struct fields
-					// that they might have.
-					fn := func(r engine.RecvableRes) (map[string]*engine.Send, error) {
-						old, exists := mapped[r] // r is new
-						if !exists {             // initial graph could be empty
-							// possible programming error?
-							//return nil, fmt.Errorf("could not find a match for %p %s", r, r)
-							//return r.Recv(), nil // NO!
-							return map[string]*engine.Send{}, nil
-						}
-						return old.Recv(), nil // swap
-					}
-					if updated, err := graph.SendRecv(res, fn); err != nil {
-						return errwrap.Wrapf(err, "could not SendRecv")
-					} else if as := graph.UpdatedStrings(updated); len(as) > 0 {
-						for _, s := range as {
-							Logf("SendRecv: %s", s)
-						}
-					}
-				}
-
-				return nil
-
-			}); err != nil { // apply an operation to the new graph
+			if err := obj.ge.SendRecv(); err != nil { // apply an operation to the new graph
 				obj.ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
 				continue

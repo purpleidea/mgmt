@@ -40,6 +40,67 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+// SendRecv runs the engine invocation during graph swap on the new graph with
+// data from the old graph, so that we won't need to unnecessarily re-make a
+// resource that had previously received some data and is now different than the
+// equivalent resource in this new incoming graph!
+func (obj *Engine) SendRecv() error {
+	if obj.nextGraph == nil {
+		return fmt.Errorf("there is no active graph to apply send/recv to")
+	}
+
+	g := obj.nextGraph          // previously this ran in obj.Apply(...)
+	old := obj.graph            // obj.ge.Graph()
+	if old.NumVertices() == 0 { // skip initial empty graph
+		return nil
+	}
+	mapped, err := engine.ResGraphMapper(old, g) // (map[engine.RecvableRes]engine.RecvableRes, error)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range g.Vertices() {
+		res, ok := v.(engine.RecvableRes)
+		if !ok {
+			continue // we'll catch the error later!
+		}
+
+		if obj.Debug {
+			obj.Logf("SendRecv: %s", res) // receiving here
+		}
+
+		// This mapping function is used to replace the Recv() function
+		// that is called in Send/Recv so that our new resources in the
+		// graph we're about to graphsync on can use the Recv() func
+		// from the current (possibly stale) resources so that they have
+		// the current values they've already received. This is needed
+		// so that the compare doesn't fail unnecessarily if the new
+		// resource doesn't happen to have the field value as whatever
+		// the older one previously received. It is important to not
+		// remake resources unnecessarily because doing so resets any
+		// important private struct fields that they might have.
+		fn := func(r engine.RecvableRes) (map[string]*engine.Send, error) {
+			old, exists := mapped[r] // r is new
+			if !exists {             // initial graph could be empty
+				// possible programming error?
+				//return nil, fmt.Errorf("could not find a match for %p %s", r, r)
+				//return r.Recv(), nil // NO!
+				return map[string]*engine.Send{}, nil
+			}
+			return old.Recv(), nil // swap
+		}
+		if updated, err := SendRecv(res, fn); err != nil {
+			return errwrap.Wrapf(err, "could not SendRecv")
+		} else if as := UpdatedStrings(updated); len(as) > 0 {
+			for _, s := range as {
+				obj.Logf("SendRecv: %s", s)
+			}
+		}
+	}
+
+	return nil
+}
+
 // RecvFn represents a custom Recv function which can be used in place of the
 // stock, built-in one. This is needed if we want to receive from a different
 // resource data source than our own. (Only for special occasions of course!)

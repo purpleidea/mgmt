@@ -1004,19 +1004,12 @@ func (obj *Main) Run(ctx context.Context) error {
 				continue
 			}
 
-			// XXX: Should this run earlier or later than here?
-			// run Send/Recv on the new graph with data from the old
-			// graph, so that we won't need to unnecessarily re-make
-			// a resource that had previously received some data and
-			// is now different than the equivalent resource in this
-			// new incoming graph!
-			timing = time.Now()
-			if err := obj.ge.SendRecv(); err != nil { // apply an operation to the new graph
-				obj.ge.Abort() // delete graph
-				Logf("error applying operation to the new graph: %+v", err)
-				continue
-			}
-			Logf("send/recv building took: %s", time.Since(timing))
+			// NOTE: Send/Recv used to run right here but it mustn't
+			// because that caused the "received nil value from" bug
+			// and as well the concurrency "DATA RACE" issue when we
+			// use send/recv actively. This is because the new graph
+			// generation (and this) would run before a resource was
+			// paused which meant it hasn't finished doing a Send().
 
 			// Double check before we commit.
 			timing = time.Now()
@@ -1044,6 +1037,19 @@ func (obj *Main) Run(ctx context.Context) error {
 				continue // wait for deployChan to exit
 			}
 			started = false
+
+			// run Send/Recv on the new graph with data from the old
+			// graph, so that we won't need to unnecessarily re-make
+			// a resource that had previously received some data and
+			// is now different than the equivalent resource in this
+			// new incoming graph!
+			timing = time.Now()
+			if err := obj.ge.SendRecv(); err != nil { // apply an operation to the new graph
+				obj.ge.Abort() // delete graph
+				Logf("error applying operation to the new graph: %+v", err)
+				continue
+			}
+			Logf("send/recv building took: %s", time.Since(timing))
 
 			Logf("commit...")
 			if err := obj.ge.Commit(); err != nil {

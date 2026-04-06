@@ -1,0 +1,33 @@
+# This amazing example reproduced the (now fixed) "received nil value from" bug.
+
+import "os"
+
+$marker = "/tmp/mgmt-sendrecv-marker"
+
+# Reactive: watches for marker file, triggers graph reload when it appears.
+$exists = os.file_exists($marker)
+
+# Use $exists in a separate resource so the dage table change propagates into a
+# genuinely different graph, forcing the engine to reload. This is intentionally
+# separate from the send/recv pair below.
+print "status" {
+	msg => if $exists {
+		"marker found"
+	} else {
+		"waiting for marker"
+	},
+}
+
+exec "producer" {
+	shell => "/bin/bash",
+	# Create marker immediately, then sleep to keep CheckApply blocked. When
+	# os.file_exists fires, lang sends new graph, exec Sent() is still nil.
+	cmd => "touch /tmp/mgmt-sendrecv-marker && sleep 15 && echo done",
+}
+
+file "/tmp/mgmt-sendrecv-output" {
+	state => "exists",
+	mode => "ugo=rwx", # Something, anything, to show it is doing something!
+}
+
+Exec["producer"].output -> File["/tmp/mgmt-sendrecv-output"].content

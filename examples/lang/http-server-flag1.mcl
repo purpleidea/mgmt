@@ -37,7 +37,6 @@ value "${name1}" {
 Http:Server:Flag["${name1}"].value -> Kv["${name1}"].value
 Http:Server:Flag["${name1}"].value -> Value["${name1}"].any
 
-
 #$st_val1 = value.get_bool($name1)
 $st_val1 = value.get_str($name1)
 $val1 = $st_val1->ready and $st_val1->value == "true" # export this value to parent scope
@@ -58,7 +57,6 @@ Http:Server:Flag["${name2}"].value -> Value["${name2}"].any
 #$st_val2 = value.get_bool($name2)
 $st_val2 = value.get_str($name2)
 $val2 = $st_val2->value # possibly empty at the start
-
 
 file "/tmp/testing/info" {
 	state => "exists",

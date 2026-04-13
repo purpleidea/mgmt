@@ -1,9 +1,9 @@
 value "hello1" {
 	#any => 42,	# can be any type
-	any => "wow",	# can be any type
+	any => "wow", # can be any type
 }
 value "hello2" {
-	any => "whatever",	# TODO: remove the temporary placeholder here
+	any => "whatever", # TODO: remove the temporary placeholder here
 	#any => "",	# XXX: remove any placeholder to see the bug when absent
 }
 

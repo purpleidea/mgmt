@@ -6,7 +6,7 @@ $now = datetime.now()
 
 $st = struct{now => $now, load => $load,}
 
-$load float = sys.load()->x1	# ambiguous so we specify the type!
+$load float = sys.load()->x1 # ambiguous so we specify the type!
 
 file "/tmp/mgmt/datetime" {
 	state => $const.res.file.state.exists,

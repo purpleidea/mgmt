@@ -35,7 +35,6 @@ file "/tmp/standalone" {
 	Before => Tar["/tmp/foo.tar"],
 }
 
-
 tar "/tmp/foo.tar" {
 	inputs => [
 		"/tmp/tar/",

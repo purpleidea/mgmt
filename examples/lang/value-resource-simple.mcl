@@ -11,7 +11,7 @@ Value["hello"].any -> Test["test"].anotherstr
 
 import "value"
 
-$ret = value.get_str("hello")	# name of value resource
+$ret = value.get_str("hello") # name of value resource
 
 test "get" {
 	anotherstr => $ret->value,

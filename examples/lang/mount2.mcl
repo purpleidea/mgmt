@@ -3,11 +3,11 @@ mount "/media/cdrom" {
 	device => "/dev/cdrom",
 	type => "iso9660",
 	options => {
-		"ro"=>"",
-		"relatime"=>"",
-		"nojoliet"=>"",
-		"check"=>"s",
-		"map"=>"n",
-		"blocksize"=>"2048",
+		"ro" => "",
+		"relatime" => "",
+		"nojoliet" => "",
+		"check" => "s",
+		"map" => "n",
+		"blocksize" => "2048",
 	},
 }

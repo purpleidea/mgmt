@@ -7,10 +7,10 @@ file "${root}file0" {
 	state => $const.res.file.state.exists,
 }
 
-tftp:server ":1069" {	# by default tftp uses :69 but using :1069 avoids needing root!
+tftp:server ":1069" { # by default tftp uses :69 but using :1069 avoids needing root!
 	#address => ":1069",	# you can override the name like this
-	timeout => 60,		# increase the timeout
-	root => $root,		# add a tftproot (optional)
+	timeout => 60, # increase the timeout
+	root => $root, # add a tftproot (optional)
 }
 
 # you can add a raw file like this...
@@ -29,7 +29,7 @@ file $f2 {
 tftp:file "/file2" {
 	path => $f2,
 
-	Depend => File[$f2],	# TODO: add autoedges
+	Depend => File[$f2], # TODO: add autoedges
 }
 
 # here's a file in the middle of nowhere that still works...
@@ -40,5 +40,5 @@ tftp:file "/i/am/some/deeply/nested/file" {
 # and this file won't autogroup with the main tftp server
 tftp:file "/nope/noway" {
 	data => "i won't be seen!\n",
-	server => "someone else!",	# normally we don't use this this way
+	server => "someone else!", # normally we don't use this this way
 }

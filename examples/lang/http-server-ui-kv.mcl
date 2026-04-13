@@ -1,6 +1,6 @@
 import "world"
 
-http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+http:server ":8080" { # by default http uses :80 but using :8080 avoids needing root!
 	#address => ":8080",	# you can override the name like this
 }
 
@@ -35,7 +35,7 @@ http:server:ui:input $range1_id {
 #kv $text1_id { # store in world
 #}
 
-$ret1 = world.getval($text1_id)	# name of kv resource
+$ret1 = world.getval($text1_id) # name of kv resource
 
 test "get1" {
 	anotherstr => $ret1->value,

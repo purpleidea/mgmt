@@ -10,6 +10,7 @@ print $names {
 # multiples resources, defined by list
 print ["hello", "world",] {
 	Meta:autogroup => false,
+
 	Depend => Print[$names],
 }
 

@@ -18,7 +18,7 @@ $list = [$list0, $list1, $list2, $list3,]
 
 for $index, $value in $list {
 	for $i, $v in $value {
-		$s = fmt.printf("%s is %d", $v, $i+$index)
+		$s = fmt.printf("%s is %d", $v, $i + $index)
 		print [$s,] {
 			Meta:autogroup => false,
 		}

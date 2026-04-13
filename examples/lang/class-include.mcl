@@ -7,10 +7,10 @@ class foo {
 	}
 }
 
-$wow = "this is wow"	# gets captured
+$wow = "this is wow" # gets captured
 
 class bar($a, $b) { # a parameterized class
-	print ["bar-"+ $a,] {
+	print ["bar-" + $a,] {
 		msg => fmt.printf("inside bar: %s", $b + "; " + $wow),
 
 		Meta:autogroup => false,
@@ -18,7 +18,7 @@ class bar($a, $b) { # a parameterized class
 }
 
 include foo
-include foo			# duplicate
+include foo # duplicate
 include bar("b1", "hello")
 include bar("b2", "world")
-include bar("b2", "world")	# duplicate
+include bar("b2", "world") # duplicate

@@ -1,4 +1,4 @@
-http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+http:server ":8080" { # by default http uses :80 but using :8080 avoids needing root!
 	#address => ":8080",	# you can override the name like this
 	#timeout => 60,		# add a timeout (seconds)
 }
@@ -12,7 +12,7 @@ $version = "38"
 $arch = "x86_64"
 $distroarch_http_prefix = "/tmp/os/"
 
-file "${distroarch_http_prefix}" {	# root http dir
+file "${distroarch_http_prefix}" { # root http dir
 	state => $const.res.file.state.exists,
 }
 
@@ -25,8 +25,7 @@ file "${distroarch_http_prefix}" {	# root http dir
 # wget http://127.0.0.1:8080/fedora/releases/38/Everything/x86_64/os/Packages/c/cowsay-3.7.0-7.fc38.noarch.rpm
 # wget https://mirrors.xtom.de/fedora/releases/38/Everything/x86_64/os/Packages/c/cowsay-3.7.0-7.fc38.noarch.rpm
 
-http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {	# same as the http:server:file path
-
+http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" { # same as the http:server:file path
 	cache => "${distroarch_http_prefix}", # /tmp/os/
 	#force => false, # if true, overwrite or change from dir->file if needed
 	#ttl => 60, # 60 seconds ttl (longer for most things, -1 for infinite, 0 for just proxy)

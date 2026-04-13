@@ -28,7 +28,7 @@ virt "mgmt4" {
 	memory => 524288,
 	state => "running",
 	transient => false,
-	boot => ["hd", ],
+	boot => ["hd",],
 	disk => [
 		struct{
 			source => "~/.local/share/libvirt/images/fedora-23-scratch.qcow2",
@@ -46,7 +46,7 @@ virt "mgmt4" {
 		username => "",
 		password => "",
 	},
-	hotcpus => true,	# this is the default
+	hotcpus => true, # this is the default
 	restartondiverge => "",
 	restartonrefresh => false,
 }

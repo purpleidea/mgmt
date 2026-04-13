@@ -1,6 +1,6 @@
 import "fmt"
 
-$result = 42/0 # should error here!
+$result = 42 / 0 # should error here!
 
 print "math" {
 	msg => fmt.printf("42/0 = %f", $result),

@@ -1,6 +1,6 @@
 import "value"
 
-http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+http:server ":8080" { # by default http uses :80 but using :8080 avoids needing root!
 	#address => ":8080",	# you can override the name like this
 }
 
@@ -31,7 +31,7 @@ $range1_val = if $ret2->ready {
 	"2" # some default
 }
 http:server:ui:input $text1_id {
-	value => $text1_val,	# it passes back into itself!
+	value => $text1_val, # it passes back into itself!
 }
 
 http:server:ui:input $range1_id {
@@ -43,16 +43,16 @@ http:server:ui:input $range1_id {
 Http:Server:Ui:Input[$text1_id].value -> Value[$text1_id].any
 
 value $text1_id {
-	any => "whatever",	# TODO: remove the temporary placeholder here
+	any => "whatever", # TODO: remove the temporary placeholder here
 	#any => "",	# XXX: remove any placeholder to see the bug when absent
 }
 value $range1_id {
-	any => "whatever",	# TODO: remove the temporary placeholder here
+	any => "whatever", # TODO: remove the temporary placeholder here
 	#any => "",	# XXX: remove any placeholder to see the bug when absent
 }
 
-$ret1 = value.get_str($text1_id)	# name of value resource
-$ret2 = value.get_str($range1_id)	# name of value resource
+$ret1 = value.get_str($text1_id) # name of value resource
+$ret2 = value.get_str($range1_id) # name of value resource
 
 test "get1" {
 	anotherstr => $ret1->value,

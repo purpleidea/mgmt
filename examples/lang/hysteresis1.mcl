@@ -9,7 +9,7 @@ file "/tmp/mgmt/systemload" {
 $tmplvalues = struct{load => $theload, threshold => $threshold,}
 
 $theload = sys.load()->x1
-$threshold = 1.5	# change me if you like
+$threshold = 1.5 # change me if you like
 
 # simple hysteresis implementation
 $h1 = $theload > $threshold

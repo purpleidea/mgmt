@@ -24,7 +24,7 @@ $fn = if $moda {
 	}
 } else {
 	func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
-		-1*len($x)
+		-1 * len($x)
 	}
 }
 

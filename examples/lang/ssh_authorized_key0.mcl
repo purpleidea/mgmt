@@ -16,5 +16,4 @@ ssh:authorized_key "test" {
 	comment => "root@computer",
 
 	state => "exists",
-
 }

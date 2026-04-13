@@ -12,7 +12,7 @@ class base:inner($s) {
 }
 
 include base("world") as b1
-include b1.inner("hello") as b2	# inner comes out of `base`
+include b1.inner("hello") as b2 # inner comes out of `base`
 
 test [$top,] {}
 test [$b1.middle,] {}

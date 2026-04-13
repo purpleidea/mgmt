@@ -25,9 +25,9 @@ class base:inner1:deep($s, $b) {
 }
 
 include base("world") as b0
-include b0.inner1("hello") as b1	# inner comes out of `base`
-include b0.inner2("hello") as b2	# inner comes out of `base`
-include b1.deep("deep", true) as d	# deep comes out of `inner1`
+include b0.inner1("hello") as b1 # inner comes out of `base`
+include b0.inner2("hello") as b2 # inner comes out of `base`
+include b1.deep("deep", true) as d # deep comes out of `inner1`
 
 test [$top,] {}
 test [$b0.middle,] {}

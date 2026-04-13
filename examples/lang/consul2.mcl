@@ -3,6 +3,6 @@ import "golang"
 
 $d = datetime.now()
 consul:kv "love" {
-	key   => "mgmt/time",
+	key => "mgmt/time",
 	value => golang.template("hello! it is now: {{ datetime_print . }}\n", $d),
 }

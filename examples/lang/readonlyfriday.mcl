@@ -27,5 +27,5 @@ file "/tmp/files/" {
 		"0550"
 	} else {
 		"0770"
-	},
+	}, # this updates the mode, the instant it changes!
 }

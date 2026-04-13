@@ -6,7 +6,7 @@ file "/tmp/hello" {
 
 	#Meta:export => ["*",],		# export to all
 	#Meta:export => ["hostname1",],	# export to just this one
-	Meta:export => [		# export to everyone in this list
+	Meta:export => [ # export to everyone in this list
 		"${hostname}",
 		"hostname2",
 		"hostname3",

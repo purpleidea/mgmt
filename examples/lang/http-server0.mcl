@@ -7,10 +7,10 @@ file "${root}file0" {
 	state => $const.res.file.state.exists,
 }
 
-http:server ":8080" {	# by default http uses :80 but using :8080 avoids needing root!
+http:server ":8080" { # by default http uses :80 but using :8080 avoids needing root!
 	#address => ":8080",	# you can override the name like this
-	timeout => 60,		# add a timeout (seconds)
-	root => $root,		# add a httproot (optional)
+	timeout => 60, # add a timeout (seconds)
+	root => $root, # add a httproot (optional)
 }
 
 # you can add a raw file like this...
@@ -29,7 +29,7 @@ file $f2 {
 http:server:file "/file2" {
 	path => $f2,
 
-	Depend => File[$f2],	# TODO: add autoedges
+	Depend => File[$f2], # TODO: add autoedges
 }
 
 # here's a file in the middle of nowhere that still works...
@@ -40,5 +40,5 @@ http:server:file "/i/am/some/deeply/nested/file" {
 # and this file won't autogroup with the main http server
 http:server:file "/nope/noway" {
 	data => "i won't be seen!\n",
-	server => "someone else!",	# normally we don't use this this way
+	server => "someone else!", # normally we don't use this this way
 }

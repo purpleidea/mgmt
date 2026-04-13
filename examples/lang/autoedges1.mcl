@@ -12,6 +12,9 @@ file "/etc/drbd.conf" {
 
 	Meta:autoedge => true,
 	Meta:noop => $noop,
+
+	Before => Svc["drbd"],
+	Depend => Pkg["drbd-utils"],
 }
 
 file "/etc/drbd.d/" {
@@ -19,6 +22,8 @@ file "/etc/drbd.d/" {
 
 	Meta:autoedge => true,
 	Meta:noop => $noop,
+
+	Before => Svc["drbd"],
 }
 
 # note that the autoedges between the files and the svc don't exist yet :(

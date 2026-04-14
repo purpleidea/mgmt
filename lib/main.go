@@ -974,6 +974,7 @@ func (obj *Main) Run(ctx context.Context) error {
 				Logf("skipping auto edges...")
 			} else {
 				timing = time.Now()
+				// XXX: add deployCtx to autoedge
 				if err := obj.ge.AutoEdge(); err != nil {
 					obj.ge.Abort() // delete graph
 					Logf("error running auto edges: %+v", err)
@@ -988,6 +989,7 @@ func (obj *Main) Run(ctx context.Context) error {
 				Logf("skipping auto grouping...")
 			} else {
 				timing = time.Now()
+				// XXX: add deployCtx to autogroup
 				if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
 					obj.ge.Abort() // delete graph
 					Logf("error running auto grouping: %+v", err)
@@ -997,6 +999,8 @@ func (obj *Main) Run(ctx context.Context) error {
 			}
 
 			// XXX: can we change this into a ge.Apply operation?
+			// XXX: shouldn't this run before autoedge/autogroup?
+			// XXX: add deployCtx to reversals
 			// run reversals; modifies the graph
 			if err := obj.ge.Reversals(); err != nil {
 				obj.ge.Abort() // delete graph
@@ -1052,6 +1056,7 @@ func (obj *Main) Run(ctx context.Context) error {
 			Logf("send/recv building took: %s", time.Since(timing))
 
 			Logf("commit...")
+			// XXX: add deployCtx to commit
 			if err := obj.ge.Commit(); err != nil {
 				// If we fail on commit, we have destructively
 				// destroyed the graph, so we must not run it.

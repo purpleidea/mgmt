@@ -229,9 +229,6 @@ type Main struct {
 	embdEtcd *etcd.EmbdEtcd // TODO: can be an interface in the future...
 	ge       *graph.Engine
 
-	err      error
-	errMutex *sync.Mutex // guards err
-
 	cleanup []func() error // list of functions to run on close
 }
 
@@ -298,14 +295,12 @@ func (obj *Main) Init() error {
 		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
 	}
 
-	obj.errMutex = &sync.Mutex{}
-
 	obj.cleanup = []func() error{}
 	return nil
 }
 
 // Run is the main execution entrypoint to run mgmt.
-func (obj *Main) Run(ctx context.Context) error {
+func (obj *Main) Run(ctx context.Context) (reterr error) {
 	Logf := func(format string, v ...interface{}) {
 		obj.Logf("main: "+format, v...)
 	}
@@ -326,8 +321,20 @@ func (obj *Main) Run(ctx context.Context) error {
 	// 5) when that exits, it triggers etcdCancel and etcdCtx
 	// 5) when the etcd client exits, it triggers embdCancel and embdCtx
 	// 5) when embedded etcd exits, convergerCancel and convergerCtx trigger
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	ctx, cancel := context.WithCancelCause(ctx)
+	//defer func() {
+	//	if err := context.Cause(ctx); err != nil {
+	//		reterr = errwrap.Append(reterr, err) // if we didn't wrap
+	//	}
+	//}()
+	defer cancel(reterr) // may even be nil!
+	errMutex := &sync.Mutex{}
+	cancelCause := func(cause error) { // we wrap the real cancelCause func!
+		errMutex.Lock()
+		reterr = errwrap.Append(reterr, cause) // add to the error list!
+		cancel(cause)                          // use one for this cause
+		errMutex.Unlock()
+	}
 
 	hostname, err := os.Hostname() // a sensible default
 	// allow passing in the hostname, instead of using the system setting
@@ -476,8 +483,7 @@ func (obj *Main) Run(ctx context.Context) error {
 			defer wg.Done()
 			select {
 			case <-time.After(time.Duration(i) * time.Second):
-				obj.errAppend(fmt.Errorf("max runtime reached"))
-				cancel() // trigger an exit!
+				cancelCause(fmt.Errorf("max runtime reached")) // trigger an exit!
 
 			case <-ctx.Done():
 				return
@@ -508,7 +514,7 @@ func (obj *Main) Run(ctx context.Context) error {
 		converger.AddStateFn("converged-exit", func(converged bool) error {
 			if converged {
 				Logf("converged for %d seconds, exiting!", obj.ConvergedTimeout)
-				cancel() // trigger an exit!
+				cancelCause(nil) // trigger an exit!
 			}
 			return nil
 		})
@@ -530,8 +536,8 @@ func (obj *Main) Run(ctx context.Context) error {
 		//if err == nil {
 		//	return
 		//}
-		//obj.errAppend(err)
 		//Logf("converger shutdown error: %+v", err)
+		//cancelCause(err)
 	}()
 
 	// embedded etcd
@@ -579,8 +585,8 @@ func (obj *Main) Run(ctx context.Context) error {
 			if err == nil {
 				return
 			}
-			obj.errAppend(err)
 			Logf("etcd embd cleanup error: %+v", err)
+			cancelCause(err)
 		}()
 
 		var etcdErr error
@@ -590,12 +596,12 @@ func (obj *Main) Run(ctx context.Context) error {
 			etcdErr = obj.embdEtcd.Run(embdCtx)          // returns when it shuts down...
 			etcdErr = errwrap.NoContextCanceled(etcdErr) // strip
 			if etcdErr != nil {
-				obj.errAppend(etcdErr)
 				Logf("etcd embd run error: %+v", etcdErr)
+				cancelCause(etcdErr)
 			}
 			// XXX: if this exits before the engine, that engine
 			// might block when trying to store some value...
-			cancel() // try and cancel the main thing anyway
+			cancelCause(nil) // try and cancel the main thing anyway
 		}()
 
 		// wait for etcd to be ready before continuing...
@@ -656,8 +662,8 @@ func (obj *Main) Run(ctx context.Context) error {
 		if err == nil {
 			return
 		}
-		obj.errAppend(err)
 		Logf("etcd client cleanup error: %+v", err)
+		cancelCause(err)
 	}()
 
 	// implementation of the Local API (we only expect just this single one)
@@ -731,8 +737,8 @@ func (obj *Main) Run(ctx context.Context) error {
 		if err == nil {
 			return
 		}
-		obj.errAppend(err)
 		Logf("world cleanup error: %+v", err)
+		cancelCause(err)
 	}()
 
 	geCtx, geCancel := context.WithCancel(context.Background())
@@ -767,8 +773,8 @@ func (obj *Main) Run(ctx context.Context) error {
 		if err == nil {
 			return
 		}
-		obj.errAppend(err)
 		Logf("graph engine shutdown error: %+v", err)
+		cancelCause(err)
 	}()
 
 	// After this point, the inner "main loop" will run, so that the engine
@@ -813,9 +819,8 @@ func (obj *Main) Run(ctx context.Context) error {
 						if err := obj.ge.Pause(false); err != nil {
 							// programming error
 							Logf("programming error exiting graph: %+v", err)
-							obj.errAppend(err)
-							cancel() // trigger an exit!
-							continue // wait for deployChan to exit
+							cancelCause(err) // trigger an exit!
+							continue         // wait for deployChan to exit
 						}
 					}
 					// must be paused before this is run
@@ -891,9 +896,8 @@ func (obj *Main) Run(ctx context.Context) error {
 				// TODO: do we want to block exits and wait?
 				// TODO: we might want to wait for the next GAPI
 				if next.Exit {
-					obj.errAppend(next.Err)
-					cancel() // trigger an exit!
-					continue // wait for deployChan to exit
+					cancelCause(next.Err) // trigger an exit!
+					continue              // wait for deployChan to exit
 				}
 
 				// the gapi lets us send an error to the channel
@@ -1036,9 +1040,8 @@ func (obj *Main) Run(ctx context.Context) error {
 			if err := obj.ge.Pause(fastPause); err != nil { // sync
 				// programming error
 				Logf("programming error pausing graph: %+v", err)
-				obj.errAppend(err)
-				cancel() // trigger an exit!
-				continue // wait for deployChan to exit
+				cancelCause(err) // trigger an exit!
+				continue         // wait for deployChan to exit
 			}
 			started = false
 
@@ -1088,8 +1091,7 @@ func (obj *Main) Run(ctx context.Context) error {
 				obj.ge.Abort() // delete graph
 				Logf("error running the exporter Prune: %+v", err)
 				pruneCancel()
-				obj.errAppend(err)
-				cancel() // trigger an exit!
+				cancelCause(err) // trigger an exit!
 				continue
 			}
 			pruneCancel()
@@ -1102,9 +1104,8 @@ func (obj *Main) Run(ctx context.Context) error {
 			if err := obj.ge.Resume(); err != nil { // sync
 				// programming error
 				Logf("programming error resuming graph: %+v", err)
-				obj.errAppend(err)
-				cancel() // trigger an exit!
-				continue // wait for deployChan to exit
+				cancelCause(err) // trigger an exit!
+				continue         // wait for deployChan to exit
 			}
 			converger.Resume() // after Start()
 			started = true
@@ -1180,8 +1181,7 @@ func (obj *Main) Run(ctx context.Context) error {
 		// initial deploy from run, don't switch to this unless it's new
 		watchChan, err := world.WatchDeploy(ctx)
 		if err != nil {
-			obj.errAppend(err)
-			cancel() // trigger an exit!
+			cancelCause(err) // trigger an exit!
 			Logf("error starting deploy: %+v", err)
 			return
 		}
@@ -1205,7 +1205,7 @@ func (obj *Main) Run(ctx context.Context) error {
 				if !ok {
 					// TODO: is any of this needed in here?
 					if !canceled {
-						cancel() // trigger an exit!
+						cancelCause(nil) // trigger an exit!
 					}
 					return
 				}
@@ -1215,8 +1215,7 @@ func (obj *Main) Run(ctx context.Context) error {
 				}
 				if err != nil {
 					// TODO: it broke, can we restart?
-					obj.errAppend(err)
-					cancel() // trigger an exit!
+					cancelCause(err) // trigger an exit!
 					continue
 				}
 				if obj.Debug {
@@ -1317,17 +1316,10 @@ func (obj *Main) Run(ctx context.Context) error {
 
 	wg.Wait()
 
-	if obj.err != nil {
-		Logf("error: %+v", obj.err)
+	if reterr != nil {
+		Logf("error: %+v", reterr)
 	}
-	return obj.err
-}
-
-// errAppend is a simple helper function.
-func (obj *Main) errAppend(err error) {
-	obj.errMutex.Lock()
-	obj.err = errwrap.Append(obj.err, err)
-	obj.errMutex.Unlock()
+	return reterr
 }
 
 // Cleanup contains a number of methods which must be run after the Run method.

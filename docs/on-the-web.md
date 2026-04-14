@@ -65,4 +65,4 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2025](https://www.youtube.com/watch?v=0Oa7CWx4TEA) |
 | Daniel Podwysocki | video | [Hetzner user demo from CfgMgmtCamp.eu 2026](https://www.youtube.com/watch?v=MuHyNehhnrM) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2026 (first talk)](https://www.youtube.com/watch?v=f8TrYow6gdY) |
-| Andrew Clay Shafer | video | [Recording from CfgMgmtCamp.eu 2026 (second talk)](https://www.youtube.com/watch?v=h6Jxxqlgmu) |
+| Andrew Clay Shafer | video | [Recording from CfgMgmtCamp.eu 2026 (second talk)](https://www.youtube.com/watch?v=h6JxxqlgmuM) |

@@ -27,28 +27,47 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package scheduler // TODO: i'd like this to be a separate package, but cycles!
+package scheduler
 
 import (
+	"context"
 	"fmt"
 	"sort"
 )
 
 func init() {
-	Register("alpha", func() Strategy { return &alphaStrategy{} }) // must register the func and name
+	Register(func() Strategy { return &alphaStrategy{} }) // must register
 }
 
 type alphaStrategy struct {
 	// no state to store
 }
 
-// Schedule returns the first host out of a sorted group of available hostnames.
-func (obj *alphaStrategy) Schedule(hostnames map[string]string, opts *schedulerOptions) ([]string, error) {
-	if len(hostnames) <= 0 {
-		return nil, fmt.Errorf("strategy: cannot schedule from zero hosts")
+// Kind returns a kind for the strategy.
+func (obj *alphaStrategy) Kind() string { return "alpha" }
+
+// Schedule returns the alphabetically earliest hosts out of a sorted group of
+// available hostnames.
+func (obj *alphaStrategy) Schedule(ctx context.Context, hostnames map[string]string, params *Params) ([]string, error) {
+	// NOTE: this algorithm is intrinsically persistent, so it doesn't need
+	// to look at the previous decision to make a stable subsequent choice.
+
+	if params == nil || params.Options == nil {
+		// programming error
+		return nil, fmt.Errorf("invalid params struct")
 	}
-	if opts.maxCount <= 0 {
-		return nil, fmt.Errorf("strategy: cannot schedule with a max of zero")
+	if len(hostnames) <= 0 {
+		//return nil, fmt.Errorf("strategy: cannot schedule from zero hosts")
+		return []string{}, nil // empty set
+	}
+
+	maxCount := 0
+	if d := params.Options.MaxCount; d != nil {
+		maxCount = *d
+	}
+	if maxCount <= 0 { // XXX: why not let it choose zero?
+		//return nil, fmt.Errorf("strategy: cannot schedule with a max of zero")
+		return []string{}, nil // empty set
 	}
 
 	sortedHosts := []string{}
@@ -57,5 +76,14 @@ func (obj *alphaStrategy) Schedule(hostnames map[string]string, opts *schedulerO
 	}
 	sort.Strings(sortedHosts)
 
-	return []string{sortedHosts[0]}, nil // pick first host
+	// get the maximum number of hosts to return
+	max := min(maxCount, len(sortedHosts)) // can't return more than we have
+
+	result := []string{}
+	// now return the number of needed hosts from the list
+	for i := 0; i < max; i++ {
+		result = append(result, sortedHosts[i])
+	}
+
+	return result, nil // pick first N hosts
 }

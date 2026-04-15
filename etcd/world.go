@@ -43,10 +43,13 @@ import (
 	"github.com/purpleidea/mgmt/etcd/deployer"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/etcd/interfaces"
-	"github.com/purpleidea/mgmt/etcd/scheduler"
+	etcdScheduler "github.com/purpleidea/mgmt/etcd/scheduler"
 	"github.com/purpleidea/mgmt/lang/embedded"
+	"github.com/purpleidea/mgmt/scheduler"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
+
+var _ engine.SchedulerWorld = &World{} // guarantee the contract
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
@@ -69,9 +72,12 @@ type World struct {
 	StandaloneFs   engine.Fs // store an fs here for local usage
 	GetURI         func() string
 
-	init         *engine.WorldInit
-	client       interfaces.Client
+	init   *engine.WorldInit
+	client interfaces.Client
+
 	simpleDeploy *deployer.SimpleDeploy
+
+	scheduler *etcdScheduler.Apparatus
 
 	cleanups []func() error
 }
@@ -116,6 +122,16 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		}
 		return e
 	})
+
+	obj.scheduler = (&etcdScheduler.Apparatus{
+		Client:   obj.client,
+		Prefix:   SchedulerPath, // ends with a slash
+		Hostname: obj.init.Hostname,
+		Debug:    obj.init.Debug,
+		Logf: func(format string, v ...interface{}) {
+			obj.init.Logf("scheduler: "+format, v...)
+		},
+	}).Init()
 
 	return nil
 }
@@ -242,25 +258,40 @@ func (obj *World) StrMapDel(ctx context.Context, namespace string) error {
 	return strmap.SetStrMap(ctx, obj.client, obj.init.Hostname, namespace, nil)
 }
 
-// Scheduler returns a scheduling result of hosts in a particular namespace.
-// XXX: Add a context.Context here
-func (obj *World) Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error) {
-	modifiedOpts := []scheduler.Option{}
-	for _, o := range opts {
-		modifiedOpts = append(modifiedOpts, o) // copy in
-	}
-
-	modifiedOpts = append(modifiedOpts, scheduler.Debug(obj.init.Debug))
-	modifiedOpts = append(modifiedOpts, scheduler.Logf(obj.init.Logf))
-
-	path := fmt.Sprintf(schedulerPathFmt, namespace)
-	return scheduler.Schedule(obj.client, path, obj.init.Hostname, modifiedOpts...)
+// Scheduler starts a scheduler that can be used to elect results of hosts.
+func (obj *World) Scheduler(ctx context.Context, ready chan<- struct{}) error {
+	// XXX: eventually, we could have multiple of these running if the
+	// actual scheduler placement algorithms get sufficiently expensive that
+	// we don't want many of them all running on the single elected host.
+	return obj.scheduler.Scheduler(ctx, ready)
 }
 
-// Scheduled gets the scheduled results without participating.
+// SchedulerAdd registers this host as a candidate for scheduling within this
+// namespace.
+func (obj *World) SchedulerAdd(ctx context.Context, namespace string, apply bool, opts ...scheduler.Option) (bool, error) {
+	return obj.scheduler.SchedulerAdd(ctx, namespace, apply, opts...)
+}
+
+// SchedulerWithdraw removes this host as a candidate for scheduling within this
+// namespace.
+func (obj *World) SchedulerWithdraw(ctx context.Context, namespace string, apply bool) (bool, error) {
+	return obj.scheduler.SchedulerWithdraw(ctx, namespace, apply)
+}
+
+// SchedulerCleanup tells the main Scheduler method to cleanup the session for
+// this namespace when it exits. Orphan specifies how.
+func (obj *World) SchedulerCleanup(namespace string, orphan bool) {
+	obj.scheduler.SchedulerCleanup(namespace, orphan)
+}
+
+// ScheduledGet gets the scheduled results.
+func (obj *World) ScheduledGet(ctx context.Context, namespace string) (*scheduler.ScheduledResult, error) {
+	return obj.scheduler.ScheduledGet(ctx, namespace)
+}
+
+// Scheduled returns the stream of scheduled results without participating.
 func (obj *World) Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error) {
-	path := fmt.Sprintf(schedulerPathFmt, namespace)
-	return scheduler.Scheduled(ctx, obj.client, path)
+	return obj.scheduler.Scheduled(ctx, namespace)
 }
 
 // URI returns the current FS URI.

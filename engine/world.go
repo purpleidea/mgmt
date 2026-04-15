@@ -34,7 +34,7 @@ import (
 	"fmt"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
-	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
+	"github.com/purpleidea/mgmt/scheduler"
 )
 
 // WorldInit is some data passed in when starting the World interface.
@@ -233,12 +233,34 @@ type ResDelete struct {
 }
 
 // SchedulerWorld is an interface that has to do with distributed scheduling.
-// XXX: This should be abstracted to remove the etcd specific types if possible.
 type SchedulerWorld interface {
-	// Scheduler runs a distributed scheduler.
-	Scheduler(namespace string, opts ...scheduler.Option) (*scheduler.Result, error)
+	// Scheduler starts a scheduler that can be used to elect results of
+	// hosts. It does not schedule any hosts. This is run once per host and
+	// together all of these run the core scheduler. Scheduler results come
+	// out of those decisions using the other functions in this interface.
+	// This is the core function that does Election(). The elected member
+	// (which can vary among the active hosts running this function) then
+	// runs the scheduling function to determine what host sets each
+	// namespace determines as "scheduled".
+	Scheduler(ctx context.Context, ready chan<- struct{}) error
 
-	// Scheduled gets the scheduled results without participating.
+	// SchedulerAdd registers this host as a candidate for scheduling within
+	// this namespace.
+	SchedulerAdd(ctx context.Context, namespace string, apply bool, opts ...scheduler.Option) (bool, error)
+
+	// SchedulerWithdraw removes this host as a candidate for scheduling
+	// within this namespace.
+	SchedulerWithdraw(ctx context.Context, namespace string, apply bool) (bool, error)
+
+	// SchedulerCleanup tells the main Scheduler method to cleanup the
+	// session for this namespace when it exits. Orphan specifies how.
+	SchedulerCleanup(namespace string, orphan bool)
+
+	// ScheduledGet gets the scheduled results.
+	ScheduledGet(ctx context.Context, namespace string) (*scheduler.ScheduledResult, error)
+
+	// Scheduled returns the stream of scheduled results without
+	// participating.
 	Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error)
 }
 

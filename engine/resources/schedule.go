@@ -36,7 +36,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
-	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
+	"github.com/purpleidea/mgmt/scheduler"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -57,7 +57,12 @@ type ScheduleRes struct {
 	world engine.SchedulerWorld
 
 	// Namespace represents the namespace key to use. If it is not
-	// specified, the Name value is used instead.
+	// specified, the Name value is used instead. You must *not* run two of
+	// these resources on the same host at the same time with the same
+	// namespace value. This field exists as a luxury, but it's safer to use
+	// the name field instead which will guarantee namespace uniqueness. If
+	// you break this rule, then the behaviour is undefined and you may even
+	// cause concurrency races, deadlocks, or panics.
 	Namespace string `lang:"namespace" yaml:"namespace"`
 
 	// Strategy is the scheduling strategy to use. If this value is nil or,
@@ -68,16 +73,19 @@ type ScheduleRes struct {
 	// a default of 1 is used.
 	Max *int `lang:"max" yaml:"max"`
 
-	// Reuse specifies that we reuse the client lease on reconnect. If reuse
-	// is false, then on host disconnect, that hosts entry will immediately
-	// expire, and the scheduler will react instantly and remove that host
-	// entry from the list. If this is true, or if the host closes without a
+	// Persist specifies that we should not remove the scheduled value on
+	// disappear or disconnect. In that situation it will persist
+	// indefinitely if the TTL is 0, otherwise it should expire when the TTL
+	// does. If this is false, then when the *host* disconnects by clean
+	// shutdown, then the key will be removed. If the host closes without a
 	// clean shutdown, it will take the TTL number of seconds to remove the
-	// entry.
-	Reuse *bool `lang:"reuse" yaml:"reuse"`
+	// entry. This differs from the resource disappearing during a graph
+	// swap. To remove an entry in that case, use with the `Withdraw` param
+	// or the reversal mechanism.
+	Persist bool `lang:"persist" yaml:"persist"`
 
 	// TTL is the time to live for added scheduling "votes". If this value
-	// is nil or, undefined, then a default value is used. See the `Reuse`
+	// is nil or, undefined, then a default value is used. See the `Persist`
 	// entry for more information.
 	TTL *int `lang:"ttl" yaml:"ttl"`
 
@@ -86,8 +94,17 @@ type ScheduleRes struct {
 	// options.
 	Withdraw bool `lang:"withdraw" yaml:"withdraw"`
 
-	// once is the startup signal for the scheduler
-	once chan struct{}
+	// XXX: Have some common data fields (like cpu/mem/etc) which we pass
+	// directly into etcd from each schedule resource and then into the
+	// scheduler (or maybe one day directly into the scheduler from each
+	// host) which can be used to make scheduling decisions. This is better
+	// than going through the function graph with a data field, because we
+	// wouldn't need to constantly go through graph swaps to use live data!
+	// Some field could exist here to turn this on/off eg: cpu_data => true.
+
+	// XXX: Pass some data into the scheduler. This could embed querystring
+	// style data that is used to make scheduling decisions and so on.
+	//Data string `lang:"data" yaml:"data"`
 }
 
 // getNamespace returns the namespace key to be used for this resource. If the
@@ -126,13 +143,10 @@ func (obj *ScheduleRes) getOpts() []scheduler.Option {
 		schedulerOpts = append(schedulerOpts, scheduler.MaxCount(max))
 	}
 
-	if obj.Reuse != nil {
-		reuse := *obj.Reuse
-		if obj.init.Debug {
-			obj.init.Logf("opts: reuse: %t", reuse)
-		}
-		schedulerOpts = append(schedulerOpts, scheduler.ReuseLease(reuse))
+	if obj.init.Debug {
+		obj.init.Logf("opts: persist: %t", obj.Persist)
 	}
+	schedulerOpts = append(schedulerOpts, scheduler.Persist(obj.Persist))
 
 	if obj.TTL != nil && *obj.TTL > 0 {
 		ttl := *obj.TTL
@@ -141,13 +155,6 @@ func (obj *ScheduleRes) getOpts() []scheduler.Option {
 			obj.init.Logf("opts: ttl: %d", ttl)
 		}
 		schedulerOpts = append(schedulerOpts, scheduler.SessionTTL(ttl))
-	}
-
-	if obj.Withdraw {
-		if obj.init.Debug {
-			obj.init.Logf("opts: withdraw: %t", obj.Withdraw)
-		}
-		schedulerOpts = append(schedulerOpts, scheduler.Withdraw(obj.Withdraw))
 	}
 
 	return schedulerOpts
@@ -164,6 +171,16 @@ func (obj *ScheduleRes) Validate() error {
 		return fmt.Errorf("the Namespace must not be empty")
 	}
 
+	if s := obj.Strategy; s != nil {
+		if _, err := scheduler.Lookup(*s); err != nil {
+			return err
+		}
+	}
+
+	if ttl := obj.TTL; obj.Persist && ttl != nil && *ttl > 0 {
+		return fmt.Errorf("can't combine Persist with TTL")
+	}
+
 	if obj.Withdraw {
 		if obj.Strategy != nil {
 			return fmt.Errorf("can't combine Withdraw with Strategy")
@@ -171,8 +188,8 @@ func (obj *ScheduleRes) Validate() error {
 		if obj.Max != nil {
 			return fmt.Errorf("can't combine Withdraw with Max")
 		}
-		if obj.Reuse != nil {
-			return fmt.Errorf("can't combine Withdraw with Reuse")
+		if obj.Persist {
+			return fmt.Errorf("can't combine Withdraw with Persist")
 		}
 		if obj.TTL != nil {
 			return fmt.Errorf("can't combine Withdraw with TTL")
@@ -192,8 +209,6 @@ func (obj *ScheduleRes) Init(init *engine.Init) error {
 	}
 	obj.world = world
 
-	obj.once = make(chan struct{}, 1) // buffered!
-
 	return nil
 }
 
@@ -209,60 +224,27 @@ func (obj *ScheduleRes) Watch(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	if err := obj.init.Event(ctx); err != nil {
-		return err
-	}
-
-	select {
-	case <-obj.once:
-		// pass
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
 	if obj.init.Debug {
 		obj.init.Logf("starting scheduler...")
 	}
 
-	sched, err := obj.world.Scheduler(obj.getNamespace(), obj.getOpts()...)
+	ch, err := obj.world.Scheduled(ctx, obj.getNamespace())
 	if err != nil {
 		return errwrap.Wrapf(err, "can't create scheduler")
 	}
+	// Orphan determines whether we just abandon the session or whether we
+	// run an explicit Close() on it. We never close if we Persist or if we
+	// have a pending TTL, which means we let it run down automatically.
+	orphan := obj.Persist || (obj.TTL != nil && *obj.TTL > 0)
+	defer obj.world.SchedulerCleanup(obj.getNamespace(), orphan)
 
-	watchChan := make(chan *scheduler.ScheduledResult)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer sched.Shutdown()
-		select {
-		case <-ctx.Done():
-			return
-		}
-	}()
-
-	// process the stream of scheduling output...
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer close(watchChan)
-		for {
-			hosts, err := sched.Next(ctx)
-			select {
-			case watchChan <- &scheduler.ScheduledResult{
-				Hosts: hosts,
-				Err:   err,
-			}:
-
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
 
 	for {
 		select {
-		case result, ok := <-watchChan:
+		case result, ok := <-ch:
 			if !ok { // channel shutdown
 				return nil
 			}
@@ -270,9 +252,8 @@ func (obj *ScheduleRes) Watch(ctx context.Context) error {
 				return fmt.Errorf("unexpected nil result")
 			}
 			if err := result.Err; err != nil {
-				if err == scheduler.ErrEndOfResults {
-					//return nil // TODO: we should probably fix the reconnect issue and use this here
-					return fmt.Errorf("scheduler shutdown, reconnect bug?") // XXX: fix etcd reconnects
+				if err == scheduler.ErrSchedulerShutdown {
+					return fmt.Errorf("scheduler shutdown, reconnect bug?") // XXX: fix etcd reconnects?
 				}
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.getNamespace())
 			}
@@ -294,19 +275,24 @@ func (obj *ScheduleRes) Watch(ctx context.Context) error {
 // CheckApply method for resource.
 func (obj *ScheduleRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// For maximum correctness, don't start scheduling myself until this
-	// CheckApply runs at least once. Effectively this unblocks Watch() once
-	// it has run. If we didn't do this, then illogical graphs could happen
-	// where we have an edge like Foo["whatever"] -> Schedule["bar"] and if
-	// Foo failed, we'd still be scheduling, which is not what we want.
+	// runs at least once. If we didn't do this, then illogical graphs could
+	// happen where we have an edge like: Foo["whatever"] -> Schedule["bar"]
+	// and if Foo fails, we'd still be scheduling which is not what we want.
 
-	select {
-	case obj.once <- struct{}{}:
-	default: // if buffer is full
+	if obj.Withdraw {
+		// this respects the "apply" flag
+		b, err := obj.world.SchedulerWithdraw(ctx, obj.getNamespace(), apply)
+		if !b && apply { // it made a change
+			obj.init.Logf("withdrawn")
+		}
+		return b, err
 	}
 
-	// FIXME: If we wanted to be really fancy, we could wait until the write
-	// to the scheduler (etcd) finished before we returned true.
-	return true, nil
+	b, err := obj.world.SchedulerAdd(ctx, obj.getNamespace(), apply, obj.getOpts()...)
+	if !b && apply { // it made a change
+		obj.init.Logf("scheduled")
+	}
+	return b, err
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -339,13 +325,8 @@ func (obj *ScheduleRes) Cmp(r engine.Res) error {
 		}
 	}
 
-	if (obj.Reuse == nil) != (res.Reuse == nil) { // xor
-		return fmt.Errorf("the Reuse differs")
-	}
-	if obj.Reuse != nil && res.Reuse != nil {
-		if *obj.Reuse != *res.Reuse { // compare the values
-			return fmt.Errorf("the contents of Reuse differs")
-		}
+	if obj.Persist != res.Persist {
+		return fmt.Errorf("the Persist differs")
 	}
 
 	if (obj.TTL == nil) != (res.TTL == nil) { // xor
@@ -362,6 +343,37 @@ func (obj *ScheduleRes) Cmp(r engine.Res) error {
 	}
 
 	return nil
+}
+
+// Background is a worker function which is run once per resource kind as long
+// as there is at least one of that kind running in the active resource graph.
+// The worker function is the generated (returned) function that is used here.
+func (obj *ScheduleRes) Background(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	return func(ctx context.Context, ready chan<- struct{}) error {
+		world, ok := handle.World.(engine.SchedulerWorld)
+		if !ok {
+			return fmt.Errorf("world backend does not support the SchedulerWorld interface")
+		}
+
+		// All this for a "running/stopped" message?
+		//if handle.Debug {
+		//	defer handle.Logf("stopped!")
+		//	wg := &sync.WaitGroup{}
+		//	defer wg.Wait()
+		//	wg.Add(1)
+		//	go func() {
+		//		defer wg.Done()
+		//		select {
+		//		case <-ready: // XXX: nope!
+		//			handle.Logf("running...")
+		//		case <-ctx.Done():
+		//		}
+		//	}()
+		//}
+
+		// This sends the ready signal itself...
+		return world.Scheduler(ctx, ready)
+	}
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

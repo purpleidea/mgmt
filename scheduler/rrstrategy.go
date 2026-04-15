@@ -27,31 +27,50 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package scheduler // TODO: i'd like this to be a separate package, but cycles!
+package scheduler
 
 import (
+	"context"
 	"fmt"
 	"sort"
-
-	"github.com/purpleidea/mgmt/util"
 )
 
 func init() {
-	Register("rr", func() Strategy { return &rrStrategy{} }) // must register the func and name
+	Register(func() Strategy { return &rrStrategy{} }) // must register
 }
 
 type rrStrategy struct {
-	// some stored state
+	// hosts is a local cache of previously scheduled hosts.
 	hosts []string
 }
 
+// Kind returns a kind for the strategy.
+func (obj *rrStrategy) Kind() string { return "rr" }
+
 // Schedule returns hosts in round robin style from the available hostnames.
-func (obj *rrStrategy) Schedule(hostnames map[string]string, opts *schedulerOptions) ([]string, error) {
-	if len(hostnames) <= 0 {
-		return nil, fmt.Errorf("strategy: cannot schedule from zero hosts")
+func (obj *rrStrategy) Schedule(ctx context.Context, hostnames map[string]string, params *Params) ([]string, error) {
+	// This is a naive rr scheduler, and when the host winning the Campaign
+	// dies, the subsequent host that takes over and runs this, will not
+	// have all the state and we'd churn and offer an unstable result! As a
+	// result, we cache the previous state locally (to look it up quickly if
+	// we haven't swapped scheduling hosts) and otherwise we look it up from
+	// the Last() API which provides this data into the distributed system.
+
+	if params == nil || params.Options == nil || params.Last == nil {
+		// programming error
+		return nil, fmt.Errorf("invalid params struct")
 	}
-	if opts.maxCount <= 0 {
-		return nil, fmt.Errorf("strategy: cannot schedule with a max of zero")
+	if len(hostnames) <= 0 {
+		//return nil, fmt.Errorf("strategy: cannot schedule from zero hosts")
+		return []string{}, nil // empty set
+	}
+	maxCount := 0
+	if d := params.Options.MaxCount; d != nil {
+		maxCount = *d
+	}
+	if maxCount <= 0 { // XXX: why not let it choose zero?
+		//return nil, fmt.Errorf("strategy: cannot schedule with a max of zero")
+		return []string{}, nil // empty set
 	}
 
 	// always get a deterministic list of current hosts first...
@@ -61,30 +80,44 @@ func (obj *rrStrategy) Schedule(hostnames map[string]string, opts *schedulerOpti
 	}
 	sort.Strings(sortedHosts)
 
-	if obj.hosts == nil {
-		obj.hosts = []string{} // initialize if needed
+	if obj.hosts == nil || len(obj.hosts) == 0 {
+		//obj.hosts = []string{} // initialize if needed
+		hosts, err := params.Last(ctx)
+		if err != nil {
+			return nil, err
+		}
+		obj.hosts = hosts
+	}
+
+	lookupCache := make(map[string]struct{}, len(obj.hosts))
+	for _, x := range obj.hosts {
+		lookupCache[x] = struct{}{}
 	}
 
 	// add any new hosts we learned about, to the end of the list
 	for _, x := range sortedHosts {
-		if !util.StrInList(x, obj.hosts) {
+		// without cache: !util.StrInList(x, obj.hosts)
+		if _, exists := lookupCache[x]; !exists {
 			obj.hosts = append(obj.hosts, x)
 		}
 	}
 
+	lookupCache = make(map[string]struct{}, len(sortedHosts))
+	for _, x := range sortedHosts {
+		lookupCache[x] = struct{}{}
+	}
+
 	// remove any hosts we previously knew about from the list
 	for ix := len(obj.hosts) - 1; ix >= 0; ix-- {
-		if !util.StrInList(obj.hosts[ix], sortedHosts) {
+		// without cache: !util.StrInList(obj.hosts[ix], sortedHosts)
+		if _, exists := lookupCache[obj.hosts[ix]]; !exists {
 			// delete entry at this index
 			obj.hosts = append(obj.hosts[:ix], obj.hosts[ix+1:]...)
 		}
 	}
 
 	// get the maximum number of hosts to return
-	max := len(obj.hosts)    // can't return more than we have
-	if opts.maxCount < max { // found a smaller limit
-		max = opts.maxCount
-	}
+	max := min(maxCount, len(obj.hosts)) // can't return more than we have
 
 	result := []string{}
 	// now return the number of needed hosts from the list

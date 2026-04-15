@@ -35,10 +35,10 @@ import (
 	"sync"
 
 	"github.com/purpleidea/mgmt/engine"
-	"github.com/purpleidea/mgmt/etcd/scheduler" // XXX: abstract this if possible
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/scheduler"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -132,7 +132,7 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // important so that we cleanup the watch when exiting
 
-	watchChan := make(chan *scheduler.ScheduledResult) // XXX: sender should close this, but did I implement that part yet???
+	watchChan := make(chan *scheduler.ScheduledResult) // sender closes this
 
 	for {
 		select {

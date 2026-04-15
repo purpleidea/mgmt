@@ -1,0 +1,35 @@
+# immediate expiry (unschedules when the background runner exits)
+schedule "ns0" {
+	strategy => "rr",
+	max => 2,
+
+	persist => false,
+	ttl => 0,
+}
+
+# normal scheduling (unschedules after ttl when the background runner exits)
+schedule "ns1" {
+	strategy => "rr",
+	max => 2,
+
+	persist => false,
+	ttl => 10,
+}
+
+# normal persistence (remains scheduled even after shutdown)
+schedule "ns2" {
+	strategy => "rr",
+	max => 2,
+
+	persist => true,
+	ttl => 0,
+}
+
+# nonsense? (persist+ttl doesn't really make sense)
+schedule "ns3" {
+	strategy => "rr",
+	max => 2,
+
+	persist => true,
+	ttl => 10,
+}

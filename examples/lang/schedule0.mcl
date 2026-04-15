@@ -19,8 +19,8 @@ $ns = "xsched" # some unique string
 schedule "${ns}" {
 	strategy => "rr",
 	max => 2,
-	#reuse => false,
-	ttl => 10,
+	persist => false,
+	ttl => 0,
 }
 
 # See the scheduled selection for a particular namespace:

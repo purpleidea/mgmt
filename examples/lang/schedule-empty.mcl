@@ -1,0 +1,14 @@
+# debugging: etcdctl get --prefix /_mgmt/scheduler/
+
+import "golang"
+import "golang/strings" as golang_strings
+import "os"
+import "world"
+
+$sched = "xfoo" # something unique
+$set = world.schedule($sched)
+
+file "/tmp/scheduled" {
+	state => "exists",
+	content => golang.template("schedule: {{ . }}", $set),
+}

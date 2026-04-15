@@ -138,19 +138,19 @@ import (
 )
 
 const (
-	// TODO: figure out a trailing slash convention...
+	// Root is the top-level path schema. In practice, when we use the lib,
+	// we typically tack on a "/_mgmt/" prefix.
+	Root = "/"
 
 	// ConvergedPath is the unprefixed path under which the converger
 	// may store data. This is public so that other consumers can know to
 	// avoid this key prefix.
-	ConvergedPath    = "/converged/"
-	convergedPathFmt = ConvergedPath + "%s" // takes a hostname on the end
+	ConvergedPath = Root + "converged/"
 
 	// SchedulerPath is the unprefixed path under which the scheduler
 	// may store data. This is public so that other consumers can know to
 	// avoid this key prefix.
-	SchedulerPath    = "/scheduler/"
-	schedulerPathFmt = SchedulerPath + "%s" // takes a namespace on the end
+	SchedulerPath = Root + "scheduler/"
 
 	// DefaultClientURL is the default value that is used for client URLs.
 	// It is pulled from the upstream etcd package.
@@ -189,9 +189,6 @@ const (
 	// This should be an integer multiple of seconds, since one second is
 	// the TTL precision used in etcd.
 	SessionTTL = 10 * time.Second // seconds
-
-	// ConvergerHostnameNamespace is a unique key used in the converger.
-	ConvergerHostnameNamespace = "etcd-hostname"
 )
 
 // EmbdEtcd provides the embedded server and client etcd functionality. The

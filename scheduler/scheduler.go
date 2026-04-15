@@ -27,37 +27,18 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+// Package scheduler contains code that is common to all the schedulers.
 package scheduler
 
 import (
-	"fmt"
+	"errors"
 )
 
-// registeredStrategies is a global map of all possible strategy implementations
-// which can be used. You should never touch this map directly. Use methods like
-// Register instead.
-var registeredStrategies = make(map[string]func() Strategy) // must initialize
+// ErrSchedulerShutdown is a sentinel that represents scheduler shutdown.
+var ErrSchedulerShutdown = errors.New("scheduler shutdown")
 
-// Strategy represents the methods a scheduler strategy must implement.
-type Strategy interface {
-	Schedule(hostnames map[string]string, opts *schedulerOptions) ([]string, error)
-}
-
-// Register takes a func and its name and makes it available for use. It is
-// commonly called in the init() method of the func at program startup. There is
-// no matching Unregister function.
-func Register(name string, fn func() Strategy) {
-	if _, ok := registeredStrategies[name]; ok {
-		panic(fmt.Sprintf("a strategy named %s is already registered", name))
-	}
-	//gob.Register(fn())
-	registeredStrategies[name] = fn
-}
-
-type nilStrategy struct {
-}
-
-// Schedule returns an error for any scheduling request for this nil strategy.
-func (obj *nilStrategy) Schedule(hostnames map[string]string, opts *schedulerOptions) ([]string, error) {
-	return nil, fmt.Errorf("scheduler: cannot schedule with nil scheduler")
+// ScheduledResult represents output from the scheduler.
+type ScheduledResult struct {
+	Hosts []string
+	Err   error
 }

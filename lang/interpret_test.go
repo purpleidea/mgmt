@@ -2454,7 +2454,7 @@ func TestAstFunc3(t *testing.T) {
 
 			fastPause := false
 			ge.Pause(fastPause) // sync
-			if err := ge.Commit(); err != nil {
+			if err := ge.Commit(context.Background()); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: error running commit: %+v", index, err)
 				return

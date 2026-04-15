@@ -1,0 +1,8 @@
+import "golang/strings" as golang_strings
+import "os"
+
+# we expect to see the background function only running in the true branch
+$is_true = golang_strings.trim_space(os.readfile("/tmp/flipflop")) == "true"
+if $is_true {
+	test "test1" {}
+}

@@ -33,6 +33,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -71,8 +72,9 @@ type Engine struct {
 	Converger *converger.Coordinator
 	Exporter  *Exporter
 
-	Local *local.API
-	World engine.World
+	Local  *local.API
+	World  engine.World
+	Cancel context.CancelCauseFunc
 
 	// Prefix is a unique directory prefix which can be used. It should be
 	// created if needed.
@@ -92,6 +94,8 @@ type Engine struct {
 
 	slock *sync.Mutex // semaphore lock
 	semas map[string]*semaphore.Semaphore
+
+	bgState map[string]*bgState // background state for each resource kind
 
 	wg *sync.WaitGroup // wg for the whole engine (only used for close)
 
@@ -136,6 +140,8 @@ func (obj *Engine) Init() error {
 
 	obj.slock = &sync.Mutex{}
 	obj.semas = make(map[string]*semaphore.Semaphore)
+
+	obj.bgState = make(map[string]*bgState)
 
 	obj.wg = &sync.WaitGroup{}
 
@@ -206,12 +212,14 @@ func (obj *Engine) Apply(fn func(*pgraph.Graph) error) error {
 // Commit runs a graph sync and swaps the loaded graph with the current one. If
 // it errors, then the running graph wasn't changed. It is recommended that you
 // pause the engine before running this, and resume it after you're done.
-func (obj *Engine) Commit() error {
+func (obj *Engine) Commit(ctx context.Context) error {
 	// It would be safer to lock this, but it would be slower and mask bugs.
 	//obj.mutex.Lock()
 	//defer obj.mutex.Unlock()
 
 	// TODO: Does this hurt performance or graph changes ?
+
+	backgroundKinds := make(map[string]int)
 
 	activeMetas := make(map[engine.ResPtrUID]struct{})
 	for vertex := range obj.state {
@@ -223,6 +231,10 @@ func (obj *Engine) Commit() error {
 		// the same kind+name as a regular res, and this would conflict.
 		if res.MetaParams().Hidden {
 			continue
+		}
+
+		if _, ok := res.(engine.BackgroundRes); ok {
+			backgroundKinds[res.Kind()]++
 		}
 
 		activeMetas[engine.PtrUID(res)] = struct{}{} // add
@@ -452,6 +464,28 @@ func (obj *Engine) Commit() error {
 	}
 	obj.mlock.Unlock()
 
+	// Run StartBackground here before the Watch() for each resource starts.
+	// That Watch starts in the start loop below... We want the background
+	// up first since Watch might want to use something from the Background.
+	for _, vertex := range obj.graph.Vertices() { // TODO: sorted order?
+		res, ok := vertex.(engine.Res)
+		if !ok { // should not happen, previously validated
+			return fmt.Errorf("not a Res")
+		}
+
+		// don't start background if it's not supported or it's hidden!
+		if _, ok := res.(engine.BackgroundRes); !ok || res.MetaParams().Hidden {
+			continue
+		}
+		kind := res.Kind()
+
+		if err := obj.StartBackground(ctx, kind); err != nil {
+			obj.Logf("background(%s) start error: %v", kind, err)
+			return errwrap.Wrapf(err, "error starting background")
+		}
+		delete(backgroundKinds, kind) // don't need to start it anymore
+	}
+
 	// We run these afterwards, so that we don't unnecessarily start anyone
 	// if GraphSync failed in some way. Otherwise we'd have to do clean up!
 	for _, fn := range start {
@@ -474,11 +508,28 @@ func (obj *Engine) Commit() error {
 
 	// Update all the `State` structs with the new Graph pointer.
 	for _, vertex := range obj.graph.Vertices() {
+		_, ok := vertex.(engine.Res)
+		if !ok { // should not happen, previously validated
+			return fmt.Errorf("not a Res")
+		}
+
 		state, exists := obj.state[vertex]
 		if !exists {
 			continue
 		}
 		state.Graph = obj.graph // update pointer to graph
+	}
+
+	// Stop anything remaining here since they're not in the resource graph.
+	// The Watch functions of this kind must be done running by the time we
+	// run this cleanup! This prevents race conditions between the two...
+	for kind := range backgroundKinds {
+		if err := obj.StopBackground(kind); err != nil {
+			// TODO: should we shutdown the engine?
+			obj.Logf("background(%s) stop error: %v", kind, err)
+			// XXX: collect all stop errors and return them together?
+			return errwrap.Wrapf(err, "error stopping background")
+		}
 	}
 
 	return nil
@@ -582,7 +633,15 @@ func (obj *Engine) Shutdown() error {
 	}
 	// FIXME: Do we want to run commit if Load failed? Does this even work?
 	// the commit will cause the graph sync to shut things down cleverly...
-	if err := obj.Commit(); err != nil {
+	// Don't cancel this context, because we want to shut down cleanly!
+	if err := obj.Commit(context.Background()); err != nil {
+		reterr = errwrap.Append(reterr, err)
+	}
+
+	// check to make sure all the background functions are done running!
+	if d := len(obj.bgState); d > 0 {
+		// programming error
+		err := fmt.Errorf("%d background functions didn't exit", d)
 		reterr = errwrap.Append(reterr, err)
 	}
 

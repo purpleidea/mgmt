@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -462,6 +463,31 @@ func (obj *TestRes) Sends() interface{} {
 	return &TestSends{
 		Hello:  nil,
 		Answer: -1,
+	}
+}
+
+// Background is a worker function which is run once per resource kind as long
+// as there is at least one of that kind running in the active resource graph.
+// The worker function is the generated (returned) function that is used here.
+func (obj *TestRes) Background(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	return func(ctx context.Context, ready chan<- struct{}) error {
+		defer handle.Logf("stopped!")
+
+		close(ready) // i've started successfully
+
+		// XXX: What if we error 60 sec into running? How should this error be
+		// handled in the resource engine? I suppose everything should shutdown.
+
+		for {
+			handle.Logf("running...")
+			select {
+			case <-time.After(1 * time.Second):
+				continue
+
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
 	}
 }
 

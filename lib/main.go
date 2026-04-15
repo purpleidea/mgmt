@@ -751,6 +751,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		Converger: converger,
 		Local:     localAPI,
 		World:     world,
+		Cancel:    cancelCause, // async handle to use to shut it all down
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
 		//Prometheus: prom, // TODO: implement this via a general Status API
 		Debug: obj.Debug,
@@ -1059,8 +1060,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			Logf("send/recv building took: %s", time.Since(timing))
 
 			Logf("commit...")
-			// XXX: add deployCtx to commit
-			if err := obj.ge.Commit(); err != nil {
+			if err := obj.ge.Commit(deployCtx); err != nil {
 				// If we fail on commit, we have destructively
 				// destroyed the graph, so we must not run it.
 				// This graph isn't necessarily destroyed, but

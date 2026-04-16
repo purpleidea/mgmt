@@ -31,6 +31,7 @@ package engine
 
 import (
 	"fmt"
+	"sync/atomic"
 )
 
 // Edge is a struct that represents a graph's edge.
@@ -38,7 +39,10 @@ type Edge struct {
 	Name   string
 	Notify bool // should we send a refresh notification along this edge?
 
-	refresh bool // is there a notify pending for the dest vertex ?
+	// XXX: If we could find a more elegant way to handle ownership reads
+	// and writes in the parallel resource engine, we may not need atomics
+	// here. Consider both this one and the isStateOK atomic if possible.
+	refresh atomic.Bool // is there a notify pending for the dest vertex ?
 }
 
 // String is a required method of the Edge interface that we must fulfill.
@@ -63,10 +67,10 @@ func (obj *Edge) Cmp(edge *Edge) error {
 
 // Refresh returns the pending refresh status of this edge.
 func (obj *Edge) Refresh() bool {
-	return obj.refresh
+	return obj.refresh.Load()
 }
 
 // SetRefresh sets the pending refresh status of this edge.
 func (obj *Edge) SetRefresh(b bool) {
-	obj.refresh = b
+	obj.refresh.Store(b)
 }

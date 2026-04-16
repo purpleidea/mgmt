@@ -1000,7 +1000,7 @@ func (obj *Apparatus) doScheduled(ctx context.Context, namespace string, hostnam
 	}
 	sort.Strings(hosts) // for consistency
 
-	obj.Logf("namespace(%s): storing...")
+	obj.Logf("namespace(%s): storing...", namespace)
 
 	// stored scheduler results
 	scheduledPath := fmt.Sprintf("%sschedule/%s", obj.Prefix, namespace)

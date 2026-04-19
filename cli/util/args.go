@@ -166,6 +166,7 @@ type SetupSvcArgs struct {
 	BinaryPath string `arg:"--binary-path" help:"path to the binary"`
 	SSHURL     string `arg:"--ssh-url" help:"transport the etcd client connection over SSH to this server"`
 	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
+	SSHID      string `arg:"--ssh-id" help:"private key for SSH client auth"`
 
 	Seeds []string `arg:"--seeds,separate,env:MGMT_SEEDS" help:"default etcd client endpoints"`
 

@@ -116,6 +116,10 @@ func (obj *Svc) Run(ctx context.Context) error {
 			argv = append(argv, fmt.Sprintf("--ssh-hostkey=%s", s))
 		}
 
+		if s := obj.SetupSvcArgs.SSHID; s != "" {
+			argv = append(argv, fmt.Sprintf("--ssh-id=%s", s))
+		}
+
 		for _, seed := range obj.SetupSvcArgs.Seeds {
 			// TODO: validate each seed?
 			s := fmt.Sprintf("--seeds=%s", seed)

@@ -622,6 +622,7 @@ class base:host($name, $config) {
 	$handoff_module_path = $config->handoff_module_path || ""
 	$handoff_svc_sshurl = $config->handoff_svc_sshurl || ""
 	$handoff_svc_hostkey = $config->handoff_svc_hostkey || ""
+	$handoff_svc_sshid = $config->handoff_svc_sshid || ""
 	panic(($handoff_svc_sshurl != "") != ($handoff_svc_hostkey != ""), "provisioner:host $handoff_svc needs sshurl (${handoff_svc_sshurl}) and hostkey (${handoff_svc_hostkey})")
 
 	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"), "provisioner:host $handoff_code is not absolute")
@@ -838,7 +839,7 @@ class base:host($name, $config) {
 		# Setup the remote mgmt service, which starts on firstboot.
 		# NOTE: We use the short mgmt path because it's easier to pivot.
 		# XXX: read the ssh hostkey from a .known_hosts file instead
-		"${handoff_binary_path} setup svc --binary-path='mgmt' --install --enable --ssh-url='${handoff_svc_sshurl}' --ssh-hostkey='${handoff_svc_hostkey}' --seeds='http://127.0.0.1:2379'"
+		"${handoff_binary_path} setup svc --binary-path='mgmt' --install --enable --ssh-url='${handoff_svc_sshurl}' --ssh-hostkey='${handoff_svc_hostkey}' --ssh-id='${handoff_svc_sshid}' --seeds='http://127.0.0.1:2379'"
 	} else {
 		if $handoff_type == "code" {
 			# Setup the mgmt service, which starts on firstboot.
@@ -1012,7 +1013,8 @@ class base:host($name, $config) {
 }
 
 class base:runner($config) {
-	$sshkey = $config->sshkey || ""
+	$sshkey = $config->sshkey || "" # pub key installed on new host
+	$sshid = $config->sshid || "" # custom private key on new host used for client auth | empty: pass all available as possible signer
 
 	$etcd_server = world.getval("provisioner_etcd_server")->value # struct{value str; exists bool}
 	if $etcd_server != "" {
@@ -1069,8 +1071,9 @@ class base:runner($config) {
 				handoff => "svc", # sets up mgmt with handoff_svc
 				handoff_svc_sshurl => $etcd_server_sshurl,
 				handoff_svc_hostkey => $etcd_server_hostkey,
+				handoff_svc_sshid => $sshid,
 				#handoff => "exec", # sets up mgmt with handoff_exec
-				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --seeds=http://127.0.0.1:2379 --no-autoedges --no-autogroup --no-pgp empty",
+				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --ssh-id='${sshid}' --seeds=http://127.0.0.1:2379 --no-autoedges --no-autogroup --no-pgp empty",
 				#handoff_code => "/etc/mgmt/", # one way to do it
 				#handoff_module_path => "/etc/mgmt/modules/",
 				handoff_hostname => $k,

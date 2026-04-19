@@ -94,10 +94,9 @@ type World struct {
 	// is specified, then it overrides looking for it in the URL.
 	HostKey string
 
-	// SSHID is the path to the ~/.ssh/id_??? key to use for auth. If you
-	// omit this then this will look for your private key in all possible
-	// paths. If you specific a specific path, then only that will be used.
-	// This will expand the ~/ and ~user/ style path expansions.
+	// SSHID is the private key path for SSH client auth to URL. If empty,
+	// Connect scans defaultSSHDir for id_* private keys. This will expand
+	// the ~/ and ~user/ style path expansions.
 	SSHID string
 
 	// Seeds are the list of etcd endpoints to connect to.

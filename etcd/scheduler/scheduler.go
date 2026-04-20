@@ -236,8 +236,16 @@ func (obj *Apparatus) Scheduler(ctx context.Context, ready chan<- struct{}) (ret
 				// lock only needed if we do this elsewhere concurrently
 				reterr = errwrap.Append(reterr, err)
 			}
+			delete(obj.schedulerSessions, namespace)
 		}
 		obj.cleanupRequests = make(map[string]struct{}) // reset (or gc)
+
+		// Here's where we actually clean up any left over memory...
+		for namespace, session := range obj.schedulerSessions {
+			session.Orphan()
+			delete(obj.schedulerSessions, namespace) // safe
+		}
+
 		obj.schedulerExited = true
 	}()
 
@@ -430,6 +438,16 @@ func (obj *Apparatus) SchedulerAdd(ctx context.Context, namespace string, apply 
 		obj.schedulerSessions[namespace] = session
 	}
 	leaseID := session.Lease()
+	if obj.Debug {
+		// Logf messages can duplicate since CheckApply can run twice...
+		obj.Logf("namespace(%s): lease: %s", namespace, leaseID)
+		go func() {
+			select {
+			case <-session.Done():
+				obj.Logf("namespace(%s): session expired", namespace)
+			}
+		}()
+	}
 
 	if options.Persist {
 		// If we attach a leaseID then it will *always* expire the key
@@ -607,14 +625,20 @@ func (obj *Apparatus) SchedulerCleanup(namespace string, orphan bool) {
 		// unexpected, but nothing to do!
 		return
 	}
-	defer delete(obj.schedulerSessions, namespace) // don't leak memory!
 
 	if !orphan { // scheduler died prematurely, might as well close these...
-		session.Close() // ignore any error
+		session.Close()                          // ignore any error
+		delete(obj.schedulerSessions, namespace) // don't leak memory!
 		return
 	}
 
-	session.Orphan() // cancel the session goroutine
+	// Don't orphan here since this would start the TTL countdown and if we
+	// wanted to graph swap to a resource of the same namespace, then the
+	// session would expire early! We only want to perform these actions at
+	// background end. We always want the same session for the resource with
+	// the same namespace!
+	//session.Orphan() // cancel the session goroutine
+	//delete(obj.schedulerSessions, namespace) // don't leak memory!
 }
 
 // ScheduledGet gets the scheduled results.

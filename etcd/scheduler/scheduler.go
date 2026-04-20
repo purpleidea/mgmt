@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
+	"github.com/purpleidea/mgmt/etcd/util/election"
 	"github.com/purpleidea/mgmt/scheduler"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
@@ -204,19 +205,17 @@ func (obj *Apparatus) Scheduler(ctx context.Context, ready chan<- struct{}) (ret
 	// we need to add on the client namespace here since the special /_mgmt/
 	// prefix isn't added when we go directly through this API...
 	electionPath := fmt.Sprintf("%s%selection", obj.Client.GetNamespace(), obj.Prefix)
-	election := concurrency.NewElection(session, electionPath)
+	election := &election.Observer{
+		Hostname:      obj.Hostname,
+		Session:       session,
+		Path:          electionPath,
+		ResignTimeout: ResignTimeout,
 
-	electionChan := election.Observe(ctx)
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), ResignTimeout)
-		defer cancel()
+		Debug: obj.Debug,
+		Logf:  obj.Logf, // TODO: wrap?
+	}
 
-		// If we're not the leader, this is a harmless noop.
-		if err := election.Resign(ctx); err != nil {
-			// lock only needed if we do this elsewhere concurrently
-			reterr = errwrap.Append(reterr, err)
-		}
-	}()
+	electionChan := election.Observe(ctx) // runs Campaign automatically...
 
 	defer func() {
 		// We only need these mutexes for the rare situation when this
@@ -248,41 +247,6 @@ func (obj *Apparatus) Scheduler(ctx context.Context, ready chan<- struct{}) (ret
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	campaignFunc := func(ctx context.Context) error {
-		obj.Logf("starting campaign...")
-		for {
-			if err := election.Campaign(ctx, obj.Hostname); err != nil {
-				if err == context.Canceled {
-					return nil
-				}
-				return err
-			}
-		}
-	}
-
-	// kick off an initial campaign if none exist already...
-	obj.Logf("checking for existing leader...")
-	leaderResult, err := election.Leader(ctx)
-	if err == concurrency.ErrElectionNoLeader {
-		// start up the campaign function
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := campaignFunc(ctx); err != nil { // run
-				// lock only needed if we do this elsewhere concurrently
-				reterr = errwrap.Append(reterr, err)
-				cancel() // important to trigger the shutdown...
-			}
-		}()
-
-	} else if err != nil {
-		obj.Logf("leader information error: %v", err)
-		return err
-	}
-	if obj.Debug {
-		obj.Logf("leader information: %v", leaderResult)
-	}
-
 	// NOTE: We don't really need to watch here for changes, we just trust.
 	// In the odd chance there is a fight to write, let the last one win it.
 	//scheduledPathAll := fmt.Sprintf("%sschedule/", obj.Prefix)
@@ -307,19 +271,21 @@ func (obj *Apparatus) Scheduler(ctx context.Context, ready chan<- struct{}) (ret
 	for {
 		select {
 		// new election result
-		case val, ok := <-electionChan:
+		case result, ok := <-electionChan:
 			if obj.Debug {
-				obj.Logf("electionChan(%t): %+v", ok, val)
+				obj.Logf("electionChan(%t): %+v", ok, result)
 			}
 			if !ok {
 				obj.Logf("elections stream shutdown...")
 				return fmt.Errorf("election shutdown")
 			}
+			if err := result.Err; err != nil {
+				obj.Logf("elections stream error: %v", err)
+				return err
+			}
 
-			elected = string(val.Kvs[0].Value)
+			elected = result.Val
 			obj.Logf("elected: %s", elected)
-			// XXX: Do we need to start/stop the campaign function
-			// here? Do we care if it runs when i'm already elected?
 			if elected != obj.Hostname { // not me!
 				// This strategy invalidation must not be
 				// concurrent with running the doScheduled

@@ -32,6 +32,7 @@
 package resources
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -59,8 +60,9 @@ const (
 	lxcURI
 )
 
-// libvirtInit is called in the Init method of any virt resource. It must be run
-// before any connection to the hypervisor is made!
+// libvirtInit is called in the Init method of any virt resource or instead in
+// the Background method if that exists. It must be run before any connection to
+// the hypervisor is made! It only has to be done once for all virt resources.
 func libvirtInit() error {
 	libvirtMutex.Lock()
 	defer libvirtMutex.Unlock()
@@ -75,6 +77,56 @@ func libvirtInit() error {
 	libvirtInitialized = true
 
 	return nil
+}
+
+// libvirtBackground is the function used by the virt resource Background funcs.
+func libvirtBackground(ctx context.Context, ready chan<- struct{}) error {
+	if err := libvirtInit(); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	// Register a disabled timeout. It fires when we cancel the ctx so that
+	// EventRunDefaultImpl unblocks immediately instead of waiting for its
+	// internal ~5s poll interval.
+	timerID, err := libvirt.EventAddTimeout(-1, func(int) {})
+	if err != nil {
+		return errwrap.Wrapf(err, "EventAddTimeout failed")
+	}
+	defer libvirt.EventRemoveTimeout(timerID)
+
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-ctx.Done(): // wait until ctx exits
+		}
+		// Setting freq to 0 schedules immediate firing, which causes
+		// EventRunDefaultImpl to return so that the loop below notices
+		// the done ctx when it next iterates.
+		libvirt.EventUpdateTimeout(timerID, 0)
+	}()
+
+	close(ready)   // ready to go!
+	defer cancel() // XXX: would an error below cause a block above?
+
+	for {
+		// loop forever...
+		if err := libvirt.EventRunDefaultImpl(); err != nil {
+			// XXX: should we actually exit on error here?
+			return errwrap.Wrapf(err, "EventRunDefaultImpl failed")
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err() // safe to return the ctx err!
+		default:
+		}
+	}
 }
 
 // randMAC returns a random mac address in the libvirt range.

@@ -189,10 +189,6 @@ func (obj *VirtRes) Validate() error {
 func (obj *VirtRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
-	if err := libvirtInit(); err != nil {
-		return err
-	}
-
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(obj.URI); err != nil {
@@ -217,9 +213,6 @@ func (obj *VirtRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *VirtRes) Watch(ctx context.Context) error {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait() // wait until everyone has exited before we exit!
-
 	// XXX: we're using two connections per resource, we could pool these up
 	conn, _, err := obj.Auth.Connect(obj.URI)
 	if err != nil {
@@ -286,7 +279,6 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 	domChan := make(chan libvirt.DomainEventType)
 	gaChan := make(chan *libvirt.DomainEventAgentLifecycle)
 	recChan := recWatcher.Events()
-	errorChan := make(chan error)
 
 	// domain events callback
 	domCallback := func(c *libvirt.Connect, d *libvirt.Domain, ev *libvirt.DomainEventLifecycle) {
@@ -326,44 +318,6 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 		return err
 	}
 	defer conn.DomainEventDeregister(gaCallbackID)
-
-	// run libvirt event loop
-	// TODO: *trigger* EventRunDefaultImpl to unblock so it can shut down...
-	// at the moment this isn't a major issue because it seems to unblock in
-	// bursts every 5 seconds! we can do this by writing to an event handler
-	// in the meantime, terminating the program causes it to exit anyways...
-	wg.Add(1) // don't exit without waiting for EventRunDefaultImpl
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if !obj.init.Debug {
-				return
-			}
-			obj.init.Logf("EventRunDefaultImpl exited!")
-		}()
-		defer close(errorChan)
-		for {
-			// TODO: can we merge this into our main for loop below?
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			//obj.init.Logf("EventRunDefaultImpl started!")
-			err := libvirt.EventRunDefaultImpl()
-			if err == nil {
-				//obj.init.Logf("EventRunDefaultImpl looped!")
-				continue
-			}
-
-			select {
-			case errorChan <- errwrap.Wrapf(err, "EventRunDefaultImpl failed"):
-			case <-ctx.Done():
-			}
-			return
-		}
-	}()
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err
@@ -470,15 +424,6 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 			send = true
-
-		case err, ok := <-errorChan:
-			if !ok {
-				return nil
-			}
-			if err == nil { // unlikely
-				continue
-			}
-			return errwrap.Wrapf(err, "unknown libvirt error")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return ctx.Err()
@@ -1360,6 +1305,13 @@ func (obj *VirtRes) UIDs() []engine.ResUID {
 		// TODO: add more properties here so we can link to vm dependencies
 	}
 	return []engine.ResUID{x}
+}
+
+// Background is a worker function which is run once per resource kind as long
+// as there is at least one of that kind running in the active resource graph.
+// The worker function is the generated (returned) function that is used here.
+func (obj *VirtRes) Background(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	return libvirtBackground
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

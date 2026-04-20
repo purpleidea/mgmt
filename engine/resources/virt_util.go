@@ -38,6 +38,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	libvirt "libvirt.org/go/libvirt" // gitlab.com/libvirt/libvirt-go-module
@@ -45,8 +46,9 @@ import (
 
 var (
 	// shared by all virt resources
-	libvirtInitialized = false
-	libvirtMutex       *sync.Mutex
+	libvirtMutex          *sync.Mutex
+	libvirtInitialized                           = false
+	libvirtBackgroundPool *engine.BackgroundPool = nil
 )
 
 func init() {
@@ -79,54 +81,78 @@ func libvirtInit() error {
 	return nil
 }
 
-// libvirtBackground is the function used by the virt resource Background funcs.
-func libvirtBackground(ctx context.Context, ready chan<- struct{}) error {
-	if err := libvirtInit(); err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	// Register a disabled timeout. It fires when we cancel the ctx so that
-	// EventRunDefaultImpl unblocks immediately instead of waiting for its
-	// internal ~5s poll interval.
-	timerID, err := libvirt.EventAddTimeout(-1, func(int) {})
-	if err != nil {
-		return errwrap.Wrapf(err, "EventAddTimeout failed")
-	}
-	defer libvirt.EventRemoveTimeout(timerID)
-
-	wg := sync.WaitGroup{}
-	defer wg.Wait()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case <-ctx.Done(): // wait until ctx exits
-		}
-		// Setting freq to 0 schedules immediate firing, which causes
-		// EventRunDefaultImpl to return so that the loop below notices
-		// the done ctx when it next iterates.
-		libvirt.EventUpdateTimeout(timerID, 0)
-	}()
-
-	close(ready)   // ready to go!
-	defer cancel() // XXX: would an error below cause a block above?
-
-	for {
-		// loop forever...
-		if err := libvirt.EventRunDefaultImpl(); err != nil {
-			// XXX: should we actually exit on error here?
-			return errwrap.Wrapf(err, "EventRunDefaultImpl failed")
+// generateLibvirtBackground generates the correct background function for virt.
+func generateLibvirtBackground(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	// This is the function used by the virt resource Background funcs.
+	return func(ctx context.Context, ready chan<- struct{}) error {
+		if err := libvirtInit(); err != nil {
+			return err
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err() // safe to return the ctx err!
-		default:
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		// Register a disabled timeout. It fires when we cancel the ctx so that
+		// EventRunDefaultImpl unblocks immediately instead of waiting for its
+		// internal ~5s poll interval.
+		timerID, err := libvirt.EventAddTimeout(-1, func(int) {})
+		if err != nil {
+			return errwrap.Wrapf(err, "EventAddTimeout failed")
+		}
+		defer libvirt.EventRemoveTimeout(timerID)
+
+		wg := sync.WaitGroup{}
+		defer wg.Wait()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-ctx.Done(): // wait until ctx exits
+			}
+			// Setting freq to 0 schedules immediate firing, which causes
+			// EventRunDefaultImpl to return so that the loop below notices
+			// the done ctx when it next iterates.
+			libvirt.EventUpdateTimeout(timerID, 0)
+		}()
+
+		close(ready)   // ready to go!
+		defer cancel() // XXX: would an error below cause a block above?
+		if handle.Debug || true {
+			// NOTE: the logf prefix might be misleading since this
+			// is a shared background between all libvirt resources
+			handle.Logf("running...")
+			defer handle.Logf("stopped!")
+		}
+		for {
+			// loop forever...
+			if err := libvirt.EventRunDefaultImpl(); err != nil {
+				// XXX: should we actually exit on error here?
+				return errwrap.Wrapf(err, "EventRunDefaultImpl failed")
+			}
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err() // safe to return the ctx err!
+			default:
+			}
 		}
 	}
+}
+
+// libvirtNewBackgroundBool returns the pooled background function that is used
+// for wrapping all the background functions used by different virt resources.
+func libvirtNewBackgroundBool(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	libvirtMutex.Lock()
+	defer libvirtMutex.Unlock()
+
+	if libvirtBackgroundPool != nil {
+		return libvirtBackgroundPool.Background // done early
+	}
+
+	fn := generateLibvirtBackground(handle)
+	libvirtBackgroundPool = engine.NewBackgroundPool(fn)
+	return libvirtBackgroundPool.Background
 }
 
 // randMAC returns a random mac address in the libvirt range.

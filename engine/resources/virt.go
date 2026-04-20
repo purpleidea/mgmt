@@ -1311,7 +1311,7 @@ func (obj *VirtRes) UIDs() []engine.ResUID {
 // as there is at least one of that kind running in the active resource graph.
 // The worker function is the generated (returned) function that is used here.
 func (obj *VirtRes) Background(handle *engine.BackgroundHandle) engine.BackgroundFunc {
-	return libvirtBackground
+	return libvirtNewBackgroundBool(handle)
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

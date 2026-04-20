@@ -30,7 +30,9 @@
 package engine
 
 import (
+	"context"
 	"sort"
+	"sync"
 )
 
 // ResourceSlice is a linear list of resources. It can be sorted.
@@ -50,4 +52,76 @@ func Sort(rs []Res) []Res {
 	return resources
 	// sort.Sort(ResourceSlice(rs)) // this is wrong, it would modify input!
 	//return rs
+}
+
+// NewBackgroundPool creates a new BackgroundPool. This must be used to create
+// the BackgroundPool.
+func NewBackgroundPool(fn BackgroundFunc) *BackgroundPool {
+	return &BackgroundPool{
+		fn: fn,
+
+		wg: &sync.WaitGroup{},
+		mu: &sync.Mutex{},
+	}
+}
+
+// BackgroundPool ties a single refcounted background worker to a collection of
+// input contexts. Each individual caller causes the maximum of one to startup,
+// and when the final ctx closes, the background func shuts down. You must use
+// NewBackgroundPool to create one of these before first use.
+type BackgroundPool struct {
+	fn     BackgroundFunc // the func to run
+	ctx    context.Context
+	cancel context.CancelFunc
+	err    error
+
+	wg      *sync.WaitGroup
+	mu      *sync.Mutex
+	running bool
+	count   int // refcount
+}
+
+// Background is a worker function which is run once per resource kind as long
+// as there is at least one of that kind running in the active resource graph.
+// This function is what is used to singleton wrap the actual function we run.
+func (obj *BackgroundPool) Background(ctx context.Context, ready chan<- struct{}) error {
+	obj.mu.Lock()
+
+	// Start the background worker if not running.
+	if !obj.running {
+		obj.ctx, obj.cancel = context.WithCancel(context.Background())
+		obj.running = true
+
+		obj.wg.Add(1)
+		go func() {
+			defer obj.wg.Done()
+			obj.err = obj.fn(obj.ctx, ready) // first ready gets passed in
+		}()
+	} else {
+		close(ready) // already running
+	}
+
+	obj.count++
+	obj.mu.Unlock()
+
+	// Wait for the main ctx to be cancelled.
+	select {
+	case <-ctx.Done():
+	}
+
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
+
+	obj.count--
+
+	// If refcount is zero, stop the background worker.
+	if obj.count == 0 && obj.running {
+		obj.cancel()
+		obj.cancel = nil
+		obj.running = false
+		obj.wg.Wait()
+		return obj.err
+	}
+
+	return ctx.Err()
 }

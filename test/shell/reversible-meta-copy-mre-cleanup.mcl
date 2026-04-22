@@ -1,0 +1,3 @@
+file "/tmp/reversible-meta-copy-mre/" {
+	state => $const.res.file.state.exists,
+}

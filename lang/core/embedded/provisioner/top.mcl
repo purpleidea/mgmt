@@ -47,7 +47,7 @@ include provisioner.base(struct{
 
 include base.repo(struct{
 	distro => provisioner.cli_distro(),
-	version => provisioner.cli_version(),	# not an int!
+	version => provisioner.cli_version(), # not an int!
 	arch => provisioner.cli_arch(),
 	flavour => provisioner.cli_flavour(),
 
@@ -75,7 +75,7 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	mac => provisioner.cli_mac(),
 	ip => provisioner.cli_ip(),
 	bios => provisioner.cli_bios(), # false or absent means use uefi
-	password => provisioner.cli_password(),	# openssl passwd -6
+	password => provisioner.cli_password(), # openssl passwd -6
 	part => provisioner.cli_part(),
 	luks => provisioner.cli_luks(),
 	packages => provisioner.cli_packages(),

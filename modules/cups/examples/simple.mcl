@@ -41,7 +41,7 @@ class printer($name, $st) {
 include printer("Foo-Laboratory-Brother", struct{
 	location => "Foo's Office",
 	makemodel => "Brother Printer, driverless, 2.1b1",
-	uri => "lpd://192.168.201.108:515/PASSTHRU",	# TODO: change me?
+	uri => "lpd://192.168.201.108:515/PASSTHRU", # TODO: change me?
 })
 
 include printer("Bar-Office-Canon", struct{

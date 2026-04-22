@@ -207,7 +207,6 @@ class server:host_base() {
 		mode => "u=rw,go=",
 	}
 
-
 	file "/etc/dhcp/hosts.conf" {
 		state => $const.res.file.state.exists,
 		fragments => [

@@ -61,10 +61,10 @@ class base($config) {
 	} else {
 		$interface_env
 	}
-	$interface = $config->interface || "${interface_def}"	# XXX: what if no interface exists?
+	$interface = $config->interface || "${interface_def}" # XXX: what if no interface exists?
 	#$interface = _struct_lookup_optional($config, "interface", "eth0")
 
-	$http_port = $config->http_port || 4280	# using :4280 avoids needing root and isn't in /etc/services
+	$http_port = $config->http_port || 4280 # using :4280 avoids needing root and isn't in /etc/services
 	$http_port_str = convert.int_to_str($http_port)
 
 	# if $network is the empty string, then we don't do any dhcp ourselves!
@@ -90,7 +90,7 @@ class base($config) {
 	panic($prefix == "", "provisioner:base $prefix is empty") # panic if prefix is empty
 	panic(not golang_strings.has_suffix($prefix, "/"), "provisioner:base $prefix is not absolute")
 
-	file "${prefix}" {	# dir
+	file "${prefix}" { # dir
 		state => $const.res.file.state.exists,
 	}
 	$tftp_prefix = "${prefix}${tftp_suffix}"
@@ -105,8 +105,8 @@ class base($config) {
 
 	$syslinux_root = "/usr/share/syslinux/"
 
-	$nbp_bios = "tftp://${router_ip}/pxelinux.0"	# for bios clients
-	$nbp_uefi = "tftp://${router_ip}/uefi/shim.efi"	# for uefi clients
+	$nbp_bios = "tftp://${router_ip}/pxelinux.0" # for bios clients
+	$nbp_uefi = "tftp://${router_ip}/uefi/shim.efi" # for uefi clients
 
 	#
 	#	network
@@ -114,12 +114,12 @@ class base($config) {
 	if $network != "" {
 		net "${interface}" {
 			state => $const.res.net.state.up,
-			addrs => [$router,],	# has cidr suffix
+			addrs => [$router,], # has cidr suffix
 			#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
 
-			ip_forward => true,	# XXX: does this work?
+			ip_forward => true, # XXX: does this work?
 
-			Meta:reverse => true,	# XXX: ^C doesn't reverse atm. Fix that!
+			Meta:reverse => true, # XXX: ^C doesn't reverse atm. Fix that!
 
 			Before => Dhcp:Server[":67"], # TODO: add autoedges
 		}
@@ -159,10 +159,10 @@ class base($config) {
 		}
 	}
 
-	file "${tftp_prefix}" {	# dir
+	file "${tftp_prefix}" { # dir
 		state => $const.res.file.state.exists,
 	}
-	file "${uefi_prefix}" {	# dir
+	file "${uefi_prefix}" { # dir
 		state => $const.res.file.state.exists,
 	}
 
@@ -174,7 +174,7 @@ class base($config) {
 		#root => $root, # we're running in memory without needing a root!
 		#debug => true, # XXX: print out a `tree` representation in tmp prefix for the user
 
-		Depend => Pkg[$pkgs_bios],	# hosted by tftp
+		Depend => Pkg[$pkgs_bios], # hosted by tftp
 		#Depend => Pkg[$pkgs_uefi],
 	}
 
@@ -185,8 +185,8 @@ class base($config) {
 	# XXX: should this also be part of repo too?
 	class tftp_root_file($f) {
 		#tftp:file "${f}" {	# without root slash
-		tftp:file "/${f}" {	# with root slash
-			path => $syslinux_root + $f,		# TODO: add autoedges
+		tftp:file "/${f}" { # with root slash
+			path => $syslinux_root + $f, # TODO: add autoedges
 
 			Depend => Pkg[$pkgs_bios],
 		}
@@ -204,7 +204,7 @@ class base($config) {
 		dhcp:server ":67" {
 			interface => $interface, # required for now
 			leasetime => "10m", # seems some clients refresh half way at 5m
-			dns => $dns,	# pick your own better ones!
+			dns => $dns, # pick your own better ones!
 			routers => [$router_ip,],
 
 			serverid => $router_ip, # XXX: test automatic mode
@@ -216,7 +216,7 @@ class base($config) {
 	#
 	#	http
 	#
-	file "${http_prefix}" {	# dir
+	file "${http_prefix}" { # dir
 		state => $const.res.file.state.exists,
 	}
 
@@ -319,19 +319,19 @@ class base:repo($config) {
 	$distroarch_release_http_prefix = "${distroarch_http_prefix}release/"
 	$distroarch_updates_http_prefix = "${distroarch_http_prefix}updates/"
 
-	file "${distroarch_tftp_prefix}" {	# dir
+	file "${distroarch_tftp_prefix}" { # dir
 		state => $const.res.file.state.exists,
 
 		#Meta:quiet => true,	# TODO
 
 		Depend => File["${tftp_prefix}"],
 	}
-	file "${distroarch_uefi_prefix}" {	# dir
+	file "${distroarch_uefi_prefix}" { # dir
 		state => $const.res.file.state.exists,
 
 		Depend => File["${uefi_prefix}"],
 	}
-	file "${distroarch_http_prefix}" {	# root http dir
+	file "${distroarch_http_prefix}" { # root http dir
 		state => $const.res.file.state.exists,
 
 		Depend => File["${http_prefix}"],
@@ -400,22 +400,22 @@ class base:repo($config) {
 	$uefi_shim = "${uefi_root}shim.efi"
 	$uefi_shimx64 = "${uefi_root}shimx64.efi"
 	tftp:file "/uefi/shim.efi" { # needs leading slash
-		path => $uefi_shim,		# TODO: add autoedges
+		path => $uefi_shim, # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
 	tftp:file "/uefi/shimx64.efi" { # needs leading slash
-		path => $uefi_shimx64,		# TODO: add autoedges
+		path => $uefi_shimx64, # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
-	tftp:file "/uefi/grubx64.efi" {	# sometimes used?
-		path => "${uefi_root}grubx64.efi",		# TODO: add autoedges
+	tftp:file "/uefi/grubx64.efi" { # sometimes used?
+		path => "${uefi_root}grubx64.efi", # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
-	tftp:file "grubx64.efi" {	# no leading slash
-		path => "${uefi_root}grubx64.efi",		# TODO: add autoedges
+	tftp:file "grubx64.efi" { # no leading slash
+		path => "${uefi_root}grubx64.efi", # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
@@ -439,12 +439,12 @@ class base:repo($config) {
 	}
 
 	tftp:file "/${uid}/vmlinuz" {
-		path => $vmlinuz_file,		# TODO: add autoedges
+		path => $vmlinuz_file, # TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
 	}
-	http:server:file "/${uid}/vmlinuz" {	# when using ipxe
-		path => $vmlinuz_file,		# TODO: add autoedges
+	http:server:file "/${uid}/vmlinuz" { # when using ipxe
+		path => $vmlinuz_file, # TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
 	}
@@ -466,12 +466,12 @@ class base:repo($config) {
 	}
 
 	tftp:file "/${uid}/initrd.img" {
-		path => $initrd_file,		# TODO: add autoedges
+		path => $initrd_file, # TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
 	}
-	http:server:file "/${uid}/initrd.img" {	# when using ipxe
-		path => $initrd_file,		# TODO: add autoedges
+	http:server:file "/${uid}/initrd.img" { # when using ipxe
+		path => $initrd_file, # TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
 	}
@@ -604,14 +604,14 @@ class base:host($name, $config) {
 	#}
 	#$ip = $config->ip || magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Reuse based on $name hash.
 	$bios = $config->bios || false
-	$password = $config->password || ""	# empty means disabled
+	$password = $config->password || "" # empty means disabled
 	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
-	$sshkey = golang_strings.trim_space($config->sshkey || "")	# root ssh pub key to add
+	$sshkey = golang_strings.trim_space($config->sshkey || "") # root ssh pub key to add
 
-	$part = $config->part || ""	# partitioning scheme
-	$luks = $config->luks || true	# enable luks encryption
+	$part = $config->part || "" # partitioning scheme
+	$luks = $config->luks || true # enable luks encryption
 
-	$empty_list_str []str = []	# need an explicit type on empty list definition
+	$empty_list_str []str = [] # need an explicit type on empty list definition
 	$packages = $config->packages || $empty_list_str
 
 	# should we provision this host by default?
@@ -637,7 +637,7 @@ class base:host($name, $config) {
 	} else {
 		$mac
 	}
-	$provision_key = $hkey	# XXX: what unique id should we use for the host? mac? name? hkey?
+	$provision_key = $hkey # XXX: what unique id should we use for the host? mac? name? hkey?
 
 	#$ret = world.getval($provision_key) # has it previously been provisioned?
 	#$val = if $ret->value == "" {	# avoid an invalid string killing the parse_bool function
@@ -653,21 +653,21 @@ class base:host($name, $config) {
 	$provision = true
 
 	$nbp_path = if $bios {
-		"/pxelinux.0"		# for bios clients
+		"/pxelinux.0" # for bios clients
 	} else {
-		"/uefi/shim.efi"	# for uefi clients
+		"/uefi/shim.efi" # for uefi clients
 	}
 
 	if $network != "" {
 		if $mac != "" {
-			dhcp:host "${name}" {	# the hostname
+			dhcp:host "${name}" { # the hostname
 				mac => $mac,
-				ip => $ip,	# cidr notation is required
+				ip => $ip, # cidr notation is required
 
-				nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
-					$nbp_bios	# from base class
+				nbp => $provision ?: if $bios { # XXX: do we want this from the base class?
+					$nbp_bios # from base class
 				} else {
-					$nbp_uefi	# from base class
+					$nbp_uefi # from base class
 				},
 				nbp_path => $provision ?: $nbp_path, # with leading slash
 
@@ -680,10 +680,10 @@ class base:host($name, $config) {
 				network => "${network}", # eg: 192.168.42.0/24
 				skip => [$router,], # eg: 192.168.42.1/24
 
-				nbp => $provision ?: if $bios {	# XXX: do we want this from the base class?
-					$nbp_bios	# from base class
+				nbp => $provision ?: if $bios { # XXX: do we want this from the base class?
+					$nbp_bios # from base class
 				} else {
-					$nbp_uefi	# from base class
+					$nbp_uefi # from base class
 				},
 				nbp_path => $provision ?: $nbp_path, # with leading slash
 
@@ -694,9 +694,9 @@ class base:host($name, $config) {
 
 	$menu_template = struct{
 		distro => $distro,
-		version => $version,		# 39 for fedora 39
-		arch => $arch,			# could also be aarch64
-		flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+		version => $version, # 39 for fedora 39
+		arch => $arch, # could also be aarch64
+		flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
 
 		ks => "http://${router_ip}:${http_port_str}/fedora/kickstart/${hkey}.ks", # usually $mac or `default`
 		inst_repo_base => $inst_repo_base,
@@ -735,11 +735,11 @@ class base:host($name, $config) {
 	}
 
 	if $bios {
-		tftp:file "${bios_menu}" {	# for bios
+		tftp:file "${bios_menu}" { # for bios
 			data => golang.template(deploy.readfile("/files/bios-menu.tmpl"), $menu_template),
 		}
 	} else {
-		tftp:file "${uefi_menu}" {	# for uefi
+		tftp:file "${uefi_menu}" { # for uefi
 			# XXX: linuxefi & initrdefi VS. kernel & append ?
 			data => golang.template(deploy.readfile("/files/uefi-menu.tmpl"), $menu_template),
 
@@ -749,11 +749,11 @@ class base:host($name, $config) {
 	}
 
 	# https://<ip>:4280/${mac}.ipxe # works for ipxe scripts!
-	http:server:file "/${ipxe_menu}" {	# for ipxe
+	http:server:file "/${ipxe_menu}" { # for ipxe
 		data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
 	}
 	if $mac != "" { # generate old one but never the menu.ipxe default
-		http:server:file "/${old_mac}.ipxe" {	# for ipxe
+		http:server:file "/${old_mac}.ipxe" { # for ipxe
 			data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
 		}
 	}
@@ -884,7 +884,7 @@ class base:host($name, $config) {
 			"fr_CA.UTF-8",
 			"en_US.UTF-8",
 		],
-		password => $password,	# salted
+		password => $password, # salted
 		bios => $bios,
 		part => $part,
 		luks => $luks, # set empty password

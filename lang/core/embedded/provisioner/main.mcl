@@ -221,8 +221,8 @@ class base($config) {
 	}
 
 	http:server ":${http_port_str}" {
-		#address => ":${http_port_str}",	# you can override the name like this
-		#timeout => 60,		# add a timeout (seconds)
+		#address => ":${http_port_str}", # you can override the name like this
+		#timeout => 60, # add a timeout (seconds)
 	}
 
 	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"
@@ -506,9 +506,9 @@ class base:repo($config) {
 	#$fedora_repo_template = struct{
 	#	name => "fedora",
 	#	distro => $distro,
-	#	version => $version,		# 39 for fedora 39
-	#	arch => $arch,			# could also be aarch64
-	#	#flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+	#	version => $version, # 39 for fedora 39
+	#	arch => $arch, # could also be aarch64
+	#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
 	#	extra => "releases",
 	#
 	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
@@ -516,9 +516,9 @@ class base:repo($config) {
 	#$updates_repo_template = struct{
 	#	name => "updates",
 	#	distro => $distro,
-	#	version => $version,		# 39 for fedora 39
-	#	arch => $arch,			# could also be aarch64
-	#	#flavour => "Everything",	# The install repo uses "Everything" even for "Workstation" or "Server"
+	#	version => $version, # 39 for fedora 39
+	#	arch => $arch, # could also be aarch64
+	#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
 	#	extra => "updates",
 	#
 	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
@@ -534,7 +534,7 @@ class base:repo($config) {
 	#	rsync
 	#
 	#$source_pattern = if $is_fedora {
-	#	"${rsync}releases/${version}/Everything/${arch}/os/"	# source
+	#	"${rsync}releases/${version}/Everything/${arch}/os/" # source
 	#} else {
 	#	"" # XXX: not implemented
 	#}
@@ -552,8 +552,8 @@ class base:repo($config) {
 	#			"--progress",
 	#			# This flavour must always be Everything to work.
 	#			# The Workstation flavour doesn't have an os/ dir.
-	#			$source_pattern,	# source
-	#			$distroarch_release_http_prefix,	# dest
+	#			$source_pattern, # source
+	#			$distroarch_release_http_prefix, # dest
 	#		],
 	#
 	#		# run this when cmd completes successfully
@@ -640,7 +640,7 @@ class base:host($name, $config) {
 	$provision_key = $hkey # XXX: what unique id should we use for the host? mac? name? hkey?
 
 	#$ret = world.getval($provision_key) # has it previously been provisioned?
-	#$val = if $ret->value == "" {	# avoid an invalid string killing the parse_bool function
+	#$val = if $ret->value == "" { # avoid an invalid string killing the parse_bool function
 	#	convert.format_bool(false) # "false"
 	#} else {
 	#	$ret->value
@@ -648,7 +648,7 @@ class base:host($name, $config) {
 	#$provision = if not $ret->exists {
 	#	$provision_default
 	#} else {
-	#	not convert.parse_bool($val)	# XXX: should an invalid string return false or error here?
+	#	not convert.parse_bool($val) # XXX: should an invalid string return false or error here?
 	#}
 	$provision = true
 
@@ -967,7 +967,7 @@ class base:host($name, $config) {
 		key => $provision_key,
 	}
 	value "${name}-done" {
-		#any => true,	# bool
+		#any => true, # bool
 	}
 	kv "${name}-sshkey" {
 		key => $provision_key,

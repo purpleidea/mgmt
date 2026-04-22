@@ -148,7 +148,7 @@ class router($st) {
 	# eg: meth0
 	if $net_dev != "" {
 		include firewall.interface("${net_dev}", "net", struct{
-			interface => "NET_IF",	# default if not specified
+			interface => "NET_IF", # default if not specified
 			options => [
 				"dhcp", # XXX: if $net_ip and $net_gateway does this hurt?
 				"tcpflags",
@@ -161,7 +161,7 @@ class router($st) {
 	}
 
 	include firewall.interface("${loc_dev}", "loc", struct{
-		interface => "LOC_IF",	# default if not specified
+		interface => "LOC_IF", # default if not specified
 		options => [
 			"dhcp",
 			"tcpflags",
@@ -178,7 +178,7 @@ class router($st) {
 	if $aux_dev != "" {
 		# eg: meth2
 		include firewall.interface("${aux_dev}", "aux", struct{
-			interface => "AUX_IF",	# default if not specified
+			interface => "AUX_IF", # default if not specified
 			options => [
 				"dhcp",
 				"tcpflags",

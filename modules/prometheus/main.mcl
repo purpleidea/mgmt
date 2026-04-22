@@ -164,8 +164,8 @@ class postgresql_base() {
 		group => "root",
 		mode => "u=rw,go=r", # systemd likes world readable
 
-#		Depend => Pkg["prometheus-postgres-exporter"],
-#		Before => Svc["prometheus-postgres-exporter"],
+		#		Depend => Pkg["prometheus-postgres-exporter"],
+		#		Before => Svc["prometheus-postgres-exporter"],
 	}
 
 }

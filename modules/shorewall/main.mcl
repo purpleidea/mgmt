@@ -33,7 +33,6 @@ import "golang"
 import "local"
 import "golang/strings" as golang_strings
 
-
 # Class prepare adds some common things you probably want to run when using this
 # module.
 class prepare() {

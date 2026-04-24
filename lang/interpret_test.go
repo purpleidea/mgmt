@@ -2445,7 +2445,7 @@ func TestAstFunc3(t *testing.T) {
 
 			// XXX: can we change this into a ge.Apply operation?
 			// run autogroup; modifies the graph
-			if err := ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+			if err := ge.AutoGroup(context.TODO(), &autogroup.NonReachabilityGrouper{}); err != nil {
 				//ge.Abort() // delete graph
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: error running autogrouping: %+v", index, err)

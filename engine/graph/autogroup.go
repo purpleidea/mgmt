@@ -30,6 +30,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -40,7 +41,7 @@ import (
 )
 
 // AutoGroup runs the auto grouping on the loaded graph.
-func (obj *Engine) AutoGroup(ag engine.AutoGrouper) error {
+func (obj *Engine) AutoGroup(ctx context.Context, ag engine.AutoGrouper) error {
 	if obj.nextGraph == nil {
 		return fmt.Errorf("there is no active graph to autogroup")
 	}
@@ -54,7 +55,7 @@ func (obj *Engine) AutoGroup(ag engine.AutoGrouper) error {
 		AutoGrouper: ag, // pass in the existing autogrouper
 	}
 
-	if err := autogroup.AutoGroup(wrapped, obj.nextGraph, obj.Debug, logf); err != nil {
+	if err := autogroup.AutoGroup(ctx, wrapped, obj.nextGraph, obj.Debug, logf); err != nil {
 		return errwrap.Wrapf(err, "autogrouping failed")
 	}
 

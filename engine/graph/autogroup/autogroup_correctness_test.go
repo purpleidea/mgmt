@@ -32,6 +32,7 @@
 package autogroup
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -743,7 +744,7 @@ func TestSemaPreservedWithEdges(t *testing.T) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
-	if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil {
+	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 		t.Fatalf("AutoGroup: %v", err)
 	}
 	if g1.NumVertices() != 2 {
@@ -822,7 +823,7 @@ func TestDeterminismWithEdges(t *testing.T) {
 		}
 		debug := false
 		logf := func(format string, v ...interface{}) {}
-		if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil {
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 			t.Fatalf("iter %d: %v", iter, err)
 		}
 
@@ -862,7 +863,7 @@ func runDeterminismTest(t *testing.T, n, iters int, withEdges bool) {
 		}
 		debug := false
 		logf := func(format string, v ...interface{}) {}
-		if err := AutoGroup(&testGrouper{}, g, debug, logf); err != nil {
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			t.Fatalf("iter %d: %v", iter, err)
 		}
 		if g.NumVertices() != 1 {
@@ -1129,7 +1130,7 @@ func TestLargeMultiFamilyLayers(t *testing.T) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
-	if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil {
+	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 		t.Fatalf("AutoGroup: %v", err)
 	}
 
@@ -1263,7 +1264,7 @@ func TestLargeMixedReachabilityGrid(t *testing.T) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
-	if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil {
+	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 		t.Fatalf("AutoGroup: %v", err)
 	}
 
@@ -1333,7 +1334,7 @@ func TestLargeDiamondChain(t *testing.T) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
-	if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil {
+	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 		t.Fatalf("AutoGroup: %v", err)
 	}
 

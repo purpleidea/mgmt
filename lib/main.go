@@ -994,8 +994,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("skipping auto grouping...")
 			} else {
 				timing = time.Now()
-				// XXX: add deployCtx to autogroup
-				if err := obj.ge.AutoGroup(&autogroup.NonReachabilityGrouper{}); err != nil {
+				if err := obj.ge.AutoGroup(deployCtx, &autogroup.NonReachabilityGrouper{}); err != nil {
 					obj.ge.Abort() // delete graph
 					Logf("error running auto grouping: %+v", err)
 					continue

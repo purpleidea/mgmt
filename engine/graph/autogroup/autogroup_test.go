@@ -280,7 +280,7 @@ func runGraphCmp(t *testing.T, g1, g2 *pgraph.Graph) {
 		t.Logf("test: "+format, v...)
 	}
 
-	if err := AutoGroup(&testGrouper{}, g1, debug, logf); err != nil { // edits the graph
+	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil { // edits the graph
 		t.Errorf("%v", err)
 		return
 	}

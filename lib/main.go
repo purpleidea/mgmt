@@ -1003,9 +1003,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 			// XXX: can we change this into a ge.Apply operation?
 			// XXX: shouldn't this run before autoedge/autogroup?
-			// XXX: add deployCtx to reversals
 			// run reversals; modifies the graph
-			if err := obj.ge.Reversals(); err != nil {
+			if err := obj.ge.Reversals(deployCtx); err != nil {
 				obj.ge.Abort() // delete graph
 				Logf("error running the reversals: %+v", err)
 				continue

@@ -30,6 +30,7 @@
 package graph
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -52,7 +53,8 @@ const (
 
 // Reversals adds the reversals onto the loaded graph. This should happen last,
 // and before Commit.
-func (obj *Engine) Reversals() error {
+// TODO: use the ctx? maybe one day wrap the file i/o stuff
+func (obj *Engine) Reversals(ctx context.Context) error {
 	if obj.nextGraph == nil {
 		return fmt.Errorf("there is no active graph to add reversals to")
 	}
@@ -101,6 +103,12 @@ func (obj *Engine) Reversals() error {
 	}
 	sort.Strings(sorted)
 	for _, key := range sorted {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		val := data[key]
 		// XXX: replace this ResToB64 method with one that stores it in
 		// a human readable format, in case someone wants to hack and
@@ -152,6 +160,11 @@ func (obj *Engine) Reversals() error {
 
 	if len(resources) == 0 {
 		return nil // end early
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
 	// Now that we've passed the chance of any errors, we modify the graph.

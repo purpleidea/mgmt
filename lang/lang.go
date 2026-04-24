@@ -460,7 +460,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 	err := obj.funcs.Run(ctx)
 	// When run terminates, inspect the "official" error first.
 	if err := obj.funcs.Err(); err != nil {
-		return err
+		return errwrap.WithoutContext(err)
 	}
 	return err // If we got this far, return whatever Run did.
 }

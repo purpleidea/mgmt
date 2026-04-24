@@ -250,6 +250,10 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"subgraphInput" -> "filterInputElem1"
 	//	"subgraphInput" -> "filterInputElem2"
 	//
+	//	"filter" -> "filterInputElem0"
+	//	"filter" -> "filterInputElem1"
+	//	"filter" -> "filterInputElem2"
+	//
 	//	"filterInputElem0" -> "outputElemFunc0"
 	//	"filterInputElem1" -> "outputElemFunc1"
 	//	"filterInputElem2" -> "outputElemFunc2"
@@ -282,6 +286,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		return fmt.Sprintf("outputElem%d", i)
 	}
 	argNameInputList := "inputList"
+	argNameInputDummy := structs.OutputFuncDummyArgName
 
 	m := make(map[string]*types.Type)
 	ord := []string{}
@@ -337,8 +342,8 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			fmt.Sprintf("filterInputElem[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 1 {
-						return nil, fmt.Errorf("inputElemFunc: expected a single argument")
+					if len(args) != 2 {
+						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
 					}
 					arg := args[0]
 
@@ -355,7 +360,7 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.listType, obj.Type)),
+				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.listType, argNameInputDummy, obj.Type)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
@@ -367,6 +372,9 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
+		})
+		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{argNameInputDummy},
 		})
 
 		combinerValueElem := fmt.Sprintf("combinerValueElem%d", i)

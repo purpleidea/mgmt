@@ -256,6 +256,10 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"subgraphInput" -> "inputElemFunc1"
 	//	"subgraphInput" -> "inputElemFunc2"
 	//
+	//	"map" -> "inputElemFunc0"
+	//	"map" -> "inputElemFunc1"
+	//	"map" -> "inputElemFunc2"
+	//
 	//	"inputElemFunc0" -> "outputElemFunc0"
 	//	"inputElemFunc1" -> "outputElemFunc1"
 	//	"inputElemFunc2" -> "outputElemFunc2"
@@ -275,6 +279,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// create the new subgraph
 
 	argNameInputList := "inputList"
+	argNameInputDummy := structs.OutputFuncDummyArgName
 
 	m := make(map[string]*types.Type)
 	ord := []string{}
@@ -315,8 +320,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			fmt.Sprintf("mapInputElem[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 1 {
-						return nil, fmt.Errorf("inputElemFunc: expected a single argument")
+					if len(args) != 2 {
+						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
 					}
 					arg := args[0]
 
@@ -326,9 +331,13 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 
 					// Extract the correct list element.
-					return list.List()[i], nil
+					valuesList := list.List()
+					if l := len(valuesList); i >= l {
+						return nil, fmt.Errorf("index %d out of range with length %d", i, l)
+					}
+					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.inputListType, obj.Type)),
+				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.inputListType, argNameInputDummy, obj.Type)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
@@ -340,6 +349,9 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
+		})
+		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{argNameInputDummy},
 		})
 		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
 			Args: []string{fmt.Sprintf("outputElem%d", i)},

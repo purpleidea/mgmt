@@ -30,13 +30,15 @@
 package graph
 
 import (
+	"context"
+
 	"github.com/purpleidea/mgmt/engine/graph/autoedge"
 )
 
 // AutoEdge adds the automatic edges to the graph.
-func (obj *Engine) AutoEdge() error {
+func (obj *Engine) AutoEdge(ctx context.Context) error {
 	logf := func(format string, v ...interface{}) {
 		obj.Logf("autoedge: "+format, v...)
 	}
-	return autoedge.AutoEdge(obj.nextGraph, obj.Debug, logf)
+	return autoedge.AutoEdge(ctx, obj.nextGraph, obj.Debug, logf)
 }

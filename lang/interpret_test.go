@@ -1466,7 +1466,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 
 			// add automatic edges...
-			err = autoedge.AutoEdge(ograph, testing.Verbose(), logf)
+			err = autoedge.AutoEdge(context.TODO(), ograph, testing.Verbose(), logf)
 			if (!fail || !failAutoEdge) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: automatic edges failed with: %+v", index, err)
@@ -2332,7 +2332,7 @@ func TestAstFunc3(t *testing.T) {
 
 			// add automatic edges...
 			// TODO: use ge.AutoEdge() instead?
-			err = autoedge.AutoEdge(ograph, testing.Verbose(), logf)
+			err = autoedge.AutoEdge(context.TODO(), ograph, testing.Verbose(), logf)
 			if (!fail || !failAutoEdge) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: automatic edges failed with: %+v", index, err)

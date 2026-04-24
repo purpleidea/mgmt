@@ -490,7 +490,7 @@ func TestExecAutoEdge1(t *testing.T) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: "+format, v...)
 	}
-	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
 		t.Errorf("error running autoedges: %v", err)
 		return
 	}

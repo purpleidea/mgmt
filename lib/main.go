@@ -979,8 +979,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("skipping auto edges...")
 			} else {
 				timing = time.Now()
-				// XXX: add deployCtx to autoedge
-				if err := obj.ge.AutoEdge(); err != nil {
+				if err := obj.ge.AutoEdge(deployCtx); err != nil {
 					obj.ge.Abort() // delete graph
 					Logf("error running auto edges: %+v", err)
 					continue

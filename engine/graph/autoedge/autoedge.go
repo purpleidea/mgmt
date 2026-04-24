@@ -30,6 +30,7 @@
 package autoedge
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -38,7 +39,7 @@ import (
 )
 
 // AutoEdge adds the automatic edges to the graph.
-func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
+func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
 	logf("building...")
 
 	// initially get all of the autoedges to seek out all possible errors
@@ -57,6 +58,12 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 	}
 
 	for _, res := range sorted { // for each vertices autoedges
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		autoEdgeObj, e := res.AutoEdges()
 		if e != nil {
 			err = errwrap.Append(err, e) // collect all errors
@@ -82,6 +89,12 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 		}
 
 		for { // while the autoEdgeObj has more uids to add...
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
 			uids := autoEdgeObj.Next() // get some!
 			if uids == nil {
 				logf("the auto edge list is empty for: %s", res)
@@ -111,6 +124,7 @@ func AutoEdge(graph *pgraph.Graph, debug bool, logf func(format string, v ...int
 
 // addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
 // matches a uid list.
+// TODO: add ctx?
 func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
 	// search for edges and see what matches!
 	var result []bool

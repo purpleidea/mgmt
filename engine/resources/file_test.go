@@ -33,6 +33,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/gob"
 	"testing"
@@ -71,7 +72,7 @@ func TestFileAutoEdge1(t *testing.T) {
 		t.Logf("test: "+format, v...)
 	}
 	// run artificially without the entire engine
-	if err := autoedge.AutoEdge(g, debug, logf); err != nil {
+	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
 		t.Errorf("error running autoedges: %v", err)
 	}
 

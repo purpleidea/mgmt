@@ -1,0 +1,10 @@
+-- main.mcl --
+$name = if 1 + 2 in [3,] {
+	"passed"
+} else {
+	"failed"
+}
+
+test "${name}" {}
+-- OUTPUT --
+Vertex: test[passed]

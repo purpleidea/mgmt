@@ -1,0 +1,7 @@
+-- main.mcl --
+$m = {"k" => "a",}
+$name = $m["k"] || "b" + "c"
+
+test "${name}" {}
+-- OUTPUT --
+Vertex: test[a]

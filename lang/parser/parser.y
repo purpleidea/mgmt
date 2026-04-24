@@ -116,16 +116,16 @@ func init() {
 // the higher the precedence."
 // From: https://www.gnu.org/software/bison/manual/html_node/Infix-Calc.html
 // FIXME: a yacc specialist should check the precedence and add more tests!
-%left AND OR
-%nonassoc LT GT LTE GTE EQ NEQ	// TODO: is %nonassoc correct for all of these?
+%nonassoc DEFAULT	// XXX: is %nonassoc correct for this?
+%left OR
+%left AND
+%nonassoc LT GT LTE GTE EQ NEQ IN	// TODO: is %nonassoc correct for all of these?
 %left PLUS MINUS
 %left MULTIPLY DIVIDE
 %right NOT
 //%right EXP	// exponentiation
 %nonassoc ARROW		// XXX: is %nonassoc correct for this?
-%nonassoc DEFAULT	// XXX: is %nonassoc correct for this?
 %nonassoc OPEN_BRACK	// XXX: is %nonassoc correct for this?
-%nonassoc IN		// XXX: is %nonassoc correct for this?
 
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET BOOL CLOSE_CURLY: errstrParseExpectingComma
 %error IDENTIFIER STRING OPEN_CURLY IDENTIFIER ROCKET STRING CLOSE_CURLY: errstrParseExpectingComma

@@ -544,6 +544,10 @@ Start:
 				// a programming error by the function.
 				return fmt.Errorf("function didn't interrupt correctly: %s", node)
 			}
+			if err == context.Canceled { // healthy shutdown
+				// Don't wrap this with the below highlighter!
+				return err
+			}
 			if err != nil {
 				return interfaces.HighlightHelper(f, obj.Logf, err)
 			}

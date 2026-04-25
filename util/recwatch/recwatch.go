@@ -32,7 +32,6 @@ package recwatch
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -180,6 +179,9 @@ func (obj *RecWatcher) Watch() error {
 	var send = false                          // send event?
 
 	for {
+		if index < 1 || index > len(patharray) {
+			return fmt.Errorf("recwatch: invalid path index %d for %q", index, obj.safename)
+		}
 		current = strings.Join(patharray[0:index], "/")
 		if current == "" { // the empty string top is the root dir ("/")
 			current = "/"
@@ -194,8 +196,9 @@ func (obj *RecWatcher) Watch() error {
 			}
 			// ENOENT for linux, etc and IsNotExist for macOS
 			if err == syscall.ENOENT || os.IsNotExist(err) {
-				index-- // usually not found, move up one dir
-				index = int(math.Max(1, float64(index)))
+				if index > 1 {
+					index-- // usually not found, move up one dir
+				}
 				continue
 			}
 
@@ -265,9 +268,11 @@ func (obj *RecWatcher) Watch() error {
 
 				// file removed, move the watch upwards
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//obj.options.logf("removal!")
-					obj.watcher.Remove(current)
-					index--
+					if index > 1 {
+						//obj.options.logf("removal!")
+						obj.watcher.Remove(current)
+						index--
+					}
 				}
 
 				// when the file is moved, remove the watcher and add a new one,
@@ -279,9 +284,11 @@ func (obj *RecWatcher) Watch() error {
 
 				// we must be a parent watcher, so descend in
 				if deltaDepth < 0 {
-					// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
-					obj.watcher.Remove(current)
-					index++
+					if index < len(patharray) {
+						// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
+						obj.watcher.Remove(current)
+						index++
+					}
 				}
 
 				// if safename starts with event.Name, we're above, and no event should be sent
@@ -289,9 +296,11 @@ func (obj *RecWatcher) Watch() error {
 				//obj.options.logf("above!")
 
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
-					//obj.options.logf("removal!")
-					obj.watcher.Remove(current)
-					index--
+					if index > 1 {
+						//obj.options.logf("removal!")
+						obj.watcher.Remove(current)
+						index--
+					}
 				}
 
 				if deltaDepth < 0 {
@@ -299,8 +308,11 @@ func (obj *RecWatcher) Watch() error {
 					if util.PathPrefixDelta(obj.safename, event.Name) == 1 { // we're the parent dir
 						send = true
 					}
-					obj.watcher.Remove(current)
-					index++
+					if index < len(patharray) {
+						// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
+						obj.watcher.Remove(current)
+						index++
+					}
 				}
 
 				// if event.Name startswith safename, send event, we're already deeper

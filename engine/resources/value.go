@@ -176,7 +176,7 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	if !apply {
 		if err := obj.init.Send(&ValueSends{
-			Any: obj.cachedAny,
+			Any: snapshotAny(obj.cachedAny),
 		}); err != nil {
 			return false, err
 		}
@@ -199,7 +199,7 @@ func (obj *ValueRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// send
 	//if obj.cachedAny != nil { // XXX: okay to send if value got removed too?
 	if err := obj.init.Send(&ValueSends{
-		Any: obj.cachedAny,
+		Any: snapshotAny(obj.cachedAny),
 	}); err != nil {
 		return false, err
 	}
@@ -260,4 +260,21 @@ func (obj *ValueRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = ValueRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// snapshotAny returns a fresh *interface{} holding a copy of the value
+// referenced by in. The Sent() data published by a resource must be an
+// immutable snapshot from the reader's perspective because a downstream Worker
+// may call types.ValueOf on it at any time, concurrently with this Worker's
+// next SendRecv cycle writing back into obj.Any via reflect. Publishing
+// obj.cachedAny directly would alias obj.Any (since cachedAny = obj.Any),
+// causing a data race on the shared interface{} word. Copying into a fresh
+// local var severs that alias.
+// XXX: We don't have a test case to prove this situation, so hope for the best!
+func snapshotAny(in *interface{}) *interface{} {
+	if in == nil {
+		return nil
+	}
+	v := *in
+	return &v
 }

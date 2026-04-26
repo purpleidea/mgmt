@@ -23,6 +23,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/nclient4"
@@ -39,7 +40,7 @@ func main() {
 		return
 	}
 
-	port := string(nclient4.ServerPort) // the default is 67
+	port := strconv.Itoa(int(nclient4.ServerPort)) // the default is 67
 	if len(os.Args) >= 3 {
 		port = os.Args[1]
 	}

@@ -90,6 +90,6 @@ func Mod(ctx context.Context, input []types.Value) (types.Value, error) {
 		}, nil
 	}
 	return &types.IntValue{
-		V: int64(z), // XXX: does this truncate?
+		V: int(z), // XXX: does this truncate?
 	}, nil
 }

@@ -57,9 +57,7 @@ func StrToInt(ctx context.Context, input []types.Value) (types.Value, error) {
 		return nil, fmt.Errorf("not enough args")
 	}
 
-	base := 10
-	bits := 64 // TODO: get from runtime?
-	x, err := strconv.ParseInt(input[0].Str(), base, bits)
+	x, err := strconv.Atoi(input[0].Str())
 	if err != nil {
 		return nil, err
 	}

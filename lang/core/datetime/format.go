@@ -62,7 +62,7 @@ func Format(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 	format := input[1].Str()
 
-	v := time.Unix(epochDelta, 0).Format(format)
+	v := time.Unix(int64(epochDelta), 0).Format(format)
 	return &types.StrValue{
 		V: v,
 	}, nil

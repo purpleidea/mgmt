@@ -583,7 +583,7 @@ func TestStruct2(t *testing.T) {
 	if val := fmt.Sprintf("%+v", v); val != `{Answer:42 Truth:true Hello: Nested:[]}` {
 		t.Errorf("struct displayed wrong value: %s", val)
 	}
-	if typ := fmt.Sprintf("%T", v); typ != `struct { Answer int64; Truth bool; Hello string; Nested []int64 }` {
+	if typ := fmt.Sprintf("%T", v); typ != `struct { Answer int; Truth bool; Hello string; Nested []int }` {
 		t.Errorf("struct displayed type value: %s", typ)
 	}
 
@@ -618,7 +618,7 @@ func TestValueOf0(t *testing.T) {
 				&IntValue{V: 3},
 				&IntValue{V: 5},
 			},
-		}: []int64{1, 3, 5},
+		}: []int{1, 3, 5},
 		&MapValue{
 			T: NewType("map{str: int}"),
 			V: map[Value]Value{
@@ -783,8 +783,8 @@ func TestValueInto0(t *testing.T) {
 	var b bool
 	var s string
 
-	var i int64
-	var u uint64
+	var i int
+	var u uint
 	var i8 int8
 	var u8 uint8
 
@@ -836,27 +836,27 @@ func TestValueInto0(t *testing.T) {
 		},
 		{
 			container: &i,
-			value:     mustValue(int64(-12345)),
-			compare:   int64(-12345),
+			value:     mustValue(int(-12345)),
+			compare:   int(-12345),
 		},
 		{
 			container: &u,
-			value:     mustValue(uint64(math.MaxUint64)),
-			compare:   uint64(math.MaxUint64),
+			value:     mustValue(uint(math.MaxUint)),
+			compare:   uint(math.MaxUint),
 		},
-		{ // ensure -1 from an int64 fits into an int8
+		{ // ensure -1 from an int fits into an int8
 			container: &i8,
-			value:     mustValue(int64(-1)),
+			value:     mustValue(int(-1)),
 			compare:   int8(-1),
 		},
-		{ // ensure valid uint8 from an int64 fits into an uint8
+		{ // ensure valid uint8 from an int fits into an uint8
 			container: &u8,
-			value:     mustValue(int64(200)),
+			value:     mustValue(int(200)),
 			compare:   uint8(200),
 		},
 		{ // this test case proves overflows work
 			container: &u8,
-			value:     mustValue(int64(256)),
+			value:     mustValue(int(256)),
 			shouldErr: true,
 		},
 		{ // it would be good to put float32 -> float64 here but precision says no

@@ -85,7 +85,7 @@ type DockerContainerRes struct {
 	// Ports is a map of port bindings. E.g. {"tcp" => {8080 => 80},}. The
 	// key is the host port, and the val is the inner service port to
 	// forward to.
-	Ports map[string]map[int64]int64 `lang:"ports" yaml:"ports"`
+	Ports map[string]map[int]int `lang:"ports" yaml:"ports"`
 
 	// APIVersion allows you to override the host's default client API
 	// version.

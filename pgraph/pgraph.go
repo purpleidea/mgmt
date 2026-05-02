@@ -889,6 +889,50 @@ func (obj *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
 	return result, nil
 }
 
+// HasPath returns true if the directed graph has a path from a to b. It does
+// not validate that the graph is acyclic, so callers that need that guarantee
+// must check it separately.
+func (obj *Graph) HasPath(a, b Vertex) bool {
+	if obj == nil || obj.adjacency == nil || a == nil || b == nil {
+		return false
+	}
+	if _, exists := obj.adjacency[a]; !exists {
+		return false
+	}
+	if _, exists := obj.adjacency[b]; !exists {
+		return false
+	}
+	if a == b {
+		return true
+	}
+
+	stack := make([]Vertex, 0, len(obj.adjacency)) // XXX: what size?
+	stack = append(stack, a)
+	visited := make(map[Vertex]struct{}, len(obj.adjacency))
+	visited[a] = struct{}{}
+	for len(stack) > 0 {
+		last := len(stack) - 1
+		v := stack[last]
+		stack = stack[:last]
+
+		//if _, ok := obj.adjacency[v]; !ok { // badly formed adjacency?
+		//	continue
+		//}
+
+		for n := range obj.adjacency[v] {
+			if n == b {
+				return true
+			}
+			if _, exists := visited[n]; exists {
+				continue
+			}
+			visited[n] = struct{}{}
+			stack = append(stack, n)
+		}
+	}
+	return false
+}
+
 // VertexMatchFn searches for a vertex in the graph and returns the vertex if
 // one matches. It uses a user defined function to match. That function must
 // return true on match, and an error if anything goes wrong.

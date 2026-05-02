@@ -745,6 +745,29 @@ func TestReachability4(t *testing.T) {
 	}
 }
 
+func TestHasPath1(t *testing.T) {
+	g, _ := NewGraph("g")
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+	e1 := NE("e1")
+	e2 := NE("e2")
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddVertex(v4)
+
+	if !g.HasPath(v1, v3) {
+		t.Errorf("expected path from v1 to v3")
+	}
+	if g.HasPath(v3, v1) {
+		t.Errorf("did not expect path from v3 to v1")
+	}
+	if g.HasPath(v1, v4) {
+		t.Errorf("did not expect path from v1 to v4")
+	}
+}
+
 func TestReverse1(t *testing.T) {
 	v1 := NV("v1")
 	v2 := NV("v2")

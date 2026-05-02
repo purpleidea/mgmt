@@ -134,7 +134,8 @@ type Engine struct {
 	// interrupt specifies that a txn "commit" just happened.
 	interrupt bool
 
-	// topoSort is the last topological sort we ran.
+	// topoSort is the last topological sort we ran. It contains cached data
+	// about each vertex and is rebuild during interrupt.
 	topoSort []pgraph.Vertex
 
 	// ops is a list of operations to run during interrupt. This is usually
@@ -279,6 +280,11 @@ Start:
 				return err
 			}
 
+			// Here we now rebuild the per-vertex cache so that the
+			// iterate loop avoids the repeated O(n) graph queries
+			// that would previously run on every event.
+			obj.cache()
+
 			// This interrupt must be set *after* the above deletes
 			// happen, because those can cause transactions to run,
 			// and those transactions run obj.effect() which resets
@@ -388,8 +394,9 @@ Start:
 				continue
 			}
 
-			// XXX: memoize until graph shape changes?
-			incoming := obj.graph.IncomingGraphVertices(f) // []pgraph.Vertex
+			//incoming := obj.graph.IncomingGraphVertices(f) // []pgraph.Vertex
+			incoming := node.incoming // memoized!
+			sig := node.sig
 
 			// Not all of the incoming edges have been added yet.
 			// We start by doing the "easy" count, and if it fails,
@@ -397,7 +404,8 @@ Start:
 			// accurate count. This is because logical edges can be
 			// combined into a single physical edge. This happens if
 			// we have the same arg (a, b) passed to the same func.
-			if n := len(node.Func.Info().Sig.Ord); n != len(incoming) && n != realEdgeCount(obj.graph.IncomingGraphEdges(f)) {
+			// Previously: realEdgeCount(obj.graph.IncomingGraphEdges(f))
+			if n := len(sig.Ord); n != len(incoming) && n != node.realEdgeCount {
 				if obj.Debug {
 					obj.Logf("edge skip: %p %v", f, f)
 				}
@@ -417,8 +425,8 @@ Start:
 			si := &types.Type{
 				// input to functions are structs
 				Kind: types.KindStruct,
-				Map:  node.Func.Info().Sig.Map,
-				Ord:  node.Func.Info().Sig.Ord,
+				Map:  sig.Map,
+				Ord:  sig.Ord,
 			}
 			st := types.NewStruct(si)
 			// The above builds a struct with fields
@@ -427,7 +435,7 @@ Start:
 			// every field is received before we can
 			// safely send it downstream to an edge.
 			need := make(map[string]struct{}) // keys we need
-			for _, k := range node.Func.Info().Sig.Ord {
+			for _, k := range sig.Ord {
 				need[k] = struct{}{}
 			}
 
@@ -483,12 +491,14 @@ Start:
 				// set each arg, since one value
 				// could get used for multiple
 				// function inputs (shared edge)
-				// XXX: refactor this edge look up for efficiency since we just did IncomingGraphVertices?
-				edge := obj.graph.Adjacency()[ff][f]
-				if edge == nil {
-					panic(fmt.Sprintf("edge is nil from `%s` to `%s`", ff, f))
-				}
-				args := edge.(*interfaces.FuncEdge).Args
+				// Previously:
+				//edge := obj.graph.Adjacency()[ff][f]
+				//if edge == nil {
+				//	panic(fmt.Sprintf("edge is nil from `%s` to `%s`", ff, f))
+				//}
+				//args := edge.(*interfaces.FuncEdge).Args
+				args := node.incomingArgs[ff] // cached
+
 				for _, arg := range args {
 					// Skip edge is unused at this time.
 					//if arg == "" { // XXX: special skip edge!
@@ -551,7 +561,8 @@ Start:
 			if err != nil {
 				return interfaces.HighlightHelper(f, obj.Logf, err)
 			}
-			if node.result == nil && len(obj.graph.OutgoingGraphVertices(f)) > 0 {
+			// Previously: len(obj.graph.OutgoingGraphVertices(f)) > 0
+			if node.result == nil && node.hasOutgoing {
 				// XXX: this check may not work if we have our
 				// "empty" named edges added on here...
 				return fmt.Errorf("unexpected nil value from node: %s", node)
@@ -619,6 +630,56 @@ Start:
 		}
 
 	} // end big for loop
+}
+
+// cache refreshes the computed state values from the current graph. This runs
+// during interrupt. It does a single O(n) pass over the adjacency map to build
+// a reverse-adjacency index, and then one O(n) pass to populate the node data.
+func (obj *Engine) cache() {
+	adjacency := obj.graph.Adjacency() // v1, v2 -> edge
+	// reverse-adjacency: v2 -> []{v1, edge}, in one O(n) pass
+	type rev struct {
+		v1   interfaces.Func
+		edge *interfaces.FuncEdge
+	}
+	incomingCache := make(map[pgraph.Vertex][]rev)
+	for v1, m := range adjacency {
+		f1, ok := v1.(interfaces.Func)
+		if !ok {
+			panic("not a Func")
+		}
+		for v2, edge := range m {
+			fe, ok := edge.(*interfaces.FuncEdge)
+			if !ok {
+				panic("edge is not a FuncEdge")
+			}
+			incomingCache[v2] = append(incomingCache[v2], rev{v1: f1, edge: fe})
+		}
+	}
+
+	for _, v := range obj.topoSort {
+		f, ok := v.(interfaces.Func)
+		if !ok {
+			panic("not a Func")
+		}
+		state, exists := obj.state[f]
+		if !exists {
+			panic(fmt.Sprintf("node state missing: %s", f))
+		}
+
+		state.incoming = make([]interfaces.Func, len(incomingCache[v]))
+		state.incomingArgs = make(map[interfaces.Func][]string) // map Func -> (*FuncEdge).Args
+
+		total := 0
+		for i, xm := range incomingCache[v] {
+			state.incoming[i] = xm.v1
+			state.incomingArgs[xm.v1] = xm.edge.Args
+			total += len(xm.edge.Args)
+		}
+		state.realEdgeCount = total
+
+		state.hasOutgoing = len(adjacency[v]) > 0
+	}
 }
 
 // event is ultimately called from a function to trigger an event in the engine.
@@ -752,6 +813,8 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 
 		//running: false,
 		//epoch: 0,
+
+		sig: sig, // cache for performance
 	}
 
 	init := &interfaces.Init{
@@ -1075,6 +1138,15 @@ type state struct {
 
 	// result is the latest output from calling this function.
 	result types.Value
+
+	// Cache everything the iterate loop needs for this vertex. These values
+	// are built once per interrupt (when the graph shape changes) and are
+	// reused on every subsequent event until the next interrupt.
+	sig           *types.Type
+	incoming      []interfaces.Func
+	incomingArgs  map[interfaces.Func][]string
+	realEdgeCount int
+	hasOutgoing   bool
 }
 
 // String implements the fmt.Stringer interface for pretty printing!
@@ -1104,12 +1176,14 @@ type deleteVertex struct {
 
 // realEdgeCount tells us how many "logical" edges there are. We have shared
 // edges which represent more than one value, when the same value is passed more
-// than once. This takes those into account correctly.
+// than once. This takes those into account correctly. We now use the inline
+// version of this computation to speed things up. It's here for reference only.
 func realEdgeCount(edges []pgraph.Edge) int {
 	total := 0
 	for _, edge := range edges {
 		fe, ok := edge.(*interfaces.FuncEdge)
 		if !ok {
+			// unused i think
 			total++
 			continue
 		}

@@ -32,6 +32,7 @@ package structs
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -135,7 +136,7 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		argName := "forInputList"
 
 		inputElemFunc := SimpleFnToDirectFunc(
-			fmt.Sprintf("forInputElem[%d]", i),
+			"forInputElem["+strconv.Itoa(i)+"]",
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
 					if len(args) != 1 {

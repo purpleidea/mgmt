@@ -88,7 +88,7 @@ func (obj *StmtIfFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *StmtIfFunc) Info() *interfaces.Info {
 	// dummy type to prove we're dropping the output since we don't use it.
-	typ := types.NewType(fmt.Sprintf("func(%s bool) nil", obj.EdgeName))
+	typ := types.NewType("func(" + obj.EdgeName + " bool) nil")
 
 	return &interfaces.Info{
 		Pure: true,

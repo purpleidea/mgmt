@@ -32,6 +32,7 @@ package structs
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -62,7 +63,7 @@ type CompositeFunc struct {
 // can satisfy the pgraph.Vertex interface.
 func (obj *CompositeFunc) String() string {
 	if obj.Type != nil {
-		return fmt.Sprintf("%s: %s", CompositeFuncName, obj.Type.String())
+		return CompositeFuncName + ": " + obj.Type.String()
 	}
 	return CompositeFuncName
 }
@@ -112,7 +113,7 @@ func (obj *CompositeFunc) makeStructType(typ *types.Type) {
 	case types.KindList: // wrapped in a struct with `length` many keys
 		for i := 0; i < obj.Len; i++ {
 			// FIXME: should we .Title the fields or add a prefix?
-			key := fmt.Sprintf("%d", i)
+			key := strconv.Itoa(i)
 			typ.Map[key] = obj.Type.Val // type of each list element
 			typ.Ord = append(typ.Ord, key)
 		}
@@ -122,11 +123,13 @@ func (obj *CompositeFunc) makeStructType(typ *types.Type) {
 			// each key and val has a value to pass in, and we have
 			// a known number of kv pairs, so we pass each in with
 			// the index of the kv pair as found in the parse order
-			key1 := fmt.Sprintf("key:%d", i)
+			d := strconv.Itoa(i)
+
+			key1 := "key:" + d
 			typ.Map[key1] = obj.Type.Key // type of each map key
 			typ.Ord = append(typ.Ord, key1)
 
-			key2 := fmt.Sprintf("val:%d", i)
+			key2 := "val:" + d
 			typ.Map[key2] = obj.Type.Val // type of each map val
 			typ.Ord = append(typ.Ord, key2)
 		}
@@ -160,7 +163,7 @@ func (obj *CompositeFunc) StructCall(ctx context.Context, st types.Value) (types
 		result = obj.Type.New()          // new list
 		input := st.(*types.StructValue) // must be!
 		for i := 0; i < obj.Len; i++ {   // build it
-			value, exists := input.Lookup(fmt.Sprintf("%d", i)) // argNames as integers!
+			value, exists := input.Lookup(strconv.Itoa(i)) // argNames as integers!
 			if !exists {
 				return nil, fmt.Errorf("missing input index `%d`", i)
 			}
@@ -181,11 +184,14 @@ func (obj *CompositeFunc) StructCall(ctx context.Context, st types.Value) (types
 		// and so on for as many key pairs as we have... remember that
 		// the number of keys pairs is known statically in this case!
 		for i := 0; i < l/2; i++ { // build it
-			key, exists := input[fmt.Sprintf("key:%d", i)]
+			d := strconv.Itoa(i)
+			keyName := "key:" + d
+			valName := "val:" + d
+			key, exists := input[keyName]
 			if !exists {
 				return nil, fmt.Errorf("missing input key `key:%d`", i)
 			}
-			val, exists := input[fmt.Sprintf("val:%d", i)]
+			val, exists := input[valName]
 			if !exists {
 				return nil, fmt.Errorf("missing input val `val:%d`", i)
 			}
@@ -218,18 +224,19 @@ func (obj *CompositeFunc) Call(ctx context.Context, args []types.Value) (types.V
 	switch obj.Type.Kind {
 	case types.KindList:
 		for i, arg := range args {
-			key := fmt.Sprintf("%d", i)
+			key := strconv.Itoa(i)
 			st.V[key] = arg
 		}
 
 	case types.KindMap:
 		count := 0
 		for i, arg := range args {
+			d := strconv.Itoa(count)
 			if i%2 == 0 {
-				key1 := fmt.Sprintf("key:%d", count)
+				key1 := "key:" + d
 				st.V[key1] = arg
 			} else {
-				key2 := fmt.Sprintf("val:%d", count)
+				key2 := "val:" + d
 				st.V[key2] = arg
 
 				count++ // increment for next even number

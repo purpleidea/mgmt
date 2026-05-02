@@ -121,7 +121,7 @@ func (obj *Graph) Copy() *Graph {
 		kv:        obj.kv,
 	}
 	for v1, m := range obj.adjacency {
-		newGraph.adjacency[v1] = make(map[Vertex]Edge)
+		newGraph.adjacency[v1] = make(map[Vertex]Edge, len(m))
 		for v2, e := range m {
 			newGraph.adjacency[v1][v2] = e // copy
 		}
@@ -327,7 +327,7 @@ func (obj *Graph) LookupEdge(e Edge) (Vertex, Vertex, bool) {
 // Vertices returns a randomly sorted slice of all vertices in the graph. The
 // order is random, because the map implementation is intentionally so!
 func (obj *Graph) Vertices() []Vertex {
-	var vertices []Vertex
+	vertices := make([]Vertex, 0, len(obj.adjacency))
 	for k := range obj.adjacency {
 		vertices = append(vertices, k)
 	}
@@ -383,7 +383,7 @@ func (vs VertexSlice) Sort() { sort.Sort(vs) }
 // VerticesSorted returns a sorted slice of all vertices in the graph. The order
 // is sorted by String() to avoid the non-determinism in the map type.
 func (obj *Graph) VerticesSorted() []Vertex {
-	var vertices []Vertex
+	vertices := make([]Vertex, 0, len(obj.adjacency))
 	for k := range obj.adjacency {
 		vertices = append(vertices, k)
 	}
@@ -447,7 +447,7 @@ func (obj *Graph) IncomingGraphVertices(v Vertex) []Vertex {
 // OutgoingGraphVertices returns an array (slice) of all vertices that vertex v
 // points to (v -> ???). Poke should probably use this.
 func (obj *Graph) OutgoingGraphVertices(v Vertex) []Vertex {
-	var s []Vertex
+	s := make([]Vertex, 0, len(obj.adjacency[v]))
 	for k := range obj.adjacency[v] { // forward paths
 		s = append(s, k)
 	}
@@ -593,10 +593,10 @@ func (obj *Graph) DisconnectedGraphs() ([]*Graph, error) {
 // InDegree returns the count of vertices that point to me in one big lookup
 // map.
 func (obj *Graph) InDegree() map[Vertex]int {
-	result := make(map[Vertex]int)
 	if obj == nil || obj.adjacency == nil {
-		return result
+		return nil
 	}
+	result := make(map[Vertex]int, len(obj.adjacency))
 	for k := range obj.adjacency {
 		result[k] = 0 // initialize
 	}
@@ -612,15 +612,12 @@ func (obj *Graph) InDegree() map[Vertex]int {
 // OutDegree returns the count of vertices that point away in one big lookup
 // map.
 func (obj *Graph) OutDegree() map[Vertex]int {
-	result := make(map[Vertex]int)
 	if obj == nil || obj.adjacency == nil {
-		return result
+		return nil
 	}
+	result := make(map[Vertex]int, len(obj.adjacency))
 	for k := range obj.adjacency {
-		result[k] = 0 // initialize
-		for range obj.adjacency[k] {
-			result[k]++
-		}
+		result[k] = len(obj.adjacency[k])
 	}
 	return result
 }

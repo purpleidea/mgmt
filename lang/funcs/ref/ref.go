@@ -49,10 +49,11 @@ type Count struct {
 	vertices map[interfaces.Func]int64
 
 	// edges is a reference count of the number of edges used.
-	edges map[*CountEdge]int64 // TODO: hash *CountEdge as a key instead
+	edges map[CountEdge]int64
 }
 
-// CountEdge is a virtual "hash" entry for the Count edges map key.
+// CountEdge is the key for the Count edges map. If the values in it are unique,
+// then the key should be unique.
 type CountEdge struct {
 	f1  interfaces.Func
 	f2  interfaces.Func
@@ -77,7 +78,7 @@ func (obj *Count) String() string {
 func (obj *Count) Init() *Count {
 	obj.mutex = &sync.Mutex{}
 	obj.vertices = make(map[interfaces.Func]int64)
-	obj.edges = make(map[*CountEdge]int64)
+	obj.edges = make(map[CountEdge]int64)
 	return obj // return self so it can be called in a chain
 }
 
@@ -121,7 +122,7 @@ func (obj *Count) VertexDec(f interfaces.Func) bool {
 // boolean values for these calls. (This function makes two calls to VertexInc.)
 func (obj *Count) EdgeInc(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
 	for _, arg := range fe.Args { // ref count each arg
-		r := obj.makeEdge(f1, f2, arg)
+		r := CountEdge{f1: f1, f2: f2, arg: arg}
 		count := obj.edges[r]
 		obj.edges[r] = count + 1
 		if count == -1 { // unlikely, but catch any bugs
@@ -138,7 +139,7 @@ func (obj *Count) EdgeInc(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool
 // boolean values for these calls. (This function makes two calls to VertexDec.)
 func (obj *Count) EdgeDec(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) (bool, bool) {
 	for _, arg := range fe.Args { // ref count each arg
-		r := obj.makeEdge(f1, f2, arg)
+		r := CountEdge{f1: f1, f2: f2, arg: arg}
 		count := obj.edges[r]
 		obj.edges[r] = count - 1
 		if count == 0 {
@@ -160,22 +161,11 @@ func (obj *Count) FreeVertex(f interfaces.Func) error {
 
 // FreeEdge removes exactly one entry from the Edges list or it errors.
 func (obj *Count) FreeEdge(f1, f2 interfaces.Func, arg string) error {
-	found := []*CountEdge{}
-	for k, count := range obj.edges {
-		//if k == nil { // programming error
-		//	continue
-		//}
-		if k.f1 == f1 && k.f2 == f2 && k.arg == arg && count == 0 {
-			found = append(found, k)
-		}
-	}
-	if len(found) > 1 {
-		return fmt.Errorf("inconsistent ref count for edge")
-	}
-	if len(found) == 0 {
+	r := CountEdge{f1: f1, f2: f2, arg: arg}
+	if count, exists := obj.edges[r]; !exists || count != 0 {
 		return fmt.Errorf("no edge of count zero found")
 	}
-	delete(obj.edges, found[0]) // delete from map
+	delete(obj.edges, r) // delete from map
 	return nil
 }
 
@@ -273,22 +263,4 @@ func (obj *Count) GC(graphAPI interfaces.GraphAPI) error {
 	}
 
 	return nil
-}
-
-// makeEdge looks up an edge with the "hash" input we are seeking. If it doesn't
-// find a match, it returns a new one with those fields.
-func (obj *Count) makeEdge(f1, f2 interfaces.Func, arg string) *CountEdge {
-	for k := range obj.edges {
-		//if k == nil { // programming error
-		//	continue
-		//}
-		if k.f1 == f1 && k.f2 == f2 && k.arg == arg {
-			return k
-		}
-	}
-	return &CountEdge{ // not found, so make a new one!
-		f1:  f1,
-		f2:  f2,
-		arg: arg,
-	}
 }

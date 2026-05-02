@@ -86,7 +86,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	var edgeKeep []Edge     // list of edges which are the same in new graph
 
 	// XXX: run this as a topological sort or reverse topological sort?
-	for v := range newGraph.Adjacency() { // loop through the vertices (resources)
+	for v := range newGraph.adjacency { // loop through the vertices (resources)
 		var vertex Vertex
 		// step one, direct compare with res.Cmp
 		if vertex == nil { // redundant guard for consistency
@@ -116,7 +116,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		vertexKeep = append(vertexKeep, vertex) // append
 	}
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
-	for v := range oldGraph.Adjacency() {
+	for v := range oldGraph.adjacency {
 		if !VertexContains(v, vertexKeep) {
 			vertexDels = append(vertexDels, v) // append
 		}
@@ -146,8 +146,8 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	// XXX: fixup this part so the CmpFn stuff fails early, and THEN we edit
 	// the graph at the end, if no errors happened...
 	// compare edges
-	for v1 := range newGraph.Adjacency() { // loop through the vertices (resources)
-		for v2, e := range newGraph.Adjacency()[v1] {
+	for v1 := range newGraph.adjacency { // loop through the vertices (resources)
+		for v2, e := range newGraph.adjacency[v1] {
 			// we have an edge!
 			// lookup vertices (these should exist now)
 			vertex1, exists1 := lookup[v1]
@@ -157,7 +157,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 				return fmt.Errorf("new vertices weren't found") // programming error
 			}
 
-			edge, exists := oldGraph.Adjacency()[vertex1][vertex2]
+			edge, exists := oldGraph.adjacency[vertex1][vertex2]
 			if !exists {
 				edge = e // use edge
 			} else if b, err := edgeCmpFn(edge, e); err != nil {
@@ -166,14 +166,14 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 				edge = e // overwrite edge
 			}
 
-			oldGraph.Adjacency()[vertex1][vertex2] = edge // store it (AddEdge)
-			edgeKeep = append(edgeKeep, edge)             // mark as saved
+			oldGraph.adjacency[vertex1][vertex2] = edge // store it (AddEdge)
+			edgeKeep = append(edgeKeep, edge)           // mark as saved
 		}
 	}
 
 	// delete unused edges
-	for v1 := range oldGraph.Adjacency() {
-		for _, e := range oldGraph.Adjacency()[v1] {
+	for v1 := range oldGraph.adjacency {
+		for _, e := range oldGraph.adjacency[v1] {
 			// we have an edge!
 			if !EdgeContains(e, edgeKeep) {
 				oldGraph.DeleteEdge(e)

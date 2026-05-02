@@ -113,8 +113,8 @@ func (obj *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenF
 	}
 
 	// also remember to suck in all of the graph's edges too!
-	for v1 := range graph.Adjacency() {
-		for v2, e := range graph.Adjacency()[v1] {
+	for v1 := range graph.adjacency {
+		for v2, e := range graph.adjacency[v1] {
 			obj.AddEdge(v1, v2, e)
 		}
 	}

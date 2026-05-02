@@ -242,13 +242,13 @@ func (obj *Graph) graphvizBody(opts *GraphvizOpts) string {
 		}
 
 		vs := []Vertex{}
-		for j := range obj.Adjacency()[i] {
+		for j := range obj.adjacency[i] {
 			vs = append(vs, j)
 		}
 		sort.Sort(VertexSlice(vs)) // deterministic order
 
 		for _, j := range vs {
-			k := obj.Adjacency()[i][j]
+			k := obj.adjacency[i][j]
 			//v2 := html.EscapeString(j.String()) // 2nd vertex
 			e := html.EscapeString(k.String()) // edge
 			// use str for clearer output ordering

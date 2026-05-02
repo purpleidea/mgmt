@@ -95,11 +95,11 @@ func runGraphCmp(t *testing.T, g1, g2 *Graph) string {
 
 func fullPrint(obj *Graph) (str string) {
 	str += "\n"
-	for v := range obj.Adjacency() {
+	for v := range obj.adjacency {
 		str += fmt.Sprintf("* v: %s\n", v)
 	}
-	for v1 := range obj.Adjacency() {
-		for v2, e := range obj.Adjacency()[v1] {
+	for v1 := range obj.adjacency {
+		for v2, e := range obj.adjacency[v1] {
 			str += fmt.Sprintf("* e: %s -> %s # %s\n", v1, v2, e)
 		}
 	}

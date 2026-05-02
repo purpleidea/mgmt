@@ -412,12 +412,12 @@ func (obj *Graph) Sprint() string {
 	}
 	for _, v1 := range obj.VerticesSorted() {
 		vs := []Vertex{}
-		for v2 := range obj.Adjacency()[v1] {
+		for v2 := range obj.adjacency[v1] {
 			vs = append(vs, v2)
 		}
 		sort.Sort(VertexSlice(vs)) // deterministic order
 		for _, v2 := range vs {
-			e := obj.Adjacency()[v1][v2]
+			e := obj.adjacency[v1][v2]
 			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
 		}
 	}
@@ -925,8 +925,8 @@ func (obj *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool,
 	var m = make(map[Vertex]Vertex) // obj to graph vertex correspondence
 Loop:
 	// check vertices
-	for v1 := range obj.Adjacency() { // for each vertex in g
-		for v2 := range graph.Adjacency() { // does it match in graph ?
+	for v1 := range obj.adjacency { // for each vertex in g
+		for v2 := range graph.adjacency { // does it match in graph ?
 			b, err := vertexCmpFn(v1, v2)
 			if err != nil {
 				return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
@@ -961,16 +961,16 @@ Loop:
 	}
 
 	// check edges
-	for v1 := range obj.Adjacency() { // for each vertex in g
+	for v1 := range obj.adjacency { // for each vertex in g
 		v2 := m[v1] // lookup in map to get correspondence
-		// obj.Adjacency()[v1] corresponds to graph.Adjacency()[v2]
-		if e1, e2 := len(obj.Adjacency()[v1]), len(graph.Adjacency()[v2]); e1 != e2 {
+		// obj.adjacency[v1] corresponds to graph.adjacency[v2]
+		if e1, e2 := len(obj.adjacency[v1]), len(graph.adjacency[v2]); e1 != e2 {
 			return fmt.Errorf("base graph, vertex(%s) has %d edges, while input graph, vertex(%s) has %d", v1, e1, v2, e2)
 		}
 
-		for vv1, ee1 := range obj.Adjacency()[v1] {
+		for vv1, ee1 := range obj.adjacency[v1] {
 			vv2 := m[vv1]
-			ee2 := graph.Adjacency()[v2][vv2]
+			ee2 := graph.adjacency[v2][vv2]
 
 			// these are edges from v1 -> vv1 via ee1 (graph 1)
 			// to cmp to edges from v2 -> vv2 via ee2 (graph 2)

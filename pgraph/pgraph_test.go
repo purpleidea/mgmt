@@ -37,32 +37,32 @@ import (
 )
 
 func TestCount1(t *testing.T) {
-	G := &Graph{}
+	g := &Graph{}
 
-	if i := G.NumVertices(); i != 0 {
+	if i := g.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
 	}
 
-	if i := G.NumEdges(); i != 0 {
+	if i := g.NumEdges(); i != 0 {
 		t.Errorf("should have 0 edges instead of: %d", i)
 	}
 
 	v1 := NV("v1")
 	v2 := NV("v2")
 	e1 := NE("e1")
-	G.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v2, e1)
 
-	if i := G.NumVertices(); i != 2 {
+	if i := g.NumVertices(); i != 2 {
 		t.Errorf("should have 2 vertices instead of: %d", i)
 	}
 
-	if i := G.NumEdges(); i != 1 {
+	if i := g.NumEdges(); i != 1 {
 		t.Errorf("should have 1 edges instead of: %d", i)
 	}
 }
 
 func TestAddVertex1(t *testing.T) {
-	G := &Graph{Name: "g2"}
+	g := &Graph{Name: "g2"}
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -75,14 +75,14 @@ func TestAddVertex1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	//e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
 
-	if i := G.NumVertices(); i != 6 {
+	if i := g.NumVertices(); i != 6 {
 		t.Errorf("should have 6 vertices instead of: %d", i)
 	}
 }
@@ -109,7 +109,7 @@ func TestAddEdge1(t *testing.T) {
 }
 
 func TestDFS1(t *testing.T) {
-	G, _ := NewGraph("g3")
+	g, _ := NewGraph("g3")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -122,14 +122,14 @@ func TestDFS1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	//e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	//G.AddEdge(v6, v4, e6)
-	out1 := G.DFS(v1)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	//g.AddEdge(v6, v4, e6)
+	out1 := g.DFS(v1)
 	if i := len(out1); i != 3 {
 		t.Errorf("should have 3 vertices instead of: %d", i)
 		t.Errorf("found: %v", out1)
@@ -138,7 +138,7 @@ func TestDFS1(t *testing.T) {
 		}
 	}
 
-	out2 := G.DFS(v4)
+	out2 := g.DFS(v4)
 	if i := len(out2); i != 3 {
 		t.Errorf("should have 3 vertices instead of: %d", i)
 		t.Errorf("found: %v", out1)
@@ -149,18 +149,18 @@ func TestDFS1(t *testing.T) {
 }
 
 func TestDFS2(t *testing.T) {
-	G, _ := NewGraph("g4")
+	g, _ := NewGraph("g4")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
 	e1 := NE("e1")
 	e2 := NE("e2")
 	e3 := NE("e3")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	out := G.DFS(v1)
+	out := g.DFS(v1)
 	if i := len(out); i != 3 {
 		t.Errorf("should have 3 vertices instead of: %d", i)
 		t.Errorf("found: %v", out)
@@ -171,7 +171,7 @@ func TestDFS2(t *testing.T) {
 }
 
 func TestFilterGraph1(t *testing.T) {
-	G, _ := NewGraph("g5")
+	g, _ := NewGraph("g5")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -184,16 +184,16 @@ func TestFilterGraph1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	//e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	//G.AddEdge(v6, v4, e6)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	//g.AddEdge(v6, v4, e6)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph(save)
+	out, err := g.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -204,18 +204,18 @@ func TestFilterGraph1(t *testing.T) {
 }
 
 func TestFilterGraph2(t *testing.T) {
-	G, _ := NewGraph("g5")
+	g, _ := NewGraph("g5")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
 	v4 := NV("v4")
 	e1 := NE("e1")
-	G.AddEdge(v1, v2, e1)
-	G.AddVertex(v3)
-	G.AddVertex(v4)
+	g.AddEdge(v1, v2, e1)
+	g.AddVertex(v3)
+	g.AddVertex(v4)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph(save)
+	out, err := g.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestFilterGraph2(t *testing.T) {
 }
 
 func TestFilterGraph3(t *testing.T) {
-	G, _ := NewGraph("g5")
+	g, _ := NewGraph("g5")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -234,12 +234,12 @@ func TestFilterGraph3(t *testing.T) {
 	v5 := NV("v5")
 	e1 := NE("e1")
 	e2 := NE("e2")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v3, v4, e2)
-	G.AddVertex(v5)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v3, v4, e2)
+	g.AddVertex(v5)
 
 	save := []Vertex{v1, v2, v3}
-	out, err := G.FilterGraph(save)
+	out, err := g.FilterGraph(save)
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestFilterGraph3(t *testing.T) {
 }
 
 func TestDisconnectedGraphs1(t *testing.T) {
-	G, _ := NewGraph("g6")
+	g, _ := NewGraph("g6")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -266,15 +266,15 @@ func TestDisconnectedGraphs1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	//e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	//G.AddEdge(v6, v4, e6)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	//g.AddEdge(v6, v4, e6)
 
-	graphs, err := G.DisconnectedGraphs()
+	graphs, err := g.DisconnectedGraphs()
 	if err != nil {
 		t.Errorf("failed with: %v", err)
 	}
@@ -285,52 +285,52 @@ func TestDisconnectedGraphs1(t *testing.T) {
 }
 
 func TestDeleteVertex1(t *testing.T) {
-	G, _ := NewGraph("g7")
+	g, _ := NewGraph("g7")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
 	e1 := NE("e1")
 	e2 := NE("e2")
 	e3 := NE("e3")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v1, e3)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
 
-	if i := G.NumVertices(); i != 3 {
+	if i := g.NumVertices(); i != 3 {
 		t.Errorf("should have 3 vertices instead of: %d", i)
 	}
 
-	G.DeleteVertex(v2)
+	g.DeleteVertex(v2)
 
-	if i := G.NumVertices(); i != 2 {
+	if i := g.NumVertices(); i != 2 {
 		t.Errorf("should have 2 vertices instead of: %d", i)
 	}
 
-	G.DeleteVertex(v1)
+	g.DeleteVertex(v1)
 
-	if i := G.NumVertices(); i != 1 {
+	if i := g.NumVertices(); i != 1 {
 		t.Errorf("should have 1 vertices instead of: %d", i)
 	}
 
-	G.DeleteVertex(v3)
+	g.DeleteVertex(v3)
 
-	if i := G.NumVertices(); i != 0 {
+	if i := g.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
 	}
 
-	G.DeleteVertex(v2) // duplicate deletes don't error...
+	g.DeleteVertex(v2) // duplicate deletes don't error...
 
-	if i := G.NumVertices(); i != 0 {
+	if i := g.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
 	}
 }
 
 func TestDeleteVertex2(t *testing.T) {
-	G := &Graph{}
+	g := &Graph{}
 	v1 := NV("v1")
-	G.DeleteVertex(v1) // check this doesn't panic
+	g.DeleteVertex(v1) // check this doesn't panic
 
-	if i := G.NumVertices(); i != 0 {
+	if i := g.NumVertices(); i != 0 {
 		t.Errorf("should have 0 vertices instead of: %d", i)
 	}
 }
@@ -364,7 +364,7 @@ func TestVertexContains1(t *testing.T) {
 }
 
 func TestTopoSort1(t *testing.T) {
-	G, _ := NewGraph("g9")
+	g, _ := NewGraph("g9")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -377,15 +377,15 @@ func TestTopoSort1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v1, v3, e2)
-	G.AddEdge(v2, v4, e3)
-	G.AddEdge(v3, v4, e4)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v3, e2)
+	g.AddEdge(v2, v4, e3)
+	g.AddEdge(v3, v4, e4)
 
-	G.AddEdge(v4, v5, e5)
-	G.AddEdge(v5, v6, e6)
+	g.AddEdge(v4, v5, e5)
+	g.AddEdge(v5, v6, e6)
 
-	indegree := G.InDegree() // map[Vertex]int
+	indegree := g.InDegree() // map[Vertex]int
 	if i := indegree[v1]; i != 0 {
 		t.Errorf("indegree of v1 should be 0 instead of: %d", i)
 	}
@@ -405,7 +405,7 @@ func TestTopoSort1(t *testing.T) {
 		t.Errorf("indegree of v6 should be 1 instead of: %d", i)
 	}
 
-	outdegree := G.OutDegree() // map[Vertex]int
+	outdegree := g.OutDegree() // map[Vertex]int
 	if i := outdegree[v1]; i != 2 {
 		t.Errorf("outdegree of v1 should be 2 instead of: %d", i)
 	}
@@ -425,7 +425,7 @@ func TestTopoSort1(t *testing.T) {
 		t.Errorf("outdegree of v6 should be 0 instead of: %d", i)
 	}
 
-	s, err := G.TopologicalSort()
+	s, err := g.TopologicalSort()
 	// either possibility is a valid toposort
 	match := reflect.DeepEqual(s, []Vertex{v1, v2, v3, v4, v5, v6}) || reflect.DeepEqual(s, []Vertex{v1, v3, v2, v4, v5, v6})
 	if err != nil || !match {
@@ -439,7 +439,7 @@ func TestTopoSort1(t *testing.T) {
 }
 
 func TestTopoSort2(t *testing.T) {
-	G, _ := NewGraph("g10")
+	g, _ := NewGraph("g10")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -452,20 +452,20 @@ func TestTopoSort2(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v4, e3)
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	G.AddEdge(v4, v2, e6) // cycle
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	g.AddEdge(v4, v2, e6) // cycle
 
-	if _, err := G.TopologicalSort(); err == nil {
+	if _, err := g.TopologicalSort(); err == nil {
 		t.Errorf("topological sort passed, but graph is cyclic")
 	}
 }
 
 func TestTopoSort3(t *testing.T) {
-	G, _ := NewGraph("g11")
+	g, _ := NewGraph("g11")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -478,16 +478,16 @@ func TestTopoSort3(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v4, e3)
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	G.AddEdge(v4, v2, e6) // cycle
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	g.AddEdge(v4, v2, e6) // cycle
 
-	//G.ExecGraphviz(context.TODO(), "/tmp/g.dot")
+	//g.ExecGraphviz(context.TODO(), "/tmp/g.dot")
 
-	_, err := G.TopologicalSort()
+	_, err := g.TopologicalSort()
 	if err == nil {
 		t.Errorf("topological sort passed, but graph is cyclic")
 		return
@@ -517,8 +517,8 @@ func TestTopoSort3(t *testing.T) {
 // empty
 func TestReachability0(t *testing.T) {
 	{
-		G, _ := NewGraph("g")
-		result, err := G.Reachability(nil, nil)
+		g, _ := NewGraph("g")
+		result, err := g.Reachability(nil, nil)
 		if err != nil {
 			t.Logf("reachability failed: %+v", err)
 			if result != nil {
@@ -531,11 +531,11 @@ func TestReachability0(t *testing.T) {
 		}
 	}
 	{
-		G, _ := NewGraph("g")
+		g, _ := NewGraph("g")
 		v1 := NV("v1")
 		v6 := NV("v6")
 
-		result, err := G.Reachability(v1, v6)
+		result, err := g.Reachability(v1, v6)
 		if err != nil {
 			t.Logf("reachability failed: %+v", err)
 			return
@@ -552,7 +552,7 @@ func TestReachability0(t *testing.T) {
 		}
 	}
 	{
-		G, _ := NewGraph("g")
+		g, _ := NewGraph("g")
 		v1 := NV("v1")
 		v2 := NV("v2")
 		v3 := NV("v3")
@@ -564,13 +564,13 @@ func TestReachability0(t *testing.T) {
 		e3 := NE("e3")
 		e4 := NE("e4")
 		e5 := NE("e5")
-		G.AddEdge(v1, v2, e1)
-		G.AddEdge(v2, v3, e2)
-		G.AddEdge(v1, v4, e3)
-		G.AddEdge(v3, v4, e4)
-		G.AddEdge(v3, v5, e5)
+		g.AddEdge(v1, v2, e1)
+		g.AddEdge(v2, v3, e2)
+		g.AddEdge(v1, v4, e3)
+		g.AddEdge(v3, v4, e4)
+		g.AddEdge(v3, v5, e5)
 
-		result, err := G.Reachability(v1, v6)
+		result, err := g.Reachability(v1, v6)
 		if err != nil {
 			t.Logf("reachability failed: %+v", err)
 			return
@@ -590,7 +590,7 @@ func TestReachability0(t *testing.T) {
 
 // simple linear path
 func TestReachability1(t *testing.T) {
-	G, _ := NewGraph("g")
+	g, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -603,13 +603,13 @@ func TestReachability1(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	//e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v4, e3)
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
 
-	result, err := G.Reachability(v1, v6)
+	result, err := g.Reachability(v1, v6)
 	if err != nil {
 		t.Logf("reachability failed: %+v", err)
 		return
@@ -628,7 +628,7 @@ func TestReachability1(t *testing.T) {
 
 // pick one of two correct paths
 func TestReachability2(t *testing.T) {
-	G, _ := NewGraph("g")
+	g, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -641,14 +641,14 @@ func TestReachability2(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v1, v3, e2)
-	G.AddEdge(v2, v4, e3)
-	G.AddEdge(v3, v4, e4)
-	G.AddEdge(v4, v5, e5)
-	G.AddEdge(v5, v6, e6)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v1, v3, e2)
+	g.AddEdge(v2, v4, e3)
+	g.AddEdge(v3, v4, e4)
+	g.AddEdge(v4, v5, e5)
+	g.AddEdge(v5, v6, e6)
 
-	result, err := G.Reachability(v1, v6)
+	result, err := g.Reachability(v1, v6)
 	if err != nil {
 		t.Logf("reachability failed: %+v", err)
 		return
@@ -669,7 +669,7 @@ func TestReachability2(t *testing.T) {
 
 // pick shortest path
 func TestReachability3(t *testing.T) {
-	G, _ := NewGraph("g")
+	g, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -682,14 +682,14 @@ func TestReachability3(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v4, e3)
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v1, v5, e5)
-	G.AddEdge(v5, v6, e6)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v1, v5, e5)
+	g.AddEdge(v5, v6, e6)
 
-	result, err := G.Reachability(v1, v6)
+	result, err := g.Reachability(v1, v6)
 	if err != nil {
 		t.Logf("reachability failed: %+v", err)
 		return
@@ -708,7 +708,7 @@ func TestReachability3(t *testing.T) {
 
 // direct path
 func TestReachability4(t *testing.T) {
-	G, _ := NewGraph("g")
+	g, _ := NewGraph("g")
 	v1 := NV("v1")
 	v2 := NV("v2")
 	v3 := NV("v3")
@@ -721,14 +721,14 @@ func TestReachability4(t *testing.T) {
 	e4 := NE("e4")
 	e5 := NE("e5")
 	e6 := NE("e6")
-	G.AddEdge(v1, v2, e1)
-	G.AddEdge(v2, v3, e2)
-	G.AddEdge(v3, v4, e3)
-	G.AddEdge(v4, v5, e4)
-	G.AddEdge(v5, v6, e5)
-	G.AddEdge(v1, v6, e6)
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v4, e3)
+	g.AddEdge(v4, v5, e4)
+	g.AddEdge(v5, v6, e5)
+	g.AddEdge(v1, v6, e6)
 
-	result, err := G.Reachability(v1, v6)
+	result, err := g.Reachability(v1, v6)
 	if err != nil {
 		t.Logf("reachability failed: %+v", err)
 		return

@@ -79,7 +79,7 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		edgeCmpFn = strEdgeCmpFn // use simple string cmp version
 	}
 
-	var lookup = make(map[Vertex]Vertex)
+	var lookup = make(map[Vertex]Vertex, len(newGraph.adjacency))
 	var vertexKeep []Vertex // list of vertices which are the same in new graph
 	var vertexDels []Vertex // list of vertices which are to be removed
 	var vertexAdds []Vertex // list of vertices which are to be added

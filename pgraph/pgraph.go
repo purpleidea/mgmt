@@ -626,9 +626,10 @@ func (obj *Graph) OutDegree() map[Vertex]int {
 // on descriptions and code from wikipedia and rosetta code.
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
-	var L []Vertex                    // empty list that will contain the sorted elements
-	var S []Vertex                    // set of all nodes with no incoming edges
-	remaining := make(map[Vertex]int) // amount of edges remaining
+	// XXX: is "make" with this length on these three structures correct?
+	L := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
+	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
+	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
 	for v, d := range obj.InDegree() {
 		if d == 0 {
@@ -736,9 +737,10 @@ func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 // but guarantees that two identical graphs produce the same sort each time.
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's algorithm
-	var L []Vertex                    // empty list that will contain the sorted elements
-	var S []Vertex                    // set of all nodes with no incoming edges
-	remaining := make(map[Vertex]int) // amount of edges remaining
+	// XXX: is "make" with this length on these three structures correct?
+	L := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
+	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
+	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
 	var vertices []Vertex
 	indegree := obj.InDegree()

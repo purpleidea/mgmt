@@ -68,6 +68,7 @@ class service_file($path, $st) {
 	$ssh_url = $st->ssh_url || "" # optional
 	$ssh_hostkey = $st->ssh_hostkey || "" # optional
 	$seeds []str = $st->seeds # required
+	$pprof = $st->pprof || "" # eg: 127.0.0.1:6060 to enable
 
 	# join them all together, use the arg multiple times...
 	$valid_seeds = "--seeds='" + golang_strings.join($seeds, "' --seeds='") + "'"
@@ -78,6 +79,7 @@ class service_file($path, $st) {
 		ssh_hostkey => $ssh_hostkey,
 		#seeds => $seeds,
 		valid_seeds => $valid_seeds,
+		pprof => $pprof,
 	}
 	file "${path}" {
 		state => "exists",
@@ -108,6 +110,7 @@ class master($st) {
 	$seeds []str = $st->seeds # required
 	$ssh_url = $st->ssh_url || "" # optional
 	$ssh_hostkey = $st->ssh_hostkey || "" # optional
+	$pprof = $st->pprof || "" # eg: 127.0.0.1:6060 to enable
 
 	# 1) package repo
 	include misc.yum_repo("mgmt", struct{
@@ -135,6 +138,7 @@ class master($st) {
 		ssh_url => $ssh_url,
 		ssh_hostkey => $ssh_hostkey,
 		seeds => $seeds,
+		pprof => $pprof,
 	})
 
 	# 4) reload new service and ensure it's running

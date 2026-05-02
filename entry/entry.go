@@ -231,7 +231,7 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 		osArgs = append(osArgs, obj.data.Frontend) // HACK: add on the frontend sub-command name
 		osArgs = append(osArgs, "''")              // HACK: add on fake input for sub-command
 	}
-	err = parser.Parse(osArgs)
+	err = parser.Parse(cli.NormalizeArgs(osArgs))
 	if err == arg.ErrHelp {
 		parser.WriteHelp(os.Stdout)
 		return nil

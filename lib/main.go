@@ -60,6 +60,7 @@ import (
 	"github.com/purpleidea/mgmt/prometheus"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/pprof"
 
 	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 )
@@ -208,6 +209,10 @@ type Config struct {
 
 	// PrometheusListen is the prometheus instance bind specification.
 	PrometheusListen string `arg:"--prometheus-listen" help:"specify prometheus instance binding"`
+
+	// Pprof is the pprof HTTP server bind specification. If empty, a
+	// default is used. If nil, the pprof HTTP server is disabled.
+	Pprof *string `arg:"--pprof,env:MGMT_PPROF" help:"start a pprof HTTP server on this address" placeholder:"LISTEN"`
 }
 
 // Main is the main struct for running the mgmt logic.
@@ -422,6 +427,35 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			if err != nil {
 				// TODO: cause the final exit code to be non-zero
 				Logf("cleanup error: %+v", err)
+			}
+		}()
+	}
+
+	if obj.Pprof != nil {
+		logf := func(format string, v ...interface{}) {
+			obj.Logf("pprof: "+format, v...)
+		}
+		server := &pprof.Server{
+			Listen: *obj.Pprof,
+
+			Debug: obj.Debug,
+			Logf: func(format string, v ...interface{}) {
+				logf("pprof: "+format, v...)
+			},
+		}
+		if err := server.Init(); err != nil {
+			return errwrap.Wrapf(err, "can't initialize pprof server")
+		}
+
+		logf("starting server on: %s", server.Listen)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// TODO: add to the ctx chain to measure shutdown too!
+			err := errwrap.Wrapf(server.Run(ctx), "the pprof server exited poorly")
+			if err != nil {
+				logf("cleanup error: %+v", err)
+				cancelCause(err)
 			}
 		}()
 	}

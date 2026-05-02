@@ -74,7 +74,7 @@ func CLI(ctx context.Context, data *cliUtil.Data) error {
 		// programming error
 		return errwrap.Wrapf(err, "cli config error")
 	}
-	err = parser.Parse(data.Args[1:]) // XXX: args[0] needs to be dropped
+	err = parser.Parse(NormalizeArgs(data.Args[1:])) // XXX: args[0] needs to be dropped
 	if err == arg.ErrHelp {
 		parser.WriteHelp(os.Stdout)
 		return nil

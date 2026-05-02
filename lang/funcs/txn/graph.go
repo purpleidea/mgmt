@@ -80,21 +80,15 @@ func (obj *Graph) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) error
 		obj.Logf("AddEdge %p %s: %p %s -> %p %s", fe, fe, f1, f1, f2, f2)
 	}
 
-	// safety check to avoid cycles
-	g := obj.graph.Copy()
-	g.AddEdge(f1, f2, fe)
-	if _, err := g.TopologicalSort(); err != nil {
-		return err // not a dag
+	// The current graph is already a DAG. Adding f1 -> f2 can only create a
+	// cycle if f2 already reaches f1, so avoid a full graph copy and sort.
+	if f1 == f2 || (obj.graph.FindEdge(f1, f2) == nil && obj.graph.HasPath(f2, f1)) {
+		return &pgraph.ErrNotAcyclic{
+			Cycle: []pgraph.Vertex{f1, f2, f1},
+		}
 	}
-	// if we didn't cycle, we can modify the real graph safely...
 
 	obj.graph.AddEdge(f1, f2, fe) // replaces any existing edge here
-
-	// This shouldn't error, since the test graph didn't find a cycle.
-	if _, err := obj.graph.TopologicalSort(); err != nil {
-		// programming error
-		panic(err) // not a dag
-	}
 
 	return nil
 }

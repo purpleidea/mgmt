@@ -186,6 +186,32 @@ func TestTxn1(t *testing.T) {
 	}
 }
 
+func TestGraphAddEdgeCycle(t *testing.T) {
+	graph := (&Graph{}).Init()
+	f1 := &testNullFunc{"f1"}
+	f2 := &testNullFunc{"f2"}
+	f3 := &testNullFunc{"f3"}
+
+	if err := graph.AddEdge(f1, f2, testEdge("e1")); err != nil {
+		t.Errorf("add edge failed: %+v", err)
+		return
+	}
+	if err := graph.AddEdge(f2, f3, testEdge("e2")); err != nil {
+		t.Errorf("add edge failed: %+v", err)
+		return
+	}
+
+	err := graph.AddEdge(f3, f1, testEdge("e3"))
+	if err == nil {
+		t.Errorf("cyclic edge was accepted")
+		return
+	}
+	if _, ok := err.(*pgraph.ErrNotAcyclic); !ok {
+		t.Errorf("wrong error type: %+v", err)
+		return
+	}
+}
+
 type txnTestOp func(*pgraph.Graph, interfaces.Txn) error
 
 func TestTxnTable(t *testing.T) {

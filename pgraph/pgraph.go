@@ -809,9 +809,6 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 // Since there could be more than one possible result for this operation, we
 // arbitrarily choose one of the shortest possible. As a result, this should
 // actually return a tree if we cared about correctness.
-//
-// This operates by a recursive algorithm; a more efficient version is likely.
-// If you don't give this function a DAG, you might cause infinite recursion!
 func (obj *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	if a == nil || b == nil {
 		return nil, fmt.Errorf("empty vertex")
@@ -819,77 +816,62 @@ func (obj *Graph) Reachability(a, b Vertex) ([]Vertex, error) {
 	if _, err := obj.TopologicalSort(); err != nil {
 		return nil, err // not a dag
 	}
-
-	vertices := obj.OutgoingGraphVertices(a) // what points away from a ?
-	if len(vertices) == 0 {
-		return []Vertex{}, nil // nope
-	}
-	if VertexContains(b, vertices) {
-		return []Vertex{a, b}, nil // found
-	}
-	// TODO: parallelize this with go routines?
-	var collected = make([][]Vertex, len(vertices))
-	var err error
-	pick := -1
-	for i, v := range vertices {
-		collected[i], err = obj.Reachability(v, b) // find b by recursion
-		if err != nil {
-			return nil, err
-		}
-		if l := len(collected[i]); l > 0 {
-			// pick shortest path
-			// TODO: technically i should return a tree
-			if pick < 0 || l < len(collected[pick]) {
-				pick = i
-			}
-		}
-	}
-	if pick < 0 {
-		return []Vertex{}, nil // nope
-	}
-	result := []Vertex{a} // tack on a
-	result = append(result, collected[pick]...)
-	return result, nil
+	return obj.bfsShortestPath(a, b), nil
 }
 
 // ReachabilityUnsafe is identical to Reachability but without the
-// TopologicalSort() DAG validation on every call and recursion. The caller must
-// ensure the graph is a DAG before calling this method.
+// TopologicalSort() DAG validation. The caller must ensure the graph is a DAG
+// before calling this method if they need that guarantee; the BFS itself is
+// safe to run on any graph.
 func (obj *Graph) ReachabilityUnsafe(a, b Vertex) ([]Vertex, error) {
 	if a == nil || b == nil {
 		return nil, fmt.Errorf("empty vertex")
 	}
+	return obj.bfsShortestPath(a, b), nil
+}
 
-	vertices := obj.OutgoingGraphVertices(a) // what points away from a ?
-	if len(vertices) == 0 {
-		return []Vertex{}, nil // nope
+// bfsShortestPath runs a breadth-first search from a, looking for b, and
+// returns the shortest path (by edge count) including both endpoints. If no
+// path exists it returns an empty slice. The previous recursive implementation
+// re-explored shared subpaths and (in Reachability) re-validated the DAG on
+// every recursive call, giving exponential worst-case behaviour; BFS is O(V+E).
+func (obj *Graph) bfsShortestPath(a, b Vertex) []Vertex {
+	if _, exists := obj.adjacency[a]; !exists {
+		return []Vertex{}
 	}
-	if VertexContains(b, vertices) {
-		return []Vertex{a, b}, nil // found
-	}
-	// TODO: parallelize this with go routines?
-	var collected = make([][]Vertex, len(vertices))
-	var err error
-	pick := -1
-	for i, v := range vertices {
-		collected[i], err = obj.ReachabilityUnsafe(v, b) // find b by recursion
-		if err != nil {
-			return nil, err
-		}
-		if l := len(collected[i]); l > 0 {
-			// pick shortest path
-			// TODO: technically i should return a tree
-			if pick < 0 || l < len(collected[pick]) {
-				pick = i
+	parent := make(map[Vertex]Vertex)
+	visited := map[Vertex]struct{}{a: {}}
+	queue := []Vertex{a}
+	found := false
+	for len(queue) > 0 && !found {
+		v := queue[0]
+		queue = queue[1:]
+		for n := range obj.adjacency[v] {
+			if _, ok := visited[n]; ok {
+				continue
 			}
+			visited[n] = struct{}{}
+			parent[n] = v
+			if n == b {
+				found = true
+				break
+			}
+			queue = append(queue, n)
 		}
 	}
-	if pick < 0 {
-		return []Vertex{}, nil // nope
+	if !found {
+		return []Vertex{}
 	}
-	result := []Vertex{a} // tack on a
-	result = append(result, collected[pick]...)
-	return result, nil
+	// reconstruct path from b back to a, then reverse
+	path := []Vertex{b}
+	for v := b; v != a; {
+		v = parent[v]
+		path = append(path, v)
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	return path
 }
 
 // HasPath returns true if the directed graph has a path from a to b. It does

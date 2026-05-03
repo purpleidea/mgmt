@@ -411,6 +411,25 @@ func (obj *keyedVertexSlice) Less(i, j int) bool {
 	return obj.keys[i] < obj.keys[j]
 }
 
+// sortVerticesReuse sorts vs in place by String() using a caller-supplied keys
+// buffer and keyedVertexSlice, both of which are reused across calls to avoid
+// per-call allocations from VertexSlice.Sort. The (possibly grown) keys buffer
+// is returned for reuse on the next call.
+func sortVerticesReuse(vs []Vertex, keys []string, ks *keyedVertexSlice) []string {
+	if cap(keys) >= len(vs) {
+		keys = keys[:len(vs)]
+	} else {
+		keys = make([]string, len(vs))
+	}
+	for i, v := range vs {
+		keys[i] = v.String()
+	}
+	ks.vs = vs
+	ks.keys = keys
+	sort.Sort(ks)
+	return keys
+}
+
 // VerticesSorted returns a sorted slice of all vertices in the graph. The order
 // is sorted by String() to avoid the non-determinism in the map type.
 func (obj *Graph) VerticesSorted() []Vertex {
@@ -663,13 +682,17 @@ func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
-	for v, d := range obj.InDegree() {
-		if d == 0 {
+	// count incoming edges directly instead of allocating a separate
+	// InDegree map and then re-walking it
+	for _, m := range obj.adjacency {
+		for n := range m {
+			remaining[n]++
+		}
+	}
+	for v := range obj.adjacency {
+		if remaining[v] == 0 {
 			// accumulate set of all nodes with no incoming edges
 			S = append(S, v)
-		} else {
-			// initialize remaining edge count from indegree
-			remaining[v] = d
 		}
 	}
 
@@ -679,34 +702,42 @@ func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
 		for n := range obj.adjacency[v] {
-			// for each node n remaining in the graph, consume from
-			// remaining, so for remaining[n] > 0
-			if remaining[n] > 0 {
-				remaining[n]--         // remove edge from the graph
-				if remaining[n] == 0 { // if n has no other incoming edges
-					S = append(S, n) // insert n into S
-				}
+			// remaining[n] always exists here: n is a child of v,
+			// so n had at least one incoming edge and got an entry
+			// during the initial count. Roots aren't reachable
+			// through this walk, so no zero-key surprises.
+			remaining[n]--         // remove edge from the graph
+			if remaining[n] == 0 { // if n has no other incoming edges
+				S = append(S, n) // insert n into S
 			}
 		}
 	}
 
-	// if graph has edges, eg if any value in rem is > 0
-	for c, in := range remaining {
-		if in > 0 {
-			for n := range obj.adjacency[c] {
-				if remaining[n] > 0 {
-					cycle := obj.findCycleDFS(c)
-					if len(cycle) == 0 {
-						// Hopefully this doesn't happen!
-						return nil, fmt.Errorf("programming error")
-					}
-					return nil, &ErrNotAcyclic{Cycle: cycle}
-				}
-			}
-		}
+	// if we visited every vertex, there are no cycles; otherwise scan
+	// remaining for any vertex with edges left and report the cycle
+	if len(L) != len(obj.adjacency) {
+		return nil, obj.notAcyclicErr(remaining)
 	}
 
 	return L, nil
+}
+
+// notAcyclicErr is a helper shared by TopologicalSort and
+// DeterministicTopologicalSort. It picks any vertex with leftover incoming
+// edges and runs findCycleDFS to produce an ErrNotAcyclic.
+func (obj *Graph) notAcyclicErr(remaining map[Vertex]int) error {
+	for c, in := range remaining {
+		if in > 0 {
+			cycle := obj.findCycleDFS(c)
+			if len(cycle) == 0 {
+				// Hopefully this doesn't happen!
+				return fmt.Errorf("programming error")
+			}
+			return &ErrNotAcyclic{Cycle: cycle}
+		}
+	}
+	// Hopefully this doesn't happen!
+	return fmt.Errorf("programming error")
 }
 
 // findCycleDFS is a helper for the TopologicalSort functions.
@@ -774,61 +805,52 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
-	var vertices []Vertex
-	indegree := obj.InDegree()
-	for k := range indegree {
-		vertices = append(vertices, k)
+	// count incoming edges directly instead of allocating a separate
+	// InDegree map and then re-walking it
+	vertices := make([]Vertex, 0, len(obj.adjacency))
+	for v, m := range obj.adjacency {
+		vertices = append(vertices, v)
+		for n := range m {
+			remaining[n]++
+		}
 	}
-	VertexSlice(vertices).Sort() // add determinism
-	//for v, d := range obj.InDegree()
-	for _, v := range vertices { // map[Vertex]int
-		d := indegree[v]
-		if d == 0 {
+	// Reuse a single keys buffer and keyedVertexSlice across every sort
+	// call in this function so we don't allocate per pop.
+	ks := &keyedVertexSlice{}
+	keys := sortVerticesReuse(vertices, nil, ks) // add determinism
+	for _, v := range vertices {
+		if remaining[v] == 0 {
 			// accumulate set of all nodes with no incoming edges
 			S = append(S, v)
-		} else {
-			// initialize remaining edge count from indegree
-			remaining[v] = d
 		}
 	}
 
+	// Reusable buffer for v's children; reset to [:0] each iteration.
+	var children []Vertex
 	for len(S) > 0 {
 		last := len(S) - 1 // remove a node v from S
 		v := S[last]
 		S = S[:last]
 		L = append(L, v) // add v to tail of L
 
-		var vertices []Vertex
+		children = children[:0]
 		for n := range obj.adjacency[v] { // map[Vertex]Edge
-			vertices = append(vertices, n)
+			children = append(children, n)
 		}
-		VertexSlice(vertices).Sort() // add determinism
-		for _, n := range vertices { // map[Vertex]Edge
-			// for each node n remaining in the graph, consume from
-			// remaining, so for remaining[n] > 0
-			if remaining[n] > 0 {
-				remaining[n]--         // remove edge from the graph
-				if remaining[n] == 0 { // if n has no other incoming edges
-					S = append(S, n) // insert n into S
-				}
+		keys = sortVerticesReuse(children, keys, ks) // add determinism
+		for _, n := range children {
+			// remaining[n] always exists here; see TopologicalSort.
+			remaining[n]--         // remove edge from the graph
+			if remaining[n] == 0 { // if n has no other incoming edges
+				S = append(S, n) // insert n into S
 			}
 		}
 	}
 
-	// if graph has edges, eg if any value in rem is > 0
-	for c, in := range remaining {
-		if in > 0 {
-			for n := range obj.adjacency[c] {
-				if remaining[n] > 0 {
-					cycle := obj.findCycleDFS(c)
-					if len(cycle) == 0 {
-						// Hopefully this doesn't happen!
-						return nil, fmt.Errorf("programming error")
-					}
-					return nil, &ErrNotAcyclic{Cycle: cycle}
-				}
-			}
-		}
+	// if we visited every vertex, there are no cycles; otherwise scan
+	// remaining for any vertex with edges left and report the cycle
+	if len(L) != len(obj.adjacency) {
+		return nil, obj.notAcyclicErr(remaining)
 	}
 
 	return L, nil

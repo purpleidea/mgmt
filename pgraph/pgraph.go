@@ -378,8 +378,38 @@ func (vs VertexSlice) Less(i, j int) bool {
 	return a < b
 }
 
-// Sort is a convenience method.
-func (vs VertexSlice) Sort() { sort.Sort(vs) }
+// Sort sorts the slice in place. It precomputes each vertex's String() value
+// once so that an expensive String() implementation is not re-invoked O(log N)
+// times per element by the underlying sort. Calling sort.Sort(VertexSlice)
+// directly still works but does not get this optimization.
+func (vs VertexSlice) Sort() {
+	keys := make([]string, len(vs))
+	for i, v := range vs {
+		keys[i] = v.String()
+	}
+	sort.Sort(&keyedVertexSlice{vs: vs, keys: keys})
+}
+
+// keyedVertexSlice pairs a VertexSlice with a parallel slice of precomputed
+// String() keys so sort.Sort can compare without re-invoking String().
+type keyedVertexSlice struct {
+	vs   VertexSlice
+	keys []string
+}
+
+func (obj *keyedVertexSlice) Len() int { return len(obj.vs) }
+
+func (obj *keyedVertexSlice) Swap(i, j int) {
+	obj.vs[i], obj.vs[j] = obj.vs[j], obj.vs[i]
+	obj.keys[i], obj.keys[j] = obj.keys[j], obj.keys[i]
+}
+
+func (obj *keyedVertexSlice) Less(i, j int) bool {
+	if obj.keys[i] == obj.keys[j] { // fallback to ptr compare
+		return reflect.ValueOf(obj.vs[i]).Pointer() < reflect.ValueOf(obj.vs[j]).Pointer()
+	}
+	return obj.keys[i] < obj.keys[j]
+}
 
 // VerticesSorted returns a sorted slice of all vertices in the graph. The order
 // is sorted by String() to avoid the non-determinism in the map type.
@@ -388,7 +418,7 @@ func (obj *Graph) VerticesSorted() []Vertex {
 	for k := range obj.adjacency {
 		vertices = append(vertices, k)
 	}
-	sort.Sort(VertexSlice(vertices)) // add determinism
+	VertexSlice(vertices).Sort() // add determinism
 	return vertices
 }
 
@@ -416,7 +446,7 @@ func (obj *Graph) Sprint() string {
 		for v2 := range obj.adjacency[v1] {
 			vs = append(vs, v2)
 		}
-		sort.Sort(VertexSlice(vs)) // deterministic order
+		VertexSlice(vs).Sort() // deterministic order
 		for _, v2 := range vs {
 			e := obj.adjacency[v1][v2]
 			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
@@ -749,7 +779,7 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 	for k := range indegree {
 		vertices = append(vertices, k)
 	}
-	sort.Sort(VertexSlice(vertices)) // add determinism
+	VertexSlice(vertices).Sort() // add determinism
 	//for v, d := range obj.InDegree()
 	for _, v := range vertices { // map[Vertex]int
 		d := indegree[v]
@@ -772,8 +802,8 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 		for n := range obj.adjacency[v] { // map[Vertex]Edge
 			vertices = append(vertices, n)
 		}
-		sort.Sort(VertexSlice(vertices)) // add determinism
-		for _, n := range vertices {     // map[Vertex]Edge
+		VertexSlice(vertices).Sort() // add determinism
+		for _, n := range vertices { // map[Vertex]Edge
 			// for each node n remaining in the graph, consume from
 			// remaining, so for remaining[n] > 0
 			if remaining[n] > 0 {
@@ -1051,11 +1081,9 @@ func Reverse(vs []Vertex) []Vertex {
 
 // Sort the list of vertices and return a copy without modifying the input.
 func Sort(vs []Vertex) []Vertex {
-	vertices := []Vertex{}
-	for _, v := range vs { // copy
-		vertices = append(vertices, v)
-	}
-	sort.Sort(VertexSlice(vertices))
+	vertices := make([]Vertex, len(vs))
+	copy(vertices, vs)
+	VertexSlice(vertices).Sort()
 	return vertices
 	// sort.Sort(VertexSlice(vs)) // this is wrong, it would modify input!
 	//return vs

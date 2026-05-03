@@ -245,7 +245,7 @@ func (obj *Graph) graphvizBody(opts *GraphvizOpts) string {
 		for j := range obj.adjacency[i] {
 			vs = append(vs, j)
 		}
-		sort.Sort(VertexSlice(vs)) // deterministic order
+		VertexSlice(vs).Sort() // deterministic order
 
 		for _, j := range vs {
 			k := obj.adjacency[i][j]

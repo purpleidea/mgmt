@@ -567,6 +567,7 @@ func (obj *Graph) DisconnectedGraphs() ([]*Graph, error) {
 		for _, s := range obj.Vertices() {
 			if !VertexContains(s, d) {
 				start = s
+				break
 			}
 		}
 

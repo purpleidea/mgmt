@@ -363,17 +363,17 @@ func (obj *Graph) VerticesChan() chan Vertex {
 type VertexSlice []Vertex
 
 // Len returns the length of the slice of vertices.
-func (vs VertexSlice) Len() int { return len(vs) }
+func (obj VertexSlice) Len() int { return len(obj) }
 
 // Swap swaps two elements in the slice.
-func (vs VertexSlice) Swap(i, j int) { vs[i], vs[j] = vs[j], vs[i] }
+func (obj VertexSlice) Swap(i, j int) { obj[i], obj[j] = obj[j], obj[i] }
 
 // Less returns the smaller element in the sort order.
-func (vs VertexSlice) Less(i, j int) bool {
-	a := vs[i].String()
-	b := vs[j].String()
+func (obj VertexSlice) Less(i, j int) bool {
+	a := obj[i].String()
+	b := obj[j].String()
 	if a == b { // fallback to ptr compare
-		return reflect.ValueOf(vs[i]).Pointer() < reflect.ValueOf(vs[j]).Pointer()
+		return reflect.ValueOf(obj[i]).Pointer() < reflect.ValueOf(obj[j]).Pointer()
 	}
 	return a < b
 }
@@ -382,12 +382,12 @@ func (vs VertexSlice) Less(i, j int) bool {
 // once so that an expensive String() implementation is not re-invoked O(log N)
 // times per element by the underlying sort. Calling sort.Sort(VertexSlice)
 // directly still works but does not get this optimization.
-func (vs VertexSlice) Sort() {
-	keys := make([]string, len(vs))
-	for i, v := range vs {
+func (obj VertexSlice) Sort() {
+	keys := make([]string, len(obj))
+	for i, v := range obj {
 		keys[i] = v.String()
 	}
-	sort.Sort(&keyedVertexSlice{vs: vs, keys: keys})
+	sort.Sort(&keyedVertexSlice{vs: obj, keys: keys})
 }
 
 // keyedVertexSlice pairs a VertexSlice with a parallel slice of precomputed

@@ -32,6 +32,7 @@ package pgraph
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -372,7 +373,7 @@ func (vs VertexSlice) Less(i, j int) bool {
 	a := vs[i].String()
 	b := vs[j].String()
 	if a == b { // fallback to ptr compare
-		return fmt.Sprintf("%p", vs[i]) < fmt.Sprintf("%p", vs[j])
+		return reflect.ValueOf(vs[i]).Pointer() < reflect.ValueOf(vs[j]).Pointer()
 	}
 	return a < b
 }

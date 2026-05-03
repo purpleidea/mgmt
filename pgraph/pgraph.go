@@ -976,17 +976,13 @@ Loop:
 	}
 
 	// check if mapping is unique (are there duplicates?)
-	m1 := []Vertex{}
-	m2 := []Vertex{}
+	// (check values only, the keys are unique by virtue of m being a map)
+	seen := make(map[Vertex]Vertex, len(m))
 	for k, v := range m {
-		if VertexContains(k, m1) {
-			return fmt.Errorf("mapping from %s is used more than once to: %s", k, m1)
+		if prev, exists := seen[v]; exists {
+			return fmt.Errorf("mapping to %s is used more than once from: %s and %s", v, prev, k)
 		}
-		if VertexContains(v, m2) {
-			return fmt.Errorf("mapping to %s is used more than once from: %s", v, m2)
-		}
-		m1 = append(m1, k)
-		m2 = append(m2, v)
+		seen[v] = k
 	}
 
 	// check edges

@@ -80,10 +80,10 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	}
 
 	var lookup = make(map[Vertex]Vertex, len(newGraph.adjacency))
-	var vertexKeep []Vertex // list of vertices which are the same in new graph
-	var vertexDels []Vertex // list of vertices which are to be removed
-	var vertexAdds []Vertex // list of vertices which are to be added
-	var edgeKeep []Edge     // list of edges which are the same in new graph
+	var vertexKeep []Vertex             // list of vertices which are the same in new graph
+	var vertexDels []Vertex             // list of vertices which are to be removed
+	var vertexAdds []Vertex             // list of vertices which are to be added
+	edgeKeep := make(map[Edge]struct{}) // set of edges which are the same in new graph
 
 	// XXX: run this as a topological sort or reverse topological sort?
 	for v := range newGraph.adjacency { // loop through the vertices (resources)
@@ -167,16 +167,16 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 			}
 
 			oldGraph.adjacency[vertex1][vertex2] = edge // store it (AddEdge)
-			edgeKeep = append(edgeKeep, edge)           // mark as saved
+			edgeKeep[edge] = struct{}{}                 // mark as saved
 		}
 	}
 
-	// delete unused edges
+	// delete unused edges in a single pass over adjacency
 	for v1 := range oldGraph.adjacency {
-		for _, e := range oldGraph.adjacency[v1] {
-			// we have an edge!
-			if !EdgeContains(e, edgeKeep) {
-				oldGraph.DeleteEdge(e)
+		m := oldGraph.adjacency[v1]
+		for v2, e := range m {
+			if _, ok := edgeKeep[e]; !ok {
+				delete(m, v2)
 			}
 		}
 	}

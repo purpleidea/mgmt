@@ -678,8 +678,8 @@ func (obj *Graph) OutDegree() map[Vertex]int {
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	// XXX: is "make" with this length on these three structures correct?
-	L := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
-	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
+	l := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
+	s := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
 	// count incoming edges directly instead of allocating a separate
@@ -692,15 +692,15 @@ func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	for v := range obj.adjacency {
 		if remaining[v] == 0 {
 			// accumulate set of all nodes with no incoming edges
-			S = append(S, v)
+			s = append(s, v)
 		}
 	}
 
-	for len(S) > 0 {
-		last := len(S) - 1 // remove a node v from S
-		v := S[last]
-		S = S[:last]
-		L = append(L, v) // add v to tail of L
+	for len(s) > 0 {
+		last := len(s) - 1 // remove a node v from s
+		v := s[last]
+		s = s[:last]
+		l = append(l, v) // add v to tail of l
 		for n := range obj.adjacency[v] {
 			// remaining[n] always exists here: n is a child of v,
 			// so n had at least one incoming edge and got an entry
@@ -708,18 +708,18 @@ func (obj *Graph) TopologicalSort() ([]Vertex, error) { // kahn's algorithm
 			// through this walk, so no zero-key surprises.
 			remaining[n]--         // remove edge from the graph
 			if remaining[n] == 0 { // if n has no other incoming edges
-				S = append(S, n) // insert n into S
+				s = append(s, n) // insert n into s
 			}
 		}
 	}
 
 	// if we visited every vertex, there are no cycles; otherwise scan
 	// remaining for any vertex with edges left and report the cycle
-	if len(L) != len(obj.adjacency) {
+	if len(l) != len(obj.adjacency) {
 		return nil, obj.notAcyclicErr(remaining)
 	}
 
-	return L, nil
+	return l, nil
 }
 
 // notAcyclicErr is a helper shared by TopologicalSort and
@@ -801,8 +801,8 @@ func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 // TODO: add memoization, and cache invalidation to speed this up :)
 func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's algorithm
 	// XXX: is "make" with this length on these three structures correct?
-	L := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
-	S := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
+	l := make([]Vertex, 0, len(obj.adjacency))            // empty list that will contain the sorted elements
+	s := make([]Vertex, 0, len(obj.adjacency))            // set of all nodes with no incoming edges
 	remaining := make(map[Vertex]int, len(obj.adjacency)) // amount of edges remaining
 
 	// count incoming edges directly instead of allocating a separate
@@ -821,17 +821,17 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 	for _, v := range vertices {
 		if remaining[v] == 0 {
 			// accumulate set of all nodes with no incoming edges
-			S = append(S, v)
+			s = append(s, v)
 		}
 	}
 
 	// Reusable buffer for v's children; reset to [:0] each iteration.
 	var children []Vertex
-	for len(S) > 0 {
-		last := len(S) - 1 // remove a node v from S
-		v := S[last]
-		S = S[:last]
-		L = append(L, v) // add v to tail of L
+	for len(s) > 0 {
+		last := len(s) - 1 // remove a node v from s
+		v := s[last]
+		s = s[:last]
+		l = append(l, v) // add v to tail of l
 
 		children = children[:0]
 		for n := range obj.adjacency[v] { // map[Vertex]Edge
@@ -842,18 +842,18 @@ func (obj *Graph) DeterministicTopologicalSort() ([]Vertex, error) { // kahn's a
 			// remaining[n] always exists here; see TopologicalSort.
 			remaining[n]--         // remove edge from the graph
 			if remaining[n] == 0 { // if n has no other incoming edges
-				S = append(S, n) // insert n into S
+				s = append(s, n) // insert n into s
 			}
 		}
 	}
 
 	// if we visited every vertex, there are no cycles; otherwise scan
 	// remaining for any vertex with edges left and report the cycle
-	if len(L) != len(obj.adjacency) {
+	if len(l) != len(obj.adjacency) {
 		return nil, obj.notAcyclicErr(remaining)
 	}
 
-	return L, nil
+	return l, nil
 }
 
 // Reachability finds the shortest path in a DAG from a to b, and returns the

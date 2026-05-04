@@ -11,15 +11,15 @@ if $state == "one" or $state == "default" {
 		content => "state: one\n",
 	}
 
-	exec "timer" {
+	exec "timer-${state}" {
 		cmd => "/usr/bin/sleep 1s",
 	}
 	kv "${ns}" {
 		key => $ns,
 		value => "two",
-		#mapped => true,
+		mapped => true,
 	}
-	Exec["timer"] -> Kv["${ns}"]
+	Exec["timer-${state}"] -> Kv["${ns}"]
 }
 if $state == "two" {
 
@@ -28,15 +28,15 @@ if $state == "two" {
 		content => "state: two\n",
 	}
 
-	exec "timer" {
+	exec "timer-${state}" {
 		cmd => "/usr/bin/sleep 1s",
 	}
 	kv "${ns}" {
 		key => $ns,
 		value => "three",
-		#mapped => true,
+		mapped => true,
 	}
-	Exec["timer"] -> Kv["${ns}"]
+	Exec["timer-${state}"] -> Kv["${ns}"]
 }
 if $state == "three" {
 
@@ -45,13 +45,13 @@ if $state == "three" {
 		content => "state: three\n",
 	}
 
-	exec "timer" {
+	exec "timer-${state}" {
 		cmd => "/usr/bin/sleep 1s",
 	}
 	kv "${ns}" {
 		key => $ns,
 		value => "one",
-		#mapped => true,
+		mapped => true,
 	}
-	Exec["timer"] -> Kv["${ns}"]
+	Exec["timer-${state}"] -> Kv["${ns}"]
 }

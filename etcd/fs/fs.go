@@ -545,6 +545,10 @@ func (obj *Fs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, er
 	if err != nil {
 		return nil, err
 	}
+	if flag&os.O_CREATE > 0 && flag&os.O_EXCL > 0 && !chmod {
+		f.Close()
+		return nil, &os.PathError{Op: "open", Path: name, Err: ErrExist}
+	}
 	f.readOnly = (flag == os.O_RDONLY)
 
 	if flag&os.O_APPEND > 0 {

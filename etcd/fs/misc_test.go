@@ -293,3 +293,24 @@ func TestChmodCanRemovePermissionBits(t *testing.T) {
 		t.Fatalf("mode got %v, want %v", got, want)
 	}
 }
+
+func TestOpenFileCreateExclFailsWhenFileExists(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if err := afero.WriteFile(fs, "/file", []byte("contents"), 0600); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	f, err := fs.OpenFile("/file", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
+	if err == nil {
+		f.Close()
+		t.Fatalf("openfile with O_CREATE|O_EXCL succeeded, want error")
+	}
+	if !os.IsExist(err) {
+		t.Fatalf("openfile got err=%v, want exists error", err)
+	}
+}

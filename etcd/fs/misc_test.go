@@ -555,3 +555,26 @@ func TestRenameRootFails(t *testing.T) {
 		t.Fatalf("rename root got %T %v, want *os.LinkError", err, err)
 	}
 }
+
+func TestReaddirAfterCloseFails(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if err := fs.Mkdir("/dir", 0700); err != nil {
+		t.Fatalf("mkdir failed: %+v", err)
+	}
+	f, err := fs.Open("/dir")
+	if err != nil {
+		t.Fatalf("open failed: %+v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close failed: %+v", err)
+	}
+	if names, err := f.Readdirnames(-1); err == nil {
+		t.Fatalf("readdirnames got names=%v err=nil, want error", names)
+	}
+}

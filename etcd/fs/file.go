@@ -415,6 +415,9 @@ func (obj *File) ReadAt(b []byte, off int64) (n int, err error) {
 // Readdir lists the contents of the directory and returns a list of file info
 // objects for each entry.
 func (obj *File) Readdir(count int) ([]os.FileInfo, error) {
+	if obj.closed {
+		return nil, ErrFileClosed
+	}
 	if !obj.Mode.IsDir() {
 		return nil, &os.PathError{Op: "readdir", Path: obj.Name(), Err: syscall.ENOTDIR}
 	}

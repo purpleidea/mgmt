@@ -521,3 +521,20 @@ func TestOpenFileReadOnlyCreateRejectsWrite(t *testing.T) {
 		t.Fatalf("write got n=%d err=%v, want n=0 and an error", n, err)
 	}
 }
+
+func TestRenameDirectoryIntoDescendantFails(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:        client,
+		Metadata:      "/metadata",
+		DataPrefix:    DefaultDataPrefix,
+		DeferMetadata: true,
+	}
+
+	if err := fs.MkdirAll("/a/b", 0700); err != nil {
+		t.Fatalf("mkdirall failed: %+v", err)
+	}
+	if err := fs.Rename("/a", "/a/b/c"); err == nil {
+		t.Fatalf("rename directory into descendant succeeded, want error")
+	}
+}

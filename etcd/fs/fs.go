@@ -744,6 +744,9 @@ func (obj *Fs) Rename(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
+	if srcInfo.IsDir() && strings.HasPrefix(dstCleanPath, srcCleanPath+"/") {
+		return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: syscall.EINVAL}
+	}
 
 	srcParentPath, srcName := path.Split(srcCleanPath) // looking for this
 	parent, err := obj.find(srcParentPath)

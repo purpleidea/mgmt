@@ -381,3 +381,28 @@ func TestReadAtDoesNotChangeCursor(t *testing.T) {
 		t.Fatalf("read got %q, want %q", buf, "bc")
 	}
 }
+
+func TestReadAtShortReadReturnsEOF(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	buf := make([]byte, 4)
+	n, err := f.ReadAt(buf, 1)
+	if n != 2 || err != io.EOF {
+		t.Fatalf("readat got n=%d err=%v, want n=2 err=%v", n, err, io.EOF)
+	}
+	if string(buf[:n]) != "bc" {
+		t.Fatalf("readat got %q, want %q", buf[:n], "bc")
+	}
+}

@@ -397,7 +397,11 @@ func (obj *File) ReadAt(b []byte, off int64) (n int, err error) {
 		obj.cursor = cursor
 	}()
 	obj.cursor = off
-	return obj.Read(b)
+	n, err = obj.Read(b)
+	if err == nil && n < len(b) {
+		err = io.EOF
+	}
+	return
 }
 
 // Readdir lists the contents of the directory and returns a list of file info

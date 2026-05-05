@@ -32,6 +32,7 @@ package fs
 import (
 	"context"
 	"io"
+	"os"
 	"testing"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
@@ -264,5 +265,31 @@ func TestSeekRejectsNegativeOffset(t *testing.T) {
 	}
 	if off != 1 {
 		t.Fatalf("offset changed after failed seek: got %d, want 1", off)
+	}
+}
+
+func TestChmodCanRemovePermissionBits(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if _, err := fs.Create("/file"); err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if err := fs.Chmod("/file", 0777); err != nil {
+		t.Fatalf("wide chmod failed: %+v", err)
+	}
+	if err := fs.Chmod("/file", 0600); err != nil {
+		t.Fatalf("tight chmod failed: %+v", err)
+	}
+	fi, err := fs.Stat("/file")
+	if err != nil {
+		t.Fatalf("stat failed: %+v", err)
+	}
+	if got, want := fi.Mode().Perm(), os.FileMode(0600); got != want {
+		t.Fatalf("mode got %v, want %v", got, want)
 	}
 }

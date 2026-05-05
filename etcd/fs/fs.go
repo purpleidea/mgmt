@@ -847,7 +847,7 @@ func (obj *Fs) Chmod(name string, mode os.FileMode) error {
 		return err
 	}
 
-	f.Mode = f.Mode | mode // XXX: what is the correct way to do this?
+	f.Mode = f.Mode&os.ModeType | mode
 	// XXX: f.Sync() instead?
 	return obj.sync() // push up the changed metadata
 }

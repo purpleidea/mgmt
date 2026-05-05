@@ -578,3 +578,23 @@ func TestReaddirAfterCloseFails(t *testing.T) {
 		t.Fatalf("readdirnames got names=%v err=nil, want error", names)
 	}
 }
+
+func TestWriteAtRejectsAppendMode(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if err := afero.WriteFile(fs, "/file", []byte("abc"), 0600); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	f, err := fs.OpenFile("/file", os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fatalf("openfile failed: %+v", err)
+	}
+	if n, err := f.WriteAt([]byte("z"), 0); n != 0 || err == nil {
+		t.Fatalf("writeat got n=%d err=%v, want n=0 and an error", n, err)
+	}
+}

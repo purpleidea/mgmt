@@ -560,6 +560,9 @@ func (obj *File) WriteAt(b []byte, off int64) (n int, err error) {
 	if off < 0 {
 		return 0, ErrOutOfRange
 	}
+	if obj.append {
+		return 0, fmt.Errorf("file is opened in append mode")
+	}
 	cursor := obj.cursor
 	defer func() {
 		obj.cursor = cursor

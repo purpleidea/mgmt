@@ -504,3 +504,20 @@ func TestOpenFileWriteOnlyRejectsRead(t *testing.T) {
 		t.Fatalf("read got n=%d err=%v, want n=0 and an error", n, err)
 	}
 }
+
+func TestOpenFileReadOnlyCreateRejectsWrite(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.OpenFile("/file", os.O_RDONLY|os.O_CREATE, 0600)
+	if err != nil {
+		t.Fatalf("openfile failed: %+v", err)
+	}
+	if n, err := f.Write([]byte("z")); n != 0 || err == nil {
+		t.Fatalf("write got n=%d err=%v, want n=0 and an error", n, err)
+	}
+}

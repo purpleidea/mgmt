@@ -372,7 +372,7 @@ func (obj *File) Read(b []byte) (n int, err error) {
 
 	// TODO: can we optimize by reading just the length from etcd, and also
 	// by only downloading the data range we're interested in?
-	if len(b) > 0 && int(obj.cursor) == len(obj.data) {
+	if len(b) > 0 && int(obj.cursor) >= len(obj.data) {
 		return 0, io.EOF
 	}
 	if len(obj.data)-int(obj.cursor) >= len(b) {

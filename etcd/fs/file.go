@@ -69,6 +69,7 @@ type File struct {
 	dirCursor int64
 
 	readOnly  bool // is the file read-only?
+	append    bool // should writes always append?
 	closed    bool // is the file closed?
 	dataDirty bool // did the file content change since last successful push?
 }
@@ -243,6 +244,7 @@ func (obj *File) Close() error {
 	//obj.data = nil
 	obj.cursor = 0
 	obj.readOnly = false
+	obj.append = false
 
 	obj.closed = true
 	return nil
@@ -491,6 +493,9 @@ func (obj *File) Write(b []byte) (n int, err error) {
 	// download file contents into obj.data
 	if err := obj.cache(); err != nil {
 		return 0, err // TODO: -1 ?
+	}
+	if obj.append {
+		obj.cursor = int64(len(obj.data))
 	}
 
 	// calculate the write

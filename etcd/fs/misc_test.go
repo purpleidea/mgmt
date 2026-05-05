@@ -314,3 +314,36 @@ func TestOpenFileCreateExclFailsWhenFileExists(t *testing.T) {
 		t.Fatalf("openfile got err=%v, want exists error", err)
 	}
 }
+
+func TestOpenFileAppendWritesAtEndAfterSeek(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if err := afero.WriteFile(fs, "/file", []byte("abc"), 0600); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	f, err := fs.OpenFile("/file", os.O_RDWR|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fatalf("openfile failed: %+v", err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("seek failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("z")); err != nil {
+		t.Fatalf("append write failed: %+v", err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind failed: %+v", err)
+	}
+	got, err := afero.ReadAll(f)
+	if err != nil {
+		t.Fatalf("read failed: %+v", err)
+	}
+	if want := "abcz"; string(got) != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

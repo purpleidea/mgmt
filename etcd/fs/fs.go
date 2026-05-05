@@ -550,6 +550,7 @@ func (obj *Fs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, er
 		return nil, &os.PathError{Op: "open", Path: name, Err: ErrExist}
 	}
 	f.readOnly = (flag == os.O_RDONLY)
+	f.append = flag&os.O_APPEND > 0
 
 	if flag&os.O_APPEND > 0 {
 		if _, err := f.Seek(0, os.SEEK_END); err != nil {

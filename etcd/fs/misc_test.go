@@ -463,3 +463,23 @@ func TestWriteAtDoesNotChangeCursor(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestWriteAtRejectsNegativeOffset(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if n, err := f.WriteAt([]byte("z"), -1); n != 0 || err == nil {
+		t.Fatalf("writeat got n=%d err=%v, want n=0 and an error", n, err)
+	}
+}

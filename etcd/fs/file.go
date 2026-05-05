@@ -392,6 +392,9 @@ func (obj *File) Read(b []byte) (n int, err error) {
 // returns the number of bytes read and the error, if any. ReadAt always returns
 // a non-nil error when n < len(b). At end of file, that error is io.EOF.
 func (obj *File) ReadAt(b []byte, off int64) (n int, err error) {
+	if off < 0 {
+		return 0, ErrOutOfRange
+	}
 	cursor := obj.cursor
 	defer func() {
 		obj.cursor = cursor

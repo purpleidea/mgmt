@@ -406,3 +406,24 @@ func TestReadAtShortReadReturnsEOF(t *testing.T) {
 		t.Fatalf("readat got %q, want %q", buf[:n], "bc")
 	}
 }
+
+func TestReadAtRejectsNegativeOffset(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	buf := make([]byte, 1)
+	if n, err := f.ReadAt(buf, -1); n != 0 || err == nil {
+		t.Fatalf("readat got n=%d err=%v, want n=0 and an error", n, err)
+	}
+}

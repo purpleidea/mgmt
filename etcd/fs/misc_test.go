@@ -538,3 +538,20 @@ func TestRenameDirectoryIntoDescendantFails(t *testing.T) {
 		t.Fatalf("rename directory into descendant succeeded, want error")
 	}
 }
+
+func TestRenameRootFails(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	err := fs.Rename("/", "/root")
+	if err == nil {
+		t.Fatalf("rename root succeeded, want error")
+	}
+	if _, ok := err.(*os.LinkError); !ok {
+		t.Fatalf("rename root got %T %v, want *os.LinkError", err, err)
+	}
+}

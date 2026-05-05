@@ -734,6 +734,9 @@ func (obj *Fs) Rename(oldname, newname string) error {
 	// remove possible trailing slashes
 	srcCleanPath := path.Clean(oldname)
 	dstCleanPath := path.Clean(newname)
+	if srcCleanPath == "/" {
+		return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: syscall.EINVAL}
+	}
 
 	src, err := obj.find(srcCleanPath) // get the file
 	if err != nil {

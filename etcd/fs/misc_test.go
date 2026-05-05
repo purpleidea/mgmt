@@ -427,3 +427,39 @@ func TestReadAtRejectsNegativeOffset(t *testing.T) {
 		t.Fatalf("readat got n=%d err=%v, want n=0 and an error", n, err)
 	}
 }
+
+func TestWriteAtDoesNotChangeCursor(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abcdef")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if _, err := f.Seek(1, io.SeekStart); err != nil {
+		t.Fatalf("seek failed: %+v", err)
+	}
+	if n, err := f.WriteAt([]byte("XY"), 4); n != 2 || err != nil {
+		t.Fatalf("writeat got n=%d err=%v, want n=2 err=nil", n, err)
+	}
+	if _, err := f.Write([]byte("z")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind failed: %+v", err)
+	}
+	got, err := afero.ReadAll(f)
+	if err != nil {
+		t.Fatalf("read failed: %+v", err)
+	}
+	if want := "azcdXY"; string(got) != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

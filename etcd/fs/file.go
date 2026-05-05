@@ -549,6 +549,10 @@ func (obj *File) Write(b []byte) (n int, err error) {
 
 // WriteAt writes into the given file at a certain offset.
 func (obj *File) WriteAt(b []byte, off int64) (n int, err error) {
+	cursor := obj.cursor
+	defer func() {
+		obj.cursor = cursor
+	}()
 	obj.cursor = off
 	return obj.Write(b)
 }

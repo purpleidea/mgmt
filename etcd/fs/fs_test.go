@@ -447,3 +447,87 @@ func TestEtcdCopyFs0(t *testing.T) {
 		}
 	}
 }
+
+// TestFsDeferMetadata writes a small tree of files with DeferMetadata set,
+// calls Flush at the end, and verifies a freshly-mounted Fs sees everything.
+// Without Flush the same tree must be invisible to a fresh mount, since the
+// superblock write is held back until Flush is called.
+func TestFsDeferMetadata(t *testing.T) {
+	stopEtcd, err := runEtcd()
+	if err != nil {
+		t.Errorf("setup error: %+v", err)
+	}
+	defer stopEtcd() // ignore the error
+
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: etcd: fs: "+format, v...)
+	}
+	etcdClient := client.NewClientFromSeedsNamespace(
+		[]string{"localhost:2379"}, // endpoints
+		ns,
+	)
+	if err := etcdClient.Init(); err != nil {
+		t.Errorf("client connection error: %+v", err)
+		return
+	}
+	defer etcdClient.Close()
+
+	etcdFs := &etcdfs.Fs{
+		Client:        etcdClient,
+		Metadata:      superblock,
+		DataPrefix:    etcdfs.DefaultDataPrefix,
+		DeferMetadata: true,
+		Logf:          logf,
+	}
+
+	if err := etcdFs.MkdirAll("/a/b/c", umask); err != nil {
+		t.Errorf("mkdirall error: %+v", err)
+		return
+	}
+	files := map[string]string{
+		"/a/x":     "alpha\n",
+		"/a/b/y":   "beta\n",
+		"/a/b/c/z": "gamma\n",
+	}
+	for p, contents := range files {
+		if err := etcdFs.WriteFile(p, []byte(contents), umask); err != nil {
+			t.Errorf("writefile %s error: %+v", p, err)
+			return
+		}
+	}
+
+	// Before Flush: a fresh mount must not see anything (the superblock
+	// has never been written for this metadata key).
+	pre := &etcdfs.Fs{
+		Client:     etcdClient,
+		Metadata:   superblock,
+		DataPrefix: etcdfs.DefaultDataPrefix,
+		Logf:       logf,
+	}
+	if _, err := pre.Stat("/a"); err == nil {
+		t.Errorf("pre-flush: /a should not yet be visible")
+	}
+
+	if err := etcdFs.Flush(); err != nil {
+		t.Errorf("flush error: %+v", err)
+		return
+	}
+
+	// After Flush: a fresh mount must see the whole tree.
+	post := &etcdfs.Fs{
+		Client:     etcdClient,
+		Metadata:   superblock,
+		DataPrefix: etcdfs.DefaultDataPrefix,
+		Logf:       logf,
+	}
+	for p, want := range files {
+		got, err := post.ReadFile(p)
+		if err != nil {
+			t.Errorf("post-flush readfile %s: %+v", p, err)
+			continue
+		}
+		if string(got) != want {
+			t.Errorf("post-flush readfile %s: got %q, want %q", p, string(got), want)
+		}
+	}
+}

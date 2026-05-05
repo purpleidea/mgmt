@@ -1,0 +1,142 @@
+// Mgmt
+// Copyright (C) James Shubin and the project contributors
+// Written by James Shubin <james@shubin.ca> and the project contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
+// Additional permission under GNU GPL version 3 section 7
+//
+// If you modify this program, or any covered work, by linking or combining it
+// with embedded mcl code and modules (and that the embedded mcl code and
+// modules which link with this program, contain a copy of their source code in
+// the authoritative form) containing parts covered by the terms of any other
+// license, the licensors of this program grant you additional permission to
+// convey the resulting work. Furthermore, the licensors of this program grant
+// the original author, James Shubin, additional permission to update this
+// additional permission if he deems it necessary to achieve the goals of this
+// additional permission.
+
+package fs
+
+import (
+	"context"
+	"testing"
+
+	"github.com/purpleidea/mgmt/etcd/interfaces"
+
+	"github.com/spf13/afero"
+	etcd "go.etcd.io/etcd/client/v3"
+)
+
+type countingClient struct {
+	gets int
+	sets int
+	txns int
+}
+
+func (obj *countingClient) GetClient() *etcd.Client { return nil }
+
+func (obj *countingClient) GetNamespace() string { return "" }
+
+func (obj *countingClient) Set(ctx context.Context, key, value string, opts ...etcd.OpOption) error {
+	obj.sets++
+	return nil
+}
+
+func (obj *countingClient) Get(ctx context.Context, path string, opts ...etcd.OpOption) (map[string]string, error) {
+	obj.gets++
+	return map[string]string{}, nil
+}
+
+func (obj *countingClient) Del(ctx context.Context, path string, opts ...etcd.OpOption) (int64, error) {
+	return 0, nil
+}
+
+func (obj *countingClient) Txn(ctx context.Context, ifCmps []etcd.Cmp, thenOps, elseOps []etcd.Op) (*etcd.TxnResponse, error) {
+	obj.txns++
+	return &etcd.TxnResponse{Succeeded: true}, nil
+}
+
+func (obj *countingClient) Watcher(ctx context.Context, path string, opts ...etcd.OpOption) (chan error, error) {
+	return nil, nil
+}
+
+func (obj *countingClient) ComplexWatcher(ctx context.Context, path string, opts ...etcd.OpOption) (*interfaces.WatcherInfo, error) {
+	return nil, nil
+}
+
+func (obj *countingClient) WatchMembers(context.Context) (<-chan *interfaces.MembersResult, error) {
+	return nil, nil
+}
+
+func TestDeferredMetadataFlush(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:        client,
+		Metadata:      "/metadata",
+		DataPrefix:    DefaultDataPrefix,
+		DeferMetadata: true,
+	}
+
+	if err := fs.Mkdir("/tmp", 0700); err != nil {
+		t.Fatalf("mkdir failed: %+v", err)
+	}
+	if client.sets != 0 {
+		t.Fatalf("expected deferred metadata writes, got %d", client.sets)
+	}
+	if client.txns != 0 {
+		t.Fatalf("expected directory creation to avoid data txns, got %d", client.txns)
+	}
+
+	if err := fs.Flush(); err != nil {
+		t.Fatalf("flush failed: %+v", err)
+	}
+	if client.sets != 1 {
+		t.Fatalf("expected one metadata write after flush, got %d", client.sets)
+	}
+
+	if err := fs.Flush(); err != nil {
+		t.Fatalf("second flush failed: %+v", err)
+	}
+	if client.sets != 1 {
+		t.Fatalf("expected clean flush to avoid writes, got %d", client.sets)
+	}
+}
+
+func TestDeferredMetadataWriteFile(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:        client,
+		Metadata:      "/metadata",
+		DataPrefix:    DefaultDataPrefix,
+		DeferMetadata: true,
+	}
+
+	if err := afero.WriteFile(fs, "/file", []byte("hello"), 0600); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if client.sets != 0 {
+		t.Fatalf("expected deferred metadata writes, got %d", client.sets)
+	}
+	if client.txns != 2 {
+		t.Fatalf("expected empty and final content data txns only, got %d", client.txns)
+	}
+
+	if err := fs.Flush(); err != nil {
+		t.Fatalf("flush failed: %+v", err)
+	}
+	if client.sets != 1 {
+		t.Fatalf("expected one metadata write after flush, got %d", client.sets)
+	}
+}

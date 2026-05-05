@@ -265,6 +265,11 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		Metadata:   lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
 		DataPrefix: lib.StoragePrefix,
 
+		// Defer the superblock write so the gapi copy phase doesn't
+		// re-upload the entire metadata tree once per file. We Flush()
+		// it ourselves once below, before the deploy is published.
+		DeferMetadata: true,
+
 		Debug: data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			Logf("fs: "+format, v...)
@@ -293,6 +298,13 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 	if deploy == nil { // not used
 		return false, fmt.Errorf("not enough information specified")
+	}
+
+	// Flush the deferred superblock so readers see the new tree before the
+	// deploy record addition below tries to look for it. Required when we
+	// use DeferMetadata.
+	if err := etcdFs.Flush(); err != nil {
+		return false, errwrap.Wrapf(err, "could not flush etcd fs metadata")
 	}
 
 	// redundant

@@ -118,8 +118,17 @@ type Fs struct {
 	Debug bool
 	Logf  func(format string, v ...interface{})
 
-	sb      *superBlock
-	mounted bool
+	// DeferMetadata, when true, makes sync() of the superblock a no-op
+	// that simply marks the metadata as dirty. Callers who perform many
+	// sequential mutations (e.g. a deploy that copyies a tree of files) can
+	// set this and call Flush() once at the end to collapse what would
+	// otherwise be one full superblock upload per operation into a
+	// single etcd round-trip.
+	DeferMetadata bool
+
+	sb        *superBlock
+	mounted   bool
+	metaDirty bool // superblock changed since last write to etcd
 }
 
 // superBlock is the metadata structure of everything stored outside of the data
@@ -208,16 +217,40 @@ func (obj *Fs) hash(input []byte) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// sync overwrites the superblock with whatever version we have stored.
+// sync overwrites the superblock with whatever version we have stored, unless
+// DeferMetadata is set. If that's true, the actual etcd write is deferred and
+// the caller is expected to call Flush() at the end of all the mutations.
 func (obj *Fs) sync() error {
+	if obj.DeferMetadata {
+		obj.metaDirty = true
+		return nil
+	}
+	return obj.writeSuperblock()
+}
+
+// writeSuperblock serializes and pushes the in-memory superblock to etcd.
+func (obj *Fs) writeSuperblock() error {
 	b := bytes.Buffer{}
 	e := gob.NewEncoder(&b)
-	err := e.Encode(&obj.sb) // pass with &
-	if err != nil {
+	if err := e.Encode(&obj.sb); err != nil { // pass with &
 		return errwrap.Wrapf(err, "gob failed to encode")
 	}
 	//base64.StdEncoding.EncodeToString(b.Bytes())
-	return obj.set(obj.Metadata, b.Bytes())
+	if err := obj.set(obj.Metadata, b.Bytes()); err != nil {
+		return err
+	}
+	obj.metaDirty = false
+	return nil
+}
+
+// Flush writes any pending metadata changes to etcd. It is meant to be called
+// at the end of a batch of mutations made with DeferMetadata set. If no
+// metadata is dirty, Flush is a no-op.
+func (obj *Fs) Flush() error {
+	if !obj.mounted || !obj.metaDirty {
+		return nil
+	}
+	return obj.writeSuperblock()
 }
 
 // mount downloads the initial cache of metadata, including the *file tree.
@@ -409,8 +442,7 @@ func (obj *Fs) Mkdir(name string, perm os.FileMode) error {
 	f := &File{
 		fs:   obj,
 		Path: dirPath,
-		Mode: os.ModeDir,
-		// TODO: add perm to struct or let chmod below do it
+		Mode: os.ModeDir | perm, // add perm instead of Chmod below!
 	}
 
 	node, err := obj.find(parentPath)
@@ -434,12 +466,8 @@ func (obj *Fs) Mkdir(name string, perm os.FileMode) error {
 	// add to parent
 	node.Children = append(node.Children, f)
 
-	// push new file up if not on server, and then push up the metadata
-	if err := f.Sync(); err != nil {
-		return err
-	}
-
-	return obj.Chmod(name, perm)
+	return f.Sync()
+	//return obj.Chmod(name, perm) // not needed anymore
 }
 
 // MkdirAll creates a directory named path, along with any necessary parents,
@@ -820,7 +848,8 @@ func (obj *Fs) Chmod(name string, mode os.FileMode) error {
 	}
 
 	f.Mode = f.Mode | mode // XXX: what is the correct way to do this?
-	return f.Sync()        // push up the changed metadata
+	// XXX: f.Sync() instead?
+	return obj.sync() // push up the changed metadata
 }
 
 // Chtimes changes the access and modification times of the named file, similar
@@ -844,7 +873,8 @@ func (obj *Fs) Chtimes(name string, atime time.Time, mtime time.Time) error {
 
 	f.ModTime = mtime
 	// TODO: add atime
-	return f.Sync() // push up the changed metadata
+	// XXX: f.Sync() instead?
+	return obj.sync() // push up the changed metadata
 }
 
 // PathSplit splits a path into an array of tokens excluding any trailing empty

@@ -68,8 +68,9 @@ type File struct {
 	cursor    int64
 	dirCursor int64
 
-	readOnly bool // is the file read-only?
-	closed   bool // is file closed?
+	readOnly  bool // is the file read-only?
+	closed    bool // is the file closed?
+	dataDirty bool // did the file content change since last successful push?
 }
 
 // path returns the expected path to the actual file in etcd.
@@ -107,6 +108,7 @@ func (obj *File) cache() error {
 		return fmt.Errorf("could not find data") // programming error?
 	}
 	obj.data = data // save
+	obj.dataDirty = false
 	return nil
 }
 
@@ -163,10 +165,11 @@ func fileCreate(fs *Fs, name string) (*File, error) {
 	}
 
 	f = &File{
-		fs:   fs,
-		Path: filePath, // the relative path chunk (not incl. dir name)
-		Hash: h,
-		data: data,
+		fs:        fs,
+		Path:      filePath, // the relative path chunk (not incl. dir name)
+		Hash:      h,
+		data:      data,
+		dataDirty: true, // empty blob may not yet exist on the server
 	}
 
 	// add to parent
@@ -213,14 +216,15 @@ func fileOpen(fs *Fs, name string) (*File, error) {
 	return node, nil
 }
 
-// Close closes the file handle. This will try and run Sync automatically.
+// Close closes the file handle. This will try and run Sync automatically for
+// files that may have been mutated; read-only handles haven't touched either
+// data or metadata, so Sync is skipped entirely on close.
 func (obj *File) Close() error {
 	if !obj.readOnly {
 		obj.ModTime = time.Now()
-	}
-
-	if err := obj.Sync(); err != nil {
-		return err
+		if err := obj.Sync(); err != nil {
+			return err
+		}
 	}
 
 	// FIXME: there is a big implementation mistake between the metadata
@@ -260,8 +264,11 @@ func (obj *File) Stat() (os.FileInfo, error) {
 	}, nil
 }
 
-// Sync flushes the file contents to the server and calls the filesystem
-// metadata sync as well.
+// Sync flushes the file contents (if they have changed) to the server and calls
+// the filesystem metadata sync as well. Directories carry no payload and skip
+// the data txn unconditionally. Files whose content hasn't changed since the
+// last successful push (chmod-only, close-after-read, no-op truncate, etc) also
+// skip the data txn since only the metadata is touched.
 // FIXME: instead of a txn, run a get and then a put in two separate stages. if
 // the get already found the data up there, then we don't need to push it all in
 // the put phase. with the txn it is always all sent up even if the put is never
@@ -271,6 +278,11 @@ func (obj *File) Stat() (os.FileInfo, error) {
 func (obj *File) Sync() error {
 	if obj.closed {
 		return ErrFileClosed
+	}
+
+	if obj.Mode.IsDir() || !obj.dataDirty {
+		obj.dataDirty = false // redundant
+		return obj.fs.sync()  // push metadata up to server (may be deferred)
 	}
 
 	p := obj.path() // store file data at this path in etcd
@@ -291,10 +303,8 @@ func (obj *File) Sync() error {
 		}
 	}
 
-	if err := obj.fs.sync(); err != nil { // push metadata up to server
-		return err
-	}
-	return nil
+	obj.dataDirty = false
+	return obj.fs.sync() // push metadata up to server (may be deferred)
 }
 
 // Truncate trims the file to the requested size. Since our file system can only
@@ -318,6 +328,11 @@ func (obj *File) Truncate(size int64) error {
 		}
 	}
 
+	if size == int64(len(obj.data)) {
+		// no-op: nothing changed, skip the metadata churn entirely
+		return nil
+	}
+
 	if size > int64(len(obj.data)) {
 		diff := size - int64(len(obj.data))
 		obj.data = append(obj.data, bytes.Repeat([]byte{00}, int(diff))...)
@@ -325,11 +340,14 @@ func (obj *File) Truncate(size int64) error {
 		obj.data = obj.data[0:size]
 	}
 
+	oldHash := obj.Hash
 	h, err := obj.fs.hash(obj.data) // update hash
 	if err != nil {
 		return err
 	}
 	obj.Hash = h
+	obj.dataDirty = obj.dataDirty || h != oldHash
+
 	obj.ModTime = time.Now()
 
 	// this pushes the new data and metadata up to etcd
@@ -486,11 +504,14 @@ func (obj *File) Write(b []byte) (n int, err error) {
 		obj.data = append(obj.data, tail...)
 	}
 
+	oldHash := obj.Hash
 	h, err := obj.fs.hash(obj.data) // update hash
 	if err != nil {
 		return 0, err // TODO: -1 ?
 	}
 	obj.Hash = h
+	obj.dataDirty = obj.dataDirty || h != oldHash
+
 	obj.ModTime = time.Now()
 
 	// this pushes the new data and metadata up to etcd

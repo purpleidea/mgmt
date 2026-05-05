@@ -236,3 +236,33 @@ func TestReadPastEndReturnsEOF(t *testing.T) {
 		t.Fatalf("read got n=%d err=%v, want n=0 err=%v", n, err, io.EOF)
 	}
 }
+
+func TestSeekRejectsNegativeOffset(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if _, err := f.Seek(1, io.SeekStart); err != nil {
+		t.Fatalf("initial seek failed: %+v", err)
+	}
+	if off, err := f.Seek(-2, io.SeekCurrent); err == nil {
+		t.Fatalf("negative seek got offset=%d err=nil, want error", off)
+	}
+	off, err := f.Seek(0, io.SeekCurrent)
+	if err != nil {
+		t.Fatalf("current seek failed: %+v", err)
+	}
+	if off != 1 {
+		t.Fatalf("offset changed after failed seek: got %d, want 1", off)
+	}
+}

@@ -457,18 +457,25 @@ func (obj *File) Seek(offset int64, whence int) (int64, error) {
 		return 0, ErrFileClosed
 	}
 
+	var cursor int64
 	switch whence {
 	case io.SeekStart: // 0
-		obj.cursor = offset
+		cursor = offset
 	case io.SeekCurrent: // 1
-		obj.cursor += offset
+		cursor = obj.cursor + offset
 	case io.SeekEnd: // 2
 		// download file contents into obj.data
 		if err := obj.cache(); err != nil {
 			return 0, err // TODO: -1 ?
 		}
-		obj.cursor = int64(len(obj.data)) + offset
+		cursor = int64(len(obj.data)) + offset
+	default:
+		return 0, fmt.Errorf("invalid whence")
 	}
+	if cursor < 0 {
+		return 0, ErrOutOfRange
+	}
+	obj.cursor = cursor
 	return obj.cursor, nil
 }
 

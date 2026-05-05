@@ -497,7 +497,8 @@ func (obj *File) Write(b []byte) (n int, err error) {
 	}
 
 	if diff > 0 {
-		obj.data = append(bytes.Repeat([]byte{00}, int(diff)), b...)
+		obj.data = append(obj.data, bytes.Repeat([]byte{00}, int(diff))...)
+		obj.data = append(obj.data, b...)
 		obj.data = append(obj.data, tail...)
 	} else {
 		obj.data = append(obj.data[:cur], b...)

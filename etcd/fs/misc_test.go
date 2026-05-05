@@ -31,6 +31,7 @@ package fs
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/purpleidea/mgmt/etcd/interfaces"
@@ -138,5 +139,39 @@ func TestDeferredMetadataWriteFile(t *testing.T) {
 	}
 	if client.sets != 1 {
 		t.Fatalf("expected one metadata write after flush, got %d", client.sets)
+	}
+}
+
+func TestWritePastEndPreservesExistingData(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abc")); err != nil {
+		t.Fatalf("initial write failed: %+v", err)
+	}
+	if _, err := f.Seek(5, io.SeekStart); err != nil {
+		t.Fatalf("seek failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("z")); err != nil {
+		t.Fatalf("sparse write failed: %+v", err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind failed: %+v", err)
+	}
+	got, err := afero.ReadAll(f)
+	if err != nil {
+		t.Fatalf("read failed: %+v", err)
+	}
+	want := []byte{'a', 'b', 'c', 0, 0, 'z'}
+	if string(got) != string(want) {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }

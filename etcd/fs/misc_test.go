@@ -347,3 +347,37 @@ func TestOpenFileAppendWritesAtEndAfterSeek(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestReadAtDoesNotChangeCursor(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abcdef")); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	if _, err := f.Seek(1, io.SeekStart); err != nil {
+		t.Fatalf("seek failed: %+v", err)
+	}
+	buf := make([]byte, 2)
+	if n, err := f.ReadAt(buf, 4); n != 2 || err != nil {
+		t.Fatalf("readat got n=%d err=%v, want n=2 err=nil", n, err)
+	}
+	if string(buf) != "ef" {
+		t.Fatalf("readat got %q, want %q", buf, "ef")
+	}
+	buf = make([]byte, 2)
+	if n, err := f.Read(buf); n != 2 || err != nil {
+		t.Fatalf("read got n=%d err=%v, want n=2 err=nil", n, err)
+	}
+	if string(buf) != "bc" {
+		t.Fatalf("read got %q, want %q", buf, "bc")
+	}
+}

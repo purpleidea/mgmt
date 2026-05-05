@@ -175,3 +175,39 @@ func TestWritePastEndPreservesExistingData(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+func TestWriteLeavesCursorAfterWrittenBytes(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	f, err := fs.Create("/file")
+	if err != nil {
+		t.Fatalf("create failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("abcdef")); err != nil {
+		t.Fatalf("initial write failed: %+v", err)
+	}
+	if _, err := f.Seek(2, io.SeekStart); err != nil {
+		t.Fatalf("seek failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("XY")); err != nil {
+		t.Fatalf("middle write failed: %+v", err)
+	}
+	if _, err := f.Write([]byte("Z")); err != nil {
+		t.Fatalf("follow-up write failed: %+v", err)
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewind failed: %+v", err)
+	}
+	got, err := afero.ReadAll(f)
+	if err != nil {
+		t.Fatalf("read failed: %+v", err)
+	}
+	if want := "abXYZf"; string(got) != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

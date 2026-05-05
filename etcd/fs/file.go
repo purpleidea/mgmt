@@ -520,7 +520,7 @@ func (obj *File) Write(b []byte) (n int, err error) {
 		return 0, err // TODO: -1 ?
 	}
 
-	obj.cursor = int64(len(obj.data))
+	obj.cursor = cur + int64(n)
 	return
 }
 

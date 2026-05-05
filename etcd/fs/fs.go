@@ -83,9 +83,10 @@ var (
 	// ErrNotExist is returned when we can't find the requested path.
 	ErrNotExist = os.ErrNotExist
 
-	ErrFileClosed   = errors.New("file is closed")
-	ErrFileReadOnly = errors.New("file handle is read only")
-	ErrOutOfRange   = errors.New("out of range")
+	ErrFileClosed    = errors.New("file is closed")
+	ErrFileReadOnly  = errors.New("file handle is read only")
+	ErrFileWriteOnly = errors.New("file handle is write only")
+	ErrOutOfRange    = errors.New("out of range")
 )
 
 // Fs is a specialized afero.Fs implementation for etcd. It implements a small
@@ -550,6 +551,7 @@ func (obj *Fs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, er
 		return nil, &os.PathError{Op: "open", Path: name, Err: ErrExist}
 	}
 	f.readOnly = (flag == os.O_RDONLY)
+	f.writeOnly = flag&(os.O_WRONLY|os.O_RDWR) == os.O_WRONLY
 	f.append = flag&os.O_APPEND > 0
 
 	if flag&os.O_APPEND > 0 {

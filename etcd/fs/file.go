@@ -69,6 +69,7 @@ type File struct {
 	dirCursor int64
 
 	readOnly  bool // is the file read-only?
+	writeOnly bool // is the file write-only?
 	append    bool // should writes always append?
 	closed    bool // is the file closed?
 	dataDirty bool // did the file content change since last successful push?
@@ -244,6 +245,7 @@ func (obj *File) Close() error {
 	//obj.data = nil
 	obj.cursor = 0
 	obj.readOnly = false
+	obj.writeOnly = false
 	obj.append = false
 
 	obj.closed = true
@@ -362,6 +364,9 @@ func (obj *File) Truncate(size int64) error {
 func (obj *File) Read(b []byte) (n int, err error) {
 	if obj.closed {
 		return 0, ErrFileClosed
+	}
+	if obj.writeOnly {
+		return 0, &os.PathError{Op: "read", Path: obj.Path, Err: ErrFileWriteOnly}
 	}
 	if obj.Mode.IsDir() {
 		return 0, fmt.Errorf("file is a directory")

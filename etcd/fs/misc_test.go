@@ -483,3 +483,24 @@ func TestWriteAtRejectsNegativeOffset(t *testing.T) {
 		t.Fatalf("writeat got n=%d err=%v, want n=0 and an error", n, err)
 	}
 }
+
+func TestOpenFileWriteOnlyRejectsRead(t *testing.T) {
+	client := &countingClient{}
+	fs := &Fs{
+		Client:     client,
+		Metadata:   "/metadata",
+		DataPrefix: DefaultDataPrefix,
+	}
+
+	if err := afero.WriteFile(fs, "/file", []byte("abc"), 0600); err != nil {
+		t.Fatalf("write failed: %+v", err)
+	}
+	f, err := fs.OpenFile("/file", os.O_WRONLY, 0600)
+	if err != nil {
+		t.Fatalf("openfile failed: %+v", err)
+	}
+	buf := make([]byte, 1)
+	if n, err := f.Read(buf); n != 0 || err == nil {
+		t.Fatalf("read got n=%d err=%v, want n=0 and an error", n, err)
+	}
+}

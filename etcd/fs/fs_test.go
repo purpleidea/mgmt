@@ -88,7 +88,7 @@ func runEtcd() (func() error, error) {
 func TestFs1(t *testing.T) {
 	stopEtcd, err := runEtcd()
 	if err != nil {
-		t.Errorf("setup error: %+v", err)
+		t.Fatalf("setup error: %+v", err)
 	}
 	defer stopEtcd() // ignore the error
 
@@ -208,7 +208,7 @@ func TestFs1(t *testing.T) {
 func TestFs2(t *testing.T) {
 	stopEtcd, err := runEtcd()
 	if err != nil {
-		t.Errorf("setup error: %+v", err)
+		t.Fatalf("setup error: %+v", err)
 	}
 	defer stopEtcd() // ignore the error
 
@@ -267,7 +267,7 @@ func TestFs2(t *testing.T) {
 func TestFs3(t *testing.T) {
 	stopEtcd, err := runEtcd()
 	if err != nil {
-		t.Errorf("setup error: %+v", err)
+		t.Fatalf("setup error: %+v", err)
 	}
 	defer stopEtcd() // ignore the error
 
@@ -397,8 +397,7 @@ func TestEtcdCopyFs0(t *testing.T) {
 	for _, tt := range tests {
 		stopEtcd, err := runEtcd()
 		if err != nil {
-			t.Errorf("setup error: %+v", err)
-			return
+			t.Fatalf("setup error: %+v", err)
 		}
 		defer stopEtcd() // ignore the error
 
@@ -455,7 +454,7 @@ func TestEtcdCopyFs0(t *testing.T) {
 func TestFsDeferMetadata(t *testing.T) {
 	stopEtcd, err := runEtcd()
 	if err != nil {
-		t.Errorf("setup error: %+v", err)
+		t.Fatalf("setup error: %+v", err)
 	}
 	defer stopEtcd() // ignore the error
 

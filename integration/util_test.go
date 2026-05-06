@@ -55,6 +55,12 @@ func TestBinaryPath(t *testing.T) {
 	_ = fi
 }
 
+func TestBinaryPathMissing(t *testing.T) {
+	if p, err := binaryPath(t.TempDir(), binaryName); err == nil {
+		t.Errorf("expected missing binary error, got path: %s", p)
+	}
+}
+
 func TestParsePort(t *testing.T) {
 	if port, err := ParsePort("http://127.0.0.1:2379"); err != nil {
 		t.Errorf("could not determine port: %+v", err)

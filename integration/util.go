@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"path"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -56,7 +56,25 @@ func BinaryPath() (string, error) {
 	dir := filepath.Dir(file) // dir that this file is contained in
 	root := filepath.Dir(dir) // we're in the parent dir to that
 
-	return path.Join(root, binaryName), nil
+	return binaryPath(root, binaryName)
+}
+
+func binaryPath(root, name string) (string, error) {
+	p := filepath.Join(root, name)
+	fi, err := os.Stat(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("mgmt binary is not built at `%s`; run `make build`", p)
+		}
+		return "", errwrap.Wrapf(err, "could not stat binary path `%s`", p)
+	}
+	if fi.IsDir() {
+		return "", fmt.Errorf("binary path `%s` is a directory", p)
+	}
+	if fi.Mode()&0111 == 0 {
+		return "", fmt.Errorf("binary path `%s` is not executable", p)
+	}
+	return p, nil
 }
 
 // ParsePort parses a URL and returns the port that was found.

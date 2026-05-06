@@ -260,6 +260,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	// XXX: Get this from the World API? (Which might need improving!)
 	etcdFs := &etcdfs.Fs{
+		Ctx:    ctx, // XXX: adding it per-operation might be better
 		Client: client,
 		// TODO: using a uuid is meant as a temporary measure, i hate them
 		Metadata:   lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),

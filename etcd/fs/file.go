@@ -103,7 +103,7 @@ func (obj *File) cache() error {
 		return err
 	}
 	if result == nil || len(result) == 0 { // nothing found
-		return err
+		return fmt.Errorf("got empty data")
 	}
 	data, exists := result[p]
 	if !exists {

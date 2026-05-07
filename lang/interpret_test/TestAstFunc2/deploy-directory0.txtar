@@ -1,0 +1,20 @@
+-- metadata.yaml --
+#files: "files/"	# these are some extra files we can use (is the default)
+-- main.mcl --
+import "deploy"
+import "os"
+import "strings"
+
+$dir = deploy.directory("/files/foo/")
+$a = strings.trim_space(os.readfile($dir + "a"))
+$b = strings.trim_space(os.readfile($dir + "nested/b"))
+
+test [$a,] {}
+test [$b,] {}
+-- files/foo/a --
+This is file a.
+-- files/foo/nested/b --
+This is nested file b.
+-- OUTPUT --
+Vertex: test[This is file a.]
+Vertex: test[This is nested file b.]

@@ -1,0 +1,7 @@
+import "deploy"
+
+file "/tmp/foo/" {
+	state => "exists",
+	source => deploy.directory("/files/foo/"),
+	recurse => true, # for a source dir
+}

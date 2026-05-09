@@ -55,6 +55,14 @@ jobs:
             go/src/github.com/purpleidea/mgmt/go.sum
             go/src/github.com/purpleidea/mgmt/examples/lib/go.sum
 
+      - name: Restore golang tool cache
+        uses: actions/cache@v4
+        with:
+          path: go/bin
+          key: ${{ runner.os }}-golang-${{ matrix.golang_version }}-tools-${{ hashFiles('go/src/github.com/purpleidea/mgmt/misc/make-deps.sh') }}
+          restore-keys: |
+            ${{ runner.os }}-golang-${{ matrix.golang_version }}-tools-
+
       # Install & configure ruby, fixes gem permissions error
       - name: Install Ruby
         uses: ruby/setup-ruby@v1

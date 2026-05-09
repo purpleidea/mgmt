@@ -63,24 +63,27 @@ var (
 )
 
 func main() {
-	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "usage: ./%s <file>\n", os.Args[0])
+	if len(os.Args) < 2 {
+		fmt.Fprintf(os.Stderr, "usage: ./%s <file> [file...]\n", os.Args[0])
 		os.Exit(2)
 		return
 	}
 
-	filename := os.Args[1]
-	if filename == "" {
-		fmt.Fprintf(os.Stderr, "filename is empty\n")
-		os.Exit(2)
-		return
+	exit := 0
+	for _, filename := range os.Args[1:] {
+		if filename == "" {
+			fmt.Fprintf(os.Stderr, "filename is empty\n")
+			os.Exit(2)
+			return
+		}
+
+		if err := Check(filename); err != nil {
+			fmt.Fprintf(os.Stderr, "failed with: %+v\n", err)
+			exit = 1
+		}
 	}
 
-	if err := Check(filename); err != nil {
-		fmt.Fprintf(os.Stderr, "failed with: %+v\n", err)
-		os.Exit(1)
-		return
-	}
+	os.Exit(exit)
 }
 
 // Check returns the comment checker on an individual filename.

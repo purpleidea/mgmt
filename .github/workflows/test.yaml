@@ -50,6 +50,10 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.golang_version }}
+          cache: true
+          cache-dependency-path: |
+            go/src/github.com/purpleidea/mgmt/go.sum
+            go/src/github.com/purpleidea/mgmt/examples/lib/go.sum
 
       # Install & configure ruby, fixes gem permissions error
       - name: Install Ruby

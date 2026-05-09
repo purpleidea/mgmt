@@ -70,7 +70,7 @@ func (obj *Instance) SimpleDeployLang(code string) error {
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), longTimeout*time.Second)
 		defer cancel()
-		if err := obj.Wait(ctx); err != nil { // wait to get a converged signal
+		if err := obj.WaitForConvergedAfterActivity(ctx); err != nil { // wait to get a converged signal
 			return errwrap.Wrapf(err, "mgmt wait failed") // timeout expired
 		}
 	}
@@ -126,7 +126,7 @@ func (obj *Cluster) SimpleDeployLang(code string) error {
 	{
 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(longTimeout*len(obj.Hostnames))*time.Second)
 		defer cancel()
-		if err := obj.Wait(ctx); err != nil { // wait to get a converged signal
+		if err := obj.WaitForConvergedAfterActivity(ctx); err != nil { // wait to get a converged signal
 			return errwrap.Wrapf(err, "mgmt post-deploy wait failed") // timeout expired
 		}
 	}

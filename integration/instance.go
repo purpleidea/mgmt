@@ -346,6 +346,17 @@ func (obj *Instance) Quit(ctx context.Context) error {
 // the `--converged-status-file` option which can be used to track the varying
 // convergence status.
 func (obj *Instance) Wait(ctx context.Context) error {
+	return obj.wait(ctx, false)
+}
+
+// WaitForConvergedAfterActivity waits until the first converged state we hit
+// after seeing activity. This is useful after deploys where an older true line
+// from the startup graph must not satisfy the wait.
+func (obj *Instance) WaitForConvergedAfterActivity(ctx context.Context) error {
+	return obj.wait(ctx, true)
+}
+
+func (obj *Instance) wait(ctx context.Context, requireActivity bool) error {
 	//if obj.cmd == nil { // TODO: should we include this?
 	//	return fmt.Errorf("no process is running")
 	//}
@@ -362,6 +373,7 @@ func (obj *Instance) Wait(ctx context.Context) error {
 	defer recWatcher.Close()
 	startup := make(chan struct{})
 	close(startup)
+	activity := !requireActivity
 	for {
 		select {
 		// FIXME: instead of sending one event here, the recwatch
@@ -406,8 +418,12 @@ func (obj *Instance) Wait(ctx context.Context) error {
 		for i := obj.convergedStatusIndex; i < len(lines); i++ {
 			obj.convergedStatusIndex = i + 1 // new max
 			line := lines[i]
+			if line == "false" { // activity!
+				activity = true
+				continue
+			}
 			if line == "true" { // converged!
-				converged = true
+				converged = activity
 			}
 		}
 		if converged {

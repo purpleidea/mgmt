@@ -131,18 +131,22 @@ function reflowed-comments() {
 	./test/reflowed-comments "$1"
 }
 
-# run go vet on a per-package basis
+# run go vet on the package list in one invocation
 base=$(go list .)
+packages=()
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
 
-	if [ "$pkg" = "github.com/purpleidea/mgmt/engine/resources/http_server_ui" ]; then
+	if [ "$pkg" = "${base}/engine/resources/http_server_ui" ]; then
 		continue # skip this special main package
 	fi
 
-	echo -e "\tgo vet: $pkg"
-	run-test go vet -source "$pkg" || fail_test "go vet -source did not pass pkg"
+	packages+=("$pkg")
 
 done
+if [ "${#packages[@]}" -gt 0 ]; then
+	echo -e "\tgo vet: ${#packages[@]} packages"
+	go vet -source "${packages[@]}" || failures=$( [ -n "$failures" ] && echo "$failures\\ngo vet -source (${#packages[@]} packages)" || echo "go vet -source (${#packages[@]} packages)" )
+fi
 
 # loop through individual *.go files
 for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -path './sites/*'`; do

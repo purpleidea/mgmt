@@ -14,7 +14,7 @@ file "${f}" {
 	state => $const.res.file.state.exists,
 	mode => "ug=rw,o=",
 
-	Meta:export => ["*",],
+	Meta:export => ["*"],
 }
 
 Exec["a"].output -> File["${f}"].content

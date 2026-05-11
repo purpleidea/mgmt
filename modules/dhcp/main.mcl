@@ -152,7 +152,7 @@ class server:subnet($name, $st) {
 	$broadcast = $st->broadcast || ""
 	$router = $st->router || "" # TODO: eventually this could be a list
 	$dns = $st->dns || [] # []str, local 'option domain-name-servers'
-	$range = $st->range || struct{start => "", end => "",} # struct with start, end fields
+	$range = $st->range || struct{start => "", end => ""} # struct with start, end fields
 	$range_start = $range->start || ""
 	$range_end = $range->end || ""
 

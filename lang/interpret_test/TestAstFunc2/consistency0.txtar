@@ -8,6 +8,6 @@ import "fmt"
 $now = datetime.now()
 $zero = $now - $now
 
-test [fmt.printf("%d", $zero),] {}
+test [fmt.printf("%d", $zero)] {}
 -- OUTPUT --
 Vertex: test[0]

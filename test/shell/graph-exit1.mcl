@@ -1,4 +1,4 @@
-exec ["exec1", "exec2", "exec3", "exec4", "exec0",] {
+exec ["exec1", "exec2", "exec3", "exec4", "exec0"] {
 	cmd => "sleep 15s",
 }
 

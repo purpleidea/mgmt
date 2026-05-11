@@ -5,15 +5,15 @@
 test "name" {}
 
 # single resource, defined by list variable
-$names = ["hey", "there",]
+$names = ["hey", "there"]
 test $names {}
 
 # multiples resources, defined by list
-test ["hello", "world",] {
+test ["hello", "world"] {
 	Depend => Test[$names],
 }
 
-$morenames = ["wow", "cool", "amazing",]
+$morenames = ["wow", "cool", "amazing"]
 test $morenames {}
 
 Test[$names] -> Test[$morenames]

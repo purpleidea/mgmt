@@ -6,7 +6,7 @@ $fn = func($x) {
 	fmt.printf("hey%d", $x)
 }
 
-test iter.map([1, 2, 3,], $fn) {}
+test iter.map([1, 2, 3], $fn) {}
 -- OUTPUT --
 Vertex: test[hey1]
 Vertex: test[hey2]

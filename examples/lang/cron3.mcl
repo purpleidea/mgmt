@@ -14,4 +14,4 @@ svc "purpleidea-oneshot" {
 }
 
 # TODO: do we need a state => $const.res.file.state.exists specified here?
-file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home),] {}
+file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home)] {}

@@ -79,10 +79,10 @@ type DockerContainerRes struct {
 	// Cmd is a command, or list of commands to run on the container.
 	Cmd []string `lang:"cmd" yaml:"cmd"`
 
-	// Env is a list of environment variables. E.g. ["VAR=val",].
+	// Env is a list of environment variables. E.g. ["VAR=val"].
 	Env []string `lang:"env" yaml:"env"`
 
-	// Ports is a map of port bindings. E.g. {"tcp" => {8080 => 80},}. The
+	// Ports is a map of port bindings. E.g. {"tcp" => {8080 => 80}}. The
 	// key is the host port, and the val is the inner service port to
 	// forward to.
 	Ports map[string]map[int64]int64 `lang:"ports" yaml:"ports"`

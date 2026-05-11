@@ -2,7 +2,7 @@
 import "golang"
 import "iter"
 
-$ins = ["a", "bb", "ccc", "dddd", "eeeee",]
+$ins = ["a", "bb", "ccc", "dddd", "eeeee"]
 
 # the inline lambda format is more readable with the func as the second arg
 $out = iter.map($ins, func($x) {

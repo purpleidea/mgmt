@@ -4,7 +4,7 @@ $st0 = struct{} # matches $st1, and $st2 but different "pointer"
 $st1 = struct{}
 $st2 = struct{}
 
-$m = {$st1 => "fail", $st2 => "pass",} # second entry should overwrite!
+$m = {$st1 => "fail", $st2 => "pass"} # second entry should overwrite!
 
 $s = $m[$st0] || "error"
 

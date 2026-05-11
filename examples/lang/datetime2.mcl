@@ -4,7 +4,7 @@ import "sys"
 
 $now = datetime.now()
 
-$st = struct{now => $now, load => $load,}
+$st = struct{now => $now, load => $load}
 
 $load float = sys.load()->x1 # ambiguous so we specify the type!
 

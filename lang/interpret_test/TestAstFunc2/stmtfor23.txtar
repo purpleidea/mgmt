@@ -1,18 +1,18 @@
 -- main.mcl --
 import "fmt"
 
-$list0 = ["a", "b", "c",]
-$list1 = ["d", "e", "f",]
-$list2 = ["g", "h", "i",]
-$list3 = ["j", "k", "l",]
+$list0 = ["a", "b", "c"]
+$list1 = ["d", "e", "f"]
+$list2 = ["g", "h", "i"]
+$list3 = ["j", "k", "l"]
 
-$list = [$list0, $list1, $list2, $list3,]
+$list = [$list0, $list1, $list2, $list3]
 
 for $index, $value in $list {
 	for $i, $v in $value {
 
 		$s = fmt.printf("%s is %d", $v, $i+$index)
-		test [$s,] {}
+		test [$s] {}
 	}
 }
 

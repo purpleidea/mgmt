@@ -5,10 +5,10 @@ $fn1 = func($x, $y) {
 	$x + $y
 }
 
-$in1 = [-1, 0, 1, 2, 3, 4, 5, -1,] # 13
+$in1 = [-1, 0, 1, 2, 3, 4, 5, -1] # 13
 
 $out1 = iter.reduce($in1, $fn1)
 
 $t1 = golang.template("out1: {{ . }}", $out1)
 
-test [$t1,] {}
+test [$t1] {}

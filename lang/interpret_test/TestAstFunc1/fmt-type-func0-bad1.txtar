@@ -1,0 +1,11 @@
+-- main.mcl --
+# type signature is single-line with a trailing comma: bad
+$f func(str, str,) str = func($a, $b) { # bad
+	$a + $b + "\n"
+}
+
+test "f" {
+	comment => $f("a", "b"),
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN` @2:14

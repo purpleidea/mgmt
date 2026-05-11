@@ -2,12 +2,12 @@ import "golang"
 import "iter"
 
 # flatten composes with iter.map to give a flatMap-style operation.
-$xs = [1, 2, 3,]
+$xs = [1, 2, 3]
 
 $out1 = iter.flatten(iter.map($xs, func($x) {
-	[$x, $x + 10,]
-})) # [1, 11, 2, 12, 3, 13,]
+	[$x, $x + 10]
+})) # [1, 11, 2, 12, 3, 13]
 
 $t1 = golang.template("out1: {{ . }}", $out1)
 
-test [$t1,] {}
+test [$t1] {}

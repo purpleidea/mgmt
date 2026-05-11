@@ -7,15 +7,15 @@ file "/tmp/foo" {
 	state => $const.res.file.state.exists,
 	content => "i am foo\n",
 
-	Meta:export => ["*",],
-	#Meta:export => ["${hostname}",], # alternatively
+	Meta:export => ["*"],
+	#Meta:export => ["${hostname}"], # alternatively
 }
 file "/tmp/fah" {
 	state => $const.res.file.state.exists,
 	content => "i am fah\n",
 
-	#Meta:export => ["*",],
-	Meta:export => ["${hostname}",],
+	#Meta:export => ["*"],
+	Meta:export => ["${hostname}"],
 }
 
 $all = collect.res("file") # []struct{name str; host str;}
@@ -44,7 +44,7 @@ collect file $filtered {
 
 # you can do it manually like this
 #$collected = [
-#	struct{name => "/tmp/foo", host => "${hostname}",},
+#	struct{name => "/tmp/foo", host => "${hostname}"},
 #]
 #
 #collect file $collected {

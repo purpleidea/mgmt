@@ -29,7 +29,7 @@ $ret = value.get_str("value1") # name of value resource
 $val = $ret->value
 test "get" {
 	anotherstr => $val,
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 file "/tmp/file" {
 	state => $const.res.file.state.exists,

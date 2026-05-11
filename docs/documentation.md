@@ -329,14 +329,14 @@ file "/tmp/foo" {
 	content => "i'm exported!\n",
 
 	Meta:hidden => true,
-	Meta:export => ["h1",],
+	Meta:export => ["h1"],
 }
 
 file "/tmp/foo" {
 	state => "exists",
 	content => "i'm exported AND i'm used here\n",
 
-	Meta:export => ["h1",],
+	Meta:export => ["h1"],
 }
 ```
 

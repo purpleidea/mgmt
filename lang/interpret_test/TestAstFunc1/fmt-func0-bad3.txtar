@@ -1,0 +1,13 @@
+-- main.mcl --
+func foo($a, $b) { # good
+	$a + $b + "\n"
+}
+
+test "foo" {
+	comment => foo( # bad
+		"a",
+		"b"
+	),
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE` @8:3

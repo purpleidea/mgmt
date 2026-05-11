@@ -5,7 +5,7 @@ line "whatever" {
 	content => "hello",
 
 	Meta:hidden => true, # should Validate even though fields are missing.
-	#Meta:export => ["*",],
+	#Meta:export => ["*"],
 }
 -- OUTPUT --
 Vertex: line[whatever]

@@ -1,10 +1,10 @@
 import "fmt"
 import "sys"
 
-$set = ["a", "b", "c", "d",]
+$set = ["a", "b", "c", "d"]
 
-$c1 = "x1" in ["x1", "x2", "x3",]
-$c2 = 42 in [4, 13, 42,]
+$c1 = "x1" in ["x1", "x2", "x3"]
+$c2 = 42 in [4, 13, 42]
 $c3 = "x" in $set
 $c4 = "b" in $set
 
@@ -15,7 +15,7 @@ file "/tmp/mgmt/contains" {
 	content => $s,
 }
 
-$x = if sys.hostname() in ["h1", "h3",] {
+$x = if sys.hostname() in ["h1", "h3"] {
 	fmt.printf("i (%s) am one of the chosen few!\n", sys.hostname())
 } else {
 	fmt.printf("i (%s) was not chosen :(\n", sys.hostname())

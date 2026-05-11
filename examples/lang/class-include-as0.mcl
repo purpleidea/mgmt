@@ -8,5 +8,5 @@ include c1 as i1
 
 test "print0" {
 	anotherstr => fmt.printf("%s", $i1.x), # hello
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }

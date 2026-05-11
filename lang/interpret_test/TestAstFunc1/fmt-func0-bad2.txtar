@@ -1,0 +1,13 @@
+-- main.mcl --
+func bar( # bad
+	$a,
+	$b
+) {
+	$a + $b + "\n"
+}
+
+test "bar" {
+	comment => bar("a", "b"), # good
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE, expecting COMMA` @3:3

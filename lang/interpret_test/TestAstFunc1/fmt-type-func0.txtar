@@ -1,0 +1,50 @@
+-- main.mcl --
+# type signature is on one line
+$f func(str, str) str = func($a, $b) {
+	$a + $b + "\n"
+}
+
+# type signature spans multiple lines
+$g func( # good
+	str, # also good
+	str,
+) str = func($a, $b) {
+	$a + $b + "\n"
+}
+
+test "f" {
+	comment => $f("a", "b"),
+}
+
+test "g" {
+	comment => $g("c", "d"),
+}
+-- OUTPUT --
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("\n") -> _operator # b
+Edge: const: str("\n") -> _operator # b
+Edge: const: str("a") -> _operator # a
+Edge: const: str("b") -> _operator # b
+Edge: const: str("c") -> _operator # a
+Edge: const: str("d") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("\n")
+Vertex: const: str("\n")
+Vertex: const: str("a")
+Vertex: const: str("b")
+Vertex: const: str("c")
+Vertex: const: str("d")
+Vertex: const: str("f")
+Vertex: const: str("g")

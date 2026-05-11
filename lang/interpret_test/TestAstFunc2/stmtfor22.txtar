@@ -1,14 +1,14 @@
 -- main.mcl --
 import "fmt"
 
-$list1 = ["a", "b", "c",]
-$list2 = [42, 13, -4,]
+$list1 = ["a", "b", "c"]
+$list2 = [42, 13, -4]
 
 for $index1, $value1 in $list1 {
 	for $index2, $value2 in $list2 {
 
 		$s = fmt.printf("%s is %d", $value1, $value2)
-		test [$s,] {}
+		test [$s] {}
 	}
 }
 

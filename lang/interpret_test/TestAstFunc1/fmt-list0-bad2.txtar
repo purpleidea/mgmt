@@ -1,0 +1,14 @@
+-- main.mcl --
+$list0 = [
+	"a",
+	"b",
+	"c",
+	"d",
+	"e" # bad
+]
+
+test "foo" {
+	slicestring => $list0,
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE` @6:2

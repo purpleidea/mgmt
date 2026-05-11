@@ -1,5 +1,5 @@
 -- main.mcl --
-$l1 = ["a", "b", "c",]
-test [$l1[4],] {}
+$l1 = ["a", "b", "c"]
+test [$l1[4]] {}
 -- OUTPUT --
 # err: errStream: list index not present, got: 4, len is: 3, in: ["a", "b", "c"]: /main.mcl @ 2:7-2:13

@@ -6,15 +6,15 @@ $y = func($fn) {
 }(
 	func($fn) {
 		$fn($fn)
-	}
+	},
 )
 
-test [fmt.printf("y: %v", $y),] {}
+test [fmt.printf("y: %v", $y)] {}
 -- OUTPUT --
 # err: errUnify: directly in the same set: /main.mcl @ 6:2-8:3
 directly in the same set: /main.mcl @ 6:2-8:3
 
 	func($fn) {
 	^ from here ...
-	}
+	},
 	^ ... to here

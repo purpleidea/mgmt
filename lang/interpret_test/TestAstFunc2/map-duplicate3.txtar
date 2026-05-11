@@ -7,10 +7,10 @@ import "fmt"
 # overwrite the earlier one, which is what this test verifies to be true.
 $key = "k1"
 
-$m = {$key => 42, "k1" => 13,} # dupe!
+$m = {$key => 42, "k1" => 13} # dupe!
 
 $found = $m["k1"] || 99
 
-test [fmt.printf("value: %d", $found),] {}
+test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --
 Vertex: test[value: 13]

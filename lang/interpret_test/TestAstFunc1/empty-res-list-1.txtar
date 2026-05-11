@@ -3,11 +3,11 @@
 test "name" {}
 
 # single resource, defined by list variable
-$names = ["hey",]
+$names = ["hey"]
 test $names {}
 
 # multiples resources, defined by list
-test ["hello", "world",] {}
+test ["hello", "world"] {}
 -- OUTPUT --
 Edge: const: str("hello") -> composite: []str # 0
 Edge: const: str("hey") -> composite: []str # 0

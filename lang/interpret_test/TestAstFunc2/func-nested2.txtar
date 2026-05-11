@@ -12,12 +12,12 @@ $lambda = func($x) {
 		} else {
 			func($z) { "hello" + $x }
 		},
-		"bye"
+		"bye",
 	)
 }
 
 $s = $lambda("world")
 
-test [$s,] {}
+test [$s] {}
 -- OUTPUT --
 Vertex: test[helloworld]

@@ -1,8 +1,8 @@
 -- main.mcl --
 import "fmt"
 
-$list1 = ["a", "b", "c",]
-$list2 = ["x", "y", "z",]
+$list1 = ["a", "b", "c"]
+$list2 = ["x", "y", "z"]
 
 $word = "hello"
 
@@ -19,7 +19,7 @@ for $index1, $value1 in $list1 {
 
 		$s = fmt.printf("%s is {%d,%d}", $included.result, $index1, $index2)
 		$s1 = fmt.printf("one: %s", $included.result1)
-		test [$s, $s1,] {}
+		test [$s, $s1] {}
 	}
 }
 

@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a",]
+$list = ["a"]
 
 for $index, $value in $list {
 
@@ -10,7 +10,7 @@ for $index, $value in $list {
 	}
 
 	$s = fn()
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

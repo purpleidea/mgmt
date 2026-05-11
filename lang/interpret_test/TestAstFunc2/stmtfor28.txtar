@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 for $i, $x in $list {
 
@@ -11,7 +11,7 @@ for $i, $x in $list {
 
 	$s = foo($x)
 
-	test [$s,] {}
+	test [$s] {}
 }
 -- OUTPUT --
 Vertex: test[helloaa]

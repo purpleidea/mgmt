@@ -1,5 +1,5 @@
 -- main.mcl --
-$ints = [13, 42, 0, -37,]
+$ints = [13, 42, 0, -37]
 
 $s1 = if contains(42, $ints) {
 	"passed1"
@@ -14,19 +14,19 @@ $s2 = if contains(99, $ints) {
 }
 
 $intlists = [
-	[13, 99,],
-	[42, 13,],
-	[0,],
-	[-37,],
+	[13, 99],
+	[42, 13],
+	[0],
+	[-37],
 ]
 
-$s3 = if contains([42, 13,], $intlists) {
+$s3 = if contains([42, 13], $intlists) {
 	"passed3"
 } else {
 	"failed"
 }
 
-$s4 = if contains([42, 13, 0,], $intlists) {
+$s4 = if contains([42, 13, 0], $intlists) {
 	"failed"
 } else {
 	"passed4"

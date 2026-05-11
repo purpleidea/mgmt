@@ -8,8 +8,8 @@ func myfortytwo() {
 	math.fortytwo()
 }
 
-test [fmt.printf("int: %d", myfortytwo()),] {}
-test [fmt.printf("float: %f", myfortytwo()),] {}
+test [fmt.printf("int: %d", myfortytwo())] {}
+test [fmt.printf("float: %f", myfortytwo())] {}
 -- OUTPUT --
 Vertex: test[float: 42]
 Vertex: test[int: 42]

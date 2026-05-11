@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list1 = ["a", "b", "c",]
+$list1 = ["a", "b", "c"]
 
 class foo($x) {
 	$result = "hello " + fmt.printf("%d", $x)
@@ -12,7 +12,7 @@ for $index1, $value1 in $list1 {
 	include foo($index1) as included
 
 	$s = fmt.printf("%s is %d", $included.result, $index1)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

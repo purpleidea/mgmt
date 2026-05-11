@@ -55,8 +55,8 @@ It has the following properties:
 * `state`: either `running`, `stopped`, or `removed`
 * `image`: docker `image` or `image:tag`
 * `cmd`: a command or list of commands to run on the container
-* `env`: a list of environment variables, e.g. `["VAR=val",],`
-* `ports`: a map of portmappings, e.g. `{"tcp" => {8080 => 80, 8443 => 443,},},`
+* `env`: a list of environment variables, e.g. `["VAR=val"]`
+* `ports`: a map of portmappings, e.g. `{"tcp" => {8080 => 80, 8443 => 443}}`
 * `apiversion:` override the host's default docker version, e.g. `"v1.35"`
 * `force`: destroy and rebuild the container instead of erroring on wrong image
 

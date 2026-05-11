@@ -1,5 +1,5 @@
 -- main.mcl --
-exec ["exec0", "exec1",] {
+exec ["exec0", "exec1"] {
 	cmd => "echo whatever",
 	shell => "/bin/bash",
 }
@@ -9,6 +9,6 @@ file "/tmp/command-output" {
 }
 
 # this is an error because two senders cannot send to the same receiver key
-Exec[["exec0", "exec1",]].output -> File["/tmp/command-output"].content
+Exec[["exec0", "exec1"]].output -> File["/tmp/command-output"].content
 -- OUTPUT --
 # err: errInterpret: resource: `file[/tmp/command-output]` has duplicate receive on: `content` param

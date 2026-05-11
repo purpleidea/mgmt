@@ -16,7 +16,7 @@ $lambda = if $gt(10, 0) { # must be a const, otherwise this is a dynamic graph
 	$lambda2
 }
 
-test [$lambda("hello"),] {}
+test [$lambda("hello")] {}
 -- OUTPUT --
 Edge: _operator -> exprif # condition
 Edge: call -> callSubgraphOutput # dummy

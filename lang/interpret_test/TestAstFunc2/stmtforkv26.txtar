@@ -1,8 +1,8 @@
 -- main.mcl --
 import "fmt"
 
-$map1 = {0 => "a", 1 => "b", 2 => "c",}
-$map2 = {0 => "x", 1 => "y", 2 => "z",}
+$map1 = {0 => "a", 1 => "b", 2 => "c"}
+$map2 = {0 => "x", 1 => "y", 2 => "z"}
 
 $word = "hello"
 
@@ -19,7 +19,7 @@ forkv $key1, $val1 in $map1 {
 		$s = fmt.printf("%s is {%d,%d}", $included.result, $key1, $key2)
 		$s1 = fmt.printf("one: %s", $included.result1)
 		$s2 = fmt.printf("two: %s", $included.result2)
-		test [$s, $s1, $s2,] {}
+		test [$s, $s1, $s2] {}
 	}
 }
 

@@ -2,7 +2,7 @@
 import "golang"
 import "iter"
 
-$lists = [[1, 2,], [3, 4, 5,], [6,],]
+$lists = [[1, 2], [3, 4, 5], [6]]
 
 $out = iter.flatten($lists)
 

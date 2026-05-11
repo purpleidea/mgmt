@@ -5,8 +5,8 @@ import "iter"
 
 # Different element types and a different output type. Also exercises
 # truncation: $ys has fewer elements than $xs so the output stops at 3.
-$xs = [1, 2, 3, 4, 5,]
-$ys = ["a", "b", "c",]
+$xs = [1, 2, 3, 4, 5]
+$ys = ["a", "b", "c"]
 
 $out = iter.zip($xs, $ys, func($x, $y) {
 	fmt.printf("%d:%s", $x, $y)

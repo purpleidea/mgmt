@@ -1,13 +1,13 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 $value = 42 # should be out of scope (also not the same type)
 
 for $index, $value in $list {
 	$s = fmt.printf("%s is %d", $value, $index)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

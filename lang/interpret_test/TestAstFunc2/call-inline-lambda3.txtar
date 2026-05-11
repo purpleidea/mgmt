@@ -5,6 +5,6 @@ $s = fmt.printf("%v", func($x) {
 	len($x)
 }("helloworld")) # inline lambda call
 
-test [$s,] {}
+test [$s] {}
 -- OUTPUT --
 Vertex: test[10]

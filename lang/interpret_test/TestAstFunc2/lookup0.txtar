@@ -1,34 +1,34 @@
 -- main.mcl --
-$l1 = ["a", "b", "c",]
+$l1 = ["a", "b", "c"]
 
-$l2 = [$l1, ["hello", "world",],]
+$l2 = [$l1, ["hello", "world"]]
 
-test [$l1[0] || "fail",] {}
-test [$l1[2] || "fail",] {}
-test [$l1[3] || "pass",] {}
-test $l2[1] || ["fail",] {}
+test [$l1[0] || "fail"] {}
+test [$l1[2] || "fail"] {}
+test [$l1[3] || "pass"] {}
+test $l2[1] || ["fail"] {}
 
-$map1 map{int: str} = {42 => "hello1",}
+$map1 map{int: str} = {42 => "hello1"}
 $name1 = $map1[42] || "not found"
 test "${name1}" {}
 
-$map2 map{int: str} = {42 => "hello2",}
+$map2 map{int: str} = {42 => "hello2"}
 $name2 = $map2[13] || "world2"
 test "${name2}" {}
 
-$map3 = {42 => "hello3",}
+$map3 = {42 => "hello3"}
 $name3 = $map3[42] || "not found"
 test "${name3}" {}
 
-$map4 = {42 => "hello4",}
+$map4 = {42 => "hello4"}
 $name4 = $map4[13] || "world4"
 test "${name4}" {}
 
-$map5 = {"wow" => "pass1",}
+$map5 = {"wow" => "pass1"}
 $name5 = $map5["wow"] || "fail"
 test "${name5}" {}
 
-$map6 = {"wow" => "fail",}
+$map6 = {"wow" => "fail"}
 $name6 = $map6["mom"] || "pass2"
 test "${name6}" {}
 

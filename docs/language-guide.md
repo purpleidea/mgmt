@@ -46,7 +46,7 @@ golang's `float64`.
 
 #### list
 
-An ordered collection of values of the same type, eg: `[6, 7, 8, 9,]`. It is
+An ordered collection of values of the same type, eg: `[6, 7, 8, 9]`. It is
 worth mentioning that empty lists have a type, although without type hints it
 can be impossible to infer the item's type.
 
@@ -54,7 +54,7 @@ can be impossible to infer the item's type.
 
 An unordered set of unique keys of the same type and corresponding value pairs
 of another type, eg:
-`{"boiling" => 100, "freezing" => 0, "room" => 25, "house" => 22, "canada" => -30,}`.
+`{"boiling" => 100, "freezing" => 0, "room" => 25, "house" => 22, "canada" => -30}`.
 That is to say, all of the keys must have the same type, and all of the values
 must have the same type. You can use any type for either, although it is
 probably advisable to avoid using very complex types as map keys.
@@ -62,7 +62,7 @@ probably advisable to avoid using very complex types as map keys.
 #### struct
 
 An ordered set of field names and corresponding values, each of their own type,
-eg: `struct{answer => "42", james => "awesome", is_mgmt_awesome => true,}`.
+eg: `struct{answer => "42", james => "awesome!", is_mgmt_awesome => true}`.
 These are useful for combining more than one type into the same value. Note the
 syntactical difference between these and map's: the key's in map's have types,
 and as a result, string keys are enclosed in quotes, whereas struct _fields_ are
@@ -103,7 +103,7 @@ expression
 - **for**: loop over a list with a body of statements
 
 	```mcl
-	$list = ["a", "b", "c",]
+	$list = ["a", "b", "c"]
 	for $index, $value in $list {
 		# some statements go here
 	}
@@ -112,7 +112,7 @@ expression
 - **forkv**: loop over a map with a body of statements
 
 	```mcl
-	$map = {0 => "a", 1 => "b", 2 => "c",}
+	$map = {0 => "a", 1 => "b", 2 => "c"}
 	forkv $key, $val in $map {
 		# some statements go here
 	}
@@ -268,7 +268,7 @@ file "/tmp/f1" {
 		poll => 5,
 		limit => 4.2,
 		burst => 3,
-		sema => ["foo:1", "bar:3",],
+		sema => ["foo:1", "bar:3"],
 		autoedge => true,
 		autogroup => false,
 	},
@@ -512,7 +512,7 @@ include c1 as i1
 
 test "print0" {
 	anotherstr => fmt.printf("%s", $i1.x),	# hello
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 ```
 
@@ -534,11 +534,11 @@ include i1.c0 as i0
 
 test "print0" {
 	anotherstr => fmt.printf("%s", $i1.x),	# hello
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 test "print1" {
 	anotherstr => fmt.printf("%s", $i0.x),	# goodbye
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 ```
 

@@ -172,11 +172,10 @@ func TestLexParse0(t *testing.T) {
 		})
 	}
 	{
-		// TODO: skip trailing comma requirement on one-liners
 		testCases = append(testCases, test{
 			name: "two lists",
 			code: `
-			$somelist = [42, 0, -13,]
+			$somelist = [42, 0, -13]
 			$somelonglist = [
 				"hello",
 				"and",
@@ -263,8 +262,8 @@ func TestLexParse0(t *testing.T) {
 		testCases = append(testCases, test{
 			name: "some lists",
 			code: `
-			$intlist []int = [42, -0, 13,]
-			$intlistnested [][]int = [[42,], [], [100, -0,], [-13,],]
+			$intlist []int = [42, -0, 13]
+			$intlistnested [][]int = [[42], [], [100, -0], [-13]]
 			`,
 			fail: false,
 			//exp: ???, // FIXME: add the expected AST
@@ -289,9 +288,9 @@ func TestLexParse0(t *testing.T) {
 			name: "maps 2",
 			code: `
 			$mapstrintlist map{str: []int} = {
-				"key1" => [42, 44,],
+				"key1" => [42, 44],
 				"key2" => [],
-				"key3" => [-13,],
+				"key3" => [-13],
 			}
 			`,
 			fail: false,
@@ -307,9 +306,9 @@ func TestLexParse0(t *testing.T) {
 				"key2" => -13,
 			}
 			$mapstrintlist map{str: []int} = {
-				"key1" => [42, 44,],
+				"key1" => [42, 44],
 				"key2" => [],
-				"key3" => [-13,],
+				"key3" => [-13],
 			}
 			`,
 			fail: false,
@@ -327,7 +326,7 @@ func TestLexParse0(t *testing.T) {
 			}
 			$structx2 struct{a int; b []bool; c str} = struct{
 				a => 42,
-				b => [true, false, false, true,],
+				b => [true, false, false, true],
 				c => "hello",
 			}
 			`,
@@ -1201,7 +1200,7 @@ func TestLexParse0(t *testing.T) {
 				Meta => struct{
 					poll => 5,
 					retry => 3,
-					sema => ["foo:1", "bar:3",],
+					sema => ["foo:1", "bar:3"],
 				},
 			}
 			`,
@@ -2165,7 +2164,7 @@ func TestLexParse0(t *testing.T) {
 			code: `
 			import "iter"
 			$fn = func($x) { $x * $x }
-			$out = iter.map([1,2,3,], $fn)
+			$out = iter.map([1,2,3], $fn)
 			`,
 			fail: false,
 			exp:  exp,
@@ -2203,6 +2202,9 @@ func TestLexParse0(t *testing.T) {
 
 			t.Logf("\n\ntest #%d (%s) ----------------\n\n", index, name)
 
+			if len(code) == 0 || code[len(code)-1:] != "\n" {
+				code += "\n" // must always end with a newline
+			}
 			str := strings.NewReader(code)
 			xast, err := LexParse(str)
 
@@ -2297,7 +2299,7 @@ func TestLexParse1(t *testing.T) {
 	# some noop resource
 	noop "n0" {
 		foo => true,
-		bar => false	# this should be a parser error (no comma)
+		bar => false # this should be a parser error (no comma)
 	}
 	# hello
 	# world
@@ -2312,6 +2314,31 @@ func TestLexParse1(t *testing.T) {
 	} else {
 		if e.Row != 10 || e.Col != 9 {
 			t.Errorf("expected error at 10 x 9, got: %d x %d", e.Row, e.Col)
+		}
+		t.Logf("row x col: %d x %d", e.Row, e.Col)
+		t.Logf("message: %s", e.Str)
+		t.Logf("output: %+v", err)
+	}
+}
+
+func TestLexParse1b(t *testing.T) {
+	// Same as TestLexParse1, but the missing-comma field is a list expr
+	// rather than a literal.
+	code := `
+	noop "n0" {
+		foo => [1, 2, 3] # this should be a parser error (no comma)
+	}
+	` // error
+	str := strings.NewReader(code)
+	_, err := LexParse(str)
+	if e, ok := err.(*LexParseErr); ok && e.Err != ErrParseExpectingComma {
+		t.Errorf("lex/parse failure, got: %+v", e)
+	} else if err == nil {
+		t.Errorf("lex/parse success, expected error")
+	} else {
+		//t.Logf("output: %+v", err)
+		if e.Row != 2 || e.Col != 9 {
+			t.Errorf("expected error at 2 x 9, got: %d x %d", e.Row, e.Col)
 		}
 		t.Logf("row x col: %d x %d", e.Row, e.Col)
 		t.Logf("message: %s", e.Str)

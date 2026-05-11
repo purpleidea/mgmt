@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 $word = "hello"
 
@@ -15,7 +15,7 @@ for $index, $value in $list {
 	$val = " " + $value
 
 	$s = fmt.printf("%s is %d", $included.result, $index)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

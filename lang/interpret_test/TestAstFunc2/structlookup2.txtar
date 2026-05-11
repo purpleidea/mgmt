@@ -1,13 +1,13 @@
 -- main.mcl --
-$st0 struct{x str} = struct{x => "hello",}
+$st0 struct{x str} = struct{x => "hello"}
 $name0 = $st0->x
 test "${name0}" {}
 
-$st1 = struct{y => "world",}
+$st1 = struct{y => "world"}
 $name1 = $st1->y
 test "${name1}" {}
 
-$st2 = struct{x => true, y => 42, z => "hello world",}
+$st2 = struct{x => true, y => 42, z => "hello world"}
 $name2 = $st2->z
 test "${name2}" {}
 test "foo" {

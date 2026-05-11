@@ -185,7 +185,7 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 //}
 
 func TestInterpret1(t *testing.T) {
-	code := `noop "n1" {}`
+	code := `noop "n1" {}` + "\n"
 	graph, err := runInterpret(t, code)
 	if err != nil {
 		t.Errorf("runInterpret failed: %+v", err)

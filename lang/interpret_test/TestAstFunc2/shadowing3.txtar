@@ -2,7 +2,7 @@
 class foo($x) {
 	$x = "hello" # test shadowing again
 
-	test ["${x}",] {}
+	test ["${x}"] {}
 }
 include foo("nope")
 -- OUTPUT --

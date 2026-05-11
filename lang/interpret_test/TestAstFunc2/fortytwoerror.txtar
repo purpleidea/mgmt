@@ -10,7 +10,7 @@ $myfortytwo = func() {
 $a = $myfortytwo() + 4
 $b = $myfortytwo() + 3.0
 
-test ["x",] {
+test ["x"] {
 	int8 => $a,
 	float32 => $b,
 }

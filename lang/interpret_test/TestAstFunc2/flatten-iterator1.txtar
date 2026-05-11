@@ -3,7 +3,7 @@ import "golang"
 import "iter"
 
 # Empty inner lists are dropped; empty outer list yields the empty list.
-$lists1 = [[], ["a", "b",], [], ["c",], [],]
+$lists1 = [[], ["a", "b"], [], ["c"], []]
 $out1 = iter.flatten($lists1)
 
 $lists2 [][]int = []

@@ -53,7 +53,7 @@ class router($st) {
 	$loc_ip = $st->loc_ip || (net.cidr_to_first($loc_network) + "/" + $loc_prefix) # cidr
 	$loc_broadcast = $st->loc_broadcast || net.cidr_to_last($loc_network)
 
-	$loc_range = $st->loc_range || struct{start => "", end => "",} # struct with start, end fields
+	$loc_range = $st->loc_range || struct{start => "", end => ""} # struct with start, end fields
 	$dns = $st->dns
 
 	$aux_dev = $st->aux_dev || ""
@@ -116,7 +116,7 @@ class router($st) {
 
 	include dhcp.server(struct{
 		authoritative => true,
-		interfaces => [$loc_dev,], # bonus safety
+		interfaces => [$loc_dev], # bonus safety
 	}) as dhcp_server # good!
 
 	include dhcp_server.subnet("loc", struct{
@@ -131,7 +131,7 @@ class router($st) {
 
 	#include dhcp_server.host("computer1", struct{
 	#	macaddress => "00:11:22:33:44:55",
-	#	fixedaddress => ["192.168.100.13",],
+	#	fixedaddress => ["192.168.100.13"],
 	#	hostname => "computer1",
 	#})
 
@@ -235,13 +235,13 @@ class router($st) {
 
 	include firewall.snat("masq-net", struct{
 		action => "MASQUERADE",
-		source => ["${loc_network}",], # ip/cidr of the LOC network, eg: 192.168.100.0/24
+		source => ["${loc_network}"], # ip/cidr of the LOC network, eg: 192.168.100.0/24
 		dest => "NET_IF",
 	})
 	if $aux_dev != "" {
 		include firewall.snat("masq-aux", struct{
 			action => "MASQUERADE",
-			source => ["${loc_network}",], # ip/cidr of the LOC network, eg: 192.168.100.0/24
+			source => ["${loc_network}"], # ip/cidr of the LOC network, eg: 192.168.100.0/24
 			dest => "AUX_IF",
 		})
 	}
@@ -384,7 +384,7 @@ class router:dhcp_host($st) {
 
 	include dhcp_server.host("${h}", struct{
 		macaddress => "${m}",
-		fixedaddress => ["${i}",],
+		fixedaddress => ["${i}"],
 		hostname => "${h}",
 	})
 }

@@ -1,11 +1,11 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 for $index, $value in $list {
 	$s = fmt.printf("%s is %d", $value, $index)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

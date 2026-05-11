@@ -12,7 +12,7 @@ $lambda = if 10 > 0 { # must be a const, otherwise this is a dynamic graph
 	$lambda2
 }
 
-test [$lambda("hello"),] {}
+test [$lambda("hello")] {}
 -- OUTPUT --
 Edge: _operator -> composite: []str # 0
 Edge: const: str("!") -> _operator # b

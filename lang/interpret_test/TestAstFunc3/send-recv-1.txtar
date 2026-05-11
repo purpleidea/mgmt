@@ -7,7 +7,7 @@ test "send" {
 }
 
 test "recv" {
-	expectrecv => ["anotherstr",],	# expecting to recv on these keys!
+	expectrecv => ["anotherstr"],	# expecting to recv on these keys!
 
 	Meta:autogroup => false,
 }

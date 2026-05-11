@@ -10,7 +10,7 @@ $add1 = func($x) {
 }
 $z = apply($add1, 1)
 
-test [fmt.printf("%d", $z),] {}
+test [fmt.printf("%d", $z)] {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: call -> callSubgraphOutput # dummy

@@ -1,8 +1,8 @@
 -- main.mcl --
 import "fmt"
 
-$list1 = ["a", "b", "c",]
-$list2 = ["x", "y", "z",]
+$list1 = ["a", "b", "c"]
+$list2 = ["x", "y", "z"]
 
 $word = "hello"
 
@@ -16,7 +16,7 @@ for $index1, $value1 in $list1 {
 		include foo($value1, $value2) as included
 
 		$s = fmt.printf("%s is {%d,%d}", $included.result, $index1, $index2)
-		test [$s,] {}
+		test [$s] {}
 	}
 }
 

@@ -11,7 +11,7 @@ $key = if $x == 0 {
 	"k2"
 }
 
-$m = {"k1" => 42, $key => 13,} # dupe!
+$m = {"k1" => 42, $key => 13} # dupe!
 
 # Later value gets chosen.
 #$found = $m["k1"] || 99

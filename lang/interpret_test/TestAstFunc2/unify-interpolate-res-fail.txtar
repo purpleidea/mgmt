@@ -1,5 +1,5 @@
 -- main.mcl --
-$name = ["a", "bb", "ccc",]
+$name = ["a", "bb", "ccc"]
 
 #test $name {}    # must pass
 test "${name}" {} # must fail

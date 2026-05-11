@@ -5,8 +5,8 @@ func double($x) {
 }
 $name1 = fmt.printf("%d", double(42))
 $name2 = double("hello")
-test [$name1,] {}
-test [$name2,] {}
+test [$name1] {}
+test [$name2] {}
 -- OUTPUT --
 Vertex: test[84]
 Vertex: test[hellohello]

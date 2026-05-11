@@ -21,7 +21,7 @@
 #		$idn("foo") # 1 call site, 2 calls
 #	}
 #
-#	$foo = iter.map([$id1, $id2,], $generate)
+#	$foo = iter.map([$id1, $id2], $generate)
 #
 # $generate is specialized to `func(func(str) str) str`, and $id1 and $id2 are
 # specialized to `func(str) str`.
@@ -42,7 +42,7 @@
 #		)
 #	}
 #
-#	$foo = iter.map([$id1, $id2,], $generate)
+#	$foo = iter.map([$id1, $id2], $generate)
 #
 # $idn cannot be given a monomorphic type, since it is used both as a
 # `func(str) str` and as a `func(int) int`. Therefore, $generate cannot be
@@ -63,20 +63,21 @@ $id2 = func($x) {
 #$int = $id1(42)
 
 $generate = func($idn) {
-	fmt.printf("%s %d",
+	fmt.printf(
+		"%s %d",
 		$idn("foo"), # 1 call site, 2 calls
-		$idn(42)
+		$idn(42),
 	)
 }
 
 # this code should be rejected during type unification
-$foo = iter.map([$id1, $id2,], $generate)
+$foo = iter.map([$id1, $id2], $generate)
 
 $name = $foo[0] || "fail"
 test "${name}" {}
 -- OUTPUT --
-# err: errUnify: type error: str != int: /main.mcl @ 64:13-69:2
-type error: str != int: /main.mcl @ 64:13-69:2
+# err: errUnify: type error: str != int: /main.mcl @ 64:13-70:2
+type error: str != int: /main.mcl @ 64:13-70:2
 
 $generate = func($idn) {
             ^ from here ...

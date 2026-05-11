@@ -3,7 +3,7 @@ import "golang"
 import "iter"
 
 # Empty list cases: zipping anything with an empty list yields an empty list.
-$xs = [1, 2, 3,]
+$xs = [1, 2, 3]
 $ys = []
 $out1 = iter.zip($xs, $ys, func($x, $y) { $x + $y })
 

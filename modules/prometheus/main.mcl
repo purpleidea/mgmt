@@ -213,7 +213,7 @@ class postgresql($config) {
 		"sslmode=disable"
 	}
 
-	$l = [$h, $o, $u, $p, $d, $m,] # filter out empties first (IT'S REQUIRED)
+	$l = [$h, $o, $u, $p, $d, $m] # filter out empties first (IT'S REQUIRED)
 	$dsn = strings.join_nonempty($l, " ") # trailing spaces break this exporter
 
 	$str_port = golang_strconv.itoa($port)

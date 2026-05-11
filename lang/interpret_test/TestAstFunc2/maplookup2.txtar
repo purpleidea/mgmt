@@ -1,7 +1,7 @@
 -- main.mcl --
 import "map"
 
-$map1 map{int: str} = {42 => "hello1",}
+$map1 map{int: str} = {42 => "hello1"}
 $name1 = map.lookup($map1, 13)
 test "${name1}" {}
 -- OUTPUT --

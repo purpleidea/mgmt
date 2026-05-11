@@ -1,7 +1,7 @@
 exec "exec1" {
 	cmd => "/usr/bin/python",
 	# args can be specified as a list of strings when not using shell param
-	args => ["-c", "print(\"i'm in python!\")",],
+	args => ["-c", "print(\"i'm in python!\")"],
 }
 
 file "/tmp/whatever" {

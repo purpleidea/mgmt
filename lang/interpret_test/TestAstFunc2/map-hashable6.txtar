@@ -1,10 +1,10 @@
 -- main.mcl --
 
-$st0 = struct{foo => "a", bar => ["a1", "a2",],}
-$st1 = struct{foo => "a", bar => ["a1", "a2",],}
-$st2 = struct{foo => "b", bar => ["b1", "b2", "b3",],}
+$st0 = struct{foo => "a", bar => ["a1", "a2"]}
+$st1 = struct{foo => "a", bar => ["a1", "a2"]}
+$st2 = struct{foo => "b", bar => ["b1", "b2", "b3"]}
 
-$m = {$st1 => "pass", $st2 => "fail",}
+$m = {$st1 => "pass", $st2 => "fail"}
 
 $s = $m[$st0] || "error"
 

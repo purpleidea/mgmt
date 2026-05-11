@@ -39,5 +39,5 @@ $ret1 = world.getval($text1_id) # name of kv resource
 
 test "get1" {
 	anotherstr => $ret1->value,
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }

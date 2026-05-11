@@ -1,6 +1,6 @@
 import "fmt"
 
-$some_list = ["l", "m", "n",]
+$some_list = ["l", "m", "n"]
 
 $some_map = {
 	"ottawa" => 6,

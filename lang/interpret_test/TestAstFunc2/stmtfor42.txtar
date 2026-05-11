@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 import "thing.mcl"	# works
 
@@ -17,7 +17,7 @@ for $index, $value in $list {
 	$x = 42 + $usefoo.out
 
 	$s = fmt.printf("%s is %d = %d", $value, $index, $x)
-	test [$s,] {}
+	test [$s] {}
 }
 -- thing.mcl --
 $inside = 13

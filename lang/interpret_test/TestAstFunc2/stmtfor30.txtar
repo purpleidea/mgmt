@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 $index = 42 # should be out of scope
 
@@ -9,12 +9,12 @@ for $index, $value in $list {
 
 	class foo($x) {
 		$result = "hello " + $x
-		test [$result,] {}
+		test [$result] {}
 	}
 	include foo($value) # as included
 
 	#$s = fmt.printf("%s is %d", $included.result, $index)
-	#test [$s,] {}
+	#test [$s] {}
 }
 
 -- OUTPUT --

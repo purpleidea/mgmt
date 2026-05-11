@@ -1,0 +1,51 @@
+-- main.mcl --
+func foo($a, $b) { # good
+	$a + $b + "\n"
+}
+
+func bar( # good
+	$a, # also good
+	$b,
+) {
+	$a + $b + "\n"
+}
+
+test "foo" {
+	comment => foo( # good
+		"a",
+		"b",
+	),
+}
+
+test "bar" {
+	comment => bar("a", "b"), # good
+}
+-- OUTPUT --
+Edge: _operator -> _operator # a
+Edge: _operator -> _operator # a
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("+") -> _operator # op
+Edge: const: str("\n") -> _operator # b
+Edge: const: str("\n") -> _operator # b
+Edge: const: str("a") -> _operator # a
+Edge: const: str("a") -> _operator # a
+Edge: const: str("b") -> _operator # b
+Edge: const: str("b") -> _operator # b
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: _operator
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("+")
+Vertex: const: str("\n")
+Vertex: const: str("\n")
+Vertex: const: str("a")
+Vertex: const: str("a")
+Vertex: const: str("b")
+Vertex: const: str("b")
+Vertex: const: str("bar")
+Vertex: const: str("foo")

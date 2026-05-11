@@ -1,30 +1,30 @@
 -- main.mcl --
-$l1 = ["a", "b", "c",]
+$l1 = ["a", "b", "c"]
 
-$l2 = [$l1, ["hello", "world",],]
+$l2 = [$l1, ["hello", "world"]]
 
-test [$l1[0],] {}
-test [$l1[2],] {}
-test [$l1[3] || "pass",] {}
+test [$l1[0]] {}
+test [$l1[2]] {}
+test [$l1[3] || "pass"] {}
 test $l2[1] {}
 
-$map1 map{int: str} = {42 => "hello1",}
+$map1 map{int: str} = {42 => "hello1"}
 $name1 = $map1[42]
 test "${name1}" {}
 
-$map2 map{int: str} = {42 => "hello2",}
+$map2 map{int: str} = {42 => "hello2"}
 $name2 = $map2[13] || "world2"
 test "${name2}" {}
 
-$map3 = {42 => "hello3",}
+$map3 = {42 => "hello3"}
 $name3 = $map3[42]
 test "${name3}" {}
 
-$map4 = {42 => "hello4",}
+$map4 = {42 => "hello4"}
 $name4 = $map4[13] || "world4"
 test "${name4}" {}
 
-$map5 = {"wow" => "pass1",}
+$map5 = {"wow" => "pass1"}
 $name5 = $map5["wow"]
 test "${name5}" {}
 

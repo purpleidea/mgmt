@@ -1,6 +1,6 @@
 import "fmt"
 
-$st = struct{f1 => 42, f2 => true, f3 => 3.14,}
+$st = struct{f1 => 42, f2 => true, f3 => 3.14}
 
 $f1 = $st->f1
 

@@ -6,7 +6,7 @@ $fn = func($x) { # ignore arg
 	42
 }
 
-$ins = [5, 4, 3, 2, 1,]
+$ins = [5, 4, 3, 2, 1]
 
 $out = iter.map($ins, $fn)
 

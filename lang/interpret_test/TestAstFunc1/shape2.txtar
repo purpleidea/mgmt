@@ -3,7 +3,7 @@ $lambda = func($x) {
 	$x + "!"
 }
 
-test [$lambda("hello"),] {}
+test [$lambda("hello")] {}
 -- OUTPUT --
 Edge: _operator -> composite: []str # 0
 Edge: const: str("!") -> _operator # b

@@ -6,7 +6,7 @@ $fn = func($x) { # notable because concrete type is fn(t1) t2, where t1 != t2
 	len($x)
 }
 
-$ins = ["a", "bb", "ccc", "dddd", "eeeee",]
+$ins = ["a", "bb", "ccc", "dddd", "eeeee"]
 
 $out = iter.map($ins, $fn)
 

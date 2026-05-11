@@ -29,16 +29,16 @@ $fn = if $moda {
 }
 
 $in1 = if $modb {
-	["a", "bb", "ccc", "dddd", "eeeee",]
+	["a", "bb", "ccc", "dddd", "eeeee"]
 } else {
-	["ffffff", "ggggggg", "hhhhhhhh", "iiiiiiiii", "jjjjjjjjjj",]
+	["ffffff", "ggggggg", "hhhhhhhh", "iiiiiiiii", "jjjjjjjjjj"]
 }
 
 $out1 = iter.map($in1, $fn)
 
 $t1 = golang.template("out1: {{ . }}", $out1)
 
-test [$t1,] {}
+test [$t1] {}
 
 file "/tmp/mgmt/map" {
 	state => $const.res.file.state.exists,

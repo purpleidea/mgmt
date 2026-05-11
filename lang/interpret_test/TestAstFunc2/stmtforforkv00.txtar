@@ -1,18 +1,18 @@
 -- main.mcl --
 import "fmt"
 
-$map0 = {0 => "a", 1 => "b", 2 => "c",}
-$map1 = {0 => "d", 1 => "e", 2 => "f",}
-$map2 = {0 => "g", 1 => "h", 2 => "i",}
-$map3 = {0 => "j", 1 => "k", 2 => "l",}
+$map0 = {0 => "a", 1 => "b", 2 => "c"}
+$map1 = {0 => "d", 1 => "e", 2 => "f"}
+$map2 = {0 => "g", 1 => "h", 2 => "i"}
+$map3 = {0 => "j", 1 => "k", 2 => "l"}
 
-$list = [$map0, $map1, $map2, $map3,]
+$list = [$map0, $map1, $map2, $map3]
 
 for $index, $value in $list {
 	forkv $key, $val in $value {
 
 		$s = fmt.printf("%s is %d", $val, $key+$index)
-		test [$s,] {}
+		test [$s] {}
 	}
 }
 

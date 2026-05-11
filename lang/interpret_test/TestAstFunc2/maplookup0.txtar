@@ -1,17 +1,17 @@
 -- main.mcl --
-$map1 map{int: str} = {42 => "hello1",}
+$map1 map{int: str} = {42 => "hello1"}
 $name1 = $map1[42] || "not found"
 test "${name1}" {}
 
-$map2 map{int: str} = {42 => "hello2",}
+$map2 map{int: str} = {42 => "hello2"}
 $name2 = $map2[13] || "world2"
 test "${name2}" {}
 
-$map3 = {42 => "hello3",}
+$map3 = {42 => "hello3"}
 $name3 = $map3[42] || "not found"
 test "${name3}" {}
 
-$map4 = {42 => "hello4",}
+$map4 = {42 => "hello4"}
 $name4 = $map4[13] || "world4"
 test "${name4}" {}
 -- OUTPUT --

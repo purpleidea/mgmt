@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 $index = 42 # should be out of scope
 
@@ -15,7 +15,7 @@ for $index, $value in $list {
 
 	# XXX: add $thing.some_func and so on... add more tests says sam.
 	$s = fmt.printf("%s is %d is %s", $thing.result, $index, $result)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

@@ -3,7 +3,7 @@ import "golang"
 
 $dt = datetime.now()
 
-$hystvalues = {"now" => $dt, "ix0" => history($dt, 0), "ix1" => history($dt, 1000), "ix2" => history($dt, 2000), "ix3" => history($dt, 3000),}
+$hystvalues = {"now" => $dt, "ix0" => history($dt, 0), "ix1" => history($dt, 1000), "ix2" => history($dt, 2000), "ix3" => history($dt, 3000)}
 
 file "/tmp/mgmt/history" {
 	state => $const.res.file.state.exists,

@@ -90,7 +90,7 @@ class ssh_keygen_type($user, $type) {
 		content => os.readfilewait("${p}.ssh/id_${type}.pub"),
 
 		Meta:hidden => true,
-		Meta:export => ["*",],
+		Meta:export => ["*"],
 	}
 }
 
@@ -142,7 +142,7 @@ Name=${dev}
 
 # networkd_dhcp sets up a dhcp client with systemd-networkd.
 class networkd_dhcp($dev, $st) {
-	$dns = $st->dns || ["8.8.8.8",]
+	$dns = $st->dns || ["8.8.8.8"]
 	$metric = $st->metric || 100
 
 	$tmpl = "
@@ -251,7 +251,7 @@ class network_manager_dhcp($st) {
 	$mac = $st->mac || ""
 	$dev = $st->dev || "meth0"
 
-	$dns = $st->dns || ["8.8.8.8",]
+	$dns = $st->dns || ["8.8.8.8"]
 	$dns_str = golang_strings.join($dns, ";") # the line also ends with a semicolon
 	$tmpl = "
 [connection]
@@ -306,7 +306,7 @@ class network_manager_static($st) {
 	$ip = net.cidr_to_ip($cidr)
 	$prefix = net.cidr_to_prefix($cidr)
 	$router = $st->router || ""
-	$dns = $st->dns || ["8.8.8.8",]
+	$dns = $st->dns || ["8.8.8.8"]
 	$vips []str = $st->vips || [] # []cidr
 
 	$dns_str = golang_strings.join($dns, ";") # the line also ends with a semicolon
@@ -522,7 +522,7 @@ class dnf_update($pkg) {
 	$args = if $pkg == "" {
 		$a
 	} else {
-		list.concat($a, ["${pkg}",]) # limit to this package only
+		list.concat($a, ["${pkg}"]) # limit to this package only
 	}
 
 	exec "${exec_name}" {
@@ -648,7 +648,7 @@ class grow($mount) {
 		],
 		creates => $done, # TODO: is there something better?
 		user => "root", # need root to be able to run normally
-		env => {"PATH" => sys.getenv("PATH"),}, # so grow can find deps
+		env => {"PATH" => sys.getenv("PATH")}, # so grow can find deps
 
 		Depend => Pkg["cloud-utils-growpart"],
 	}

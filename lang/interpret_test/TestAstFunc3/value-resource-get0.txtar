@@ -22,12 +22,12 @@ $ret2 = value.get_str("hello2")	# name of value resource
 
 test "get1" {
 	anotherstr => $ret1->value,
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 
 test "get2" {
 	anotherstr => $ret2->value,
-	onlyshow => ["AnotherStr",],
+	onlyshow => ["AnotherStr"],
 }
 # XXX: Field entries for test[get1] and test[get2] aren't seen yet :(
 -- OUTPUT --

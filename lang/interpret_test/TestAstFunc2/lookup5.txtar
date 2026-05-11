@@ -17,6 +17,6 @@ $key = 2
 #$inner map{str: str} = $bigmap[$key] # does unify with the type hint!
 $inner = $bigmap[$key] # doesn't unify!
 
-test [$inner[42],] {}
+test [$inner[42]] {}
 -- OUTPUT --
 Vertex: test[hello]

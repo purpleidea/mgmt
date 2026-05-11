@@ -4,10 +4,10 @@ import "iter"
 
 # flatten composes with iter.map to give a flatMap-style operation: take each
 # input and expand it into a small list, then flatten all of those together.
-$xs = [1, 2, 3,]
+$xs = [1, 2, 3]
 
 $out = iter.flatten(iter.map($xs, func($x) {
-	[$x, $x + 10,]
+	[$x, $x + 10]
 }))
 
 $t = golang.template("out: {{ . }}", $out)

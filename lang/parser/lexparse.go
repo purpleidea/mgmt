@@ -88,7 +88,8 @@ type lexParseAST struct {
 	parseErr error // from Error(e string)
 }
 
-// LexParse runs the lexer/parser machinery and returns the AST.
+// LexParse runs the lexer/parser machinery and returns the AST. Make sure that
+// the final character is a newline, or the parser may error.
 func LexParse(input io.Reader) (interfaces.Stmt, error) {
 	lp := &lexParseAST{}
 	// parseResult is a seemingly unused field in the Lexer struct for us...

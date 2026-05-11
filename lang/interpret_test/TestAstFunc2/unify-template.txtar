@@ -2,7 +2,7 @@
 import "golang"
 import "sys"
 
-$tmplvalues = struct{num => 42, load => $theload,}
+$tmplvalues = struct{num => 42, load => $theload}
 
 $theload bool = sys.load()->x1 # wrong type, make sure the compiler catches it!
 

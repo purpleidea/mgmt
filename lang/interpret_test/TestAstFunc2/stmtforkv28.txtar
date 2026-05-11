@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$map = {0 => "a", 1 => "b", 2 => "c",}
+$map = {0 => "a", 1 => "b", 2 => "c"}
 
 forkv $i, $x in $map {
 
@@ -11,7 +11,7 @@ forkv $i, $x in $map {
 
 	$s = foo($x)
 
-	test [$s,] {}
+	test [$s] {}
 }
 -- OUTPUT --
 Vertex: test[helloaa]

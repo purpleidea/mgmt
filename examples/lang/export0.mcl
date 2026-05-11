@@ -4,8 +4,8 @@ file "/tmp/hello" {
 
 	Meta:hidden => true,
 
-	#Meta:export => ["*",],		# export to all
-	#Meta:export => ["hostname1",],	# export to just this one
+	#Meta:export => ["*"],		# export to all
+	#Meta:export => ["hostname1"],	# export to just this one
 	Meta:export => [ # export to everyone in this list
 		"${hostname}",
 		"hostname2",
@@ -21,7 +21,7 @@ collect file "/tmp/hello" {
 
 # collect a more complex way (use helper functions here instead!)
 collect file [
-	struct{name => "/tmp/hello", host => "${hostname}",},
+	struct{name => "/tmp/hello", host => "${hostname}"},
 ] {
 	Meta:hidden => false,
 }

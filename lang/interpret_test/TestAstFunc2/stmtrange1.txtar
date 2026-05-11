@@ -10,13 +10,13 @@ $range5 = iter.range(0, -10, -1)
 $range6 = iter.range(0)
 $range7 = iter.range(1, 0)
 
-test [fmt.printf("%v", $range1),] {}
-test [fmt.printf("%v", $range2),] {}
-test [fmt.printf("%v", $range3),] {}
-test [fmt.printf("%v", $range4),] {}
-test [fmt.printf("%v", $range5),] {}
-test [fmt.printf("%v", $range6),] {}
-test [fmt.printf("%v", $range7),] {}
+test [fmt.printf("%v", $range1)] {}
+test [fmt.printf("%v", $range2)] {}
+test [fmt.printf("%v", $range3)] {}
+test [fmt.printf("%v", $range4)] {}
+test [fmt.printf("%v", $range5)] {}
+test [fmt.printf("%v", $range6)] {}
+test [fmt.printf("%v", $range7)] {}
 
 -- OUTPUT --
 

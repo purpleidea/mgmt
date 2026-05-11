@@ -1,4 +1,8 @@
-/[ \t\n]/	{ /* skip over whitespace */ }
+/[ \t]/		{ /* skip over tabs and spaces */ }
+/[\n]/		{
+			yylex.pos(lval) // our pos
+			return NEWLINE
+		}
 /{/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()

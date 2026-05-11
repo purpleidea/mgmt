@@ -1,12 +1,12 @@
 import "golang/strings" as golang_strings
 import "list"
 
-$l1 = ["a", "b", "c", "d", "e", "f", "g",]
-$l2 = ["h", "i", "j", "k", "l", "m", "n", "o", "p",]
-$l3 = ["q", "r", "s",]
-$l4 = ["t", "u", "v",]
-$l5 = ["w", "x",]
-$l6 = ["y", "zed",]
+$l1 = ["a", "b", "c", "d", "e", "f", "g"]
+$l2 = ["h", "i", "j", "k", "l", "m", "n", "o", "p"]
+$l3 = ["q", "r", "s"]
+$l4 = ["t", "u", "v"]
+$l5 = ["w", "x"]
+$l6 = ["y", "zed"]
 
 $l = list.concat($l1, $l2, $l3, $l4, $l5, $l6)
 

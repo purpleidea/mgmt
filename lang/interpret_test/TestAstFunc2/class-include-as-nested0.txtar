@@ -1,13 +1,13 @@
 -- main.mcl --
 $top = "top-level"
 class base($s) {
-	test ["middle " + $s,] {}
+	test ["middle " + $s] {}
 	$middle = "inside base"
 }
 
 # syntactic sugar for the equivalent of defining a class `inner` inside of base.
 class base:inner($s) {
-	test ["inner " + $s,] {}
+	test ["inner " + $s] {}
 
 	$last = "i am inner and i can see " + $middle
 }

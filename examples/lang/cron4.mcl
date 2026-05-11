@@ -15,6 +15,6 @@ svc "purpleidea-oneshot" {
 	session => true,
 }
 
-file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home),] {
+file [fmt.printf("%s/.config/systemd/user/purpleidea-oneshot.service", $home)] {
 	state => $const.res.file.state.absent,
 }

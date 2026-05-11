@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$map = {0 => "a", 1 => "b", 2 => "c",}
+$map = {0 => "a", 1 => "b", 2 => "c"}
 
 #import "thing.mcl"	# works
 
@@ -14,7 +14,7 @@ forkv $key, $val in $map {
 	$x = 42 + $thing.inside
 
 	$s = fmt.printf("%s is %d = %d", $val, $key, $x)
-	test [$s,] {}
+	test [$s] {}
 }
 -- thing.mcl --
 $inside = 13

@@ -84,7 +84,7 @@ class base($config) {
 	$router = $config->router || "${router_def}"
 	$router_ip = net.cidr_to_ip($router) # removes cidr suffix
 
-	$dns = $config->dns || ["8.8.8.8", "1.1.1.1",] # maybe google/cloudflare will sponsor!
+	$dns = $config->dns || ["8.8.8.8", "1.1.1.1"] # maybe google/cloudflare will sponsor!
 
 	$prefix = $config->prefix || ""
 	panic($prefix == "", "provisioner:base $prefix is empty") # panic if prefix is empty
@@ -114,8 +114,8 @@ class base($config) {
 	if $network != "" {
 		net "${interface}" {
 			state => $const.res.net.state.up,
-			addrs => [$router,], # has cidr suffix
-			#gateway => "192.168.42.1",	# TODO: get upstream public gateway with new function
+			addrs => [$router], # has cidr suffix
+			#gateway => "192.168.42.1", # TODO: get upstream public gateway with new function
 
 			ip_forward => true, # XXX: does this work?
 
@@ -129,8 +129,8 @@ class base($config) {
 	#	packages
 	#
 	# TODO: do we need "syslinux-nonlinux" ?
-	$pkgs_bios = ["syslinux",]
-	$pkgs_uefi = ["shim-x64", "grub2-efi-x64",]
+	$pkgs_bios = ["syslinux"]
+	$pkgs_uefi = ["shim-x64", "grub2-efi-x64"]
 	pkg $pkgs_bios {
 		state => "installed",
 	}
@@ -139,7 +139,7 @@ class base($config) {
 	#}
 
 	# TODO: not in F39+ it seems
-	#$pkgs_kickstart = ["fedora-kickstarts", "spin-kickstarts",]
+	#$pkgs_kickstart = ["fedora-kickstarts", "spin-kickstarts"]
 	#pkg $pkgs_kickstart {
 	#	state => "installed",
 	#}
@@ -153,7 +153,7 @@ class base($config) {
 				"tftp",
 				"dhcp",
 			],
-			ports => ["${http_port_str}/tcp",],
+			ports => ["${http_port_str}/tcp"],
 
 			state => $const.res.firewalld.state.exists,
 		}
@@ -205,8 +205,7 @@ class base($config) {
 			interface => $interface, # required for now
 			leasetime => "10m", # seems some clients refresh half way at 5m
 			dns => $dns, # pick your own better ones!
-			routers => [$router_ip,],
-
+			routers => [$router_ip],
 			serverid => $router_ip, # XXX: test automatic mode
 
 			#Depend => Net[$interface], # TODO: add autoedges
@@ -678,7 +677,7 @@ class base:host($name, $config) {
 			# TODO: Our dhcp:range could send/recv a map from ip => mac address!
 			dhcp:range "${name}" {
 				network => "${network}", # eg: 192.168.42.0/24
-				skip => [$router,], # eg: 192.168.42.1/24
+				skip => [$router], # eg: 192.168.42.1/24
 
 				nbp => $provision ?: if $bios { # XXX: do we want this from the base class?
 					$nbp_bios # from base class
@@ -955,7 +954,7 @@ class base:host($name, $config) {
 	http:server:flag "${name}-done" {
 		key => "done",
 		path => "/action/done/mac=${provision_key}",
-		#mapped => {$str_true => $str_true, $str_false => $str_false,},
+		#mapped => {$str_true => $str_true, $str_false => $str_false},
 	}
 	http:server:flag "${name}-sshkey" {
 		key => "${sshkey_flag}",
@@ -1006,7 +1005,7 @@ class base:host($name, $config) {
 			state => "exists",
 
 			Meta:hidden => true,
-			Meta:export => ["*",], # TODO: get the etcd hostname?
+			Meta:export => ["*"], # TODO: get the etcd hostname?
 		}
 	}
 }

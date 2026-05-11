@@ -5,7 +5,7 @@ $default_printer = {
 	"lappy2" => "Bar-Office-Canon",
 }
 $subset_printers = {
-	"Foo-Laboratory-Brother" => ["ws1",],
+	"Foo-Laboratory-Brother" => ["ws1"],
 }
 include cups.base() as printers
 

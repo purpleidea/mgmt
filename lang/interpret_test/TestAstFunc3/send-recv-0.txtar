@@ -4,7 +4,7 @@ exec "exec0" {
 	shell => "/bin/bash",
 }
 
-file ["/tmp/command-output", "/tmp/command-stdout", "/tmp/command-stderr",] {
+file ["/tmp/command-output", "/tmp/command-stdout", "/tmp/command-stderr"] {
 	state => $const.res.file.state.exists,
 }
 

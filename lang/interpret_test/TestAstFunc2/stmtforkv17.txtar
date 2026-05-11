@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$map = {0 => "a", 1 => "b", 2 => "c",}
+$map = {0 => "a", 1 => "b", 2 => "c"}
 
 $word = "hello"
 
@@ -13,7 +13,7 @@ forkv $key, $val in $map {
 	include foo($val) as included
 
 	$s = fmt.printf("%s is %d", $included.result, $key)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

@@ -6,7 +6,7 @@ file "/tmp/mgmt/systemload" {
 	content => golang.template("load average: {{ .load }} threshold: {{ .threshold }}\n", $tmplvalues),
 }
 
-$tmplvalues = struct{load => $theload, threshold => $threshold,}
+$tmplvalues = struct{load => $theload, threshold => $threshold}
 
 $theload = sys.load()->x1
 $threshold = 1.5 # change me if you like

@@ -3,7 +3,7 @@ firewalld "misc" { # name is irrelevant
 		"dhcp",
 		"tftp",
 	],
-	ports => ["4280/tcp",],
+	ports => ["4280/tcp"],
 
 	state => $const.res.firewalld.state.absent,
 }

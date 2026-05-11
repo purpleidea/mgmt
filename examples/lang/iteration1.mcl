@@ -2,19 +2,19 @@
 print "name" {}
 
 # single resource, defined by list variable
-$names = ["hey", "there",]
+$names = ["hey", "there"]
 print $names {
 	Meta:autogroup => false,
 }
 
 # multiples resources, defined by list
-print ["hello", "world",] {
+print ["hello", "world"] {
 	Meta:autogroup => false,
 
 	Depend => Print[$names],
 }
 
-$morenames = ["wow", "cool", "amazing",]
+$morenames = ["wow", "cool", "amazing"]
 print $morenames {
 	Meta:autogroup => false,
 }

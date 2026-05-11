@@ -7,6 +7,6 @@ $fn = func($x) { # ignore arg
 	"hey"
 }
 
-test iter.map([1, 2, 3,], $fn) {}
+test iter.map([1, 2, 3], $fn) {}
 -- OUTPUT --
 Vertex: test[hey]

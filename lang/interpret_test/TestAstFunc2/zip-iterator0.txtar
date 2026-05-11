@@ -2,8 +2,8 @@
 import "golang"
 import "iter"
 
-$xs = [1, 2, 3, 4, 5,]
-$ys = [10, 20, 30, 40, 50,]
+$xs = [1, 2, 3, 4, 5]
+$ys = [10, 20, 30, 40, 50]
 
 $out = iter.zip($xs, $ys, func($x, $y) {
 	$x + $y

@@ -1,5 +1,5 @@
 -- main.mcl --
-print ["a" + "b",] {}
+print ["a" + "b"] {}
 -- OUTPUT --
 Edge: _operator -> composite: []str # 0
 Edge: const: str("+") -> _operator # op

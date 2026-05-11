@@ -2,14 +2,14 @@ $iface = "lo" # replace with your desired interface like meth0
 
 net $iface {
 	state => "up",
-	addrs => ["192.168.42.1/24",],
+	addrs => ["192.168.42.1/24"],
 }
 
 dhcp:server ":67" {
 	interface => $iface, # required for now
 	leasetime => "60s", # increase this for normal production
-	dns => ["8.8.8.8", "1.1.1.1",], # pick your own better ones!
-	routers => ["192.168.42.1",],
+	dns => ["8.8.8.8", "1.1.1.1"], # pick your own better ones!
+	routers => ["192.168.42.1"],
 
 	Depend => Net[$iface], # TODO: add autoedges
 }

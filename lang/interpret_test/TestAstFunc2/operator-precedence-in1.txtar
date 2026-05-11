@@ -1,5 +1,5 @@
 -- main.mcl --
-$name = if 1 + 2 in [3,] {
+$name = if 1 + 2 in [3] {
 	"passed"
 } else {
 	"failed"

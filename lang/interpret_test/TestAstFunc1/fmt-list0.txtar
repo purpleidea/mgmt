@@ -1,0 +1,41 @@
+-- main.mcl --
+$list0 = ["a", "b", "c", "d", "e"]
+$list1 = [
+	"a",
+	"b",
+	"c",
+	"d",
+	"e",
+]
+
+test "foo" {
+	slicestring => $list0,
+}
+test "bar" {
+	slicestring => $list1,
+}
+-- OUTPUT --
+Edge: const: str("a") -> composite: []str # 0
+Edge: const: str("a") -> composite: []str # 0
+Edge: const: str("b") -> composite: []str # 1
+Edge: const: str("b") -> composite: []str # 1
+Edge: const: str("c") -> composite: []str # 2
+Edge: const: str("c") -> composite: []str # 2
+Edge: const: str("d") -> composite: []str # 3
+Edge: const: str("d") -> composite: []str # 3
+Edge: const: str("e") -> composite: []str # 4
+Edge: const: str("e") -> composite: []str # 4
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: const: str("a")
+Vertex: const: str("a")
+Vertex: const: str("b")
+Vertex: const: str("b")
+Vertex: const: str("bar")
+Vertex: const: str("c")
+Vertex: const: str("c")
+Vertex: const: str("d")
+Vertex: const: str("d")
+Vertex: const: str("e")
+Vertex: const: str("e")
+Vertex: const: str("foo")

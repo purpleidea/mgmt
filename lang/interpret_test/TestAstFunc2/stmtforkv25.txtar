@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$map = {0 => "a",}
+$map = {0 => "a"}
 
 forkv $key, $val in $map {
 
@@ -10,7 +10,7 @@ forkv $key, $val in $map {
 	}
 
 	$s = fn()
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

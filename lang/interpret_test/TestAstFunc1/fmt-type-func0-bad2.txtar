@@ -1,0 +1,14 @@
+-- main.mcl --
+# type signature is multi-line without a trailing comma on last arg: bad
+$f func( # bad
+	str,
+	str
+) str = func($a, $b) {
+	$a + $b + "\n"
+}
+
+test "f" {
+	comment => $f("a", "b"),
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE, expecting COMMA` @4:2

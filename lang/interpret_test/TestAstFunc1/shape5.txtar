@@ -17,7 +17,7 @@ $lambda = if 10 > 0 { # must be a const, otherwise this is a dynamic graph
 
 $s = fmt.printf("%d", datetime.now())
 
-test [$lambda($s),] {}
+test [$lambda($s)] {}
 -- OUTPUT --
 Edge: FuncValue -> call # fn
 Edge: _operator -> composite: []str # 0

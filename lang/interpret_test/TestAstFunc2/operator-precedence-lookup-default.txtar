@@ -1,5 +1,5 @@
 -- main.mcl --
-$m = {"k" => "a",}
+$m = {"k" => "a"}
 $name = $m["k"] || "b" + "c"
 
 test "${name}" {}

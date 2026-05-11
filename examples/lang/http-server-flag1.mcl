@@ -26,7 +26,7 @@ http:server:file "/file1" {
 http:server:flag "${name1}" {
 	key => "${key1}",
 	path => "/action/done/mac=${some_key}",
-	#mapped => {$str_true => $str_true, $str_false => $str_false,},
+	#mapped => {$str_true => $str_true, $str_false => $str_false},
 }
 kv "${name1}" {
 	key => $name1,

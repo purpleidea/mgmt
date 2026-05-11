@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$list = ["a", "b", "c",]
+$list = ["a", "b", "c"]
 
 $index = 42 # should be out of scope
 
@@ -14,7 +14,7 @@ for $index, $value in $list {
 	$val = " " + $value
 
 	$s = fmt.printf("%s is %d", fn("whatever"), $index)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

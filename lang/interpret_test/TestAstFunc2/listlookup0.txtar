@@ -1,12 +1,12 @@
 -- main.mcl --
-$l1 = ["a", "b", "c",]
+$l1 = ["a", "b", "c"]
 
-$l2 = [$l1, ["hello", "world",],]
+$l2 = [$l1, ["hello", "world"]]
 
-test [$l1[0] || "fail",] {}
-test [$l1[2] || "fail",] {}
-test [$l1[3] || "pass",] {}
-test $l2[1] || ["fail",] {}
+test [$l1[0] || "fail"] {}
+test [$l1[2] || "fail"] {}
+test [$l1[3] || "pass"] {}
+test $l2[1] || ["fail"] {}
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[c]

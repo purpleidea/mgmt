@@ -40,7 +40,7 @@ hetzner:vm "resourcedemo" {
 
 	# list the SSH keys to be enabled when using rescue mode
 	# note: must be a subset of the keys registered with the project!
-	serverrescuekeys => ["bootstrap-test-key",],
+	serverrescuekeys => ["bootstrap-test-key"],
 
 	# set wait interval and timeout in seconds
 	waitinterval => 1,

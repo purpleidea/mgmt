@@ -1,7 +1,7 @@
 -- main.mcl --
 import "fmt"
 
-$map = {0 => "a", 1 => "b", 2 => "c",}
+$map = {0 => "a", 1 => "b", 2 => "c"}
 
 $key = 42 # should be out of scope
 
@@ -12,7 +12,7 @@ forkv $key, $val in $map {
 	}
 
 	$s = fmt.printf("%s is %d", $fn($val), $key)
-	test [$s,] {}
+	test [$s] {}
 }
 
 -- OUTPUT --

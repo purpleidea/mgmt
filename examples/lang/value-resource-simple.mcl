@@ -4,7 +4,7 @@ value "hello" {
 
 test "test" {
 	#anotherstr => "", # get it from send/recv
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 
 Value["hello"].any -> Test["test"].anotherstr
@@ -15,5 +15,5 @@ $ret = value.get_str("hello") # name of value resource
 
 test "get" {
 	anotherstr => $ret->value,
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }

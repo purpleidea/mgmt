@@ -13,9 +13,9 @@ include i1.c0 as i0
 
 test "print0" {
 	anotherstr => fmt.printf("%s", $i1.x), # hello
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }
 test "print1" {
 	anotherstr => fmt.printf("%s", $i0.x), # goodbye
-	onlyshow => ["AnotherStr",], # displays nicer
+	onlyshow => ["AnotherStr"], # displays nicer
 }

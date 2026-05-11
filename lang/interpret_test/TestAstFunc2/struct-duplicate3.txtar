@@ -1,5 +1,5 @@
 -- main.mcl --
-$st struct{x str} = struct{x => "hello", x => "world",}
+$st struct{x str} = struct{x => "hello", x => "world"}
 $name = $st->x
 test "${name}" {}
 -- OUTPUT --

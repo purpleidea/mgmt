@@ -1,0 +1,13 @@
+-- main.mcl --
+func bar( # good
+	$a, # also good
+	$b,
+) {
+	$a + $b + "\n"
+}
+
+test "bar" {
+	comment => bar("a", "b",), # bad
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN` @9:22

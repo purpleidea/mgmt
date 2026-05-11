@@ -1,0 +1,13 @@
+-- main.mcl --
+func foo($a, $b,) { # bad
+	$a + $b + "\n"
+}
+
+test "foo" {
+	comment => foo( # good
+		"a",
+		"b",
+	),
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN, expecting DOLLAR` @1:14

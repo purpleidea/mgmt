@@ -13,7 +13,7 @@
 #		poll => 5,
 #		limit => 4.2,
 #		burst => 3,
-#		sema => ["foo:1", "bar:3",],
+#		sema => ["foo:1", "bar:3"],
 #		rewatch => false,
 #		reverse => true,
 #	},

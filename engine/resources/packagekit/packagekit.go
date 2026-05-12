@@ -971,8 +971,10 @@ func FilterState(m map[string]*PkPackageIDActionData, packages []string, state s
 			b = !p.Installed
 		} else if state == "newest" {
 			b = p.Newest
+		} else if state != "" {
+			// treat any non-empty unknown state as a version pin
+			b = state == p.Version
 		} else {
-			// we can't filter "version" state in this function
 			pkgs = append(pkgs, k)
 			continue
 		}

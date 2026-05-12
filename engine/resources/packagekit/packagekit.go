@@ -426,7 +426,7 @@ func (obj *Conn) RefreshCache(force bool) error {
 		return err
 	}
 
-	var signals = []string{"RepoDetail", "ErrorCode", "Error", "Finished", "Destroy"} // "Progress", "Status" ?
+	var signals = []string{"RepoDetail", "ErrorCode", "Finished", "Destroy"} // "Progress", "Status" ?
 	removeSignals, err := obj.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 	if err != nil {
 		return err
@@ -448,7 +448,7 @@ loop:
 				continue loop
 			}
 
-			if signal.Name == FmtTransactionMethod("ErrorCode") || signal.Name == FmtTransactionMethod("Error") {
+			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("RepoDetail") {
 				continue loop

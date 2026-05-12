@@ -399,8 +399,62 @@ func (obj *Conn) IsInstalled(pkg string) (bool, error) {
 	return p[0], nil
 }
 
+// RefreshCache refreshes the package cache on its own transaction. PackageKit
+// transactions are single-shot, so callers that also want to install or remove
+// packages must do that on a separate transaction.
+func (obj *Conn) RefreshCache(force bool) error {
+	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
+	interfacePath, err := obj.CreateTransaction() // emits Destroy on close
+	if err != nil {
+		return err
+	}
+
+	var signals = []string{"RepoDetail", "ErrorCode", "Error", "Finished", "Destroy"} // "Progress", "Status" ?
+	removeSignals, err := obj.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
+	if err != nil {
+		return err
+	}
+	defer removeSignals()
+
+	bus := obj.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
+	call := bus.Call(FmtTransactionMethod("RefreshCache"), 0, force)
+	if call.Err != nil {
+		return call.Err
+	}
+loop:
+	for {
+		// FIXME: add a timeout option to error in case signals are dropped!
+		select {
+		case signal := <-ch:
+			if signal.Path != interfacePath {
+				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				continue loop
+			}
+
+			if signal.Name == FmtTransactionMethod("ErrorCode") || signal.Name == FmtTransactionMethod("Error") {
+				return fmt.Errorf("error in body: %v", signal.Body)
+			} else if signal.Name == FmtTransactionMethod("RepoDetail") {
+				continue loop
+			} else if signal.Name == FmtTransactionMethod("Finished") {
+				// TODO: should we wait for the Destroy signal?
+				break loop
+			} else if signal.Name == FmtTransactionMethod("Destroy") {
+				// should already be broken
+				break loop
+			} else {
+				return fmt.Errorf("error in body: %v", signal.Body)
+			}
+		}
+	}
+	return nil
+}
+
 // InstallPackages installs a list of packages by packageID.
 func (obj *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) error {
+
+	if err := obj.RefreshCache(false); err != nil {
+		return errwrap.Wrapf(err, "can't refresh cache")
+	}
 
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := obj.CreateTransaction() // emits Destroy on close
@@ -416,11 +470,7 @@ func (obj *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) e
 	defer removeSignals()
 
 	bus := obj.GetBus().Object(PkIface, interfacePath) // pass in found transaction path
-	call := bus.Call(FmtTransactionMethod("RefreshCache"), 0, false)
-	if call.Err != nil {
-		return call.Err
-	}
-	call = bus.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIDs)
+	call := bus.Call(FmtTransactionMethod("InstallPackages"), 0, transactionFlags, packageIDs)
 	if call.Err != nil {
 		return call.Err
 	}

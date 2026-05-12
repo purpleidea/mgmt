@@ -288,6 +288,8 @@ func (obj *PkgRes) populateFileList() error {
 	if err != nil {
 		return errwrap.Wrapf(err, "can't run GetFilesByPackageID")
 	}
+	// empty (not nil) so a no-file fetch isn't retried via the nil guard
+	obj.fileList = []string{}
 	if files, ok := filesMap[data.PackageID]; ok {
 		obj.fileList = util.DirifyFileList(files, false)
 	}

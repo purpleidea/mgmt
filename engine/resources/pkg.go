@@ -329,7 +329,10 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if err != nil {
 		return false, errwrap.Wrapf(err, "the FilterState method failed")
 	}
-	data, _ := result[obj.Name()] // if above didn't error, we won't either!
+	data, ok := result[obj.Name()]
+	if !ok {
+		return false, fmt.Errorf("missing result for package %s", obj.Name())
+	}
 	validState := util.BoolMapTrue(util.BoolMapValues(states))
 
 	// obj.State == PkgStateInstalled || PkgStateUninstalled || PkgStateNewest || "4.2-1.fc23"

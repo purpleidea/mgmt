@@ -230,19 +230,19 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	packageMap := obj.groupMappingHelper() // get the grouped values
 	packageMap[obj.Name()] = obj.State     // key is pkg name, value is pkg state
 	var filter uint64                      // initializes at the "zero" value of 0
-	filter += packagekit.PkFilterEnumArch  // always search in our arch (optional!)
+	filter |= packagekit.PkFilterEnumArch  // always search in our arch (optional!)
 	// we're requesting newest version, or to narrow down install choices!
 	if obj.State == PkgStateNewest || obj.State == PkgStateInstalled {
 		// if we add this, we'll still see older packages if installed
 		// this is an optimization, and is *optional*, this logic is
 		// handled inside of PackagesToPackageIDs now automatically!
-		filter += packagekit.PkFilterEnumNewest // only search for newest packages
+		filter |= packagekit.PkFilterEnumNewest // only search for newest packages
 	}
 	if !obj.AllowNonFree {
-		filter += packagekit.PkFilterEnumFree
+		filter |= packagekit.PkFilterEnumFree
 	}
 	if !obj.AllowUnsupported {
-		filter += packagekit.PkFilterEnumSupported
+		filter |= packagekit.PkFilterEnumSupported
 	}
 	result, err := bus.PackagesToPackageIDs(packageMap, filter)
 	if err != nil {
@@ -371,7 +371,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	var transactionFlags uint64 // initializes at the "zero" value of 0
 	if !obj.AllowUntrusted {    // allow
-		transactionFlags += packagekit.PkTransactionFlagEnumOnlyTrusted
+		transactionFlags |= packagekit.PkTransactionFlagEnumOnlyTrusted
 	}
 	// apply correct state!
 	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))

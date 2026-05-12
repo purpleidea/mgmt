@@ -81,6 +81,10 @@ type PkgRes struct {
 	// version string desired.
 	State string `lang:"state" yaml:"state"`
 
+	// AllowDowngrade specifies if we want to allow a lower package version
+	// to be installed when State is set to a specific version string.
+	AllowDowngrade bool `lang:"allowdowngrade" yaml:"allowdowngrade"`
+
 	// AllowUntrusted specifies if we want to allow untrusted packages to be
 	// installed. Please see the PackageKit documentation for more
 	// information.
@@ -369,10 +373,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, err
 	}
 
-	var transactionFlags uint64 // initializes at the "zero" value of 0
-	if !obj.AllowUntrusted {    // don't allow
-		transactionFlags |= packagekit.PkTransactionFlagEnumOnlyTrusted
-	}
+	transactionFlags := obj.packageTransactionFlags()
 	// apply correct state!
 	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	switch obj.State {
@@ -394,6 +395,18 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 	obj.init.Logf("Set(%s) success: %s", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	return false, nil // success
+}
+
+// packageTransactionFlags is a helper to group all the flags together.
+func (obj *PkgRes) packageTransactionFlags() uint64 {
+	var transactionFlags uint64 // initializes at the "zero" value of 0
+	if !obj.AllowUntrusted {    // don't allow
+		transactionFlags |= packagekit.PkTransactionFlagEnumOnlyTrusted
+	}
+	if obj.AllowDowngrade && stateIsVersion(obj.State) {
+		transactionFlags |= packagekit.PkTransactionFlagEnumAllowDowngrade
+	}
+	return transactionFlags
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -428,6 +441,10 @@ func (obj *PkgRes) Adapts(r engine.CompatibleRes) error {
 			return e
 		}
 		// one must be installed, and the other must be "newest"
+	}
+
+	if obj.AllowDowngrade != res.AllowDowngrade {
+		return fmt.Errorf("allowdowngrade differs: %t vs %t", obj.AllowDowngrade, res.AllowDowngrade)
 	}
 
 	if obj.AllowUntrusted != res.AllowUntrusted {
@@ -481,6 +498,7 @@ func (obj *PkgRes) Merge(r engine.CompatibleRes) (engine.CompatibleRes, error) {
 func (obj *PkgRes) Copy() engine.CopyableRes {
 	return &PkgRes{
 		State:            obj.State,
+		AllowDowngrade:   obj.AllowDowngrade,
 		AllowUntrusted:   obj.AllowUntrusted,
 		AllowNonFree:     obj.AllowNonFree,
 		AllowUnsupported: obj.AllowUnsupported,

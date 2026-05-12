@@ -151,10 +151,11 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 		obj.init.Logf("packagekit: "+format, v...)
 	}
 
-	ch, err := bus.WatchChanges()
+	ch, cleanup, err := bus.WatchChanges()
 	if err != nil {
 		return errwrap.Wrapf(err, "error adding signal match")
 	}
+	defer cleanup() // ignore the error
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err

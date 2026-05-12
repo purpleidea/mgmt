@@ -224,8 +224,10 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	return removeSignals, nil
 }
 
-// WatchChanges gets a signal anytime an event happens.
-func (obj *Conn) WatchChanges() (chan *dbus.Signal, error) {
+// WatchChanges gets a signal anytime an event happens. The caller must invoke
+// the returned cleanup function when it is done watching, or signal matches and
+// channel registrations will leak.
+func (obj *Conn) WatchChanges() (chan *dbus.Signal, func() error, error) {
 	ch := make(chan *dbus.Signal, PkBufferSize)
 	// NOTE: the TransactionListChanged signal fires much more frequently,
 	// but with much less specificity. If we're missing events, report the
@@ -233,10 +235,9 @@ func (obj *Conn) WatchChanges() (chan *dbus.Signal, error) {
 	var signal = "UpdatesChanged"
 	removeSignals, err := obj.matchSignal(ch, PkPath, PkIface, []string{signal})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	defer removeSignals() // ignore the error
-	if Paranoid {         // TODO: this filtering might not be necessary anymore...
+	if Paranoid { // TODO: this filtering might not be necessary anymore...
 		// try to handle the filtering inside this function!
 		rch := make(chan *dbus.Signal)
 		go func() {
@@ -262,9 +263,9 @@ func (obj *Conn) WatchChanges() (chan *dbus.Signal, error) {
 			}
 			defer close(ch)
 		}()
-		return rch, nil
+		return rch, removeSignals, nil
 	}
-	return ch, nil
+	return ch, removeSignals, nil
 }
 
 // CreateTransaction creates and returns a transaction path.

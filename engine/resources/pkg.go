@@ -361,7 +361,10 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 	// these are the packages that actually need their states applied!
 	applyPackages := util.StrFilterElementsInList(readyPackages, packageList)
-	packageIDs, _ := packagekit.FilterPackageIDs(result, applyPackages) // would be same err as above
+	packageIDs, err := packagekit.FilterPackageIDs(result, applyPackages)
+	if err != nil {
+		return false, err
+	}
 
 	var transactionFlags uint64 // initializes at the "zero" value of 0
 	if !obj.AllowUntrusted {    // allow

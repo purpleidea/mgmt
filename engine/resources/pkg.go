@@ -370,7 +370,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	var transactionFlags uint64 // initializes at the "zero" value of 0
-	if !obj.AllowUntrusted {    // allow
+	if !obj.AllowUntrusted {    // don't allow
 		transactionFlags |= packagekit.PkTransactionFlagEnumOnlyTrusted
 	}
 	// apply correct state!

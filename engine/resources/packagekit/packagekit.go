@@ -529,7 +529,7 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return fmt.Errorf("error in body: %v", signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
-				// a package was installed...
+				// a package was uninstalled...
 				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?

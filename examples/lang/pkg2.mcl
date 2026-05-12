@@ -1,0 +1,17 @@
+# this example will be stale as new version of fedora are released
+# hopefully it's still a useful example of how to pin packages
+# update accordingly!
+import "os"
+
+# dnf install 2ping-4.5.1-16.fc42
+# dnf install 2ping-4.5.1-22.fc42
+
+pkg "2ping" {
+	state => "4.5.1-16.fc42", # old
+	#state => "4.5.1-22.fc42", # new
+	#state => "4.5.1-22", # empty PackageID found for '2ping'
+
+	allowdowngrade => true, # test this flag
+
+	allowunsupported => os.is_family_debian() ?: true,
+}

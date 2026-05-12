@@ -32,7 +32,11 @@
 package resources
 
 import (
+	"errors"
+	"strings"
 	"testing"
+
+	"github.com/purpleidea/mgmt/engine/resources/packagekit"
 )
 
 func TestNilList1(t *testing.T) {
@@ -43,5 +47,109 @@ func TestNilList1(t *testing.T) {
 	x = []string{} // empty list
 	if x == nil {
 		t.Errorf("list should have been empty, was: %+v", x)
+	}
+}
+
+func TestPkgHigherVersionError(t *testing.T) {
+	pkErr := &packagekit.PkError{
+		Code:    packagekit.PkErrorEnumPackageAlreadyInstalled,
+		Details: "higher version is already installed",
+	}
+	err := (&PkgRes{State: "4.5.1-21.fc42"}).packageAlreadyInstalledError(pkErr)
+	if err == nil {
+		t.Fatalf("expected higher version error")
+	}
+	if !strings.Contains(err.Error(), "allowdowngrade") {
+		t.Errorf("expected allowdowngrade hint, got: %v", err)
+	}
+	var wrapped *packagekit.PkError
+	if !errors.As(err, &wrapped) {
+		t.Errorf("expected wrapped PackageKit error")
+	}
+}
+
+func TestPkgHigherVersionErrorSkipped(t *testing.T) {
+	testCases := []struct {
+		name string
+		res  *PkgRes
+		err  error
+	}{
+		{
+			name: "allow downgrade",
+			res:  &PkgRes{State: "4.5.1-21.fc42", AllowDowngrade: true},
+			err:  &packagekit.PkError{Code: packagekit.PkErrorEnumPackageAlreadyInstalled},
+		},
+		{
+			name: "non-version state",
+			res:  &PkgRes{State: PkgStateInstalled},
+			err:  &packagekit.PkError{Code: packagekit.PkErrorEnumPackageAlreadyInstalled},
+		},
+		{
+			name: "different packagekit error",
+			res:  &PkgRes{State: "4.5.1-21.fc42"},
+			err:  &packagekit.PkError{Code: packagekit.PkErrorEnumPackageNotFound},
+		},
+		{
+			name: "non packagekit error",
+			res:  &PkgRes{State: "4.5.1-21.fc42"},
+			err:  errors.New("plain error"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.res.packageAlreadyInstalledError(tc.err); err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestPkgTransactionFlags(t *testing.T) {
+	testCases := []struct {
+		name string
+		res  *PkgRes
+		flag uint64
+		want bool
+	}{
+		{
+			name: "version without downgrade",
+			res:  &PkgRes{State: "4.5.1-21.fc42"},
+			flag: packagekit.PkTransactionFlagEnumAllowDowngrade,
+			want: false,
+		},
+		{
+			name: "version with downgrade",
+			res:  &PkgRes{State: "4.5.1-21.fc42", AllowDowngrade: true},
+			flag: packagekit.PkTransactionFlagEnumAllowDowngrade,
+			want: true,
+		},
+		{
+			name: "installed with downgrade",
+			res:  &PkgRes{State: PkgStateInstalled, AllowDowngrade: true},
+			flag: packagekit.PkTransactionFlagEnumAllowDowngrade,
+			want: false,
+		},
+		{
+			name: "trusted by default",
+			res:  &PkgRes{State: PkgStateInstalled},
+			flag: packagekit.PkTransactionFlagEnumOnlyTrusted,
+			want: true,
+		},
+		{
+			name: "untrusted allowed",
+			res:  &PkgRes{State: PkgStateInstalled, AllowUntrusted: true},
+			flag: packagekit.PkTransactionFlagEnumOnlyTrusted,
+			want: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			flags := tc.res.packageTransactionFlags()
+			if got := flags&tc.flag == tc.flag; got != tc.want {
+				t.Errorf("unexpected flag state: got %t, want %t", got, tc.want)
+			}
+		})
 	}
 }

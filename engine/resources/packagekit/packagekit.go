@@ -104,6 +104,20 @@ const ( //static const PkEnumMatch enum_transaction_flag[]
 
 // constants from packagekit c library.
 const ( //typedef enum
+	PkErrorEnumUnknown uint32 = iota
+	PkErrorEnumOOM
+	PkErrorEnumNoNetwork
+	PkErrorEnumNotSupported
+	PkErrorEnumInternalError
+	PkErrorEnumGPGFailure
+	PkErrorEnumPackageIDInvalid
+	PkErrorEnumPackageNotInstalled
+	PkErrorEnumPackageNotFound
+	PkErrorEnumPackageAlreadyInstalled
+)
+
+// constants from packagekit c library.
+const ( //typedef enum
 	PkInfoEnumUnknown uint64 = 1 << iota
 	PkInfoEnumInstalled
 	PkInfoEnumAvailable
@@ -132,6 +146,38 @@ const ( //typedef enum
 	PkInfoEnumUnavailable
 	PkInfoEnumLast
 )
+
+// PkError is an error emitted by the PackageKit ErrorCode signal.
+type PkError struct {
+	Code    uint32
+	Details string
+}
+
+// Error is the standard function that fulfills the interface.
+func (obj *PkError) Error() string {
+	if obj.Details == "" {
+		return fmt.Sprintf("packagekit error %d", obj.Code)
+	}
+	return fmt.Sprintf("packagekit error %d: %s", obj.Code, obj.Details)
+}
+
+func newPkError(body []interface{}) error {
+	if len(body) != 2 {
+		return fmt.Errorf("error in body: %v", body)
+	}
+	code, ok := body[0].(uint32)
+	if !ok {
+		return fmt.Errorf("error in body: %v", body)
+	}
+	details, ok := body[1].(string)
+	if !ok {
+		return fmt.Errorf("error in body: %v", body)
+	}
+	return &PkError{
+		Code:    code,
+		Details: details,
+	}
+}
 
 // Conn is a wrapper struct so we can pass bus connection around in the struct.
 type Conn struct {
@@ -304,7 +350,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
+				return []string{}, newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				//pkg_int, ok := signal.Body[0].(int)
 				packageID, ok := signal.Body[1].(string)
@@ -416,7 +462,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("error in body: %v", signal.Body)
+				return newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("RepoDetail") {
 				continue loop
 			} else if signal.Name == FmtTransactionMethod("Finished") {
@@ -470,7 +516,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("error in body: %v", signal.Body)
+				return newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was installed...
 				// only start the timer once we're here...
@@ -527,7 +573,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("error in body: %v", signal.Body)
+				return newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 				// a package was uninstalled...
 				continue loop
@@ -576,7 +622,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return fmt.Errorf("error in body: %v", signal.Body)
+				return newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
@@ -629,7 +675,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				err = fmt.Errorf("error in body: %v", signal.Body)
+				err = newPkError(signal.Body)
 				return
 
 				// one signal returned per packageID found...
@@ -698,7 +744,7 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return nil, fmt.Errorf("error in body: %v", signal.Body)
+				return nil, newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
 
 				//pkg_int, ok := signal.Body[0].(int)

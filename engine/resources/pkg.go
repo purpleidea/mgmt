@@ -31,6 +31,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -391,10 +392,25 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		err = bus.InstallPackages(packageIDs, transactionFlags)
 	}
 	if err != nil {
+		if e := obj.packageAlreadyInstalledError(err); e != nil {
+			return false, e
+		}
 		return false, err // fail
 	}
 	obj.init.Logf("Set(%s) success: %s", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	return false, nil // success
+}
+
+// packageAlreadyInstalledError is a helper to provide a better error message.
+func (obj *PkgRes) packageAlreadyInstalledError(err error) error {
+	var pkErr *packagekit.PkError
+	if obj.AllowDowngrade || !stateIsVersion(obj.State) || !errors.As(err, &pkErr) {
+		return nil
+	}
+	if pkErr.Code != packagekit.PkErrorEnumPackageAlreadyInstalled {
+		return nil
+	}
+	return errwrap.Wrapf(err, "higher version already installed, use allowdowngrade to allow pinning to lower version %q", obj.State)
 }
 
 // packageTransactionFlags is a helper to group all the flags together.

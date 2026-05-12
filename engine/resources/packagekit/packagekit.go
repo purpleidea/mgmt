@@ -406,9 +406,12 @@ func (obj *Conn) IsInstalledList(packages []string) ([]bool, error) {
 // IsInstalled returns if a package is installed.
 // TODO: this could be optimized by making the resolve call directly
 func (obj *Conn) IsInstalled(pkg string) (bool, error) {
-	p, e := obj.IsInstalledList([]string{pkg})
+	p, err := obj.IsInstalledList([]string{pkg})
+	if err != nil {
+		return false, err
+	}
 	if len(p) != 1 {
-		return false, e
+		return false, fmt.Errorf("unexpected result count %d for package %s", len(p), pkg)
 	}
 	return p[0], nil
 }

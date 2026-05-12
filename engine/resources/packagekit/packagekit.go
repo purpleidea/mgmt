@@ -187,8 +187,14 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	// eg: gdbus monitor --system --dest org.freedesktop.PackageKit --object-path /org/freedesktop/PackageKit | grep <signal>
 	bus := obj.GetBus().BusObject()
 	var argsList []string
+	signalRegistered := false
 	// cleanup function should be called when done or when AddMatch errors
 	removeSignals := func() error {
+		// Unregister ch from godbus first so no more signals are
+		// dispatched to it, then drop the bus-daemon match rules.
+		if signalRegistered {
+			obj.GetBus().RemoveSignal(ch)
+		}
 		var errList error
 		for i := len(argsList) - 1; i >= 0; i-- { // last in first out
 			call := bus.Call(engineUtil.DBusRemoveMatch, 0, argsList[i])
@@ -221,6 +227,7 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 	// message arrives when a write to c is not possible, it is discarded!
 	// This can be disastrous if we're waiting for a "Finished" signal!
 	obj.GetBus().Signal(ch)
+	signalRegistered = true
 	return removeSignals, nil
 }
 

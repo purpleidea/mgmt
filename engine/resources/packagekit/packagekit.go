@@ -45,11 +45,6 @@ import (
 	"github.com/godbus/dbus/v5"
 )
 
-// global tweaks of verbosity and code path
-const (
-	Paranoid = false // enable if you see any ghosts
-)
-
 // constants which might need to be tweaked or which contain special dbus
 // strings.
 const (
@@ -243,34 +238,6 @@ func (obj *Conn) WatchChanges() (chan *dbus.Signal, func() error, error) {
 	removeSignals, err := obj.matchSignal(ch, PkPath, PkIface, []string{signal})
 	if err != nil {
 		return nil, nil, err
-	}
-	if Paranoid { // TODO: this filtering might not be necessary anymore...
-		// try to handle the filtering inside this function!
-		rch := make(chan *dbus.Signal)
-		go func() {
-		loop:
-			for {
-				select {
-				case event := <-ch:
-					// "A receive from a closed channel returns the
-					// zero value immediately": if i get nil here,
-					// it means the channel was closed by someone!!
-					if event == nil { // shared bus issue?
-						obj.Logf("Hrm, channel was closed!")
-						break loop // TODO: continue?
-					}
-					// i think this was caused by using the shared
-					// bus, but we might as well leave it in for now
-					if event.Path != PkPath || event.Name != fmt.Sprintf("%s.%s", PkIface, signal) {
-						obj.Logf("Woops: Event: %+v", event)
-						continue
-					}
-					rch <- event // forward...
-				}
-			}
-			defer close(ch)
-		}()
-		return rch, removeSignals, nil
 	}
 	return ch, removeSignals, nil
 }

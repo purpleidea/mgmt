@@ -141,9 +141,9 @@ func (obj *PkgRes) Cleanup() error {
 // TODO: https://github.com/hughsie/PackageKit/issues/109
 // TODO: https://github.com/hughsie/PackageKit/issues/110
 func (obj *PkgRes) Watch(ctx context.Context) error {
-	bus := packagekit.NewBus()
-	if bus == nil {
-		return fmt.Errorf("can't connect to PackageKit bus")
+	bus, err := packagekit.NewBus()
+	if err != nil {
+		return err
 	}
 	defer bus.Close()
 	bus.Debug = obj.init.Debug
@@ -255,9 +255,9 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 // TODO: should this work properly if pkg has been autogrouped ?
 func (obj *PkgRes) populateFileList() error {
 
-	bus := packagekit.NewBus()
-	if bus == nil {
-		return fmt.Errorf("can't connect to PackageKit bus")
+	bus, err := packagekit.NewBus()
+	if err != nil {
+		return err
 	}
 	defer bus.Close()
 	if obj.init != nil {
@@ -302,9 +302,9 @@ func (obj *PkgRes) populateFileList() error {
 func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("Check: %s", obj.fmtNames(obj.getNames()))
 
-	bus := packagekit.NewBus()
-	if bus == nil {
-		return false, fmt.Errorf("can't connect to PackageKit bus")
+	bus, err := packagekit.NewBus()
+	if err != nil {
+		return false, err
 	}
 	defer bus.Close()
 	bus.Debug = obj.init.Debug

@@ -157,15 +157,15 @@ type PkPackageIDActionData struct {
 }
 
 // NewBus returns a new bus connection.
-func NewBus() *Conn {
+func NewBus() (*Conn, error) {
 	// if we share the bus with others, we will get each others messages!!
 	bus, err := util.SystemBusPrivateUsable() // don't share the bus connection!
 	if err != nil {
-		return nil
+		return nil, errwrap.Wrapf(err, "can't connect to system bus")
 	}
 	return &Conn{
 		conn: bus,
-	}
+	}, nil
 }
 
 // GetBus gets the dbus connection object.

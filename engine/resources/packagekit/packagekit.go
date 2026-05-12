@@ -359,7 +359,7 @@ func (obj *Conn) IsInstalledList(packages []string) ([]bool, error) {
 		}
 	}
 
-	var r []bool
+	r := make([]bool, 0, len(packages))
 	for _, p := range packages {
 		if value, exists := m[p]; exists {
 			r = append(r, value > 0) // at least 1 means installed

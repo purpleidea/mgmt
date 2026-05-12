@@ -282,10 +282,14 @@ func (obj *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 	}
 	var interfacePath dbus.ObjectPath
 	bus := obj.GetBus().Object(PkIface, PkPath)
-	call := bus.Call(fmt.Sprintf("%s.CreateTransaction", PkIface), 0).Store(&interfacePath)
-	if call != nil {
-		return "", call
+	call := bus.Call(fmt.Sprintf("%s.CreateTransaction", PkIface), 0)
+	if call.Err != nil {
+		return "", call.Err
 	}
+	if err := call.Store(&interfacePath); err != nil {
+		return "", err
+	}
+
 	if obj.Debug {
 		obj.Logf("CreateTransaction(): %v", interfacePath)
 	}

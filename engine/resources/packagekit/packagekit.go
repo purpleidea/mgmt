@@ -306,7 +306,7 @@ func (obj *Conn) ResolvePackages(packages []string, filter uint64) ([]string, er
 	}
 
 	// add signal matches for Package and Finished which will always be last
-	var signals = []string{"Package", "Finished", "Error", "Destroy"}
+	var signals = []string{"Package", "Finished", "ErrorCode", "Destroy"}
 	removeSignals, err := obj.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
 	if err != nil {
 		return nil, err
@@ -336,7 +336,9 @@ loop:
 				continue loop
 			}
 
-			if signal.Name == FmtTransactionMethod("Package") {
+			if signal.Name == FmtTransactionMethod("ErrorCode") {
+				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
+			} else if signal.Name == FmtTransactionMethod("Package") {
 				//pkg_int, ok := signal.Body[0].(int)
 				packageID, ok := signal.Body[1].(string)
 				// format is: name;version;arch;data

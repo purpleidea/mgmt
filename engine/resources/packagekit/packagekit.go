@@ -114,6 +114,65 @@ const ( //typedef enum
 	PkErrorEnumPackageNotInstalled
 	PkErrorEnumPackageNotFound
 	PkErrorEnumPackageAlreadyInstalled
+	PkErrorEnumPackageDownloadFailed
+	PkErrorEnumGroupNotFound
+	PkErrorEnumGroupListInvalid
+	PkErrorEnumDepResolutionFailed
+	PkErrorEnumFilterInvalid
+	PkErrorEnumCreateThreadFailed
+	PkErrorEnumTransactionError
+	PkErrorEnumTransactionCancelled
+	PkErrorEnumNoCache
+	PkErrorEnumRepoNotFound
+	PkErrorEnumCannotRemoveSystemPackage
+	PkErrorEnumProcessKill
+	PkErrorEnumFailedInitialization
+	PkErrorEnumFailedFinalise
+	PkErrorEnumFailedConfigParsing
+	PkErrorEnumCannotCancel
+	PkErrorEnumCannotGetLock
+	PkErrorEnumNoPackagesToUpdate
+	PkErrorEnumCannotWriteRepoConfig
+	PkErrorEnumLocalInstallFailed
+	PkErrorEnumBadGPGSignature
+	PkErrorEnumMissingGPGSignature
+	PkErrorEnumCannotInstallSourcePackages
+	PkErrorEnumRepoConfigurationError
+	PkErrorEnumNoLicenseAgreement
+	PkErrorEnumFileConflicts
+	PkErrorEnumPackageConflicts
+	PkErrorEnumRepoNotAvailable
+	PkErrorEnumInvalidPackageFile
+	PkErrorEnumPackageInstallBlocked
+	PkErrorEnumPackageCorrupt
+	PkErrorEnumAllPackagesAlreadyInstalled
+	PkErrorEnumFileNotFound
+	PkErrorEnumNoMoreMirrorsToTry
+	PkErrorEnumNoDistroUpgradeData
+	PkErrorEnumIncompatibleArchitecture
+	PkErrorEnumNoSpaceOnDevice
+	PkErrorEnumMediaChangeRequired
+	PkErrorEnumNotAuthorized
+	PkErrorEnumUpdateNotFound
+	PkErrorEnumCannotInstallRepoUnsigned
+	PkErrorEnumCannotUpdateRepoUnsigned
+	PkErrorEnumCannotGetFilelist
+	PkErrorEnumCannotGetRequires
+	PkErrorEnumCannotDisableRepository
+	PkErrorEnumRestrictedDownload
+	PkErrorEnumPackageFailedToConfigure
+	PkErrorEnumPackageFailedToBuild
+	PkErrorEnumPackageFailedToInstall
+	PkErrorEnumPackageFailedToRemove
+	PkErrorEnumUpdateFailedDueToRunningProcess
+	PkErrorEnumPackageDatabaseChanged
+	PkErrorEnumProvideTypeNotSupported
+	PkErrorEnumInstallRootInvalid
+	PkErrorEnumCannotFetchSources
+	PkErrorEnumCancelledPriority
+	PkErrorEnumUnfinishedTransaction
+	PkErrorEnumLockRequired
+	PkErrorEnumRepoAlreadySet
 )
 
 // constants from packagekit c library.

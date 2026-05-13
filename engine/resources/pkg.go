@@ -446,10 +446,38 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		if e := obj.packageAlreadyInstalledError(err); e != nil {
 			return false, e
 		}
+		if e := obj.untrustedError(err); e != nil {
+			return false, e
+		}
 		return false, err // fail
 	}
 	obj.init.Logf("Set(%s) success: %s", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	return false, nil // success
+}
+
+// untrustedError is a helper to provide a better error message when an install
+// or update was refused because the package or its repository was not trusted
+// and AllowUntrusted is off. It returns nil if the error is unrelated.
+func (obj *PkgRes) untrustedError(err error) error {
+	if obj.AllowUntrusted {
+		return nil // OnlyTrusted flag wasn't set, so trust isn't the cause
+	}
+	var pkErr *packagekit.PkError
+	if !errors.As(err, &pkErr) {
+		return nil
+	}
+	switch pkErr.Code {
+	case packagekit.PkErrorEnumGPGFailure:
+		obj.init.Logf("package had a GPG failure while verifying")
+		fallthrough
+	case packagekit.PkErrorEnumBadGPGSignature:
+		obj.init.Logf("package has a bad a GPG signature")
+		fallthrough
+	case packagekit.PkErrorEnumMissingGPGSignature:
+		obj.init.Logf("package is missing a GPG signature")
+		return errwrap.Wrapf(err, "package is not trusted, use allowuntrusted to allow installing untrusted packages")
+	}
+	return nil
 }
 
 // packageAlreadyInstalledError is a helper to provide a better error message.

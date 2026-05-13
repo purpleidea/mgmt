@@ -256,6 +256,47 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	return result, nil
 }
 
+// notFoundError returns the "can't find package" error, augmented with a hint
+// if the package would have been visible with one of the AllowNonFree or
+// AllowUnsupported search filters relaxed.
+func (obj *PkgRes) notFoundError(bus *packagekit.Conn, name string) error {
+	notFoundErr := fmt.Errorf("can't find package named '%s'", name)
+
+	var candidates []string
+	if !obj.AllowNonFree {
+		candidates = append(candidates, "allownonfree")
+	}
+	if !obj.AllowUnsupported {
+		candidates = append(candidates, "allowunsupported")
+	}
+	if len(candidates) == 0 {
+		// all relax flags are already on, nothing to suggest
+		return notFoundErr
+	}
+
+	packageMap := map[string]string{name: obj.State}
+	var filter uint64
+	filter |= packagekit.PkFilterEnumArch
+	if obj.State == PkgStateNewest || obj.State == PkgStateInstalled {
+		filter |= packagekit.PkFilterEnumNewest
+	}
+	// intentionally drop PkFilterEnumFree and PkFilterEnumSupported
+
+	result, err := bus.PackagesToPackageIDs(packageMap, filter)
+	if err != nil {
+		return errwrap.Wrapf(err, "can't run PackagesToPackageIDs")
+	}
+	data, ok := result[name]
+	if !ok || !data.Found {
+		// really not available, even with filters relaxed
+		return notFoundErr
+	}
+	if len(candidates) == 1 {
+		return fmt.Errorf("can't find package named '%s'; you need to enable: %s", name, candidates[0])
+	}
+	return fmt.Errorf("can't find package named '%s'; you need to enable one or more of: %s", name, strings.Join(candidates, ", "))
+}
+
 // populateFileList fills in the fileList structure with what is in the package.
 // TODO: should this work properly if pkg has been autogrouped ?
 func (obj *PkgRes) populateFileList() error {
@@ -281,7 +322,7 @@ func (obj *PkgRes) populateFileList() error {
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
 		// common if we made a package name typo or repo doesn't exist!
-		return fmt.Errorf("can't find package named '%s'", obj.Name())
+		return obj.notFoundError(bus, obj.Name())
 	}
 	if data.PackageID == "" {
 		// this can happen if you specify a bad version like "latest"
@@ -325,6 +366,16 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	packageMap := obj.groupMappingHelper() // map[string]string
 	packageList := []string{obj.Name()}
 	packageList = append(packageList, util.StrMapKeys(packageMap)...)
+
+	// produce a friendly diagnostic if any package is missing, before we
+	// hand the result off to FilterState which would also fail, but with
+	// less context about why
+	for _, name := range packageList {
+		p, ok := result[name]
+		if !ok || !p.Found {
+			return false, obj.notFoundError(bus, name)
+		}
+	}
 	//stateList := []string{obj.State}
 	//stateList = append(stateList, util.StrMapValues(packageMap)...)
 

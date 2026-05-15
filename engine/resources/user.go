@@ -349,13 +349,13 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "cmd failed to start")
 	}
 	// capture any error messages
-	slurp, err := io.ReadAll(stderr)
+	b, err := io.ReadAll(stderr)
 	if err != nil {
-		return false, errwrap.Wrapf(err, "error slurping error message")
+		return false, errwrap.Wrapf(err, "error reading stderr")
 	}
 	// wait until cmd exits and return error message if any
 	if err := cmd.Wait(); err != nil {
-		return false, errwrap.Wrapf(err, "%s", slurp)
+		return false, errwrap.Wrapf(err, "%s", b)
 	}
 
 	return false, nil

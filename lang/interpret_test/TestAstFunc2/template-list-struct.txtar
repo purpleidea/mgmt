@@ -1,0 +1,14 @@
+-- main.mcl --
+import "golang"
+
+$values = [
+	struct{name => "one", value => "alpha"},
+	struct{name => "two", value => "beta"},
+]
+
+$out = golang.template("{{ range . }}{{ .name }}={{ .value }};{{ end }}", $values)
+
+test [$out] {}
+
+-- OUTPUT --
+Vertex: test[one=alpha;two=beta;]

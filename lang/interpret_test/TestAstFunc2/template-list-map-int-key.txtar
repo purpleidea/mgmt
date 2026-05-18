@@ -1,0 +1,13 @@
+-- main.mcl --
+import "golang"
+
+$values = [
+	{42 => "answer"},
+]
+
+$out = golang.template("{{ range . }}{{ index . 42 }}{{ end }}", $values)
+
+test [$out] {}
+
+-- OUTPUT --
+Vertex: test[answer]

@@ -1,0 +1,28 @@
+-- main.mcl --
+import "golang"
+
+$v1 = struct{
+	a => "amazing",
+	b => 13,
+}
+$v2 = struct{
+	a => "idea",
+	b => 42,
+}
+
+$values = {
+	$v1 => "purple",
+	$v2 => "magic",
+}
+
+# XXX: Note that field names requires upper case chars here. This is a
+# limitation of the golang.template library and makes it inconsistent with the
+# struct field lookups when a struct is returned from a function.
+$tmpl = "{{ range $key, $val := . }}{{ $key.A }};{{ $key.B }};{{ $val }}{{ end }}"
+
+$out = golang.template($tmpl, $values)
+
+test [$out] {}
+
+-- OUTPUT --
+Vertex: test[amazing;13;purpleidea;42;magic]

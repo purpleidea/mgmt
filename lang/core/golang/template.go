@@ -61,6 +61,11 @@ var (
 	// errorType represents a reflection type of error as seen in:
 	// https://github.com/golang/go/blob/ec62ee7f6d3839fe69aeae538dadc1c9dc3bf020/src/text/template/exec.go#L612
 	errorType = reflect.TypeOf((*error)(nil)).Elem()
+
+	// interfaceType represents a reflection type of interface{} which we
+	// use when the underlying mgmt type isn't reflectable. (See the
+	// reflectable function for more information.)
+	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
 )
 
 func init() {
@@ -314,22 +319,62 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 		return v.Value(), nil
 
 	case types.KindList:
-		// TODO: can we improve on this to expose indexes?
-		return v.Value(), nil
+		// If the element type reflects cleanly, return a concrete slice
+		// so it can still be passed to typed template functions.
+		if reflectable(v.Type()) {
+			// TODO: can we improve on this to expose indexes?
+			return v.Value(), nil
+		}
+		// Otherwise (eg: a list of structs with lowercase fields) we
+		// recurse so the elements become map[string]interface{}.
+		l := []interface{}{}
+		for _, x := range v.List() {
+			val, err := obj.convert(x)
+			if err != nil {
+				return nil, err
+			}
+			l = append(l, val)
+		}
+		return l, nil
 
 	case types.KindMap:
-		if v.Type().Key.Cmp(types.TypeStr) != nil {
-			return nil, fmt.Errorf("template: map keys must be str")
+		// The common case of str keys produces a map[string]interface{}
+		// so that template field access (eg: .key) keeps working even
+		// when the keys aren't valid (exported) golang identifiers.
+		if v.Type().Key.Cmp(types.TypeStr) == nil { // key type is str
+			m := make(map[string]interface{})
+			for k, v := range v.Map() { // map[Value]Value
+				val, err := obj.convert(v)
+				if err != nil {
+					return nil, err
+				}
+				m[k.Str()] = val
+			}
+			return m, nil
 		}
-		m := make(map[string]interface{})
+
+		// Otherwise build a real golang map so we can use comparable,
+		// non-str keys (eg: structs) and range over them in templates.
+		var m reflect.Value         // map[?]interface{}
 		for k, v := range v.Map() { // map[Value]Value
+			key, err := convertKey(k)
+			if err != nil {
+				return nil, err
+			}
 			val, err := obj.convert(v)
 			if err != nil {
 				return nil, err
 			}
-			m[k.Str()] = val
+			rk := reflect.ValueOf(key)
+			if !m.IsValid() { // first iteration
+				m = reflect.MakeMap(reflect.MapOf(rk.Type(), interfaceType))
+			}
+			m.SetMapIndex(rk, reflect.ValueOf(val))
 		}
-		return m, nil
+		if !m.IsValid() { // empty map
+			return map[string]interface{}{}, nil
+		}
+		return m.Interface(), nil
 
 	case types.KindStruct:
 		m := make(map[string]interface{})
@@ -390,7 +435,14 @@ func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple
 
 		in = append(in, t.Reflect())
 	}
-	ret := scaffold.T.Out.Reflect() // this can panic!
+	// If the return type isn't reflectable (eg: a struct with lowercase
+	// fields) we hand back an interface{} holding a map[string]interface{}
+	// instead, so that lowercase field access keeps working in templates.
+	canReflect := reflectable(scaffold.T.Out)
+	ret := interfaceType
+	if canReflect {
+		ret = scaffold.T.Out.Reflect()
+	}
 	out := []reflect.Type{ret, errorType}
 	var variadic = false // currently not supported in our function value
 	typ := reflect.FuncOf(in, out, variadic)
@@ -398,7 +450,7 @@ func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple
 	// wrap our function with the translation that is necessary
 	f := func(args []reflect.Value) (results []reflect.Value) { // build
 		innerArgs := []types.Value{}
-		zeroValue := reflect.Zero(scaffold.T.Out.Reflect()) // zero value of return type
+		zeroValue := reflect.Zero(ret) // zero value of return type
 		for _, x := range args {
 			v, err := types.ValueOf(x) // reflect.Value -> Value
 			if err != nil {
@@ -428,7 +480,23 @@ func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple
 		}
 
 		nilError := reflect.Zero(errorType)
-		return []reflect.Value{reflect.ValueOf(result.Value()), nilError}
+		if canReflect {
+			return []reflect.Value{reflect.ValueOf(result.Value()), nilError}
+		}
+
+		// non-reflectable return: convert to map[string]interface{} etc.
+		val, err := obj.convert(result)
+		if err != nil {
+			r := reflect.ValueOf(errwrap.Wrapf(err, "function `%s` errored", name))
+			if !r.Type().ConvertibleTo(errorType) { // for fun!
+				r = reflect.ValueOf(fmt.Errorf("function `%s` errored: %+v", name, err))
+			}
+			e := r.Convert(errorType) // must be seen as an `error`
+			return []reflect.Value{zeroValue, e}
+		}
+		iv := reflect.New(interfaceType).Elem()
+		iv.Set(reflect.ValueOf(val))
+		return []reflect.Value{iv, nilError}
 	}
 	val := reflect.MakeFunc(typ, f)
 	return val.Interface(), nil
@@ -470,6 +538,88 @@ func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Va
 	return &types.StrValue{
 		V: result,
 	}, nil
+}
+
+// reflectable returns true if the type can be passed through the golang reflect
+// API without panicking. It is false for any struct that contains an unexported
+// (lowercase) field name, since reflect.StructOf panics on those. In that case
+// we represent the value as a map[string]interface{} instead so that lowercase
+// field access keeps working inside templates.
+func reflectable(typ *types.Type) bool {
+	if typ == nil {
+		return false
+	}
+	switch typ.Kind {
+	case types.KindBool, types.KindStr, types.KindInt, types.KindFloat:
+		return true
+
+	case types.KindList:
+		return reflectable(typ.Val)
+
+	case types.KindMap:
+		return reflectable(typ.Key) && reflectable(typ.Val)
+
+	case types.KindStruct:
+		for _, k := range typ.Ord {
+			if strings.Title(k) != k { // unexported field
+				return false
+			}
+			if !reflectable(typ.Map[k]) {
+				return false
+			}
+		}
+		return true
+
+	case types.KindVariant:
+		return reflectable(typ.Var)
+	}
+
+	return false // something else (eg: func)
+}
+
+// convertKey is like convert, except it produces a comparable golang value that
+// is suitable for use as a map key inside a template. Maps aren't comparable in
+// golang, so structs are turned into real golang structs (with exported, titled
+// field names) instead of the map[string]interface{} that convert would
+// otherwise build.
+func convertKey(v types.Value) (interface{}, error) {
+	switch x := v.Type().Kind; x {
+	case types.KindBool:
+		fallthrough
+	case types.KindStr:
+		fallthrough
+	case types.KindInt:
+		fallthrough
+	case types.KindFloat:
+		return v.Value(), nil
+
+	case types.KindStruct:
+		fields := []reflect.StructField{}
+		vals := []reflect.Value{}
+		for _, k := range v.Type().Ord { // deterministic field order
+			val, err := convertKey(v.Struct()[k])
+			if err != nil {
+				return nil, err
+			}
+			rv := reflect.ValueOf(val)
+			fields = append(fields, reflect.StructField{
+				Name: strings.Title(k), // must be exported
+				Type: rv.Type(),
+			})
+			vals = append(vals, rv)
+		}
+		st := reflect.New(reflect.StructOf(fields)).Elem()
+		for i, rv := range vals {
+			st.Field(i).Set(rv)
+		}
+		return st.Interface(), nil
+
+	case types.KindVariant:
+		return convertKey(v.(*types.VariantValue).V) // un-nest
+
+	default:
+		return nil, fmt.Errorf("can't use `%+v` as a template map key", x)
+	}
 }
 
 // safename renames the functions so they're valid inside the template. This is

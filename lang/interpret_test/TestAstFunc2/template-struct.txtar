@@ -1,0 +1,18 @@
+-- main.mcl --
+import "golang"
+
+$values = struct{
+	a => "purple",
+	b => 42,
+	c => 3.14,
+	l => ["opt1", "opt2"],
+}
+
+$tmpl = "{{ .a }};{{ .b }};{{ .c }};{{ if .l }}{{ golang_strings_join .l \",\" }}{{ end }}"
+
+$out = golang.template($tmpl, $values)
+
+test [$out] {}
+
+-- OUTPUT --
+Vertex: test[purple;42;3.14;opt1,opt2]

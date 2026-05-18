@@ -258,7 +258,7 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 		// parameter types. Functions meant to apply to arguments of
 		// arbitrary type can use parameters of type interface{} or of
 		// type reflect.Value.
-		f, err := wrap(ctx, name, scaffold) // wrap it so that it meets API expectations
+		f, err := obj.wrap(ctx, name, scaffold) // wrap it so that it meets API expectations
 		if err != nil {
 			if obj.init.Debug {
 				obj.init.Logf("warning, skipping function named: `%s`, err: %v", name, err)
@@ -353,68 +353,12 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 	}
 }
 
-// Copy is implemented so that the obj.built value is not lost if we copy this
-// function.
-func (obj *TemplateFunc) Copy() interfaces.Func {
-	return &TemplateFunc{
-		Textarea: obj.Textarea,
-
-		Type:  obj.Type, // don't copy because we use this after unification
-		built: obj.built,
-
-		init: obj.init, // likely gets overwritten anyways
-	}
-}
-
-// Call this function with the input args and return the value if it is possible
-// to do so at this time.
-func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
-	if len(args) < 1 {
-		return nil, fmt.Errorf("not enough args")
-	}
-	tmpl := args[0].Str()
-
-	var vars types.Value // nil
-	if len(args) == 2 {
-		vars = args[1]
-	}
-
-	if obj.init == nil {
-		return nil, funcs.ErrCantSpeculate
-	}
-	result, err := obj.run(ctx, tmpl, vars)
-	if err != nil {
-		return nil, err // no errwrap needed b/c helper func
-	}
-	return &types.StrValue{
-		V: result,
-	}, nil
-}
-
-// safename renames the functions so they're valid inside the template. This is
-// a limitation of the template library, and it might be worth moving to a new
-// one.
-func safename(name string) string {
-	// TODO: should we pick a different replacement char?
-	char := funcs.ReplaceChar // can't be any of: .-#
-	result := strings.Replace(name, funcs.ModuleSep, char, -1)
-	result = strings.Replace(result, "/", char, -1) // nested imports
-	if result == name {
-		// No change, so add a prefix for package-less functions... This
-		// prevents conflicts from sys.func1 -> sys_func1 which would be
-		// a conflict with a top-level function named sys_func1 which is
-		// now renamed to _sys_func1.
-		return char + name
-	}
-	return result
-}
-
 // wrap builds a function in the format expected by the template engine, and
 // returns it as an interface{}. It does so by wrapping our type system and
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ interface{}, reterr error) {
+func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ interface{}, reterr error) {
 	defer func() {
 		// catch unhandled panics
 		if r := recover(); r != nil {
@@ -488,4 +432,60 @@ func wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ interf
 	}
 	val := reflect.MakeFunc(typ, f)
 	return val.Interface(), nil
+}
+
+// Copy is implemented so that the obj.built value is not lost if we copy this
+// function.
+func (obj *TemplateFunc) Copy() interfaces.Func {
+	return &TemplateFunc{
+		Textarea: obj.Textarea,
+
+		Type:  obj.Type, // don't copy because we use this after unification
+		built: obj.built,
+
+		init: obj.init, // likely gets overwritten anyways
+	}
+}
+
+// Call this function with the input args and return the value if it is possible
+// to do so at this time.
+func (obj *TemplateFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	if len(args) < 1 {
+		return nil, fmt.Errorf("not enough args")
+	}
+	tmpl := args[0].Str()
+
+	var vars types.Value // nil
+	if len(args) == 2 {
+		vars = args[1]
+	}
+
+	if obj.init == nil {
+		return nil, funcs.ErrCantSpeculate
+	}
+	result, err := obj.run(ctx, tmpl, vars)
+	if err != nil {
+		return nil, err // no errwrap needed b/c helper func
+	}
+	return &types.StrValue{
+		V: result,
+	}, nil
+}
+
+// safename renames the functions so they're valid inside the template. This is
+// a limitation of the template library, and it might be worth moving to a new
+// one.
+func safename(name string) string {
+	// TODO: should we pick a different replacement char?
+	char := funcs.ReplaceChar // can't be any of: .-#
+	result := strings.Replace(name, funcs.ModuleSep, char, -1)
+	result = strings.Replace(result, "/", char, -1) // nested imports
+	if result == name {
+		// No change, so add a prefix for package-less functions... This
+		// prevents conflicts from sys.func1 -> sys_func1 which would be
+		// a conflict with a top-level function named sys_func1 which is
+		// now renamed to _sys_func1.
+		return char + name
+	}
+	return result
 }

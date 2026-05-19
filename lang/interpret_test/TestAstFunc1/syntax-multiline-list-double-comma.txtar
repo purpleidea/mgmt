@@ -1,0 +1,12 @@
+-- main.mcl --
+$mylist = [
+	"w",
+	,
+	"o",
+]
+
+test "unreachable" {
+	slicestring => $mylist,
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA` @2:2

@@ -1,0 +1,9 @@
+-- main.mcl --
+$fn = func($x,,$y) {
+	$x + $y
+}
+
+$out = $fn("hello", "world")
+test "${out}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting DOLLAR` @1:12

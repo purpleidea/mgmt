@@ -1,0 +1,7 @@
+-- main.mcl --
+$m = {"w" => 1, , "o" => 2}
+
+$value = $m["w"]
+test "${value}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA` @1:7

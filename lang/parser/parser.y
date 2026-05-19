@@ -532,8 +532,15 @@ list:
 	}
 ;
 list_single:
+	OPEN_BRACK CLOSE_BRACK
+	{
+		$$.expr = &ast.ExprList{
+			Elements: []interfaces.Expr{},
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
 	// `[42, 0, -13]`
-	OPEN_BRACK list_single_elements CLOSE_BRACK
+|	OPEN_BRACK list_single_elements CLOSE_BRACK
 	{
 		$$.expr = &ast.ExprList{
 			Elements: $2.exprs,
@@ -542,12 +549,7 @@ list_single:
 	}
 ;
 list_single_elements:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.exprs = []interfaces.Expr{}
-	}
-|	list_single_elements COMMA list_single_element
+	list_single_elements COMMA list_single_element
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.exprs = append($1.exprs, $3.expr)
@@ -617,8 +619,15 @@ map:
 	}
 ;
 map_single:
+	OPEN_CURLY CLOSE_CURLY
+	{
+		$$.expr = &ast.ExprMap{
+			KVs: []*ast.ExprMapKV{},
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
 	// `{"hello" => "there", "world" => "big"}`
-	OPEN_CURLY map_single_kvs CLOSE_CURLY
+|	OPEN_CURLY map_single_kvs CLOSE_CURLY
 	{
 		$$.expr = &ast.ExprMap{
 			KVs: $2.mapKVs,
@@ -627,12 +636,7 @@ map_single:
 	}
 ;
 map_single_kvs:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.mapKVs = []*ast.ExprMapKV{}
-	}
-|	map_single_kvs COMMA map_single_kv
+	map_single_kvs COMMA map_single_kv
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.mapKVs = append($1.mapKVs, $3.mapKV)
@@ -707,8 +711,15 @@ struct:
 	}
 ;
 struct_single:
+	STRUCT_IDENTIFIER OPEN_CURLY CLOSE_CURLY
+	{
+		$$.expr = &ast.ExprStruct{
+			Fields: []*ast.ExprStructField{},
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
 	// `struct{answer => 0, truth => false, hello => "world"}`
-	STRUCT_IDENTIFIER OPEN_CURLY struct_single_fields CLOSE_CURLY
+|	STRUCT_IDENTIFIER OPEN_CURLY struct_single_fields CLOSE_CURLY
 	{
 		$$.expr = &ast.ExprStruct{
 			Fields: $3.structFields,
@@ -717,12 +728,7 @@ struct_single:
 	}
 ;
 struct_single_fields:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.structFields = []*ast.ExprStructField{}
-	}
-|	struct_single_fields COMMA struct_single_field
+	struct_single_fields COMMA struct_single_field
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.structFields = append($1.structFields, $3.structField)
@@ -1080,7 +1086,12 @@ call:
 // list order gets us the position of the arg, but named params would work too!
 // this is also used by the include statement when the called class uses args!
 callargs:
-	callargs_single
+	/* end of list */
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.exprs = []interfaces.Expr{}
+	}
+|	callargs_single
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.exprs = $1.exprs
@@ -1100,13 +1111,8 @@ callargs_single:
 	}
 ;
 callargs_single_args:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.exprs = []interfaces.Expr{}
-	}
 	// seems that "left recursion" works here... thanks parser generator!
-|	callargs_single_args COMMA callargs_single_arg
+	callargs_single_args COMMA callargs_single_arg
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.exprs = append($1.exprs, $3.expr)
@@ -1220,7 +1226,12 @@ func:
 // list order gets us the position of the arg, but named params would work too!
 // this is used by function definitions (named and lambda) and class definitions.
 args:
-	args_single
+	/* end of list */
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = []*interfaces.Arg{}
+	}
+|	args_single
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.args = $1.args
@@ -1240,12 +1251,7 @@ args_single:
 	}
 ;
 args_single_list:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.args = []*interfaces.Arg{}
-	}
-|	args_single_list COMMA args_single_arg
+	args_single_list COMMA args_single_arg
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.args = append($1.args, $3.arg)

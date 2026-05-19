@@ -1,0 +1,7 @@
+-- main.mcl --
+$st = struct{,w => 1, o => 2}
+
+$value = $st->w
+test "${value}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting NEWLINE or CLOSE_CURLY or IDENTIFIER` @1:2

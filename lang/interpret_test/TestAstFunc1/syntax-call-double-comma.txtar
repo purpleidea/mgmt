@@ -1,0 +1,7 @@
+-- main.mcl --
+import "fmt"
+
+$msg = fmt.printf("hello %s", , "world")
+test "${msg}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA` @3:19

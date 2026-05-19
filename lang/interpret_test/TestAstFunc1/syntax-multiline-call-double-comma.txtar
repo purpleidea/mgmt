@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+$msg = fmt.printf(
+	"hello %s",
+	,
+	"world",
+)
+test "${msg}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN` @3:19

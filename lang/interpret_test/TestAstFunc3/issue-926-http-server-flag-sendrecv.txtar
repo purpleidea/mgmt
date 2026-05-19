@@ -1,0 +1,33 @@
+-- main.mcl --
+http:server "issue-926" {
+	address => "127.0.0.1:28080",
+}
+
+http:server:flag "/flag1" {
+	key => "key",
+}
+
+print "print1" {
+	Meta:autogroup => false,
+}
+
+exec "post-flag1" {
+	cmd => "sleep 0.5; curl -s -XPOST http://127.0.0.1:28080/flag1 -d 'key=foo&blah=bar'",
+	shell => "/bin/bash",
+
+	Depend => Http:Server["issue-926"],
+}
+
+Http:Server:Flag["/flag1"].value -> Print["print1"].msg
+-- OUTPUT --
+Edge: http:server[issue-926] -> exec[post-flag1] # http:server[issue-926] -> exec[post-flag1]
+Edge: http:server[issue-926] -> print[print1] # http:server:flag[/flag1] -> print[print1]
+Field: exec[post-flag1].Cmd = "sleep 0.5; curl -s -XPOST http://127.0.0.1:28080/flag1 -d 'key=foo&blah=bar'"
+Field: exec[post-flag1].Shell = "/bin/bash"
+Field: http:server[issue-926].Address = "127.0.0.1:28080"
+Field: print[print1].Msg = "foo"
+Group: http:server[issue-926]: Field: http:server:flag[/flag1].Key = "key"
+Group: http:server[issue-926]: Vertex: http:server:flag[/flag1]
+Vertex: exec[post-flag1]
+Vertex: http:server[issue-926]
+Vertex: print[print1]

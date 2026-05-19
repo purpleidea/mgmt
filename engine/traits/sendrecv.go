@@ -30,14 +30,42 @@
 package traits
 
 import (
+	"sync/atomic"
+	"unsafe"
+
 	"github.com/purpleidea/mgmt/engine"
 )
+
+// sendableValue is an immutable wrapper around the published payload. The slot
+// always holds a non-nil *sendableValue of this single concrete type, which is
+// what lets us use an atomic.Value without ever hitting its panic-on-nil or
+// panic-on-type-change constraints, while still representing "nothing sent yet"
+// (a nil Load) and a nil payload distinctly. Unlike atomic.Pointer,
+// atomic.Value carries no noCopy field, so resources embedding the Sendable
+// trait stay copyable and don't fail golang vet checks.
+type sendableValue struct {
+	value interface{}
+}
 
 // Sendable contains a general implementation with some of the properties and
 // methods needed to implement sending from resources. You'll need to implement
 // the Sends method, and call the Send method in CheckApply via the Init API.
 type Sendable struct {
-	send interface{}
+	// addr restores the copy protection that atomic.Pointer's noCopy would
+	// have given us for free, in the spirit of strings.Builder's copyCheck.
+	// atomic.Value must not be copied once Store has been called. The only
+	// by-value resource copy in the tree is UnmarshalYAML's rawRes(*res),
+	// which runs before any Send, so addr is still nil and nothing panics.
+	// Any later copy-then-use panics loudly instead of corrupting silently.
+	// It is a plain unsafe.Pointer (no noCopy) so resources stay golang vet
+	// copyable for that pre-Send dance, and it is touched only via
+	// sync/atomic because Send and Sent run on different resource workers.
+	addr unsafe.Pointer // *Sendable; set once on first Send/Sent
+
+	// send is published by CheckApply and read by other resource workers.
+	// It always holds a *sendableValue.
+	send atomic.Value
+
 	//sendIsActive bool // TODO: public?
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
@@ -52,16 +80,40 @@ func (obj *Sendable) Sends() interface{} {
 }
 
 // Send is used to send a struct in CheckApply. This is typically wrapped in the
-// resource API and consumed that way.
+// resource API and consumed that way. The atomic store gives the cross-worker
+// handoff a synchronization boundary. See the SendableRes interface for the
+// snapshot/no-mutate contract that callers must honour.
 func (obj *Sendable) Send(st interface{}) error {
+	obj.copyCheck()
 	// TODO: can we (or should we) run the type checking here instead?
-	obj.send = st
+	obj.send.Store(&sendableValue{value: st})
 	return nil
 }
 
-// Sent returns the struct of values that have been sent by this resource.
+// Sent returns the struct of values that have been sent by this resource, or
+// nil if nothing has been sent yet. It should not be called before a value was
+// sent, the nil return is a courtesy. It may run concurrently with Send. See
+// the SendableRes interface for the read-only contract on the returned value.
 func (obj *Sendable) Sent() interface{} {
-	return obj.send
+	obj.copyCheck()
+	value := obj.send.Load()
+	if value == nil {
+		return nil
+	}
+	return value.(*sendableValue).value
+}
+
+// copyCheck panics if this Sendable has been copied by value after its first
+// use. It is safe to call concurrently: the first user wins the CAS, everyone
+// else (including readers on other workers) only loads and compares.
+func (obj *Sendable) copyCheck() {
+	self := unsafe.Pointer(obj)
+	if atomic.CompareAndSwapPointer(&obj.addr, nil, self) {
+		return // first use of this Sendable
+	}
+	if atomic.LoadPointer(&obj.addr) != self {
+		panic("traits.Sendable: illegal copy of a resource after Send/Sent")
+	}
 }
 
 // SendActive let's the resource know if it must send a value. This is usually

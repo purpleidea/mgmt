@@ -52,9 +52,21 @@ type SendableRes interface {
 	// error if the data is malformed or doesn't type check. You should use
 	// the GenerateSendFunc helper function to build this function for use
 	// in the resource internal state handle.
+	//
+	// The struct passed to Send is published as an immutable snapshot. The
+	// engine may read it concurrently from other resource workers (for
+	// example, while a receiver processes a send/recv edge) even as this
+	// resource runs CheckApply again. The caller MUST NOT mutate the
+	// struct, or anything it transitively points to, after Send returns. To
+	// send updated data, construct and Send a new value instead.
 	Send(st interface{}) error
 
-	// Sent returns the most recently sent data. This is used by the engine.
+	// Sent returns the most recently published snapshot. This is used by
+	// the engine and may be called concurrently with Send. Treat the result
+	// as read-only. It should not be called if an upstream value has not
+	// already been produced since that would violate the DAG properties. If
+	// no payload has been sent yet, a nil may be returned, but we must not
+	// rely on this behaviour as it may change.
 	Sent() interface{}
 
 	// SendActive let's the resource know if it must send a value. This is
@@ -89,7 +101,11 @@ type RecvableRes interface {
 	Res
 
 	// SetRecv stores the map of sendable data which should arrive here. It
-	// is called by the GAPI when building the resource.
+	// is called by the GAPI when building the resource. Unlike the Send and
+	// Sent payload (which is published and read across resource workers and
+	// is therefore synchronized) this map is set once during graph build,
+	// before any Worker starts, and only read afterwards, so it does not
+	// need its own synchronization.
 	SetRecv(recv map[string]*Send)
 
 	// Recv is used by the resource to get information on changes. This data

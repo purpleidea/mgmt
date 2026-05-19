@@ -101,6 +101,10 @@ Mgmt is generously sponsored by:
 
 [![m9rx corporation](art/m9rx.png)](https://m9rx.com/)
 
+Mgmt received a generous grant from:
+
+[![nlnet foundation](art/nlnet.png)](https://nlnet.nl/project/mgmt-config/)
+
 Please reach out if you'd like to sponsor!
 
 ## Documentation:

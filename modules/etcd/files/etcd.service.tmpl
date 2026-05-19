@@ -8,14 +8,14 @@ After=local-fs.target
 Wants=local-fs.target
 
 [Service]
-{{ if .user -}}
-User={{ .user }}
+{{ if .User -}}
+User={{ .User }}
 {{ end -}}
 Type=notify
 WorkingDirectory=/var/lib/etcd/
 Environment=ETCD_DATA_DIR=/var/lib/etcd/
 Environment=ETCD_NAME=%m
-ExecStart={{ .exec }} --listen-client-urls='http://0.0.0.0:2379' --advertise-client-urls='http://0.0.0.0:2379' {{ .opts }}
+ExecStart={{ .Exec }} --listen-client-urls='http://0.0.0.0:2379' --advertise-client-urls='http://0.0.0.0:2379' {{ .Opts }}
 RestartSec=5s
 Restart=always
 LimitNOFILE=65536

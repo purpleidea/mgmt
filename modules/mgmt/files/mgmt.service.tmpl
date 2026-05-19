@@ -6,7 +6,7 @@ After=local-fs.target
 Wants=local-fs.target
 
 [Service]
-ExecStart={{ .exec }} run {{ if .pprof }}--pprof='{{ .pprof }}'{{ end }} {{ if .ssh_url }}--ssh-url='{{ .ssh_url }}'{{ end }} {{ if .ssh_hostkey }}--ssh-hostkey='{{ .ssh_hostkey }}'{{ end }} {{ .valid_seeds }} --no-autoedges --no-autogroup empty $OPTS
+ExecStart={{ .Exec }} run {{ if .Pprof }}--pprof='{{ .Pprof }}'{{ end }} {{ if .Ssh_url }}--ssh-url='{{ .Ssh_url }}'{{ end }} {{ if .Ssh_hostkey }}--ssh-hostkey='{{ .Ssh_hostkey }}'{{ end }} {{ .Valid_seeds }} --no-autoedges --no-autogroup empty $OPTS
 RestartSec=5s
 Restart=always
 LimitNOFILE=65536

@@ -1,19 +1,19 @@
 {{/* newline for host spacing */}}
-# host: {{ .name }}
-host {{ .name }} {
-	hardware ethernet {{ .macaddress }};
-	fixed-address {{ .valid_fixedaddress }};
-{{- if .hostname }}
-	option host-name "{{ .hostname }}";
+# host: {{ .Name }}
+host {{ .Name }} {
+	hardware ethernet {{ .Macaddress }};
+	fixed-address {{ .Valid_fixedaddress }};
+{{- if .Hostname }}
+	option host-name "{{ .Hostname }}";
 {{ end -}}
-{{- if .nextserver }}
-	next-server {{ .nextserver }};
+{{- if .Nextserver }}
+	next-server {{ .Nextserver }};
 {{ end -}}
-{{- if .filename }}
-	filename "{{ .filename }}";
+{{- if .Filename }}
+	filename "{{ .Filename }}";
 {{ end -}}
-{{- if .veo }}
-	filename "{{ .filename }}";
-	option vendor-encapsulated-options {{ .veo }};
+{{- if .Veo }}
+	filename "{{ .Filename }}";
+	option vendor-encapsulated-options {{ .Veo }};
 {{ end -}}
 }

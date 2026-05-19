@@ -8,7 +8,7 @@ $values = struct{
 	l => ["opt1", "opt2"],
 }
 
-$tmpl = "{{ .a }};{{ .b }};{{ .c }};{{ if .l }}{{ golang_strings_join .l \",\" }}{{ end }}"
+$tmpl = "{{ .A }};{{ .B }};{{ .C }};{{ if .L }}{{ golang_strings_join .L \",\" }}{{ end }}"
 
 $out = golang.template($tmpl, $values)
 

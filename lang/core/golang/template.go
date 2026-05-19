@@ -78,7 +78,8 @@ var _ interfaces.InferableFunc = &TemplateFunc{} // ensure it meets this expecta
 // returns the output as a string. It bases its output on the values passed in
 // to it. It examines the type of the second argument (the input data vars) at
 // compile time and then determines the static functions signature by including
-// that in the overall signature.
+// that in the overall signature. Every struct field in a template is accessed
+// by its Title-cased representation.
 // TODO: We *might* need to add events for internal function changes over time,
 // but only if they are not pure. We currently only use simple, pure functions.
 type TemplateFunc struct {
@@ -377,13 +378,20 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 		return m.Interface(), nil
 
 	case types.KindStruct:
+		// Struct fields are always exposed under their Title-cased
+		// name. A struct used as a map key *must* be a real golang
+		// struct with exported (Title-cased) fields (golang map keys
+		// must be comparable) so we use the same naming here for
+		// consistency. This way every struct field is accessed the same
+		// way (eg: .Foo) regardless of whether the struct is a value,
+		// list element, function return value, or map key.
 		m := make(map[string]interface{})
 		for k, v := range v.Struct() { // map[string]Value
 			val, err := obj.convert(v)
 			if err != nil {
 				return nil, err
 			}
-			m[k] = val
+			m[strings.Title(k)] = val
 		}
 		return m, nil
 

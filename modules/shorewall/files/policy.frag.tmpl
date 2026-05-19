@@ -2,9 +2,9 @@
 ###############################################################################
 #SOURCE		DEST		POLICY	LOGLEVEL	RATE	CONNLIMIT
 */ -}}
-{{ if .comment -}}
+{{ if .Comment -}}
 #
-#	{{ .comment }}
+#	{{ .Comment }}
 #
 {{ end -}}
-{{ .source }}		{{ .dest }}	{{ .policy }}{{ if .log_level }}	$LOG_LEVEL{{ end }}
+{{ .Source }}		{{ .Dest }}	{{ .Policy }}{{ if .Log_level }}	$LOG_LEVEL{{ end }}

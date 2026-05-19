@@ -1,25 +1,25 @@
 {{/*
 TODO: A lot of this could be templated, if we knew what it did.
 */ -}}
-{{ if .default -}}
-<DefaultPrinter {{ .name }}>
+{{ if .Default -}}
+<DefaultPrinter {{ .Name }}>
 {{ else -}}
-<Printer {{ .name }}>
+<Printer {{ .Name }}>
 {{ end -}}
-PrinterId {{ .id }}
-UUID urn:uuid:{{ .uuid }}
-{{ if .info -}}
-Info {{ .info }}
+PrinterId {{ .Id }}
+UUID urn:uuid:{{ .Uuid }}
+{{ if .Info -}}
+Info {{ .Info }}
 {{ end -}}
-{{ if .location -}}
-Location {{ .location }}
+{{ if .Location -}}
+Location {{ .Location }}
 {{ end -}}
-MakeModel {{ .makemodel }}
-DeviceURI {{ .uri }}
+MakeModel {{ .Makemodel }}
+DeviceURI {{ .Uri }}
 State Idle
 StateTime 1735329279
 ConfigTime 1734305561
-Type {{ .typeint }}
+Type {{ .Typeint }}
 Accepting Yes
 Shared Yes
 JobSheets none none
@@ -29,7 +29,7 @@ KLimit 0
 OpPolicy default
 ErrorPolicy abort-job
 Option print-color-mode monochrome
-{{ if .default -}}
+{{ if .Default -}}
 </DefaultPrinter>
 {{ else -}}
 </Printer>

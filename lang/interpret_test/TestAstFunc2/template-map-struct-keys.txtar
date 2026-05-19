@@ -15,9 +15,11 @@ $values = {
 	$v2 => "magic",
 }
 
-# XXX: Note that field names requires upper case chars here. This is a
-# limitation of the golang.template library and makes it inconsistent with the
-# struct field lookups when a struct is returned from a function.
+# Note that struct field names are accessed with upper case (Title-cased) chars.
+# This is consistent everywhere: struct values, list elements, function return
+# values, and (as here) struct map keys all use the same .Field form. Previously
+# this was inconsistent since *this* type of field accessing *can't* be lower,
+# but we can instead force everything else to upper.
 $tmpl = "{{ range $key, $val := . }}{{ $key.A }};{{ $key.B }};{{ $val }}{{ end }}"
 
 $out = golang.template($tmpl, $values)

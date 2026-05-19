@@ -11,7 +11,7 @@ $ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
 $tmplvalues = struct{time => $secplus42, hello => "world", load => sys.load()}
 
 print "template-0" {
-	msg => golang.template("Hello: {{ .hello }}, 42 sec + 1 year is: {{ .time }} seconds, aka: {{ datetime_print .time }} with load {{ .load.x1 }}", $tmplvalues),
+	msg => golang.template("Hello: {{ .Hello }}, 42 sec + 1 year is: {{ .Time }} seconds, aka: {{ datetime_print .Time }} with load {{ .Load.X1 }}", $tmplvalues),
 }
 -- OUTPUT --
 Vertex: print[template-0]

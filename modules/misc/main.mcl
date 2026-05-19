@@ -151,7 +151,7 @@ Name=${dev}
 
 [Network]
 DHCP=yes
-{{ range .dns -}}
+{{ range .Dns -}}
 DNS={{ . }}
 {{ end -}}
 #UseGateway=false
@@ -159,12 +159,12 @@ DNS={{ . }}
 [DHCP]
 UseDNS=false
 
-{{ if .metric -}}
+{{ if .Metric -}}
 [DHCPv4]
-RouteMetric={{ .metric }}
+RouteMetric={{ .Metric }}
 
 [IPv6AcceptRA]
-RouteMetric={{ .metric }}
+RouteMetric={{ .Metric }}
 {{ end -}}
 "
 
@@ -205,10 +205,10 @@ Name=${dev}
 
 [Network]
 Address=${cidr}
-{{ if .gateway -}}
+{{ if .Gateway -}}
 Gateway=${gateway}
 {{ end -}}
-{{ range .dns -}}
+{{ range .Dns -}}
 DNS={{ . }}
 {{ end -}}
 #UseGateway=false
@@ -256,15 +256,15 @@ class network_manager_dhcp($st) {
 	$tmpl = "
 [connection]
 id=${dev}
-{{ if .uuid -}}
-uuid={{ .uuid }}
+{{ if .Uuid -}}
+uuid={{ .Uuid }}
 {{ end -}}
 type=ethernet
 interface-name=${dev}
 autoconnect=true
 
 [ipv4]
-{{ if .dns -}}
+{{ if .Dns -}}
 dns=${dns_str};
 {{ end -}}
 dns-search=
@@ -272,8 +272,8 @@ may-fail=false
 method=auto
 
 [ethernet]
-{{ if .mac -}}
-mac-address={{ .mac }}
+{{ if .Mac -}}
+mac-address={{ .Mac }}
 {{ end -}}
 "
 
@@ -313,26 +313,26 @@ class network_manager_static($st) {
 	$tmpl = "
 [connection]
 id=${dev}
-{{ if .uuid -}}
-uuid={{ .uuid }}
+{{ if .Uuid -}}
+uuid={{ .Uuid }}
 {{ end -}}
 type=ethernet
 interface-name=${dev}
 autoconnect=true
 
 [ipv4]
-{{ if .router -}}
-address1=${ip}/${prefix},{{ .router }}
+{{ if .Router -}}
+address1=${ip}/${prefix},{{ .Router }}
 {{ else -}}
 address1=${ip}/${prefix}
 {{ end -}}
-{{ if .vips -}}
-{{ range $index, $ip := .vips }}
+{{ if .Vips -}}
+{{ range $index, $ip := .Vips }}
 {{ $ix := len (printf \"xx%*s\" $index \"\") -}}
 address{{ $ix }}={{ $ip }}
 {{ end -}}
 {{ end -}}
-{{ if .dns -}}
+{{ if .Dns -}}
 dns=${dns_str};
 {{ end -}}
 dns-search=
@@ -340,8 +340,8 @@ may-fail=false
 method=manual
 
 [ethernet]
-{{ if .mac -}}
-mac-address={{ .mac }}
+{{ if .Mac -}}
+mac-address={{ .Mac }}
 {{ end -}}
 "
 
@@ -378,8 +378,8 @@ class network_manager_wifi($st) {
 	$tmpl = "
 [connection]
 id=${name}
-{{ if .uuid -}}
-uuid={{ .uuid }}
+{{ if .Uuid -}}
+uuid={{ .Uuid }}
 {{ end -}}
 type=wifi
 #interface-name=wlp0s20f3
@@ -396,8 +396,8 @@ ssid=${ssid}
 
 [wifi-security]
 key-mgmt=wpa-psk
-{{ if .psk -}}
-psk={{ .psk }}
+{{ if .Psk -}}
+psk={{ .Psk }}
 {{ end -}}
 
 [ipv4]
@@ -477,10 +477,10 @@ baseurl=${baseurl}
 #baseurl=http://download.example/pub/fedora/linux/updates/$releasever/Everything/$basearch/
 #metalink=https://mirrors.example.com/metalink?repo=${id}&distroversion=fedora-$releasever&arch=$basearch
 enabled=1
-{{ if .gpgkey -}}
+{{ if .Gpgkey -}}
 repo_gpgcheck=0 # TODO: enable me
 gpgcheck=1
-gpgkey={{ .gpgkey }}
+gpgkey={{ .Gpgkey }}
 #gpgkey=file:///etc/mgmt/fedora-$releasever-$basearch
 {{ end -}}
 metadata_expire=6h

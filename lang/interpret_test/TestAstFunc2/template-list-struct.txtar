@@ -6,7 +6,7 @@ $values = [
 	struct{name => "two", value => "beta"},
 ]
 
-$out = golang.template("{{ range . }}{{ .name }}={{ .value }};{{ end }}", $values)
+$out = golang.template("{{ range . }}{{ .Name }}={{ .Value }};{{ end }}", $values)
 
 test [$out] {}
 

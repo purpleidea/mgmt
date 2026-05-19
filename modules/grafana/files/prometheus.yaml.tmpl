@@ -1,7 +1,7 @@
 apiVersion: 1
 
 #deleteDatasources:
-#  - name: "{{ .name }}"
+#  - name: "{{ .Name }}"
 #    orgId: 1
 
 # Mark provisioned data sources for deletion if they are no longer in a provisioning file.
@@ -9,16 +9,16 @@ apiVersion: 1
 prune: true
 
 datasources:
-{{ if .comment -}}
+{{ if .Comment -}}
 #
-#	{{ .comment }}
+#	{{ .Comment }}
 #
 {{ end }}
-  - name: "{{ .name }}"
+  - name: "{{ .Name }}"
     type: prometheus
     access: proxy
     # Access mode - proxy (server in the UI) or direct (browser in the UI).
-    url: "{{ .url }}"
+    url: "{{ .Url }}"
     jsonData:
       httpMethod: POST
       manageAlerts: true

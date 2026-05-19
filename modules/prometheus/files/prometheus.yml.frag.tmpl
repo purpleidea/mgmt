@@ -1,4 +1,4 @@
-  - job_name: {{ .name }}
-    # The prometheus-node-exporter running on {{ .name }}.
+  - job_name: {{ .Name }}
+    # The prometheus-node-exporter running on {{ .Name }}.
     static_configs:
-      - targets: ['{{ .host }}:{{ .port }}']
+      - targets: ['{{ .Host }}:{{ .Port }}']

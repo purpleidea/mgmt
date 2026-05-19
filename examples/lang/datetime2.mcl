@@ -10,7 +10,7 @@ $load float = sys.load()->x1 # ambiguous so we specify the type!
 
 file "/tmp/mgmt/datetime" {
 	state => $const.res.file.state.exists,
-	content => golang.template("Hello! It is now: {{ datetime_print .now }}\n\nload average: {{ .load }}\n", $st),
+	content => golang.template("Hello! It is now: {{ datetime_print .Now }}\n\nload average: {{ .Load }}\n", $st),
 }
 
 file "/tmp/mgmt/" {

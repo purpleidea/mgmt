@@ -2,7 +2,7 @@
 import "golang"
 import "net"
 
-$out = golang.template("{{ (net_url_parser \"https://www.example.com/search?q=mgmt\").scheme }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").host }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").path }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").raw_query }}")
+$out = golang.template("{{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Scheme }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Host }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Path }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Raw_query }}")
 
 test [$out] {}
 

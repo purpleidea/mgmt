@@ -16,6 +16,6 @@
 # $ ExecStart=/usr/sbin/dhcpd -f -cf /etc/dhcp/dhcpd.conf -user dhcpd -group dhcpd --no-pid <your_interface_name(s)>
 # $ systemctl --system daemon-reload
 # $ systemctl restart dhcpd.service
-{{ if .interfaces -}}
-DHCPDARGS="{{ golang_strings_join .interfaces " " }}"
+{{ if .Interfaces -}}
+DHCPDARGS="{{ golang_strings_join .Interfaces " " }}"
 {{ end -}}

@@ -2,11 +2,11 @@
 ##############################################################################################################################################################
 #ACTION		SOURCE		DEST		PROTO	DPORT	SPORT	ORIGDEST	RATE	USER	MARK	CONNLIMIT	TIME	HEADERS	SWITCH	HELPER
 */ -}}
-{{ if .comment -}}
+{{ if .Comment -}}
 #
-#	{{ .comment }}
+#	{{ .Comment }}
 #
 {{ end -}}
-{{ if .rule -}}
-{{ .rule }}
+{{ if .Rule -}}
+{{ .Rule }}
 {{ end -}}

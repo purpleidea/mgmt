@@ -1,0 +1,9 @@
+-- main.mcl --
+$fn func(, $x str) str = func($x str) str {
+	$x
+}
+
+$out = $fn("hello")
+test "${out}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN` @1:9

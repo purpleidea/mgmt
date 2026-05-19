@@ -1707,8 +1707,14 @@ type:
 		posLast(yylex, yyDollar) // our pos
 		$$.typ = types.NewType(fmt.Sprintf("map{%s: %s}", $3.typ.String(), $5.typ.String()))
 	}
+|	STRUCT_IDENTIFIER OPEN_CURLY CLOSE_CURLY
+	// struct: struct{}
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.typ = types.NewType(fmt.Sprintf("%s{}", $1.str))
+	}
 |	STRUCT_IDENTIFIER OPEN_CURLY type_struct_fields CLOSE_CURLY
-	// struct: struct{} or struct{a bool} or struct{a bool; bb int}
+	// struct: struct{a bool} or struct{a bool; bb int}
 	{
 		posLast(yylex, yyDollar) // our pos
 
@@ -1775,12 +1781,7 @@ type:
 	}
 ;
 type_struct_fields:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.args = []*interfaces.Arg{}
-	}
-|	type_struct_fields SEMICOLON type_struct_field
+	type_struct_fields SEMICOLON type_struct_field
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.args = append($1.args, $3.arg)
@@ -1806,7 +1807,12 @@ type_struct_field:
 // pattern as `args`: single line forbids a trailing comma, multi line
 // requires one after every arg (including the last).
 type_func_args:
-	type_func_args_single
+	/* end of list */
+	{
+		posLast(yylex, yyDollar) // our pos
+		$$.args = []*interfaces.Arg{}
+	}
+|	type_func_args_single
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.args = $1.args
@@ -1826,12 +1832,7 @@ type_func_args_single:
 	}
 ;
 type_func_args_single_list:
-	/* end of list */
-	{
-		posLast(yylex, yyDollar) // our pos
-		$$.args = []*interfaces.Arg{}
-	}
-|	type_func_args_single_list COMMA type_func_args_single_arg
+	type_func_args_single_list COMMA type_func_args_single_arg
 	{
 		posLast(yylex, yyDollar) // our pos
 		$$.args = append($1.args, $3.arg)

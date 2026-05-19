@@ -1,0 +1,7 @@
+-- main.mcl --
+$st struct{; x str} = struct{x => "hello"}
+
+$value = $st->x
+test "${value}" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected SEMICOLON, expecting CLOSE_CURLY or IDENTIFIER` @1:2

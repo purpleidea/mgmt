@@ -34,12 +34,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -93,6 +96,8 @@ type TFTPServerRes struct {
 	Root string `lang:"root" yaml:"root"`
 
 	// TODO: should we allow adding a list of one-of files directly here?
+
+	wg *sync.WaitGroup
 }
 
 // Default returns some sensible defaults for this resource.
@@ -177,16 +182,27 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 	}
 
 	// Use nil in place of handler to disable read or write operations.
-	server := tftp.NewServer(obj.readHandler(), obj.writeHandler())
+	server := tftp.NewServer(obj.readHandler(ctx), obj.writeHandler())
 	server.SetTimeout(time.Duration(obj.Timeout) * time.Second) // optional
+	server.SetBackoff(func(int) time.Duration {
+		// Match the library's default randomized retry delay while
+		// running, but skip it once shutdown starts so active transfers
+		// can drain.
+		select {
+		case <-ctx.Done():
+			return 0
+		default:
+			return time.Duration(rand.Int63n(int64(time.Second)))
+		}
+	})
 	server.SetHook(hook)
 
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	obj.wg = &sync.WaitGroup{}
+	defer obj.wg.Wait()
 
-	wg.Add(1)
+	obj.wg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer obj.wg.Done()
 
 		err := server.Serve(conn) // blocks until Shutdown() is called!
 		if err == nil {
@@ -295,7 +311,7 @@ func (obj *TFTPServerRes) GroupCmp(r engine.GroupableRes) error {
 }
 
 // readHandler handles all the incoming download requests from clients.
-func (obj *TFTPServerRes) readHandler() func(string, io.ReaderFrom) error {
+func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.ReaderFrom) error {
 	return func(filename string, rf io.ReaderFrom) error {
 		raddr := rf.(tftp.OutgoingTransfer).RemoteAddr()
 		laddr := rf.(tftp.RequestPacketInfo).LocalIP() // may be nil
@@ -384,8 +400,39 @@ func (obj *TFTPServerRes) readHandler() func(string, io.ReaderFrom) error {
 		// NOTE: os.File does for example.
 		//rf.(tftp.OutgoingTransfer).SetSize(myFileSize)
 
+		// XXX: This is a giant (clever) hack to disconnect readers who
+		// are misbehaving or otherwise. There may be a better way to
+		// prevent needing this hack, but until it is found, at least do
+		// something. See more at: https://github.com/pin/tftp/issues/41
+		transfer, err := tftpTransferConn(rf)
+		if err != nil && obj.init.Debug {
+			obj.init.Logf("could not get transfer connection: %+v", err)
+		}
+		done := make(chan struct{})
+		if transfer != nil {
+			defer close(done)
+			obj.wg.Add(1)
+			go func() {
+				defer obj.wg.Done()
+
+				select {
+				case <-ctx.Done():
+					transfer.Close() // this unblocks ReadFrom
+				case <-done:
+				}
+			}()
+		}
+		if closer, ok := handle.(io.Closer); ok {
+			defer closer.Close()
+		}
+
 		n, err := rf.ReadFrom(handle)
 		if err != nil {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
 			obj.init.Logf("could not read %s, error: %+v", filename, err)
 			// don't leak additional information to client!
 			return fmt.Errorf("could not read: %s", filename)
@@ -602,4 +649,49 @@ func (obj *TFTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = TFTPFileRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// tftpTransferConn returns the per-transfer UDP connection owned by the tftp
+// library. The library does not expose a way to interrupt one blocked transfer,
+// so we capture the connection before ReadFrom starts and close it if the
+// resource context is cancelled.
+func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
+	value := reflect.ValueOf(rf)
+	if value.Kind() != reflect.Ptr || value.IsNil() {
+		return nil, fmt.Errorf("unexpected transfer type: %T", rf)
+	}
+
+	value = value.Elem()
+	connField := value.FieldByName("conn")
+	if !connField.IsValid() {
+		return nil, fmt.Errorf("missing transfer connection")
+	}
+	if connField.IsNil() {
+		return nil, fmt.Errorf("nil transfer connection")
+	}
+
+	connValue := reflect.NewAt(connField.Type(), unsafe.Pointer(connField.UnsafeAddr())).Elem()
+	conn := reflect.ValueOf(connValue.Interface())
+	if conn.Kind() == reflect.Interface {
+		conn = conn.Elem()
+	}
+	if conn.Kind() != reflect.Ptr || conn.IsNil() {
+		return nil, fmt.Errorf("unexpected connection type: %T", connValue.Interface())
+	}
+
+	conn = conn.Elem()
+	udpField := conn.FieldByName("conn")
+	if !udpField.IsValid() {
+		return nil, fmt.Errorf("missing UDP connection")
+	}
+	if udpField.IsNil() {
+		return nil, fmt.Errorf("nil UDP connection")
+	}
+
+	udpValue := reflect.NewAt(udpField.Type(), unsafe.Pointer(udpField.UnsafeAddr())).Elem()
+	udpConn, ok := udpValue.Interface().(*net.UDPConn)
+	if !ok {
+		return nil, fmt.Errorf("unexpected UDP connection type: %T", udpValue.Interface())
+	}
+	return udpConn, nil
 }

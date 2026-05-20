@@ -388,23 +388,29 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 			return fmt.Errorf("the GID differs")
 		}
 	}
-	if (obj.Groups == nil) != (res.Groups == nil) {
+
+	if (obj.Group == nil) != (res.Group == nil) {
 		return fmt.Errorf("the Group differs")
 	}
-	if obj.Groups != nil && res.Groups != nil {
-		if len(obj.Groups) != len(res.Groups) {
+	if obj.Group != nil && res.Group != nil {
+		if *obj.Group != *res.Group {
 			return fmt.Errorf("the Group differs")
 		}
-		objGroups := obj.Groups
-		resGroups := res.Groups
-		sort.Strings(objGroups)
-		sort.Strings(resGroups)
-		for i := range objGroups {
-			if objGroups[i] != resGroups[i] {
-				return fmt.Errorf("the Group differs at index: %d", i)
-			}
+	}
+
+	if len(obj.Groups) != len(res.Groups) {
+		return fmt.Errorf("the number of Groups differ")
+	}
+	objGroups := obj.Groups
+	resGroups := res.Groups
+	sort.Strings(objGroups)
+	sort.Strings(resGroups)
+	for i := range objGroups {
+		if objGroups[i] != resGroups[i] {
+			return fmt.Errorf("the Groups differ at index: %d", i)
 		}
 	}
+
 	if (obj.HomeDir == nil) != (res.HomeDir == nil) {
 		return fmt.Errorf("the HomeDir differs")
 	}

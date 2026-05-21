@@ -426,6 +426,22 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	transactionFlags := obj.packageTransactionFlags()
+
+	if strings.HasPrefix(obj.Name(), "/") {
+		obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
+		fullPaths := []string{obj.Name()}
+		err := bus.InstallFiles(fullPaths, transactionFlags)
+		if err != nil {
+			if e := obj.untrustedError(err); e != nil {
+				return false, e
+			}
+			return false, err
+		}
+		obj.init.Logf("Set(%s) success: %s", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
+		return false, nil
+	}
+
+	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	// apply correct state!
 	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	switch obj.State {

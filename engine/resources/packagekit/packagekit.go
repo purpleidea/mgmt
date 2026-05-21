@@ -1114,3 +1114,56 @@ func IsMyArch(arch string) (bool, error) {
 	}
 	return goarch == runtime.GOARCH, nil
 }
+
+// InstallFiles installs a list of packages from local file paths.
+func (obj *Conn) InstallFiles(fullPaths []string, transactionFlags uint64) error {
+	if err := obj.RefreshCache(false); err != nil {
+		return errwrap.Wrapf(err, "can't refresh cache")
+	}
+	ch := make(chan *dbus.Signal, PkBufferSize)
+	interfacePath, err := obj.CreateTransaction()
+	if err != nil {
+		return err
+	}
+	var signals = []string{"Package", "ErrorCode", "Finished", "Destroy"} // "ItemProgress", "Status" ?
+	removeSignals, err := obj.matchSignal(ch, interfacePath, PkIfaceTransaction, signals)
+	if err != nil {
+		return err
+	}
+	defer removeSignals()
+	bus := obj.GetBus().Object(PkIface, interfacePath)
+	call := bus.Call(FmtTransactionMethod("InstallFiles"), 0, transactionFlags, fullPaths)
+	if call.Err != nil {
+		return call.Err
+	}
+	timeout := -1
+	finished := false
+loop:
+	for {
+		select {
+		case signal := <-ch:
+			if signal.Path != interfacePath {
+				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				continue loop
+			}
+			if signal.Name == FmtTransactionMethod("ErrorCode") {
+				return newPkError(signal.Body)
+			} else if signal.Name == FmtTransactionMethod("Package") {
+				timeout = PkSignalPackageTimeout
+			} else if signal.Name == FmtTransactionMethod("Finished") {
+				finished = true
+				timeout = PkSignalDestroyTimeout
+			} else if signal.Name == FmtTransactionMethod("Destroy") {
+				return nil
+			} else {
+				return fmt.Errorf("error in body: %v", signal.Body)
+			}
+		case <-util.TimeAfterOrBlock(timeout):
+			if finished {
+				obj.Logf("Timeout: InstallFiles: Waiting for 'Destroy'")
+				return nil
+			}
+			return fmt.Errorf("timeout installing files: %s", strings.Join(fullPaths, ", "))
+		}
+	}
+}

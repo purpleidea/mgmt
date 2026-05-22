@@ -11,6 +11,10 @@ or:
 
 ```topic, topic2: Capitalized message with no trailing period```
 
+* use of AI/LLM tools *must* be disclosed or we reserve the right to ban you!
+
+please add `Co-authored-by:` tags to describe what models/tools you used if any
+
 * golang code must be formatted according to the standard, please run:
 
 ```

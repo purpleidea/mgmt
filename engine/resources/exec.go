@@ -40,6 +40,7 @@ import (
 	"os/user"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -249,6 +250,49 @@ func (obj *ExecRes) getCmd() string {
 	return obj.Name()
 }
 
+// validateUserGroup is just a small helper that is used by Validate().
+func (obj *ExecRes) validateUserGroup() error {
+
+	// Check that if a user or group is set, we are running as root, or
+	// already running with the requested user/group.
+	if obj.User == "" && obj.Group == "" {
+		return nil
+	}
+
+	currentUser, err := user.Current()
+	if err != nil {
+		return errwrap.Wrapf(err, "error looking up current user")
+	}
+
+	if currentUser.Uid == "0" {
+		return nil // changing to any user is allowed since we're root!
+	}
+	//if currentUser.Gid == "0" { // XXX: Do we want to add this case too?
+	//	return nil
+	//}
+
+	if obj.User != "" {
+		uid, err := engineUtil.GetUID(obj.User)
+		if err != nil {
+			return errwrap.Wrapf(err, "error looking up uid for %s", obj.User)
+		}
+		if strconv.Itoa(uid) != currentUser.Uid {
+			return fmt.Errorf("running as root is required if you want to use exec with a different user")
+		}
+	}
+	if obj.Group != "" {
+		gid, err := engineUtil.GetGID(obj.Group)
+		if err != nil {
+			return errwrap.Wrapf(err, "error looking up gid for %s", obj.Group)
+		}
+		if strconv.Itoa(gid) != currentUser.Gid {
+			return fmt.Errorf("running as root is required if you want to use exec with a different group")
+		}
+	}
+
+	return nil
+}
+
 // Validate if the params passed in are valid data.
 func (obj *ExecRes) Validate() error {
 	if obj.getCmd() == "" { // this is the only thing that is really required
@@ -279,15 +323,8 @@ func (obj *ExecRes) Validate() error {
 		}
 	}
 
-	// check that, if a user or a group is set, we're running as root
-	if obj.User != "" || obj.Group != "" {
-		currentUser, err := user.Current()
-		if err != nil {
-			return errwrap.Wrapf(err, "error looking up current user")
-		}
-		if currentUser.Uid != "0" {
-			return fmt.Errorf("running as root is required if you want to use exec with a different user/group")
-		}
+	if err := obj.validateUserGroup(); err != nil {
+		return err
 	}
 
 	// check that environment variables' format is valid
@@ -1325,32 +1362,52 @@ func (obj *ExecRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // getCredential returns the correct *syscall.Credential if an User and Group
 // are set.
 func (obj *ExecRes) getCredential() (*syscall.Credential, error) {
-	var uid, gid int
-	var err error
-	var currentUser *user.User
-	if currentUser, err = user.Current(); err != nil {
-		return nil, errwrap.Wrapf(err, "error looking up current user")
-	}
-	if currentUser.Uid != "0" {
-		// since we're not root, we've got nothing to do
+	if obj.User == "" && obj.Group == "" {
 		return nil, nil
 	}
 
-	if obj.Group != "" {
-		gid, err = engineUtil.GetGID(obj.Group)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error looking up gid for %s", obj.Group)
-		}
+	currentUser, err := user.Current()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error looking up current user")
 	}
 
+	uid, err := strconv.Atoi(currentUser.Uid)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error casting current UID to int")
+	}
+	gid, err := strconv.Atoi(currentUser.Gid)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error casting current GID to int")
+	}
+
+	wantedUID := uid
 	if obj.User != "" {
-		uid, err = engineUtil.GetUID(obj.User)
+		wantedUID, err = engineUtil.GetUID(obj.User)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "error looking up uid for %s", obj.User)
 		}
 	}
 
-	return &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}, nil
+	wantedGID := gid
+	if obj.Group != "" {
+		wantedGID, err = engineUtil.GetGID(obj.Group)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error looking up gid for %s", obj.Group)
+		}
+	}
+
+	// We are already are what we want, so no need to build the credentials.
+	if wantedUID == uid && wantedGID == gid {
+		return nil, nil
+	}
+
+	if uid != 0 { // XXX: add `&& gid != 0` or not?
+		// Since we're not root, we've got to error, but this should be
+		// caught in Validate first anyways.
+		return nil, fmt.Errorf("running as root is required if you want to use exec with a different user/group")
+	}
+
+	return &syscall.Credential{Uid: uint32(wantedUID), Gid: uint32(wantedGID)}, nil
 }
 
 // cmdFiles returns all the potential files/commands this command might need.

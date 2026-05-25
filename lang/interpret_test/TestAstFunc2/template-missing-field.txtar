@@ -1,0 +1,14 @@
+-- main.mcl --
+import "golang"
+
+$values = struct{
+	present => "hello",
+}
+
+# templates need to use equivalent title case names now!
+$out = golang.template("{{ .Missing }}", $values)
+
+test [$out] {}
+
+-- OUTPUT --
+# err: errStream: template: execution error: template: template:1:3: executing "template" at <.Missing>: map has no entry for key "Missing": /main.mcl @ 8:8-8:50

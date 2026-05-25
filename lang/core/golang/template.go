@@ -276,6 +276,7 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 
 	var err error
 	tmpl := template.New(TemplateName)
+	tmpl = tmpl.Option("missingkey=error") // avoid "<no value>" strings!
 	tmpl = tmpl.Funcs(funcMap)
 	tmpl, err = tmpl.Parse(templateText)
 	if err != nil {

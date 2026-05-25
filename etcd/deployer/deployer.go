@@ -221,7 +221,65 @@ func (obj *SimpleDeploy) AddDeploy(ctx context.Context, id uint64, hash, pHash s
 		return errwrap.Wrapf(err, "error creating deploy id %d", id)
 	}
 	if !result.Succeeded {
-		return fmt.Errorf("could not create deploy id %d", id)
+		return obj.explainFailedDeployTxn(ctx, id, hash, pHash, path)
 	}
 	return nil // success
+}
+
+// explainFailedDeployTxn tries to return a better error message by running a
+// new query. Ideally we'd get this information from the transaction, but the
+// etcd API has many limitations that prevent being about to do this easily.
+func (obj *SimpleDeploy) explainFailedDeployTxn(ctx context.Context, id uint64, hash, pHash, path string) error {
+	if _, exists, err := obj.getDeployValue(ctx, path); err != nil {
+		return errwrap.Wrapf(err, "could not inspect deploy id %d", id)
+	} else if exists {
+		if hash != "" {
+			tHash := fmt.Sprintf("%s/%s/%d/%s", obj.ns, deployPath, id, hashPath)
+			if value, exists, err := obj.getDeployValue(ctx, tHash); err != nil {
+				return errwrap.Wrapf(err, "could not inspect deploy hash for deploy id %d", id)
+			} else if exists && value == hash {
+				return fmt.Errorf("deploy hash is unchanged at %q; nothing new to deploy", hash)
+			}
+		}
+		return fmt.Errorf("deploy id %d already exists; another deploy was created first, try again", id)
+	}
+
+	if id > 1 {
+		prev := fmt.Sprintf("%s/%s/%d/%s", obj.ns, deployPath, id-1, payloadPath)
+		if _, exists, err := obj.getDeployValue(ctx, prev); err != nil {
+			return errwrap.Wrapf(err, "could not inspect previous deploy id %d", id-1)
+		} else if !exists {
+			return fmt.Errorf("previous deploy id %d does not exist; deploy ids must be created sequentially", id-1)
+		}
+
+		if hash != "" && pHash != "" {
+			prevHash := fmt.Sprintf("%s/%s/%d/%s", obj.ns, deployPath, id-1, hashPath)
+			value, exists, err := obj.getDeployValue(ctx, prevHash)
+			if err != nil {
+				return errwrap.Wrapf(err, "could not inspect previous deploy hash for deploy id %d", id-1)
+			}
+			if !exists {
+				return fmt.Errorf("previous deploy hash for deploy id %d is missing; expected %q", id-1, pHash)
+			}
+			if value == hash {
+				return fmt.Errorf("deploy hash is unchanged at %q; nothing new to deploy", hash)
+			}
+			if value != pHash {
+				return fmt.Errorf("previous deploy hash mismatch for deploy id %d; local commit does not have the expected parent from the latest deployed hash of: %q", id-1, value)
+			}
+		}
+	}
+
+	return fmt.Errorf("etcd transaction compare failed; deploy state changed before it was committed")
+}
+
+// getDeployValue is a small helper that is used to explain the error.
+func (obj *SimpleDeploy) getDeployValue(ctx context.Context, path string) (string, bool, error) {
+	result, err := obj.Client.Get(ctx, path)
+	if err != nil {
+		return "", false, err
+	}
+
+	value, exists := result[path]
+	return value, exists, nil
 }

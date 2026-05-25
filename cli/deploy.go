@@ -38,7 +38,6 @@ import (
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/etcd"
-	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	"github.com/purpleidea/mgmt/gapi"
@@ -200,47 +199,37 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 	uniqueid := uuid.New() // panic's if it can't generate one :P
 
-	client := etcdClient.NewClientFromSeedsNamespace(
-		obj.Seeds, // endpoints
-		lib.NS,
-	)
-	if err := client.Init(); err != nil {
-		return false, errwrap.Wrapf(err, "client Init failed")
-	}
-	defer func() {
-		err := errwrap.Wrapf(client.Close(), "client Close failed")
-		if err != nil {
-			// TODO: cause the final exit code to be non-zero
-			Logf("client cleanup error: %+v", err)
-		}
-	}()
-
+	var deployFs engine.Fs
 	var world engine.World
 	world = &etcd.World{ // XXX: What should some of these fields be?
-		Client: client, // XXX: remove me when etcdfs below is done
-		Seeds:  obj.Seeds,
-		NS:     lib.NS,
-		//MetadataPrefix: lib.MetadataPrefix,
-		//StoragePrefix:  lib.StoragePrefix,
+		Seeds:          obj.Seeds,
+		NS:             lib.NS,
+		MetadataPrefix: lib.MetadataPrefix,
+		StoragePrefix:  lib.StoragePrefix,
 		//StandaloneFs: ???.DeployFs, // used for static deploys
-		//GetURI: func() string {
-		//},
+		GetURI: func() string {
+			if deployFs == nil {
+				return ""
+			}
+			return deployFs.URI()
+		},
 	}
 	if obj.SSHURL != "" { // alternate world implementation over SSH
 		world = &etcdSSH.World{
-			URL:     obj.SSHURL,
-			HostKey: obj.SSHHostKey,
-			Seeds:   obj.Seeds,
-			NS:      lib.NS,
-			//MetadataPrefix: lib.MetadataPrefix,
-			//StoragePrefix:  lib.StoragePrefix,
+			URL:            obj.SSHURL,
+			HostKey:        obj.SSHHostKey,
+			Seeds:          obj.Seeds,
+			NS:             lib.NS,
+			MetadataPrefix: lib.MetadataPrefix,
+			StoragePrefix:  lib.StoragePrefix,
 			//StandaloneFs: ???.DeployFs, // used for static deploys
-			//GetURI: func() string {
-			//},
+			GetURI: func() string {
+				if deployFs == nil {
+					return ""
+				}
+				return deployFs.URI()
+			},
 		}
-		// XXX: We need to first get rid of the standalone etcd client,
-		// and then pull the etcdfs stuff in so it uses that client.
-		return false, fmt.Errorf("--ssh-url is not implemented yet")
 	}
 	worldInit := &engine.WorldInit{
 		Hostname: "", // XXX: Should we set this?
@@ -269,23 +258,19 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	var id = max + 1 // next id
 	Logf("previous max deploy id: %d", max)
 
-	// XXX: Get this from the World API? (Which might need improving!)
-	etcdFs := &etcdfs.Fs{
-		Ctx:    ctx, // XXX: adding it per-operation might be better
-		Client: client,
-		// TODO: using a uuid is meant as a temporary measure, i hate them
-		Metadata:   lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid),
-		DataPrefix: lib.StoragePrefix,
+	// TODO: using a uuid is meant as a temporary measure, i hate them
+	metadata := lib.MetadataPrefix + fmt.Sprintf("/deploy/%d-%s", id, uniqueid)
+	deployFs, err = world.Fs(ctx, fmt.Sprintf("%s://%s", etcdfs.Scheme, metadata))
+	if err != nil {
+		return false, errwrap.Wrapf(err, "could not create deploy filesystem")
+	}
 
+	etcdFs, ok := deployFs.(*etcdfs.Fs)
+	if ok {
 		// Defer the superblock write so the gapi copy phase doesn't
 		// re-upload the entire metadata tree once per file. We Flush()
 		// it ourselves once below, before the deploy is published.
-		DeferMetadata: true,
-
-		Debug: data.Flags.Debug,
-		Logf: func(format string, v ...interface{}) {
-			Logf("fs: "+format, v...)
-		},
+		etcdFs.DeferMetadata = true
 	}
 
 	info := &gapi.Info{
@@ -296,7 +281,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 			//Update: obj.Update,
 		},
 
-		Fs:    etcdFs,
+		Fs:    deployFs,
 		Debug: data.Flags.Debug,
 		Logf: func(format string, v ...interface{}) {
 			// TODO: is this a sane prefix to use here?
@@ -312,11 +297,13 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		return false, fmt.Errorf("not enough information specified")
 	}
 
-	// Flush the deferred superblock so readers see the new tree before the
-	// deploy record addition below tries to look for it. Required when we
-	// use DeferMetadata.
-	if err := etcdFs.Flush(); err != nil {
-		return false, errwrap.Wrapf(err, "could not flush etcd fs metadata")
+	if ok {
+		// Flush the deferred superblock so readers see the new tree before
+		// the deploy record addition below tries to look for it. Required
+		// when we use DeferMetadata.
+		if err := etcdFs.Flush(); err != nil {
+			return false, errwrap.Wrapf(err, "could not flush etcd fs metadata")
+		}
 	}
 
 	// redundant

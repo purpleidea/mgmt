@@ -155,6 +155,17 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		if err != nil {
 			return false, errwrap.Wrapf(err, "could not open git repo")
 		}
+		worktree, err := repo.Worktree()
+		if err != nil {
+			return false, errwrap.Wrapf(err, "could not open git worktree")
+		}
+		status, err := worktree.Status()
+		if err != nil {
+			return false, errwrap.Wrapf(err, "could not read git worktree status")
+		}
+		if !status.IsClean() {
+			return false, fmt.Errorf("git worktree is dirty, commit or stash changes before deploying, or use --no-git")
+		}
 
 		head, err := repo.Head()
 		if err != nil {

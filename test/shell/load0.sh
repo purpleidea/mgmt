@@ -39,7 +39,7 @@ file "${tmpdir}/loadavg" {
 }
 EOF
 
-$TIMEOUT "$MGMT" run --tmp-prefix --converged-timeout=15 lang "$tmpdir/load0.mcl"  &
+$TIMEOUT "$MGMT" run --tmp-prefix --converger-timeout=15 --converged-exit lang "$tmpdir/load0.mcl"  &
 pid=$!
 wait $pid	# get exit status
 e=$?

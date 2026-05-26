@@ -3,7 +3,8 @@
 #	* this is a simple shell based `mgmt` test case
 #	* it is recommended that you run mgmt wrapped in the timeout command
 #	* it is recommended that you run mgmt with --no-watch
-#	* it is recommended that you run mgmt --converged-timeout=<seconds>
+#	* it is recommended that you run mgmt with --converger-timeout=<seconds>
+#	* it is recommended that you run mgmt with --converged-exit
 #	* you can run mgmt with --max-runtime=<seconds> in special scenarios
 
 . "$(dirname "$0")/../util.sh"

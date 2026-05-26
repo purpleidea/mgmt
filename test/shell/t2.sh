@@ -9,7 +9,7 @@ if in_env github; then
 fi
 
 # run till completion
-$TIMEOUT "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix yaml t2.yaml &
+$TIMEOUT "$MGMT" run --converger-timeout=5 --converged-exit --no-watch --tmp-prefix yaml t2.yaml &
 pid=$!
 wait $pid	# get exit status
 e=$?

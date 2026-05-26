@@ -139,15 +139,15 @@ type Config struct {
 	// `neato`.
 	GraphvizFilter string `arg:"--graphviz-filter" help:"graphviz filter to use"`
 
-	// ConvergedTimeout of approximately this many seconds of inactivity
+	// ConvergerTimeout of approximately this many seconds of inactivity
 	// means we're in a converged state; -1 to disable.
-	ConvergedTimeout int `arg:"--converged-timeout,env:MGMT_CONVERGED_TIMEOUT" default:"-1" help:"after approximately this many seconds without activity, we're considered to be in a converged state"`
+	ConvergerTimeout int `arg:"--converger-timeout,env:MGMT_CONVERGER_TIMEOUT" default:"-1" help:"after approximately this many seconds without activity, we're considered to be in a converged state"`
 
-	// ConvergedTimeoutNoExit means we don't exit on converged timeout.
-	ConvergedTimeoutNoExit bool `arg:"--converged-timeout-no-exit" help:"don't exit on converged-timeout"`
+	// ConvergedExit means we exit on converger timeout.
+	ConvergedExit bool `arg:"--converged-exit" help:"exit on converger-timeout"`
 
-	// ConvergedStatusFile is a file we append converged status to.
-	ConvergedStatusFile string `arg:"--converged-status-file" help:"file to append the current converged state to, mostly used for testing"`
+	// ConvergerStatusFile is a file we append converged status to.
+	ConvergerStatusFile string `arg:"--converger-status-file" help:"file to append the current converged state to, mostly used for testing"`
 
 	// MaxRuntime tells the engine to exit after a maximum of approximately
 	// this many seconds. Use 0 to disable this.
@@ -533,45 +533,46 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	convergerCtx, convergerCancel := context.WithCancel(context.Background())
 	defer convergerCancel()
 
-	// setup converger
-	converger := converger.New(
-		obj.ConvergedTimeout,
-	)
-	if obj.ConvergedStatusFile != "" {
-		converger.AddStateFn("status-file", func(converged bool) error {
-			Logf("converged status is: %t", converged)
-			return appendConvergedStatus(obj.ConvergedStatusFile, converged)
-		})
-	}
-
-	if obj.ConvergedTimeout >= 0 && !obj.ConvergedTimeoutNoExit {
-		converger.AddStateFn("converged-exit", func(converged bool) error {
+	stateFns := converger.StateFns{}
+	if obj.ConvergedExit && obj.ConvergerTimeout >= 0 {
+		stateFns["exit"] = func(ctx context.Context, converged bool) error {
 			if converged {
-				Logf("converged for %d seconds, exiting!", obj.ConvergedTimeout)
+				Logf("converged for %d seconds, exiting!", obj.ConvergerTimeout)
 				cancelCause(nil) // trigger an exit!
 			}
 			return nil
-		})
+		}
+	}
+	if obj.ConvergerStatusFile != "" {
+		stateFns["status-file"] = func(ctx context.Context, converged bool) error {
+			Logf("converged status is: %t", converged)
+			return appendConvergerStatus(obj.ConvergerStatusFile, converged)
+		}
 	}
 
-	// XXX: pass in the convergerCtx somewhere
-	go converger.Run(true) // main loop for converger, true to start paused
-	converger.Ready()      // block until ready
+	// setup converger
+	converger := &converger.Coordinator{
+		Timeout:  obj.ConvergerTimeout,
+		StateFns: stateFns,
+
+		Debug: obj.Debug,
+		Logf: func(format string, v ...interface{}) {
+			Logf("converger: "+format, v...)
+		},
+	}
+	if err := converger.Init(); err != nil {
+		return errwrap.Wrapf(err, "can't init converger")
+	}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		//defer parentCancel()
-		select {
-		case <-convergerCtx.Done():
+		err := converger.Run(convergerCtx, false) // true to start paused
+		err = errwrap.NoContextCanceled(err)
+		if err == nil {
+			return
 		}
-		converger.Shutdown()
-		//err := errwrap.Wrapf(converger.Shutdown(), "converger shutdown failed")
-		//if err == nil {
-		//	return
-		//}
-		//Logf("converger shutdown error: %+v", err)
-		//cancelCause(err)
+		cancelCause(errwrap.Wrapf(err, "converger run failed"))
 	}()
 
 	// embedded etcd
@@ -851,6 +852,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 					}
 
 					if started {
+						converger.Pause()
 						if err := obj.ge.Pause(false); err != nil {
 							// programming error
 							Logf("programming error exiting graph: %+v", err)
@@ -1068,7 +1070,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
-			converger.Pause()                               // FIXME: add sync wait?
+			converger.Pause()
 			if err := obj.ge.Pause(fastPause); err != nil { // sync
 				// programming error
 				Logf("programming error pausing graph: %+v", err)

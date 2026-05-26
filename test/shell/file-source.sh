@@ -13,7 +13,7 @@ if ! timeout 1s sudo -A true; then
 fi
 
 # run till completion
-$TIMEOUT sudo -A "$MGMT" run --converged-timeout=5 --no-watch --tmp-prefix lang file-source.mcl &
+$TIMEOUT sudo -A "$MGMT" run --converger-timeout=5 --converged-exit --no-watch --tmp-prefix lang file-source.mcl &
 pid=$!
 wait $pid	# get exit status
 e=$?

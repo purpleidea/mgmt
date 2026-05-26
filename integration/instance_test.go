@@ -41,14 +41,14 @@ import (
 )
 
 func TestInstanceWaitForConvergedAfterActivity(t *testing.T) {
-	statusFile := path.Join(t.TempDir(), ConvergedStatusFile)
+	statusFile := path.Join(t.TempDir(), ConvergerStatusFile)
 	if err := os.WriteFile(statusFile, []byte("true\n"), fileMode); err != nil {
 		t.Fatalf("could not write status file: %+v", err)
 	}
 
 	instance := &Instance{
 		Hostname:            "h1",
-		convergedStatusFile: statusFile,
+		convergerStatusFile: statusFile,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -58,8 +58,8 @@ func TestInstanceWaitForConvergedAfterActivity(t *testing.T) {
 		t.Fatalf("unexpected wait result: %+v", err)
 	}
 
-	if instance.convergedStatusIndex != 1 {
-		t.Fatalf("unexpected status index: %d", instance.convergedStatusIndex)
+	if instance.convergerStatusIndex != 1 {
+		t.Fatalf("unexpected status index: %d", instance.convergerStatusIndex)
 	}
 
 	if err := os.WriteFile(statusFile, []byte("true\nfalse\ntrue\n"), fileMode); err != nil {

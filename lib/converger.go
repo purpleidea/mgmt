@@ -34,8 +34,8 @@ import (
 	"os"
 )
 
-// appendConvergedStatus appends the converged status to a file.
-func appendConvergedStatus(filename string, status bool) error {
+// appendConvergerStatus appends the converged status to a file.
+func appendConvergerStatus(filename string, status bool) error {
 	// create or append to the file, in write only mode
 	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {

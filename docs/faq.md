@@ -198,9 +198,9 @@ time.)
 Some users might prefer to only run `mgmt` on-demand manually, or at a set
 interval via a tool like `cron`. In order to do so, `mgmt` must have a way to
 shut itself down after a single "run". This feature is possible with the
-`--converged-timeout` flag. You may specify this flag, along with a number of
-seconds as the argument, and when there has been no activity for that many
-seconds, the program will shutdown.
+`--converger-timeout <N>` and `converged-exit` flags. You may specify these
+flags, along with a number of seconds as the argument, and when there has been
+no activity for that many seconds, the program will shutdown.
 
 Alternatively, while it is not recommended, if you'd like to ensure the program
 never runs for longer that a specific number of seconds, you can ask it to
@@ -210,7 +210,7 @@ requires a number of seconds as an argument.
 #### Example:
 
 ```
-./mgmt run lang examples/lang/hello0.mcl --converged-timeout=5
+./mgmt run lang examples/lang/hello0.mcl --converger-timeout=5 --converged-exit
 ```
 
 ### Can I run `mgmt` for type-checking only?

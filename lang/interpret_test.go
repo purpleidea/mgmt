@@ -2379,26 +2379,43 @@ func TestAstFunc3(t *testing.T) {
 			t.Logf("test #%d: graph: %+v", index, ograph)
 
 			// setup converger
-			convergedTimeout := 5
-			converger := converger.New(
-				convergedTimeout,
-			)
-			converged := make(chan struct{})
-			converger.AddStateFn("converged-exit", func(isConverged bool) error {
+			convergerTimeout := 5
+			converged, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stateFns := converger.StateFns{}
+			stateFns["converged-exit"] = func(ctx context.Context, isConverged bool) error {
 				if isConverged {
-					logf("converged for %d seconds, exiting!", convergedTimeout)
-					close(converged) // trigger an exit!
+					logf("converged for %d seconds, exiting!", convergerTimeout)
+					cancel() // trigger an exit!
 				}
 				return nil
-			})
+			}
+
+			converger := &converger.Coordinator{
+				Timeout:  convergerTimeout,
+				StateFns: stateFns,
+
+				Debug: testing.Verbose(),
+				Logf: func(format string, v ...interface{}) {
+					logf("converger: "+format, v...)
+				},
+			}
+			if err := converger.Init(); err != nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: can't init converger", index)
+				return
+			}
+
+			convergerCtx, convergerCancel := context.WithCancel(context.Background())
+			defer convergerCancel()
 
 			// TODO: waitgroup ?
-			go converger.Run(true) // main loop for converger, true to start paused
-			converger.Ready()      // block until ready
-			defer func() {
-				// TODO: shutdown converger, but make sure that using it in a
-				// still running embdEtcd struct doesn't block waiting on it...
-				converger.Shutdown()
+			go func() {
+				err := converger.Run(convergerCtx, false) // true to start paused
+				if err == nil || err == context.Canceled {
+					return
+				}
+				t.Errorf("converger run failed: %+v", err)
 			}()
 
 			// run engine a bit so that send/recv happens
@@ -2485,7 +2502,7 @@ func TestAstFunc3(t *testing.T) {
 
 			// wait for converger instead...
 			select {
-			case <-converged:
+			case <-converged.Done():
 			case <-time.After(5 * time.Second): // temporary
 
 				// XXX: add this when we debug converger

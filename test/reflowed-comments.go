@@ -169,6 +169,7 @@ func Check(filename string) error {
 				s = strings.TrimPrefix(s, CommentPrefix)
 			} else if strings.HasPrefix(s, CommentPrefixTab) {
 				s = strings.TrimPrefix(s, CommentPrefixTab)
+				//s = strings.TrimPrefix(s, commentPrefixTrimmed) // TODO: instead?
 			}
 
 			block = append(block, s)
@@ -207,6 +208,10 @@ func IsWrappedProperly(lines []string, length int) error {
 			continue
 		}
 		blank = false
+		if strings.HasPrefix(line, "\t") { // eg: indented code blocks
+			previous = length // reset
+			continue
+		}
 
 		if line != strings.TrimSpace(line) {
 			return fmt.Errorf("line %d wasn't trimmed properly: %s", lineno, line)

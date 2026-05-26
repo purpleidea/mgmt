@@ -703,6 +703,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
+		Cancel: cancelCause, // async handle to use to shut it all down
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
 		Debug:  obj.Debug,
 		Logf: func(format string, v ...interface{}) {
@@ -779,6 +780,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	geCtx, geCancel := context.WithCancel(context.Background())
 	defer geCancel()
 
+	// TODO: remove Cancel from here since it's part of Local now?
 	obj.ge = &graph.Engine{
 		Program:   obj.Program,
 		Version:   obj.Version,

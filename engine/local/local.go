@@ -50,6 +50,8 @@ import (
 // would be an interface instead, and different packages would implement it.
 // Since this is not the expectation for the local API, it's all self-contained.
 type API struct {
+	Cancel context.CancelCauseFunc
+
 	Prefix string
 	Debug  bool
 	Logf   func(format string, v ...interface{})
@@ -64,6 +66,10 @@ type API struct {
 	// PoolImpl is the implementation for the Pool API's. The API's are the
 	// collection of public methods that exist on this struct.
 	*PoolImpl
+
+	// CancelImpl is the implementation for the Cancel API. The API is the
+	// collection of public methods that exist on this struct.
+	*CancelImpl
 }
 
 // Init initializes the API before first use. It returns itself so it can be
@@ -88,6 +94,14 @@ func (obj *API) Init() *API {
 		Prefix: obj.Prefix,
 		Debug:  obj.Debug,
 		Logf:   obj.Logf,
+	})
+
+	obj.CancelImpl = &CancelImpl{}
+	obj.CancelImpl.Init(&CancelInit{
+		Cancel: obj.Cancel,
+		//Prefix: obj.Prefix,
+		//Debug:  obj.Debug,
+		//Logf:   obj.Logf,
 	})
 
 	return obj
@@ -601,4 +615,39 @@ func (obj *PoolImpl) getPrefix() (string, error) {
 	obj.prefixExists = true // former race write
 
 	return obj.prefix, nil
+}
+
+// CancelInit are the init values that the Cancel API needs to work correctly.
+type CancelInit struct {
+	Cancel context.CancelCauseFunc
+	//Prefix string
+	//Debug  bool
+	//Logf   func(format string, v ...interface{})
+}
+
+// CancelImpl is the implementation for the Cancel API. The API is the
+// collection of public methods that exist on this struct.
+type CancelImpl struct {
+	init *CancelInit
+}
+
+// Init runs some initialization code for the Cancel API.
+func (obj *CancelImpl) Init(init *CancelInit) {
+	obj.init = init
+}
+
+// Exit causes a shutdown. Returns an error if something went wrong.
+func (obj *CancelImpl) Exit(code int) error {
+	// XXX: Do we need a mutex?
+	//obj.mutex.Lock()
+	//defer obj.mutex.Unlock()
+
+	if code == 0 {
+		obj.init.Cancel(nil)
+		return nil
+	}
+
+	err := util.ExitCodeError{Code: code} // magic error!
+	obj.init.Cancel(err)
+	return nil
 }

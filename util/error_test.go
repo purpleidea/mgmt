@@ -27,51 +27,80 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+//go:build !root
+
 package util
 
 import (
-	"errors"
-	"strconv"
+	"fmt"
+	"testing"
+
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-// Error is a constant error type that implements error.
-type Error string
-
-// Error fulfills the error interface of this type.
-func (obj Error) Error() string { return string(obj) }
-
-// ExitCodeError is an error that carries a process exit code.
-type ExitCodeError struct {
-	Code int
-}
-
-// Error fulfills the error interface of this type.
-func (obj ExitCodeError) Error() string {
-	return "exit " + strconv.Itoa(obj.Code)
-}
-
-// ExitCode returns the process exit code.
-func (obj ExitCodeError) ExitCode() int {
-	return obj.Code
-}
-
-// ExitCode returns a process exit code from an error chain. If the error is nil
-// it returns 0. If it has an embedded code, it returns that, otherwise it
-// returns 1.
-func ExitCode(err error) int {
-	if err == nil {
-		return 0
+func TestExitCode(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+		code int
+	}{
+		{
+			name: "nil",
+			err:  nil,
+			code: 0,
+		},
+		{
+			name: "plain",
+			err:  ExitCodeError{Code: 42},
+			code: 42,
+		},
+		{
+			name: "wrapped1",
+			err:  fmt.Errorf("wrapped: %w", ExitCodeError{Code: 43}),
+			code: 43,
+		},
+		{
+			name: "wrapped2",
+			err:  errwrap.Wrapf(ExitCodeError{Code: 43}, "wrapped"),
+			code: 43,
+		},
+		{
+			name: "multierror0",
+			err:  errwrap.Append(nil, nil),
+			code: 0,
+		},
+		{
+			name: "multierror0a",
+			err:  errwrap.Append(nil, ExitCodeError{Code: 44}),
+			code: 44,
+		},
+		{
+			name: "multierror0b",
+			err:  errwrap.Append(ExitCodeError{Code: 44}, nil),
+			code: 44,
+		},
+		{
+			name: "multierror1",
+			err:  errwrap.Append(fmt.Errorf("ordinary"), ExitCodeError{Code: 44}),
+			code: 44,
+		},
+		{
+			name: "multierror2",
+			err:  errwrap.Append(ExitCodeError{Code: 44}, fmt.Errorf("ordinary")),
+			code: 44,
+		},
+		{
+			name: "ordinary",
+			err:  fmt.Errorf("ordinary"),
+			code: 1,
+		},
 	}
 
-	// TODO: can we do this without defining this interface?
-	type exitCoder interface {
-		ExitCode() int
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if code := ExitCode(tc.err); code != tc.code {
+				t.Fatalf("expected code %d, got %d", tc.code, code)
+			}
+		})
 	}
-
-	var exitErr exitCoder
-	if errors.As(err, &exitErr) {
-		return exitErr.ExitCode()
-	}
-
-	return 1 // some uncoded error
 }

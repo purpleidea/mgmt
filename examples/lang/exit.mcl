@@ -1,0 +1,3 @@
+exit "bye" {
+	code => 42, # non-zero!
+}

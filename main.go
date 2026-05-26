@@ -43,6 +43,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/gapi"         // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/puppet"            // import so the gapi registers
 	_ "github.com/purpleidea/mgmt/puppet/langpuppet" // import so the gapi registers
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/pprof"
 	_ "github.com/purpleidea/mgmt/yamlgraph" // import so the gapi registers
 	"go.etcd.io/etcd/server/v3/etcdmain"
@@ -97,7 +98,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := pprof.Run(ctx); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		os.Exit(util.ExitCode(err))
 		//return // redundant
 	}
 	defer cancel()
@@ -111,7 +112,7 @@ func main() {
 		data.Args = data.Args[1:] // pop off "argv[0]"
 		if err := cli.CLI(context.Background(), data); err != nil {
 			fmt.Println(err)
-			os.Exit(1)
+			os.Exit(util.ExitCode(err))
 			//return // redundant
 		}
 		return
@@ -119,7 +120,7 @@ func main() {
 
 	if err := cli.CLI(context.Background(), data); err != nil {
 		fmt.Println(err)
-		os.Exit(1)
-		return
+		os.Exit(util.ExitCode(err))
+		//return // redundant
 	}
 }

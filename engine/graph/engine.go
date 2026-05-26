@@ -72,8 +72,9 @@ type Engine struct {
 	Converger *converger.Coordinator
 	Exporter  *Exporter
 
-	Local  *local.API
-	World  engine.World
+	Local *local.API
+	World engine.World
+	// TODO: remove Cancel from here since it's part of Local now?
 	Cancel context.CancelCauseFunc
 
 	// Prefix is a unique directory prefix which can be used. It should be

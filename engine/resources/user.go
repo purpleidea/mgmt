@@ -188,7 +188,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	exists := true
 	usr, err := user.Lookup(obj.Name())
 	if err != nil {
-		if _, ok := err.(user.UnknownUserError); !ok {
+		if !isUnknownUser(err) {
 			return false, errwrap.Wrapf(err, "error looking up user")
 		}
 		exists = false
@@ -197,7 +197,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.AllowDuplicateUID == false && obj.UID != nil {
 		existingUID, err := user.LookupId(strconv.Itoa(int(*obj.UID)))
 		if err != nil {
-			if _, ok := err.(user.UnknownUserIdError); !ok {
+			if !isUnknownUserID(err) {
 				return false, errwrap.Wrapf(err, "error looking up UID")
 			}
 		} else if existingUID.Username != obj.Name() {
@@ -593,4 +593,16 @@ func cmpListContents(a, b []string) error {
 
 	// If all the counts are zero, then the slices must match!
 	return nil
+}
+
+// isUnknownUser reports whether err is the os/user "user not found" error.
+func isUnknownUser(err error) bool {
+	_, ok := err.(user.UnknownUserError)
+	return ok
+}
+
+// isUnknownUserID reports whether err is the os/user "UID not found" error.
+func isUnknownUserID(err error) bool {
+	_, ok := err.(user.UnknownUserIdError)
+	return ok
 }

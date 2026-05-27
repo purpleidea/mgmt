@@ -332,30 +332,8 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	args = append(args, obj.Name())
 
-	cmd := exec.CommandContext(ctx, cmdName, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	// open a pipe to get error messages from os/exec
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return false, errwrap.Wrapf(err, "failed to initialize stderr pipe")
-	}
-
-	// start the command
-	if err := cmd.Start(); err != nil {
-		return false, errwrap.Wrapf(err, "cmd failed to start")
-	}
-	// capture any error messages
-	b, err := io.ReadAll(stderr)
-	if err != nil {
-		return false, errwrap.Wrapf(err, "error reading stderr")
-	}
-	// wait until cmd exits and return error message if any
-	if err := cmd.Wait(); err != nil {
-		return false, errwrap.Wrapf(err, "%s", b)
+	if err := runUserCmd(ctx, cmdName, args); err != nil {
+		return false, err
 	}
 
 	return false, nil
@@ -558,6 +536,37 @@ func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	*obj = UserRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// runUserCmd runs useradd/usermod/userdel, capturing stderr so that any failure
+// message from the command is included in the returned error.
+func runUserCmd(ctx context.Context, cmdName string, args []string) error {
+	cmd := exec.CommandContext(ctx, cmdName, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	// open a pipe to get error messages from os/exec
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return errwrap.Wrapf(err, "failed to initialize stderr pipe")
+	}
+
+	// start the command
+	if err := cmd.Start(); err != nil {
+		return errwrap.Wrapf(err, "cmd failed to start")
+	}
+	// capture any error messages
+	b, err := io.ReadAll(stderr)
+	if err != nil {
+		return errwrap.Wrapf(err, "error reading stderr")
+	}
+	// wait until cmd exits and return error message if any
+	if err := cmd.Wait(); err != nil {
+		return errwrap.Wrapf(err, "%s", b)
+	}
 	return nil
 }
 

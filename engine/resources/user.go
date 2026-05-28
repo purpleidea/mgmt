@@ -32,13 +32,10 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -578,37 +575,6 @@ func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
-// runUserCmd runs useradd/usermod/userdel, capturing stderr so that any failure
-// message from the command is included in the returned error.
-func runUserCmd(ctx context.Context, cmdName string, args []string) error {
-	cmd := exec.CommandContext(ctx, cmdName, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	// open a pipe to get error messages from os/exec
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return errwrap.Wrapf(err, "failed to initialize stderr pipe")
-	}
-
-	// start the command
-	if err := cmd.Start(); err != nil {
-		return errwrap.Wrapf(err, "cmd failed to start")
-	}
-	// capture any error messages
-	b, err := io.ReadAll(stderr)
-	if err != nil {
-		return errwrap.Wrapf(err, "error reading stderr")
-	}
-	// wait until cmd exits and return error message if any
-	if err := cmd.Wait(); err != nil {
-		return errwrap.Wrapf(err, "%s", b)
-	}
-	return nil
-}
-
 // cmpListContents is a helper to compare the list contents without pre-sorting.
 func cmpListContents(a, b []string) error {
 	if len(a) != len(b) {
@@ -646,9 +612,9 @@ func isUnknownUserID(err error) bool {
 	return ok
 }
 
-// userFuncs bundles the os/user, util.UserShell and runUserCmd entry points
-// that CheckApply uses, behind func-typed fields. Shadowing `user` inside
-// CheckApply with a value of this type swaps the whole bundle at once.
+// userFuncs bundles the os/user, util.UserShell and engineUtil.RunCmd entry
+// points that CheckApply uses, behind func-typed fields. Shadowing `user`
+// inside CheckApply with a value of this type swaps the whole bundle at once.
 type userFuncs struct {
 	Lookup        func(name string) (*user.User, error)
 	LookupId      func(uid string) (*user.User, error)
@@ -665,5 +631,5 @@ var defaultUserFuncs = userFuncs{
 	LookupGroupId: user.LookupGroupId,
 	GroupIds:      func(u *user.User) ([]string, error) { return u.GroupIds() },
 	Shell:         util.UserShell,
-	RunCmd:        runUserCmd,
+	RunCmd:        engineUtil.RunCmd,
 }

@@ -184,7 +184,7 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	var cmdName string
-	args := []string{obj.Name()}
+	var args []string
 
 	if obj.State == "exists" {
 		if exists {
@@ -202,6 +202,8 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.init.Logf("Deleting group: %s", obj.Name())
 		cmdName = "groupdel"
 	}
+
+	args = append(args, obj.Name())
 
 	if err := user.RunCmd(ctx, cmdName, args); err != nil {
 		return false, err

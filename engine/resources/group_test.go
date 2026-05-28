@@ -245,7 +245,7 @@ func TestGroupCheckApply_ModifyGID(t *testing.T) {
 	if checkOK {
 		t.Errorf("expected checkOK=false (GID differs); got true")
 	}
-	want := fakeGroupCmd{Name: "groupmod", Args: []string{"wheel", "-g", "2000"}}
+	want := fakeGroupCmd{Name: "groupmod", Args: []string{"-g", "2000", "wheel"}}
 	if len(f.cmds) != 1 || !reflect.DeepEqual(f.cmds[0], want) {
 		t.Errorf("expected %v; got %v", want, f.cmds)
 	}
@@ -268,7 +268,7 @@ func TestGroupCheckApply_Create(t *testing.T) {
 	if checkOK {
 		t.Errorf("expected checkOK=false on create; got true")
 	}
-	want := fakeGroupCmd{Name: "groupadd", Args: []string{"newgrp", "-g", "1234"}}
+	want := fakeGroupCmd{Name: "groupadd", Args: []string{"-g", "1234", "newgrp"}}
 	if len(f.cmds) != 1 || !reflect.DeepEqual(f.cmds[0], want) {
 		t.Errorf("expected %v; got %v", want, f.cmds)
 	}

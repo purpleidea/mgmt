@@ -61,3 +61,23 @@ func StrListCmp(x, y []string) error {
 
 	return nil
 }
+
+// StrSetCmp compares two lists of strings as multisets: order is ignored, but
+// duplicates count. It does not mutate either input. Errors if the contents
+// differ.
+func StrSetCmp(x, y []string) error {
+	if len(x) != len(y) {
+		return fmt.Errorf("the length differs")
+	}
+	count := make(map[string]int, len(x))
+	for _, s := range x {
+		count[s]++
+	}
+	for _, s := range y {
+		count[s]--
+		if count[s] < 0 {
+			return fmt.Errorf("element %q differs", s)
+		}
+	}
+	return nil
+}

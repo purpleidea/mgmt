@@ -487,6 +487,32 @@ func TestUserCheckApply_Issue842(t *testing.T) {
 	}
 }
 
+// TestUserCmp_DoesNotMutateGroups guards against Cmp() sorting the caller's
+// Groups slices in place. The function compares group membership in any order,
+// but it must do so without disturbing the input. A slice-header copy like eg:
+// (`x := obj.Groups`) shares the backing array, so a naive sort.Strings on the
+// copy would reorder the caller's data too.
+func TestUserCmp_DoesNotMutateGroups(t *testing.T) {
+	a := mkUser("james", "exists", func(r *UserRes) {
+		r.Groups = []string{"elephant", "flower", "peach"}
+	})
+	b := mkUser("james", "exists", func(r *UserRes) {
+		r.Groups = []string{"peach", "flower", "elephant"}
+	})
+	aWant := []string{"elephant", "flower", "peach"}
+	bWant := []string{"peach", "flower", "elephant"}
+
+	if err := a.Cmp(b); err != nil {
+		t.Fatalf("Cmp: unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(a.Groups, aWant) {
+		t.Errorf("a.Groups mutated by Cmp:\n got: %v\nwant: %v", a.Groups, aWant)
+	}
+	if !reflect.DeepEqual(b.Groups, bWant) {
+		t.Errorf("b.Groups mutated by Cmp:\n got: %v\nwant: %v", b.Groups, bWant)
+	}
+}
+
 // TestUserCheckApplyTable walks a table of (system state, resource params)
 // pairs and asserts the CheckApply return values plus the exact command (if
 // any) that the fake recorded. Each row stands on its own; system state lives

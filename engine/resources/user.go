@@ -36,13 +36,13 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
@@ -392,17 +392,8 @@ func (obj *UserRes) Cmp(r engine.Res) error {
 		}
 	}
 
-	if len(obj.Groups) != len(res.Groups) {
-		return fmt.Errorf("the number of Groups differ")
-	}
-	objGroups := obj.Groups
-	resGroups := res.Groups
-	sort.Strings(objGroups)
-	sort.Strings(resGroups)
-	for i := range objGroups {
-		if objGroups[i] != resGroups[i] {
-			return fmt.Errorf("the Groups differ at index: %d", i)
-		}
+	if err := engineUtil.StrSetCmp(obj.Groups, res.Groups); err != nil {
+		return errwrap.Wrapf(err, "the Groups differ")
 	}
 
 	if (obj.HomeDir == nil) != (res.HomeDir == nil) {

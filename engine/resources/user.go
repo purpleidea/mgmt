@@ -154,12 +154,23 @@ func (obj *UserRes) Cleanup() error {
 }
 
 // Watch is the primary listener for this resource and it outputs events.
+//
+// We watch both /etc/passwd and /etc/group: the user's primary group, UID,
+// shell and home live in passwd, but supplemental group membership lives in
+// group. Tools like `gpasswd -a` only touch /etc/group, so without watching it
+// drift in the Groups field would never wake us.
 func (obj *UserRes) Watch(ctx context.Context) error {
-	recWatcher, err := recwatch.NewRecWatcher(util.EtcPasswdFile, false)
+	passwdWatcher, err := recwatch.NewRecWatcher(util.EtcPasswdFile, false)
 	if err != nil {
 		return err
 	}
-	defer recWatcher.Close()
+	defer passwdWatcher.Close()
+
+	groupWatcher, err := recwatch.NewRecWatcher(util.EtcGroupFile, false)
+	if err != nil {
+		return err
+	}
+	defer groupWatcher.Close()
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err
@@ -167,11 +178,22 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("watching: %s", util.EtcPasswdFile) // attempting to watch...
+			obj.init.Logf("watching: %s, %s", util.EtcPasswdFile, util.EtcGroupFile)
 		}
 
 		select {
-		case event, ok := <-recWatcher.Events():
+		case event, ok := <-passwdWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
+			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
+			}
+
+		case event, ok := <-groupWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
 			}

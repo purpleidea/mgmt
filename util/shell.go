@@ -43,6 +43,9 @@ const (
 	// EtcPasswdFile is the location of the /etc/passwd file.
 	EtcPasswdFile = "/etc/passwd"
 
+	// EtcGroupFile is the location of the /etc/group file.
+	EtcGroupFile = "/etc/group"
+
 	// ErrUsernameNotFound means we couldn't find that username.
 	ErrUsernameNotFound = Error("can't find username")
 )

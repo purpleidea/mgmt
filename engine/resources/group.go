@@ -153,31 +153,32 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.State == "exists" && exists && obj.GID == nil {
 		return true, nil
 	}
-	if exists && obj.GID != nil {
-		// check if GID is taken
+	// Only enforce GID uniqueness when we plan to create or modify the
+	// group. For state=absent with a missing group we returned above and
+	// for state=absent with an existing group, we're about to delete it, so
+	// a clash on the (about-to-be-released) GID is not our concern.
+	if obj.State == "exists" && obj.GID != nil {
+		// check if the GID is already taken by a different group
 		lookupGID, err := user.LookupGroupId(strconv.Itoa(int(*obj.GID)))
-		if err != nil {
-			if !isUnknownGroupID(err) {
-				return false, errwrap.Wrapf(err, "error looking up GID")
-			}
+		if err != nil && !isUnknownGroupID(err) {
+			return false, errwrap.Wrapf(err, "error looking up GID")
 		}
-		if lookupGID != nil && lookupGID.Name != obj.Name() {
+		if err == nil && lookupGID.Name != obj.Name() {
 			return false, fmt.Errorf("the requested GID belongs to another group")
 		}
-		// get the existing group's GID
+	}
+	// if the group already exists, compare its GID with the one we want
+	if obj.State == "exists" && exists && obj.GID != nil {
 		existingGID, err := strconv.ParseUint(group.Gid, 10, 32)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error casting existing GID")
 		}
-		// check if existing group has the wrong GID
-		// if it is wrong groupmod will change it to the desired value
-		if *obj.GID != uint32(existingGID) {
-			obj.init.Logf("Inconsistent GID: %s", obj.Name())
-		}
 		// if the group exists and has the correct GID, we are done
-		if obj.State == "exists" && *obj.GID == uint32(existingGID) {
+		if *obj.GID == uint32(existingGID) {
 			return true, nil
 		}
+		// otherwise groupmod will change it to the desired value
+		obj.init.Logf("Inconsistent GID: %s", obj.Name())
 	}
 
 	if !apply {

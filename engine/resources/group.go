@@ -196,7 +196,7 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			cmdName = "groupadd"
 		}
 		if obj.GID != nil {
-			args = append(args, "-g", fmt.Sprintf("%d", *obj.GID))
+			args = append(args, "-g", strconv.FormatUint(uint64(*obj.GID), 10))
 		}
 	}
 	if obj.State == "absent" && exists {

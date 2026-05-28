@@ -351,10 +351,10 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			args = append(args, "--non-unique")
 		}
 		if obj.UID != nil {
-			args = append(args, "--uid", fmt.Sprintf("%d", *obj.UID))
+			args = append(args, "--uid", strconv.FormatUint(uint64(*obj.UID), 10))
 		}
 		if obj.GID != nil {
-			args = append(args, "--gid", fmt.Sprintf("%d", *obj.GID))
+			args = append(args, "--gid", strconv.FormatUint(uint64(*obj.GID), 10))
 		}
 		if obj.Group != nil {
 			args = append(args, "--gid", *obj.Group)

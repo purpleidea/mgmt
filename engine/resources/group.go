@@ -32,14 +32,12 @@ package resources
 import (
 	"context"
 	"fmt"
-	"io"
-	"os/exec"
 	"os/user"
 	"strconv"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
@@ -136,11 +134,13 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 
 // CheckApply method for Group resource.
 func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	user := defaultGroupFuncs // shadows os/user inside this function
+
 	// check if the group exists
 	exists := true
 	group, err := user.LookupGroup(obj.Name())
 	if err != nil {
-		if _, ok := err.(user.UnknownGroupError); !ok {
+		if !isUnknownGroup(err) {
 			return false, errwrap.Wrapf(err, "error looking up group")
 		}
 		exists = false
@@ -157,7 +157,7 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		// check if GID is taken
 		lookupGID, err := user.LookupGroupId(strconv.Itoa(int(*obj.GID)))
 		if err != nil {
-			if _, ok := err.(user.UnknownGroupIdError); !ok {
+			if !isUnknownGroupID(err) {
 				return false, errwrap.Wrapf(err, "error looking up GID")
 			}
 		}
@@ -204,30 +204,8 @@ func (obj *GroupRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		cmdName = "groupdel"
 	}
 
-	cmd := exec.CommandContext(ctx, cmdName, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-
-	// open a pipe to get error messages from os/exec
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return false, errwrap.Wrapf(err, "failed to initialize stderr pipe")
-	}
-
-	// start the command
-	if err := cmd.Start(); err != nil {
-		return false, errwrap.Wrapf(err, "cmd failed to start")
-	}
-	// capture any error messages
-	b, err := io.ReadAll(stderr)
-	if err != nil {
-		return false, errwrap.Wrapf(err, "error reading stderr")
-	}
-	// wait until cmd exits and return error message if any
-	if err := cmd.Wait(); err != nil {
-		return false, errwrap.Wrapf(err, "%s", b)
+	if err := user.RunCmd(ctx, cmdName, args); err != nil {
+		return false, err
 	}
 
 	return false, nil
@@ -315,4 +293,34 @@ func (obj *GroupRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*obj = GroupRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// isUnknownGroup reports whether err is the os/user "group not found" error.
+func isUnknownGroup(err error) bool {
+	_, ok := err.(user.UnknownGroupError)
+	return ok
+}
+
+// isUnknownGroupID reports whether err is the os/user "GID not found" error.
+func isUnknownGroupID(err error) bool {
+	_, ok := err.(user.UnknownGroupIdError)
+	return ok
+}
+
+// groupFuncs bundles the os/user and command-runner entry points that
+// CheckApply uses, behind func-typed fields. Shadowing `user` inside CheckApply
+// with a value of this type swaps the whole bundle at once, which lets tests
+// serve lookups from memory and capture the command that would be run.
+type groupFuncs struct {
+	LookupGroup   func(name string) (*user.Group, error)
+	LookupGroupId func(gid string) (*user.Group, error)
+	RunCmd        func(ctx context.Context, cmdName string, args []string) error
+}
+
+// defaultGroupFuncs is the production wiring of groupFuncs. RunCmd reuses the
+// stderr-capturing exec helper from the engine util library.
+var defaultGroupFuncs = groupFuncs{
+	LookupGroup:   user.LookupGroup,
+	LookupGroupId: user.LookupGroupId,
+	RunCmd:        engineUtil.RunCmd,
 }

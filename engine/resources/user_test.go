@@ -487,6 +487,36 @@ func TestUserCheckApply_Issue842(t *testing.T) {
 	}
 }
 
+// TestUserCheckApply_AbsentSkipsUIDConflict guards against the duplicate-UID
+// check firing for users we want absent. If the resource asks for `ghost` to be
+// absent and ghost doesn't exist, the result should be no-op (true, nil) --
+// even if obj.UID is set and some other user happens to hold that UID.
+// Previously the dup-UID check ran first and would error with "the requested
+// UID is already taken", masking the intended absent semantics.
+func TestUserCheckApply_AbsentSkipsUIDConflict(t *testing.T) {
+	f := loadEtc(t,
+		"james:x:1000:1000::/home/james/:/bin/bash",
+		"james:x:1000:",
+	)
+	f.install(t)
+
+	res := mkUser("ghost", "absent", func(r *UserRes) { r.UID = u32Ptr(1000) })
+	if err := res.Init(fakeUserInit(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	checkOK, err := res.CheckApply(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckApply: unexpected error: %v", err)
+	}
+	if !checkOK {
+		t.Errorf("expected no-op (checkOK=true) for absent missing user; got false")
+	}
+	if len(f.cmds) != 0 {
+		t.Errorf("expected no commands; got %v", f.cmds)
+	}
+}
+
 // TestUserCmp_DoesNotMutateGroups guards against Cmp() sorting the caller's
 // Groups slices in place. The function compares group membership in any order,
 // but it must do so without disturbing the input. A slice-header copy like eg:

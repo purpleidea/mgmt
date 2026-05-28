@@ -199,7 +199,15 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		exists = false
 	}
 
-	if obj.AllowDuplicateUID == false && obj.UID != nil {
+	if obj.State == "absent" && !exists {
+		return true, nil
+	}
+
+	// Only enforce UID uniqueness when we plan to create or modify the
+	// user. For state=absent with a missing user we returned above and for
+	// state=absent with an existing user, we're about to delete it, so a
+	// clash on the (about-to-be-released) UID is not our concern.
+	if obj.State == "exists" && !obj.AllowDuplicateUID && obj.UID != nil {
 		existingUID, err := user.LookupId(strconv.Itoa(int(*obj.UID)))
 		if err != nil {
 			if !isUnknownUserID(err) {
@@ -208,10 +216,6 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		} else if existingUID.Username != obj.Name() {
 			return false, fmt.Errorf("the requested UID is already taken")
 		}
-	}
-
-	if obj.State == "absent" && !exists {
-		return true, nil
 	}
 
 	groups := []string{}

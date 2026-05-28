@@ -185,6 +185,8 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 // CheckApply method for User resource.
 func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	user := defaultUserFuncs // shadows os/user inside this function
+
 	exists := true
 	usr, err := user.Lookup(obj.Name())
 	if err != nil {
@@ -210,8 +212,8 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	groups := []string{}
-	if usr != nil { // if it doesn't exist, we don't have any groups yet
-		gids, err := usr.GroupIds() // ([]string, error)
+	if usr != nil && obj.Groups != nil { // if it doesn't exist, we don't have any groups yet
+		gids, err := user.GroupIds(usr) // ([]string, error)
 		if err != nil {
 			return false, err
 		}
@@ -225,7 +227,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if usercheck := true; exists && obj.State == "exists" {
-		shell, err := util.UserShell(ctx, obj.Name())
+		shell, err := user.Shell(ctx, obj.Name())
 		if err != nil {
 			return false, err
 		}
@@ -242,6 +244,13 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		if obj.GID != nil && int(*obj.GID) != intGID {
 			usercheck = false
+		}
+
+		if obj.Shell != nil {
+			shell, err = user.Shell(ctx, obj.Name())
+			if err != nil {
+				return false, err
+			}
 		}
 
 		// Check our primary group matches what we requested...
@@ -332,7 +341,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	args = append(args, obj.Name())
 
-	if err := runUserCmd(ctx, cmdName, args); err != nil {
+	if err := user.RunCmd(ctx, cmdName, args); err != nil {
 		return false, err
 	}
 
@@ -605,4 +614,26 @@ func isUnknownUser(err error) bool {
 func isUnknownUserID(err error) bool {
 	_, ok := err.(user.UnknownUserIdError)
 	return ok
+}
+
+// userFuncs bundles the os/user, util.UserShell and runUserCmd entry points
+// that CheckApply uses, behind func-typed fields. Shadowing `user` inside
+// CheckApply with a value of this type swaps the whole bundle at once.
+type userFuncs struct {
+	Lookup        func(name string) (*user.User, error)
+	LookupId      func(uid string) (*user.User, error)
+	LookupGroupId func(gid string) (*user.Group, error)
+	GroupIds      func(u *user.User) ([]string, error)
+	Shell         func(ctx context.Context, name string) (string, error)
+	RunCmd        func(ctx context.Context, cmdName string, args []string) error
+}
+
+// defaultUserFuncs is the production wiring of userFuncs.
+var defaultUserFuncs = userFuncs{
+	Lookup:        user.Lookup,
+	LookupId:      user.LookupId,
+	LookupGroupId: user.LookupGroupId,
+	GroupIds:      func(u *user.User) ([]string, error) { return u.GroupIds() },
+	Shell:         util.UserShell,
+	RunCmd:        runUserCmd,
 }

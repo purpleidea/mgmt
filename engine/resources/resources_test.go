@@ -233,9 +233,11 @@ func ErrIsNotExistOK(e error) error {
 	return errwrap.Wrapf(e, "unexpected error")
 }
 
-// GetUID returns the UID of the user running this test.
+// GetUID returns the UID of the user running this test. It consults the process
+// identity directly rather than $USER, which may be unset under some test
+// runners.
 func GetUID() (string, error) {
-	u, err := user.Lookup(os.Getenv("USER"))
+	u, err := user.Current()
 	if err != nil {
 		return "", err
 	}
@@ -422,7 +424,10 @@ func TestResources1(t *testing.T) {
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
 		p := "/tmp/ownerfile"
-		uid, _ := GetUID()
+		uid, err := GetUID()
+		if err != nil {
+			t.Fatalf("GetUID: %v", err)
+		}
 		res.Path = p
 		res.State = FileStateExists
 		res.Owner = uid

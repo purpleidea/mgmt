@@ -52,7 +52,9 @@ func init() {
 	engine.RegisterResource("user", func() engine.Res { return &UserRes{} })
 }
 
-// UserRes is a user account resource.
+// UserRes is a user account resource. Managing POSIX users and groups is sneaky
+// and annoying. It turns out that you can't *just* create a user without any
+// group.
 type UserRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -96,6 +98,7 @@ func (obj *UserRes) Default() engine.Res {
 
 // Validate if the params passed in are valid data.
 func (obj *UserRes) Validate() error {
+	// XXX: this does not enforce "strict mode" which requires all lowercase
 	if err := util.ValidUser(obj.Name()); err != nil {
 		return fmt.Errorf("user contains invalid character(s)")
 	}
@@ -218,6 +221,9 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return false, err
 		}
 		for _, gid := range gids {
+			if gid == usr.Gid {
+				continue
+			}
 			g, err := user.LookupGroupId(gid)
 			if err != nil {
 				return false, err
@@ -227,10 +233,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if usercheck := true; exists && obj.State == "exists" {
-		shell, err := user.Shell(ctx, obj.Name())
-		if err != nil {
-			return false, err
-		}
+		shell := ""
 		intUID, err := strconv.Atoi(usr.Uid)
 		if err != nil {
 			return false, errwrap.Wrapf(err, "error casting UID to int")
@@ -269,7 +272,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		cmpGroups := func(g1, g2 []string) error {
 			return cmpListContents(g1, g2)
 		}
-		if cmpGroups(obj.Groups, groups) != nil {
+		if obj.Groups != nil && cmpGroups(obj.Groups, groups) != nil {
 			usercheck = false
 		}
 
@@ -292,6 +295,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		if obj.Shell != nil && *obj.Shell != shell {
 			usercheck = false
 		}
+
 		if usercheck {
 			return true, nil
 		}
@@ -331,6 +335,9 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		if obj.Shell != nil {
 			args = append(args, "--shell", *obj.Shell)
+		}
+		if exists && len(args) == 0 {
+			return true, nil
 		}
 	}
 	if obj.State == "absent" {

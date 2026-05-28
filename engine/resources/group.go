@@ -47,8 +47,6 @@ func init() {
 	engine.RegisterResource("group", func() engine.Res { return &GroupRes{} })
 }
 
-const groupFile = "/etc/group"
-
 // GroupRes is a user group resource.
 type GroupRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -95,7 +93,7 @@ func (obj *GroupRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *GroupRes) Watch(ctx context.Context) error {
-	recWatcher, err := recwatch.NewRecWatcher(groupFile, false)
+	recWatcher, err := recwatch.NewRecWatcher(util.EtcGroupFile, false)
 	if err != nil {
 		return err
 	}
@@ -107,7 +105,7 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("Watching: %s", groupFile) // attempting to watch...
+			obj.init.Logf("Watching: %s", util.EtcGroupFile) // attempting to watch...
 		}
 
 		select {

@@ -447,6 +447,46 @@ func TestUserCheckApply_HomeDirTrailingSlash(t *testing.T) {
 	}
 }
 
+// TestUserCheckApply_Issue842 reproduces github.com/purpleidea/mgmt/issues/842
+//
+// mcl `user "mgmttest" { state => "exists" }` with no other fields, where the
+// user already exists. The user has a primary group (mgmttest) and one
+// supplemental group it is naturally a member of. Without the primary-GID skip
+// in CheckApply, the loop that collects supplemental group names includes the
+// primary group's name in `groups`. With `obj.Groups` set to nothing or to a
+// value that doesn't include the primary group, cmpGroups then claims a
+// mismatch and the apply branch runs `usermod LOGIN` with no other args,
+// producing "usermod: no options". This test pins the no-op behavior.
+func TestUserCheckApply_Issue842(t *testing.T) {
+	f := loadEtc(t,
+		"mgmttest:x:5000:5000::/home/mgmttest/:/bin/bash",
+		strings.Join([]string{
+			"mgmttest:x:5000:",       // primary group
+			"extras:x:6000:mgmttest", // supplemental
+		}, "\n"),
+	)
+	f.install(t)
+
+	// Resource asks for exactly the supplemental group the user already has.
+	res := mkUser("mgmttest", "exists", func(r *UserRes) {
+		r.Groups = []string{"extras"}
+	})
+	if err := res.Init(fakeUserInit(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	checkOK, err := res.CheckApply(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckApply: unexpected error: %v", err)
+	}
+	if !checkOK {
+		t.Errorf("expected no-op (checkOK=true); got false")
+	}
+	if len(f.cmds) != 0 {
+		t.Errorf("expected no commands; got %v", f.cmds)
+	}
+}
+
 // TestUserCheckApplyTable walks a table of (system state, resource params)
 // pairs and asserts the CheckApply return values plus the exact command (if
 // any) that the fake recorded. Each row stands on its own; system state lives

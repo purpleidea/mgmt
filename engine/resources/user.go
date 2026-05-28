@@ -125,6 +125,12 @@ func (obj *UserRes) Validate() error {
 			if err := util.ValidUser(group); err != nil { // groups too
 				return fmt.Errorf("groups list contains invalid character(s)")
 			}
+			if obj.Group != nil && group == *obj.Group {
+				return fmt.Errorf("primary Group %q must not appear in Groups", group)
+			}
+			if group == obj.Name() {
+				return fmt.Errorf("user name %q must not appear in Groups", group)
+			}
 		}
 	}
 

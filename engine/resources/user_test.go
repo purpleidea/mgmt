@@ -487,6 +487,32 @@ func TestUserCheckApply_Issue842(t *testing.T) {
 	}
 }
 
+// TestUserValidate_GroupInGroups asserts that listing the primary Group inside
+// the supplemental Groups list is rejected. AutoEdges would emit duplicate
+// edges and useradd/usermod treat the primary specially, so this combination is
+// always a config error.
+func TestUserValidate_GroupInGroups(t *testing.T) {
+	res := mkUser("james", "exists", func(r *UserRes) {
+		r.Group = strPtr("wheel")
+		r.Groups = []string{"wheel", "devs"}
+	})
+	if err := res.Validate(); err == nil {
+		t.Error("expected error when primary Group is also in Groups; got nil")
+	}
+}
+
+// TestUserValidate_NameInGroups asserts that the user's own name (which is the
+// conventional primary-group name on most distros) is rejected from the
+// supplemental Groups list.
+func TestUserValidate_NameInGroups(t *testing.T) {
+	res := mkUser("james", "exists", func(r *UserRes) {
+		r.Groups = []string{"james", "wheel"}
+	})
+	if err := res.Validate(); err == nil {
+		t.Error("expected error when user name appears in Groups; got nil")
+	}
+}
+
 // TestUserCheckApply_AbsentSkipsUIDConflict guards against the duplicate-UID
 // check firing for users we want absent. If the resource asks for `ghost` to be
 // absent and ghost doesn't exist, the result should be no-op (true, nil) --

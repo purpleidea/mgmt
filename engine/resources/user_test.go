@@ -487,6 +487,98 @@ func TestUserCheckApply_Issue842(t *testing.T) {
 	}
 }
 
+// TestUserCheckApply_EmptyGroupsClears asserts the semantic distinction between
+// a nil Groups field and an empty-but-non-nil Groups field. nil means "do not
+// manage supplemental groups" (no-op even if the user has some), while
+// []string{} means "the user should have zero supplemental groups" and must
+// fire `usermod --groups "" LOGIN` to clear any current memberships.
+func TestUserCheckApply_EmptyGroupsClears(t *testing.T) {
+	f := loadEtc(t,
+		"james:x:1000:1000::/home/james/:/bin/bash",
+		strings.Join([]string{
+			"james:x:1000:",
+			"wheel:x:10:james",
+			"extras:x:20:james",
+		}, "\n"),
+	)
+	f.install(t)
+
+	res := mkUser("james", "exists", func(r *UserRes) { r.Groups = []string{} })
+	if err := res.Init(fakeUserInit(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	checkOK, err := res.CheckApply(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckApply: unexpected error: %v", err)
+	}
+	if checkOK {
+		t.Errorf("expected checkOK=false (supplementals need clearing)")
+	}
+	want := fakeUserCmd{Name: "usermod", Args: []string{"--groups", "", "james"}}
+	if len(f.cmds) != 1 || !reflect.DeepEqual(f.cmds[0], want) {
+		t.Errorf("expected one %v; got %v", want, f.cmds)
+	}
+}
+
+// TestUserCheckApply_EmptyGroupsNoopWhenAlreadyEmpty is the other half of the
+// empty-vs-nil semantic: if the user is already in no supplemental groups,
+// asking for [] is a no-op.
+func TestUserCheckApply_EmptyGroupsNoopWhenAlreadyEmpty(t *testing.T) {
+	f := loadEtc(t,
+		"james:x:1000:1000::/home/james/:/bin/bash",
+		"james:x:1000:",
+	)
+	f.install(t)
+
+	res := mkUser("james", "exists", func(r *UserRes) { r.Groups = []string{} })
+	if err := res.Init(fakeUserInit(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	checkOK, err := res.CheckApply(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckApply: unexpected error: %v", err)
+	}
+	if !checkOK {
+		t.Errorf("expected checkOK=true (already no supplementals)")
+	}
+	if len(f.cmds) != 0 {
+		t.Errorf("expected no commands; got %v", f.cmds)
+	}
+}
+
+// TestUserCheckApply_NilGroupsIgnoresExisting is the nil counterpart: a nil
+// Groups field means mgmt should not touch supplemental group memberships at
+// all, so an existing user with supplementals is a no-op.
+func TestUserCheckApply_NilGroupsIgnoresExisting(t *testing.T) {
+	f := loadEtc(t,
+		"james:x:1000:1000::/home/james/:/bin/bash",
+		strings.Join([]string{
+			"james:x:1000:",
+			"wheel:x:10:james",
+		}, "\n"),
+	)
+	f.install(t)
+
+	// Groups left unset (nil).
+	res := mkUser("james", "exists")
+	if err := res.Init(fakeUserInit(t)); err != nil {
+		t.Fatal(err)
+	}
+
+	checkOK, err := res.CheckApply(context.Background(), true)
+	if err != nil {
+		t.Fatalf("CheckApply: unexpected error: %v", err)
+	}
+	if !checkOK {
+		t.Errorf("expected checkOK=true (nil Groups ignores existing supplementals)")
+	}
+	if len(f.cmds) != 0 {
+		t.Errorf("expected no commands; got %v", f.cmds)
+	}
+}
+
 // TestUserValidate_GroupInGroups asserts that listing the primary Group inside
 // the supplemental Groups list is rejected. AutoEdges would emit duplicate
 // edges and useradd/usermod treat the primary specially, so this combination is

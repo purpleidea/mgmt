@@ -513,6 +513,11 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 				err = state.poll(state.doneCtx, interval)
 				state.cuid.StopTimer() // clean up nicely
 
+			} else if interval := res.MetaParams().Poll; interval < 0 { // run once instead of watching
+				state.cuid.StartTimer()
+				err = state.once(state.doneCtx)
+				state.cuid.StopTimer() // clean up nicely
+
 			} else {
 				state.cuid.StartTimer()
 				if obj.Debug {

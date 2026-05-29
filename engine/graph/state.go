@@ -436,7 +436,7 @@ func (obj *State) setDirty() {
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.
-func (obj *State) poll(ctx context.Context, interval uint32) error {
+func (obj *State) poll(ctx context.Context, interval int32) error {
 	// create a time.Ticker for the given interval
 	ticker := time.NewTicker(time.Duration(interval) * time.Second)
 	defer ticker.Stop()
@@ -457,6 +457,18 @@ func (obj *State) poll(ctx context.Context, interval uint32) error {
 		if err := obj.init.Event(ctx); err != nil {
 			return err
 		}
+	}
+}
+
+// once is a replacement for Watch when the Poll metaparameter is negative.
+func (obj *State) once(ctx context.Context) error {
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done(): // signal for shutdown request
+		return nil
 	}
 }
 

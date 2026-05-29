@@ -98,7 +98,8 @@ type MetaParams struct {
 	Timeout uint64 `yaml:"timeout"`
 
 	// Poll is the number of seconds between poll intervals. Use 0 to Watch.
-	Poll uint32 `yaml:"poll"`
+	// Use -1 to only run once.
+	Poll int32 `yaml:"poll"`
 
 	// Limit is the number of events per second to allow through.
 	Limit rate.Limit `yaml:"limit"`

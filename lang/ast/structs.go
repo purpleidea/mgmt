@@ -1354,7 +1354,7 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow and isn't signed
 			apply = append(apply, func(res engine.Res) {
-				res.MetaParams().Poll = uint32(x)
+				res.MetaParams().Poll = int32(x)
 			})
 
 		case "limit": // rate.Limit
@@ -1486,9 +1486,9 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 			}
 			if val, exists := v.Struct()["poll"]; exists {
 				x := val.Int() // must not panic
-				// TODO: check that it doesn't overflow and isn't signed
+				// TODO: check that it doesn't overflow
 				apply = append(apply, func(res engine.Res) {
-					res.MetaParams().Poll = uint32(x)
+					res.MetaParams().Poll = int32(x)
 				})
 			}
 			if val, exists := v.Struct()["limit"]; exists {

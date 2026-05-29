@@ -162,7 +162,7 @@ func (obj *VirtRes) Default() engine.Res {
 // Validate if the params passed in are valid data.
 func (obj *VirtRes) Validate() error {
 	// XXX: Code requires polling for the mainloop for now.
-	if obj.MetaParams().Poll > 0 {
+	if obj.MetaParams().Poll != 0 {
 		return fmt.Errorf("can't poll with virt resources")
 	}
 

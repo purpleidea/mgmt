@@ -1077,8 +1077,6 @@ type DHCPHostRes struct {
 
 	ipv4Addr net.IP // XXX: port to netip.Addr
 	ipv4Mask net.IPMask
-	opt66    *dhcpv4.Option
-	opt67    *dhcpv4.Option
 }
 
 // Default returns some sensible defaults for this resource.
@@ -1241,14 +1239,15 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
 	}
 	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	obj.opt66 = &otsn
+	opt66 := &otsn
 	p := result.Path
 	if obj.NBPPath != "" { // override the path if this is specified
 		p = obj.NBPPath
 	}
 	obfn := dhcpv4.OptBootFileName(p)
+	var opt67 *dhcpv4.Option
 	if p != "" {
-		obj.opt67 = &obfn
+		opt67 = &obfn
 	}
 
 	return func(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
@@ -1276,14 +1275,14 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.ipv4Mask)) // net.IPMask
 
 		// nbp section
-		if obj.opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
-			resp.Options.Update(*obj.opt66)
+		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
+			resp.Options.Update(*opt66)
 		}
-		if obj.opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
-			resp.Options.Update(*obj.opt67)
+		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
+			resp.Options.Update(*opt67)
 		}
 		if obj.init.Debug {
-			obj.init.Logf("Added NBP %s / %s to request", obj.opt66, obj.opt67)
+			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)
 		}
 
 		return resp, true
@@ -1395,9 +1394,6 @@ type DHCPRangeRes struct {
 	to   netip.Addr
 	mask net.IPMask
 	skip []netip.Addr
-
-	opt66 *dhcpv4.Option
-	opt67 *dhcpv4.Option
 }
 
 // Default returns some sensible defaults for this resource.
@@ -1859,14 +1855,15 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
 	}
 	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	obj.opt66 = &otsn
+	opt66 := &otsn
 	p := result.Path
 	if obj.NBPPath != "" { // override the path if this is specified
 		p = obj.NBPPath
 	}
 	obfn := dhcpv4.OptBootFileName(p)
+	var opt67 *dhcpv4.Option
 	if p != "" {
-		obj.opt67 = &obfn
+		opt67 = &obfn
 	}
 
 	res, ok := obj.Parent().(*DHCPServerRes)
@@ -1957,14 +1954,14 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
 
 		// nbp section
-		if obj.opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
-			resp.Options.Update(*obj.opt66)
+		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
+			resp.Options.Update(*opt66)
 		}
-		if obj.opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
-			resp.Options.Update(*obj.opt67)
+		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
+			resp.Options.Update(*opt67)
 		}
 		if obj.init.Debug {
-			obj.init.Logf("Added NBP %s / %s to request", obj.opt66, obj.opt67)
+			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)
 		}
 
 		return resp, true

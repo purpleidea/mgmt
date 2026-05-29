@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf
 	github.com/bmc-toolbox/common v0.0.0-20250114061816-fab80349cae0
-	github.com/coredhcp/coredhcp v0.0.0-20250113163832-cbc175753a45
+	github.com/coredhcp/coredhcp v0.0.0-20260217182248-a0841cb3038f
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/cyphar/filepath-securejoin v0.4.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
@@ -26,7 +26,7 @@ require (
 	github.com/hashicorp/hil v0.0.0-20241119142051-4415e05c565c
 	github.com/hetznercloud/hcloud-go/v2 v2.36.0
 	github.com/iancoleman/strcase v0.3.0
-	github.com/insomniacslk/dhcp v0.0.0-20250109001534-8abf58130905
+	github.com/insomniacslk/dhcp v0.0.0-20260407060928-11b94ed970f2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/leonelquinteros/gotext v1.7.2
 	github.com/metal-automata/fw v0.0.0-20260201142203-2928c3e2daea
@@ -35,7 +35,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/purpleidea/lsmod v0.0.0-20250606013221-b3436dd8182f
 	github.com/sanity-io/litter v1.5.5
-	github.com/spf13/afero v1.12.0
+	github.com/spf13/afero v1.15.0
 	github.com/tredoe/osutil v1.5.0
 	github.com/vishvananda/netlink v1.3.0
 	github.com/yalue/merged_fs v1.3.0
@@ -65,7 +65,7 @@ require (
 	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bits-and-blooms/bitset v1.20.0 // indirect
+	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/bytedance/sonic v1.13.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
@@ -156,7 +156,7 @@ require (
 	github.com/skeema/knownhosts v1.3.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
-	github.com/spf13/pflag v1.0.6-0.20250109003754-5ca813443bd2 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stmcginnis/gofish v0.20.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
@@ -202,5 +202,3 @@ require (
 )
 
 replace github.com/u-root/u-root v7.0.0+incompatible => github.com/u-root/u-root v1.0.1
-
-replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-20221001123530-5308ebe5334c

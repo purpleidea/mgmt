@@ -32,14 +32,19 @@ SHELL = bash
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
 .PHONY: mkosi mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux
 .PHONY: release release_test releases_path release_binary_amd64 release_binary_arm64 release_fedora-latest release_fedora-older release_stream-latest release_debian-stable release_ubuntu-latest release_archlinux
-.PHONY: funcgen
+.PHONY: funcgen FORCE
 .SILENT: clean
 
 # a large amount of output from this `find`, can cause `make` to be much slower!
-GO_FILES := $(shell find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*')
-MCL_FILES := $(shell find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*')
-MISC_FILES := $(shell find engine/resources/http_server_ui/)
-PO_FILES := $(shell find * -name '*.po' -not -path 'old/*' -not -path 'tmp/*')
+GO_FILES_FIND = find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*'
+MCL_FILES_FIND = find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*'
+MISC_FILES_FIND = find engine/resources/http_server_ui/
+PO_FILES_FIND = find * -name '*.po' -not -path 'old/*' -not -path 'tmp/*'
+GO_FILES := $(shell $(GO_FILES_FIND))
+MCL_FILES := $(shell $(MCL_FILES_FIND))
+MISC_FILES := $(shell $(MISC_FILES_FIND))
+PO_FILES := $(shell $(PO_FILES_FIND))
+FILES_STAMP = build/.stamp
 
 SVERSION := $(or $(SVERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --dirty --always))
 VERSION := $(or $(VERSION),$(shell git describe --match '[0-9]*\.[0-9]*\.[0-9]*' --tags --abbrev=0))
@@ -232,7 +237,7 @@ resources: ## builds the resources dependencies required for the engine backend
 $(PROGRAM): build/mgmt-${GOHOSTOS}-${GOHOSTARCH} ## build an mgmt binary for current host os/arch
 	cp -a $< $@
 
-$(PROGRAM).static: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum
+$(PROGRAM).static: $(FILES_STAMP) $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum
 	@echo "Building: $(PROGRAM).static, version: $(SVERSION)..."
 	go generate
 	go build $(TRIMPATH) -a -installsuffix cgo -tags netgo -ldflags '-extldflags "-static" -X main.program=$(PROGRAM) -X main.version=$(SVERSION) -s -w' -o $(PROGRAM).static $(BUILD_FLAGS);
@@ -257,7 +262,7 @@ baddev: lang resources funcgen
 # extract os and arch from target pattern
 GOOS=$(firstword $(subst -, ,$*))
 GOARCH=$(lastword $(subst -, ,$*))
-build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum | lang resources funcgen
+build/mgmt-%: $(FILES_STAMP) $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum | lang resources funcgen
 	@# If you need to run `go mod tidy` then this can trigger.
 	@if [ "$(PKGNAME)" = "" ]; then echo "\$$(PKGNAME) is empty, test with: go list ."; exit 42; fi
 	@echo "Building: $(PROGRAM), os/arch: $*, version: $(SVERSION)..."
@@ -265,6 +270,16 @@ build/mgmt-%: $(GO_FILES) $(MCL_FILES) $(MISC_FILES) $(PO_FILES) go.mod go.sum |
 	@# builds, we can consider turning it off for performance improvements.
 	@# XXX: ./mgmt run --tmp-prefix lang something_fast.mcl > /tmp/race 2>&1 # search for "WARNING: DATA RACE"
 	time env $(GOLANGCGO) GOOS=${GOOS} GOARCH=${GOARCH} go build $(TRIMPATH) $(GOLANGRACE) -ldflags=$(PKGNAME)="-X main.program=$(PROGRAM) -X main.version=$(SVERSION) ${LDFLAGS}" -o $@ $(BUILD_FLAGS)
+
+# The file lists above are expanded before make considers targets. If a source
+# file is deleted, it disappears from the prerequisites, so this stamp tracks
+# list membership and changes only when files are added or removed.
+$(FILES_STAMP): FORCE
+	@mkdir -p $(@D)
+	@{ $(GO_FILES_FIND); $(MCL_FILES_FIND); $(MISC_FILES_FIND); $(PO_FILES_FIND); } | sort > $@.tmp
+	@if ! test -f $@ || ! cmp -s $@.tmp $@; then mv $@.tmp $@; else rm $@.tmp; fi
+
+FORCE:
 
 # create a list of binary file names to use as make targets
 # to use this you might want to run something like:

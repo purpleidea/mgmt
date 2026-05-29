@@ -12,6 +12,7 @@ tmp/
 /mgmt.static
 # crossbuild artifacts
 /build/mgmt-*
+/build/.stamp
 mgmt.iml
 /rpmbuild/
 /releases/

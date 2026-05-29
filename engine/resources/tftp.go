@@ -73,7 +73,8 @@ const (
 // This resource can offer up files for serving that are specified either inline
 // in this resource by specifying a tftp root, or as tftp:file resources which
 // will get autogrouped into this resource at runtime. The two methods can be
-// combined as well.
+// combined as well. The resource does *not* start serving until CheckApply for
+// the resource runs.
 type TFTPServerRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
@@ -96,6 +97,9 @@ type TFTPServerRes struct {
 	Root string `lang:"root" yaml:"root"`
 
 	// TODO: should we allow adding a list of one-of files directly here?
+
+	once  *sync.Once
+	start chan struct{} // closes by once
 
 	wg *sync.WaitGroup
 }
@@ -148,6 +152,9 @@ func (obj *TFTPServerRes) Validate() error {
 func (obj *TFTPServerRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	obj.once = &sync.Once{}
+	obj.start = make(chan struct{})
+
 	return nil
 }
 
@@ -172,13 +179,23 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 	}
 	defer conn.Close()
 
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	select {
+	case <-obj.start: // opened by CheckApply after runtime checks succeed
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+		return context.Cause(ctx)
+	}
+	// XXX: Should we even do this drain? Do we move start above ListenUDP?
+	if err := tftpDrainUDPConn(conn); err != nil {
+		return errwrap.Wrapf(err, "could not drain queued packets")
+	}
+
 	hook := obj.hook()
 	if hook == nil {
 		return fmt.Errorf("the hook is nil") // programming error
-	}
-
-	if err := obj.init.Event(ctx); err != nil {
-		return err
 	}
 
 	// Use nil in place of handler to disable read or write operations.
@@ -215,13 +232,12 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
-		return ctx.Err()
+		return context.Cause(ctx)
 	}
 }
 
-// CheckApply never has anything to do for this resource, so it always succeeds.
-// It does however check that certain runtime requirements (such as the Root dir
-// existing if one was specified) are fulfilled.
+// CheckApply never has anything to apply for this resource. It does however
+// check that runtime requirements are fulfilled before Watch starts serving.
 func (obj *TFTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
@@ -238,7 +254,20 @@ func (obj *TFTPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 		}
 	}
 
-	return true, nil // always succeeds, with nothing to do!
+	checkOK := true
+	for _, res := range obj.GetGroup() { // grouped elements
+		if c, err := res.CheckApply(ctx, apply); err != nil {
+			return false, errwrap.Wrapf(err, "autogrouped CheckApply failed")
+		} else if !c {
+			checkOK = false
+		}
+	}
+
+	if checkOK {
+		obj.once.Do(func() { close(obj.start) })
+	}
+
+	return checkOK, nil
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -430,7 +459,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return context.Cause(ctx)
 			default:
 			}
 			obj.init.Logf("could not read %s, error: %+v", filename, err)
@@ -598,10 +627,27 @@ func (obj *TFTPFileRes) Watch(ctx context.Context) error {
 	return nil
 }
 
-// CheckApply never has anything to do for this resource, so it always succeeds.
+// CheckApply never has anything to apply for this resource. It does however
+// check that the source Path can be served if one was specified.
 func (obj *TFTPFileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
+	}
+
+	if obj.Path != "" {
+		fileInfo, err := os.Stat(obj.Path)
+		if err != nil {
+			return false, errwrap.Wrapf(err, "can't stat Path")
+		}
+		if fileInfo.IsDir() {
+			return false, fmt.Errorf("the Path is a dir")
+		}
+
+		handle, err := os.Open(obj.Path)
+		if err != nil {
+			return false, errwrap.Wrapf(err, "can't open Path")
+		}
+		defer handle.Close()
 	}
 
 	return true, nil // always succeeds, with nothing to do!
@@ -694,4 +740,24 @@ func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
 		return nil, fmt.Errorf("unexpected UDP connection type: %T", udpValue.Interface())
 	}
 	return udpConn, nil
+}
+
+// tftpDrainUDPConn discards datagrams queued while Watch was waiting for the
+// first successful CheckApply. Those requests arrived before the resource was
+// allowed to serve, so they must not be handled after the gate opens.
+func tftpDrainUDPConn(conn *net.UDPConn) error {
+	if err := conn.SetReadDeadline(time.Now().Add(time.Millisecond)); err != nil {
+		return err
+	}
+	defer conn.SetReadDeadline(time.Time{})
+
+	buf := make([]byte, 64*1024)
+	for {
+		if _, _, err := conn.ReadFromUDP(buf); err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil
+			}
+			return err
+		}
+	}
 }

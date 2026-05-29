@@ -356,6 +356,10 @@ func (obj *DHCPServerRes) Validate() error {
 		}
 	}
 
+	if err := validateDHCPv4NBP(obj.NBP); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1109,19 +1113,8 @@ func (obj *DHCPHostRes) Validate() error {
 	//	return fmt.Errorf("only IPv4 is currently supported")
 	//}
 
-	// validate the network boot program URL
-	if obj.NBP != "" {
-		u, err := url.Parse(obj.NBP)
-		if err != nil {
-			return errwrap.Wrapf(err, "invalid nbp URL")
-		}
-		if u.Scheme == "" {
-			return fmt.Errorf("missing nbp scheme")
-		}
-		// TODO: remove this check when we support DHCPv6
-		if u.Scheme != "tftp" {
-			return fmt.Errorf("the scheme must be `tftp` for DHCPv4")
-		}
+	if err := validateDHCPv4NBP(obj.NBP); err != nil {
+		return err
 	}
 
 	return nil
@@ -1614,19 +1607,8 @@ func (obj *DHCPRangeRes) Validate() error {
 		return err
 	}
 
-	// validate the network boot program URL
-	if obj.NBP != "" {
-		u, err := url.Parse(obj.NBP)
-		if err != nil {
-			return errwrap.Wrapf(err, "invalid nbp URL")
-		}
-		if u.Scheme == "" {
-			return fmt.Errorf("missing nbp scheme")
-		}
-		// TODO: remove this check when we support DHCPv6
-		if u.Scheme != "tftp" {
-			return fmt.Errorf("the scheme must be `tftp` for DHCPv4")
-		}
+	if err := validateDHCPv4NBP(obj.NBP); err != nil {
+		return err
 	}
 
 	return nil
@@ -2072,6 +2054,27 @@ func checkValidNetmask(netmask net.IPMask) bool {
 // 255.255.255.0 instead of ffffff00 which is what's seen when you print it now.
 func netmaskAsQuadString(netmask net.IPMask) string {
 	return fmt.Sprintf("%d.%d.%d.%d", netmask[0], netmask[1], netmask[2], netmask[3])
+}
+
+// validateDHCPv4NBP is a simpler validator for the network boot program URL.
+func validateDHCPv4NBP(nbp string) error {
+	if nbp == "" {
+		return nil
+	}
+
+	u, err := url.Parse(nbp)
+	if err != nil {
+		return errwrap.Wrapf(err, "invalid nbp URL")
+	}
+	if u.Scheme == "" {
+		return fmt.Errorf("missing nbp scheme")
+	}
+	// TODO: remove this check when we support DHCPv6.
+	if u.Scheme != "tftp" {
+		return fmt.Errorf("the scheme must be `tftp` for DHCPv4")
+	}
+
+	return nil
 }
 
 // dhcpDrainPacketConn discards datagrams queued while Watch was waiting for the

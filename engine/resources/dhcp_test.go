@@ -42,6 +42,21 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 )
 
+func TestDHCPServerValidateNBP(t *testing.T) {
+	serverID := "192.0.2.1"
+	res := &DHCPServerRes{
+		Address:   "127.0.0.1:6767",
+		Interface: "lo",
+		ServerID:  &serverID,
+		NBP:       "http://192.0.2.1/pxelinux.0",
+	}
+	res.SetName("server")
+
+	if err := res.Validate(); err == nil {
+		t.Fatalf("expected invalid NBP error")
+	}
+}
+
 func TestDHCPHostNBPHandlerNoRace(t *testing.T) {
 	init := &engine.Init{
 		Event: func(ctx context.Context) error { return nil },

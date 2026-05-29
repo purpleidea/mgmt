@@ -599,6 +599,15 @@ func (obj *DHCPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 		checkOK = false
 	}
 
+	// TODO: If we ever want to do something in the children CheckApply...
+	//for _, res := range obj.GetGroup() { // grouped elements
+	//	if c, err := res.CheckApply(ctx, apply); err != nil {
+	//		return false, errwrap.Wrapf(err, "autogrouped CheckApply failed")
+	//	} else if !c {
+	//		checkOK = false
+	//	}
+	//}
+
 	if checkOK {
 		obj.once.Do(func() { close(obj.start) })
 	}

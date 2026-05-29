@@ -514,7 +514,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
-		return ctx.Err()
+		return context.Cause(ctx)
 	}
 }
 

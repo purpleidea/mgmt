@@ -117,6 +117,8 @@ type Args struct {
 
 	RunCmd *RunArgs `arg:"subcommand:run" help:"run code on this machine"`
 
+	CheckCmd *CheckArgs `arg:"subcommand:check" help:"check code on this machine"`
+
 	DeployCmd *DeployArgs `arg:"subcommand:deploy" help:"deploy code into a cluster"`
 
 	SetupCmd *SetupArgs `arg:"subcommand:setup" help:"setup some bootstrapping tasks"`
@@ -159,6 +161,10 @@ func (obj *Args) Description() string {
 // usage or help information if no subcommand activates.
 func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	if cmd := obj.RunCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	if cmd := obj.CheckCmd; cmd != nil {
 		return cmd.Run(ctx, data)
 	}
 

@@ -820,7 +820,7 @@ func (obj *DHCPServerRes) serverIDHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DH
 		var err error
 		if obj.serverID, err = obj.getServerID(); err != nil {
 			obj.init.Logf("could not determine the ServerID during runtime")
-			return resp, false
+			return nil, true
 		}
 	}
 

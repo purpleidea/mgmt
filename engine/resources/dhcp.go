@@ -156,6 +156,9 @@ type DHCPServerRes struct {
 	reservedIPs map[netip.Addr]engine.Res // track which res reserved
 
 	// TODO: add in ipv6 support here or in a separate resource?
+
+	once  *sync.Once
+	start chan struct{} // closes by once
 }
 
 // Default returns some sensible defaults for this resource.
@@ -437,6 +440,9 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 		}
 	}
 
+	obj.once = &sync.Once{}
+	obj.start = make(chan struct{})
+
 	return nil
 }
 
@@ -482,13 +488,32 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	logOpt := server4.WithLogger(newLogger)
 	opts = append(opts, logOpt)
 
+	conn, err := server4.NewIPv4UDPConn(obj.Interface, addr)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not start listener")
+	}
+	opts = append(opts, server4.WithConn(conn))
+
 	server, err := server4.NewServer(obj.Interface, addr, obj.handler4(), opts...)
 	if err != nil {
-		return errwrap.Wrapf(err, "could not start listener") // it's inside
+		conn.Close()
+		return errwrap.Wrapf(err, "could not start listener")
 	}
 
 	if err := obj.init.Event(ctx); err != nil {
+		server.Close()
 		return err
+	}
+
+	select {
+	case <-obj.start: // opened by CheckApply after runtime checks succeed
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+		server.Close()
+		return context.Cause(ctx)
+	}
+	if err := dhcpDrainPacketConn(conn); err != nil {
+		server.Close()
+		return errwrap.Wrapf(err, "could not drain queued packets")
 	}
 	//defer obj.mutex.RLock()
 	//obj.mutex.RUnlock() // it's safe to let CheckApply proceed
@@ -572,6 +597,10 @@ func (obj *DHCPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 		return false, err
 	} else if !c {
 		checkOK = false
+	}
+
+	if checkOK {
+		obj.once.Do(func() { close(obj.start) })
 	}
 
 	return checkOK, nil // almost always succeeds, with nothing to do!
@@ -2037,4 +2066,24 @@ func checkValidNetmask(netmask net.IPMask) bool {
 // 255.255.255.0 instead of ffffff00 which is what's seen when you print it now.
 func netmaskAsQuadString(netmask net.IPMask) string {
 	return fmt.Sprintf("%d.%d.%d.%d", netmask[0], netmask[1], netmask[2], netmask[3])
+}
+
+// dhcpDrainPacketConn discards datagrams queued while Watch was waiting for the
+// first successful CheckApply. Those requests arrived before the resource was
+// allowed to serve, so they must not be handled after the gate opens.
+func dhcpDrainPacketConn(conn net.PacketConn) error {
+	if err := conn.SetReadDeadline(time.Now().Add(time.Millisecond)); err != nil {
+		return err
+	}
+	defer conn.SetReadDeadline(time.Time{})
+
+	buf := make([]byte, 64*1024)
+	for {
+		if _, _, err := conn.ReadFrom(buf); err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return nil
+			}
+			return err
+		}
+	}
 }

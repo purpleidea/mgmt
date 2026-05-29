@@ -298,10 +298,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 
 		// Check our member groups match what we expect. (In any order.)
-		cmpGroups := func(g1, g2 []string) error {
-			return cmpListContents(g1, g2)
-		}
-		if obj.Groups != nil && cmpGroups(obj.Groups, groups) != nil {
+		if obj.Groups != nil && engineUtil.StrSetCmp(obj.Groups, groups) != nil {
 			usercheck = false
 		}
 
@@ -572,31 +569,6 @@ func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	*obj = UserRes(raw) // restore from indirection with type conversion!
-	return nil
-}
-
-// cmpListContents is a helper to compare the list contents without pre-sorting.
-func cmpListContents(a, b []string) error {
-	if len(a) != len(b) {
-		return fmt.Errorf("lengths differ")
-	}
-
-	count := make(map[string]int)
-
-	// Count each string in the first slice...
-	for _, s := range a {
-		count[s]++
-	}
-
-	// Subtract counts for the second slice, and check if any are zero.
-	for _, s := range b {
-		count[s]--
-		if count[s] < 0 {
-			return fmt.Errorf("difference: %s", s)
-		}
-	}
-
-	// If all the counts are zero, then the slices must match!
 	return nil
 }
 

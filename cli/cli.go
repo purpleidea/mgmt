@@ -115,6 +115,8 @@ type Args struct {
 
 	License bool `arg:"--license" help:"display the license and exit"`
 
+	CheckCmd *CheckArgs `arg:"subcommand:check" help:"check code on this machine"`
+
 	RunCmd *RunArgs `arg:"subcommand:run" help:"run code on this machine"`
 
 	DeployCmd *DeployArgs `arg:"subcommand:deploy" help:"deploy code into a cluster"`
@@ -158,6 +160,10 @@ func (obj *Args) Description() string {
 // we did not. This information is used so that the top-level parser can return
 // usage or help information if no subcommand activates.
 func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
+	if cmd := obj.CheckCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
 	if cmd := obj.RunCmd; cmd != nil {
 		return cmd.Run(ctx, data)
 	}

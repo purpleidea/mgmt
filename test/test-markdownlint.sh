@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # check for any markdown files that aren't in an ideal format
 
+# XXX: temporarily disabled due to style regression, please see:
+# https://github.com/markdownlint/markdownlint/issues/576
+exit 0
+
 echo running "$0 $*"
 set -o errexit
 #set -o nounset

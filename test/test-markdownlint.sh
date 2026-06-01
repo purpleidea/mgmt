@@ -65,7 +65,7 @@ find_files() {
 	git ls-files | grep '\.md$'
 }
 
-F=${1:-}	# only check this file from $1 is specified
+F=${1:-}	# only check this file from $1 if specified
 
 bad_files=$(
 	for i in $(find_files); do

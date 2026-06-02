@@ -161,7 +161,7 @@ func IsFamilyArchLinux(ctx context.Context) (bool, error) {
 
 // Distro returns the distro name.
 func Distro(ctx context.Context) (string, error) {
-	output, err := parseOSRelease(ctx)
+	output, err := ParseOSRelease(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -170,7 +170,7 @@ func Distro(ctx context.Context) (string, error) {
 
 // IsDistroDebian detects if the os distro is debian. (Not ubuntu!)
 func IsDistroDebian(ctx context.Context) (bool, error) {
-	output, err := parseOSRelease(ctx)
+	output, err := ParseOSRelease(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -182,7 +182,7 @@ func IsDistroDebian(ctx context.Context) (bool, error) {
 
 // IsDistroFedora detects if the os distro is fedora.
 func IsDistroFedora(ctx context.Context) (bool, error) {
-	output, err := parseOSRelease(ctx)
+	output, err := ParseOSRelease(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -198,10 +198,10 @@ func IsDistroArchLinux(ctx context.Context) (bool, error) {
 	return IsFamilyArchLinux(ctx)
 }
 
-// parseOSRelease is a simple helper function to parse the /etc/os-release file.
+// ParseOSRelease is a simple helper function to parse the /etc/os-release file.
 // TODO: We could probably implement our own cleaner parser eventually.
 // TODO: Cache the result in a global if we don't care about changes.
-func parseOSRelease(ctx context.Context) (*osrelease.OSRelease, error) {
+func ParseOSRelease(ctx context.Context) (*osrelease.OSRelease, error) {
 	// TODO: use ctx around io operations
 	output, err := osrelease.New()
 	if err != nil {

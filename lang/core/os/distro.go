@@ -36,9 +36,14 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
+	distroUtil "github.com/purpleidea/mgmt/util/distro"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-const structDistroUID = "struct{distro str; version str; arch str}"
+const (
+	structDistroUID   = "struct{distro str; version str; arch str}"
+	releaseReturnType = "struct{id str; variant_id str; version_id str}"
+)
 
 var typeParseDistroUID = types.NewType(fmt.Sprintf("func(str) %s", structDistroUID))
 
@@ -53,6 +58,19 @@ func init() {
 		T: typeParseDistroUID,
 		F: ParseDistroUID,
 	})
+
+	simple.ModuleRegister(ModuleName, "release", &simple.Scaffold{
+		I: &simple.Info{
+			// In theory these are dependent on runtime.
+			Pure: false,
+			Memo: false,
+			Fast: true,
+			Spec: false,
+		},
+		T: types.NewType(fmt.Sprintf("func() %s", releaseReturnType)),
+		F: Release,
+	})
+
 }
 
 // ParseDistroUID parses a distro UID into its component values. If it cannot
@@ -100,4 +118,27 @@ func parseDistroUID(uid string) (string, string, string, error) {
 	// TODO: check for valid distro or arch?
 
 	return distro, version, arch, nil
+}
+
+// Release parses /etc/os-release and returns a struct containing the id,
+// version_id, and variant_id.
+func Release(ctx context.Context, input []types.Value) (types.Value, error) {
+	release, err := distroUtil.ParseOSRelease(ctx)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "ParseOSRelease failed")
+	}
+
+	st := types.NewStruct(types.NewType(releaseReturnType))
+
+	if err := st.Set("id", &types.StrValue{V: release.ID}); err != nil {
+		return nil, errwrap.Wrapf(err, "invalid id value")
+	}
+	if err := st.Set("variant_id", &types.StrValue{V: release.VARIANT_ID}); err != nil {
+		return nil, errwrap.Wrapf(err, "invalid variant_id value")
+	}
+	if err := st.Set("version_id", &types.StrValue{V: release.VERSION_ID}); err != nil {
+		return nil, errwrap.Wrapf(err, "invalid version_id value")
+	}
+
+	return st, nil
 }

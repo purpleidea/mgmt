@@ -29,12 +29,6 @@
 
 package interfaces
 
-// Error is a constant error type that implements error.
-type Error string
-
-// Error fulfills the error interface of this type.
-func (e Error) Error() string { return string(e) }
-
 const (
 	// ErrNotExist is returned when GetStr or friends can not find the
 	// requested key.
@@ -43,3 +37,9 @@ const (
 	// ErrShutdown is returned when we're exiting during a shutdown.
 	ErrShutdown = Error("ErrShutdown")
 )
+
+// Error is a constant error type that implements error.
+type Error string
+
+// Error fulfills the error interface of this type.
+func (e Error) Error() string { return string(e) }

@@ -29,12 +29,6 @@
 
 package engine
 
-// Error is a constant error type that implements error.
-type Error string
-
-// Error fulfills the error interface of this type.
-func (e Error) Error() string { return string(e) }
-
 const (
 	// ErrClosed means we couldn't complete a task because we had closed.
 	ErrClosed = Error("closed")
@@ -42,3 +36,9 @@ const (
 	// ErrBackPoke means we're postponing due to a needed backpoke.
 	ErrBackPoke = Error("backpoke")
 )
+
+// Error is a constant error type that implements error.
+type Error string
+
+// Error fulfills the error interface of this type.
+func (e Error) Error() string { return string(e) }

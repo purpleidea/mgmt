@@ -1,0 +1,16 @@
+print "noop" {
+	Meta:autogroup => false,
+}
+
+print "msg0" {
+	msg => "lonely",
+
+	Meta:autogroup => false,
+}
+
+print "msg1" {
+	msg => "hello",
+}
+print "msg2" {
+	msg => "world",
+}

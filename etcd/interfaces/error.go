@@ -42,4 +42,4 @@ const (
 type Error string
 
 // Error fulfills the error interface of this type.
-func (e Error) Error() string { return string(e) }
+func (obj Error) Error() string { return string(obj) }

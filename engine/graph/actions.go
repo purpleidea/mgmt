@@ -391,7 +391,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		wg.Wait()
 	}
 
-	return errwrap.Wrapf(err, "error during Process()")
+	return err
 }
 
 // Worker is the common run frontend of the vertex. It handles all of the retry
@@ -846,7 +846,41 @@ func safeCheckApply(ctx context.Context, res engine.Res, apply bool) (checkOK bo
 			err = fmt.Errorf("panic in CheckApply: %+v", r)
 		}
 	}()
-	return res.CheckApply(ctx, apply)
+
+	timeout := res.MetaParams().Timeout
+	if timeout == 0 {
+		return res.CheckApply(ctx, apply)
+	}
+
+	duration := time.Duration(timeout) * time.Millisecond
+	checkApplyCtx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	// NOTE: We always pass through the same checkOK value below, because if
+	// a resource made a mistake and returned (true, err) and we didn't pass
+	// through the `true`, we'd be silently suppressing that resource bug...
+	checkOK, err = res.CheckApply(checkApplyCtx, apply)
+	if checkApplyCtx.Err() != context.DeadlineExceeded {
+		return checkOK, err // return normally (err may even be nil)
+	}
+	// Timeout expired, resource returned, but we didn't return
+	// DeadlineExceeded. This may be because the resource had a bug and
+	// didn't properly propagate the error by returning ctx.Err() or it may
+	// be because the last `<-ctx.Done()` check was earlier in the code and
+	// the resource passed it. This is not a bug as long as workloads aren't
+	// blocking for more than approximately 1,000ms.
+	if err == nil {
+		return checkOK, nil
+	}
+	if err == context.DeadlineExceeded { // It returned correctly! Nice...
+		return checkOK, fmt.Errorf("timeout after %.3f seconds", duration.Seconds())
+	}
+
+	// This resource timed out, but returned an error. We're not sure
+	// whether the timeout caused the error, or if it errored and happened
+	// to timeout as well. Good resources return context.DeadlineExceeded,
+	// when that is the root cause. Patch those if that's not the case.
+	return checkOK, errwrap.Wrapf(err, "timeout after %.3f seconds", duration.Seconds())
 }
 
 // safeWatch wraps a call to res.Watch with a panic recovery so that a buggy

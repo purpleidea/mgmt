@@ -1343,6 +1343,13 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 				res.MetaParams().Delay = uint64(x)
 			})
 
+		case "timeout":
+			x := v.Int() // must not panic
+			// TODO: check that it isn't signed
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Timeout = uint64(x)
+			})
+
 		case "poll":
 			x := v.Int() // must not panic
 			// TODO: check that it doesn't overflow and isn't signed
@@ -1468,6 +1475,13 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 				// TODO: check that it isn't signed
 				apply = append(apply, func(res engine.Res) {
 					res.MetaParams().Delay = uint64(x)
+				})
+			}
+			if val, exists := v.Struct()["timeout"]; exists {
+				x := val.Int() // must not panic
+				// TODO: check that it isn't signed
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Timeout = uint64(x)
 				})
 			}
 			if val, exists := v.Struct()["poll"]; exists {
@@ -2190,6 +2204,7 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "retry":
 	case "retryreset":
 	case "delay":
+	case "timeout":
 	case "poll":
 	case "limit":
 	case "burst":
@@ -2393,6 +2408,9 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	case "delay":
 		typExpr = types.TypeInt
 
+	case "timeout":
+		typExpr = types.TypeInt
+
 	case "poll":
 		typExpr = types.TypeInt
 
@@ -2439,7 +2457,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = wrap(types.TypeBool)

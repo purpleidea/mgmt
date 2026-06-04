@@ -182,6 +182,7 @@ func TestLowerStructFieldNameToFieldName2(t *testing.T) {
 		"sendvalue":     "SendValue",
 		"expectrecv":    "ExpectRecv",
 		"onlyshow":      "OnlyShow",
+		"waitforerror":  "WaitForError",
 
 		"comment": "Comment",
 	}

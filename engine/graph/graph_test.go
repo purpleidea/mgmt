@@ -32,9 +32,13 @@
 package graph
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -45,5 +49,34 @@ func TestMultiErr(t *testing.T) {
 	// ensure that this lib allows us to append to a nil
 	if err == nil {
 		t.Errorf("missing error")
+	}
+}
+
+type timeoutCheckApplyRes struct {
+	resources.NoopRes
+}
+
+func (obj *timeoutCheckApplyRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	<-ctx.Done()
+	return false, ctx.Err()
+}
+
+func TestSafeCheckApplyTimeout(t *testing.T) {
+	res := &timeoutCheckApplyRes{}
+	res.MetaParams().Timeout = 1
+
+	start := time.Now()
+	checkOK, err := safeCheckApply(context.Background(), res, true)
+	if err == nil {
+		t.Fatalf("expected timeout error")
+	}
+	if checkOK {
+		t.Fatalf("expected failed check result")
+	}
+	if !strings.Contains(err.Error(), "timeout after") {
+		t.Fatalf("expected timeout error, got: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("timeout took too long: %s", elapsed)
 	}
 }

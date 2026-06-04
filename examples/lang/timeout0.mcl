@@ -1,0 +1,7 @@
+# race!
+exec "slow" {
+	cmd => "/usr/bin/sleep",
+	args => ["1s"],
+
+	Meta:timeout => 1000, # 1 second
+}

@@ -112,6 +112,7 @@ type TestRes struct {
 	SendValue     string    `lang:"sendvalue" yaml:"send_value"`         // what value should we send?
 	ExpectRecv    *[]string `lang:"expectrecv" yaml:"expect_recv"`       // what keys should we expect from send/recv?
 	OnlyShow      []string  `lang:"onlyshow" yaml:"only_show"`           // what values do we show?
+	WaitForError  int64     `lang:"waitforerror" yaml:"waitforerror"`    // block in check apply for this many ms then error
 
 	// TODO: add more fun properties!
 
@@ -179,6 +180,16 @@ func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		key := format[0:strings.LastIndex(format, ":")]
 		if len(obj.OnlyShow) == 0 || util.StrInList(key, obj.OnlyShow) {
 			obj.init.Logf(format, v...)
+		}
+	}
+
+	if duration := time.Duration(obj.WaitForError) * time.Millisecond; duration > 0 {
+		select {
+		case <-time.After(duration):
+			return false, fmt.Errorf("waitforerror %.4f seconds", duration.Seconds())
+
+		case <-ctx.Done(): // comment out this case to simulate a bad res
+			return false, ctx.Err()
 		}
 	}
 
@@ -413,6 +424,9 @@ func (obj *TestRes) Cmp(r engine.Res) error {
 		if x != res.OnlyShow[i] {
 			return fmt.Errorf("the item at OnlyShow index %d differs", i)
 		}
+	}
+	if obj.WaitForError != res.WaitForError {
+		return fmt.Errorf("the WaitForError differs")
 	}
 
 	if obj.Comment != res.Comment {

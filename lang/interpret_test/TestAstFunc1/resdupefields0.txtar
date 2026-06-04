@@ -7,6 +7,7 @@ test "test" {
 		retry => -1,
 		retryreset => false,
 		delay => 0,
+		timeout => 1000,
 		poll => 5,
 		limit => 4.2,
 		burst => 3,

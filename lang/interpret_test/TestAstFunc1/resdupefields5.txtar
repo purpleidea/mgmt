@@ -7,6 +7,7 @@ test "test" {
 		retry => -1,
 		retryreset => false,
 		delay => 0,
+		timeout => 0,
 		poll => 5,
 		limit => 4.2,
 		burst => 3,
@@ -27,29 +28,30 @@ test "test" {
 	#},
 }
 -- OUTPUT --
-Edge: composite: []str -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # export
-Edge: composite: []str -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # sema
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # dollar
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # hidden
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # noop
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # reset
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # retryreset
-Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # rewatch
-Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # autoedge
-Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # autogroup
-Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # realize
-Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # reverse
-Edge: const: float(4.2) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # limit
-Edge: const: int(-1) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # retry
-Edge: const: int(0) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # delay
-Edge: const: int(3) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # burst
-Edge: const: int(5) -> composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # poll
+Edge: composite: []str -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # export
+Edge: composite: []str -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # sema
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # dollar
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # hidden
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # noop
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # reset
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # retryreset
+Edge: const: bool(false) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # rewatch
+Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # autoedge
+Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # autogroup
+Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # realize
+Edge: const: bool(true) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # reverse
+Edge: const: float(4.2) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # limit
+Edge: const: int(-1) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # retry
+Edge: const: int(0) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # delay
+Edge: const: int(0) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # timeout
+Edge: const: int(3) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # burst
+Edge: const: int(5) -> composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool} # poll
 Edge: const: str("bar:3") -> composite: []str # 1
 Edge: const: str("foo:1") -> composite: []str # 0
 Edge: const: str("hostname") -> composite: []str # 0
 Vertex: composite: []str
 Vertex: composite: []str
-Vertex: composite: struct{noop bool; retry int; retryreset bool; delay int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool}
+Vertex: composite: struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse bool; autoedge bool; autogroup bool}
 Vertex: const: bool(false)
 Vertex: const: bool(false)
 Vertex: const: bool(false)
@@ -63,6 +65,7 @@ Vertex: const: bool(true)
 Vertex: const: bool(true)
 Vertex: const: float(4.2)
 Vertex: const: int(-1)
+Vertex: const: int(0)
 Vertex: const: int(0)
 Vertex: const: int(3)
 Vertex: const: int(5)

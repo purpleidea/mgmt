@@ -33,11 +33,12 @@ If you do not know `golang`, and have no desire to learn, you can still
 contribute to mgmt by using it, testing it, writing docs, or even just by
 telling your friends about it. If you don't mind some coding, learning about the
 [mgmt language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/)
-might be an enjoyable experience for you. It is a small [DSL](https://en.wikipedia.org/wiki/Domain-specific_language)
-and not a general purpose programming language, and you might find it more fun
-than what you're typically used to. One of the reasons the mgmt author got into
-writing automation modules, was because he found it much more fun to build with
-a higher level DSL, than in a general purpose programming language.
+might be an enjoyable experience for you. It is a small
+[DSL](https://en.wikipedia.org/wiki/Domain-specific_language) and not a general
+purpose programming language, and you might find it more fun than what you're
+typically used to. One of the reasons the mgmt author got into writing
+automation modules, was because he found it much more fun to build with a higher
+level DSL, than in a general purpose programming language.
 
 If you do not know `golang`, and would like to learn, are a beginner and want to
 improve your skills, or want to gain some great interdisciplinary systems
@@ -50,9 +51,10 @@ environment is recommended. Developing, testing, and contributing on `macOS` or
 `Windows` will be either more difficult or impossible.
 2. Ensure that you're mildly comfortable with the basics of using `git`. You can
 find a number of tutorials online.
-3. Spend between four to six hours with the [golang tour](https://tour.golang.org/).
-Skip over the longer problems, but try and get a solid overview of everything.
-If you forget something, you can always go back and repeat those parts.
+3. Spend between four to six hours with the
+[golang tour](https://tour.golang.org/). Skip over the longer problems, but try
+and get a solid overview of everything. If you forget something, you can always
+go back and repeat those parts.
 4. Connect to our [#mgmtconfig](https://matrix.to/#/#mgmtconfig:matrix.org)
 Matrix channel and hang out with us there out there.
 5. Now it's time to try and starting writing a patch! We have tagged a bunch of
@@ -93,7 +95,8 @@ Having said all this, as with all software, there are still missing features
 which some users might want in their production environments. We're working hard
 to get all of those implemented, but we hope that you'll get involved and help
 us finish off the ones that are most important to you. We are happy to mentor
-new contributors, and have even [tagged](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
+new contributors, and have even
+[tagged](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
 a number of issues if you need help getting started.
 
 Some of the current limitations include:
@@ -151,20 +154,23 @@ tools.
 
 To describe the set of resources to apply, mgmt describes this collection with a
 language. In order to model the time component of infrastructure, we use a
-special kind of language called an [FRP](https://en.wikipedia.org/wiki/Functional_reactive_programming).
-This language has a built-in concept that we call "events", and which means that
-we re-evaluate the relevant portions of the code whenever a value or function
-has an event that tells us that it changed. The `R` in `FRP` stands for
-reactive. This is similar to how a spreadsheet updates dependent cells when a
-pre-requisite value is modified. [This article](https://en.wikipedia.org/wiki/Reactive_programming)
-provides a bit more background.
+special kind of language called an
+[FRP](https://en.wikipedia.org/wiki/Functional_reactive_programming). This
+language has a built-in concept that we call "events", and which means that we
+re-evaluate the relevant portions of the code whenever a value or function has
+an event that tells us that it changed. The `R` in `FRP` stands for reactive.
+This is similar to how a spreadsheet updates dependent cells when a
+pre-requisite value is modified.
+[This article](https://en.wikipedia.org/wiki/Reactive_programming) provides a
+bit more background.
 
 Whenever any of the streams of values in the language change, the program is
-partially re-evaluated. The output of any mgmt program is a [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
-of resources, or more precisely, a stream of resource graphs. Since we have
-events per-resource, we can efficiently switch from one desired-state resource
-graph to the next without re-checking their individual states, since we've been
-monitoring them all along.
+partially re-evaluated. The output of any mgmt program is a
+[DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) of resources, or
+more precisely, a stream of resource graphs. Since we have events per-resource,
+we can efficiently switch from one desired-state resource graph to the next
+without re-checking their individual states, since we've been monitoring them
+all along.
 
 One side-effect of all this, is that if a rogue systems administrator manually
 changes the state of any managed resource, mgmt will detect this and attempt to
@@ -415,7 +421,9 @@ print "hello" {
 
 The first example will usually error with something along the lines of:
 
-`unify error with: topLevel(func() { <built-in:concat> }): type error: int != str`
+```
+unify error with: topLevel(func() { <built-in:concat> }): type error: int != str
+```
 
 Now you know why this specific case doesn't work! We may reconsider allowing
 other types to be pulled into interpolation in the future. If you have a good
@@ -442,7 +450,8 @@ mgmt deploy --no-git --seeds=http://127.0.0.1:2379 lang code/test.mcl
 ```
 
 This is caused by a parsing peculiarity of the CLI library that we are using.
-This is tracked upstream at: [https://github.com/alexflint/go-arg/issues/239](https://github.com/alexflint/go-arg/issues/239).
+This is tracked upstream at:
+[https://github.com/alexflint/go-arg/issues/239](https://github.com/alexflint/go-arg/issues/239).
 We have a workaround in place to mitigate it and attempt to show you a helpful
 error message, but it's also documented here in the meantime. The error you will
 see is: `cli parse error: missing equals sign for list element`.
@@ -528,7 +537,8 @@ requiring you install their software, and by either storing a yaml file with the
 version of that dependency in your repository, and/or copying all of that code
 into git and explicitly storing it. This project thinks that all of these
 solutions are wasteful and unnecessary, particularly when an existing elegant
-solution already exists: `[git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)`.
+solution already exists:
+`[git submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)`.
 
 The advantages of using `git submodules` are three-fold:
 1. You already have the required tools installed.
@@ -564,4 +574,5 @@ which definitely existed before the band did.
 It's best to ask on [Matrix](https://matrix.to/#/#mgmtconfig:matrix.org) to see
 if someone can help. If you don't get a response there, you can send a patch to
 this documentation. I'll merge your question, and add a patch with the answer!
-For news and updates, subscribe to the [mailing list](https://www.redhat.com/mailman/listinfo/mgmtconfig-list).
+For news and updates, subscribe to the
+[mailing list](https://www.redhat.com/mailman/listinfo/mgmtconfig-list).

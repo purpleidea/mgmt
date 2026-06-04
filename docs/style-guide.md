@@ -268,12 +268,15 @@ standard library is complete enough.
 ### Licensing
 
 We believe that sharing code helps reduce unnecessary re-invention, so that we
-can [stand on the shoulders of giants](https://en.wikipedia.org/wiki/Standing_on_the_shoulders_of_giants)
+can
+[stand on the shoulders of giants](https://en.wikipedia.org/wiki/Standing_on_the_shoulders_of_giants)
 and hopefully make faster progress in science, medicine, exploration, etc... As
-a result, we recommend releasing your modules under the [LGPLv3+](https://www.gnu.org/licenses/lgpl-3.0.en.html)
-license for the maximum balance of freedom and re-usability. We strongly oppose
-any [CLA](https://en.wikipedia.org/wiki/Contributor_License_Agreement)
-requirements and believe that the ["inbound==outbound"](https://ref.fedorapeople.org/fontana-linuxcon.html#slide2)
+a result, we recommend releasing your modules under the
+[LGPLv3+](https://www.gnu.org/licenses/lgpl-3.0.en.html) license for the maximum
+balance of freedom and re-usability. We strongly oppose any
+[CLA](https://en.wikipedia.org/wiki/Contributor_License_Agreement) requirements
+and believe that the
+["inbound==outbound"](https://ref.fedorapeople.org/fontana-linuxcon.html#slide2)
 rule applies. Lastly, we do not support software patents and we hope you don't
 either!
 

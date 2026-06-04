@@ -93,7 +93,8 @@ approach. The project contains an engine and a language.
 Mgmt is over ten years old! It is very powerful today, and has a solid
 foundation and architecture which has been polished over the years. It's used in
 production with a growing number of both corporate and individual users.
-Interested parties should start with the [official website](https://mgmtconfig.com/docs/).
+Interested parties should start with the
+[official website](https://mgmtconfig.com/docs/).
 
 ## Sponsors:
 
@@ -141,18 +142,20 @@ question, and a patch with the answer!
 
 ## Get involved:
 
-Feel free to grab one of the [issues](https://github.com/purpleidea/mgmt/issues/)
-if you're a first time contributor to the project or if you're unsure about what
-to hack on! Please get involved by working on one of these items or by
-suggesting something else!
+Feel free to grab one of the
+[issues](https://github.com/purpleidea/mgmt/issues/) if you're a first time
+contributor to the project or if you're unsure about what to hack on! Please get
+involved by working on one of these items or by suggesting something else!
 
 ## Bugs:
 
-Please set the `DEBUG` constant in [main.go](https://github.com/purpleidea/mgmt/blob/master/main.go)
-to `true`, and post the logs when you report the [issue](https://github.com/purpleidea/mgmt/discussions/categories/bugs).
-Please include the full `mcl` code you used as well as the exact command you
-used to run it.
-Feel free to read my article on [debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
+Please set the `DEBUG` constant in
+[main.go](https://github.com/purpleidea/mgmt/blob/master/main.go) to `true`, and
+post the logs when you report the
+[issue](https://github.com/purpleidea/mgmt/discussions/categories/bugs). Please
+include the full `mcl` code you used as well as the exact command you used to
+run it. Feel free to read my article on
+[debugging golang programs](https://purpleidea.com/blog/2016/02/15/debugging-golang-programs/).
 
 ## Contributing:
 

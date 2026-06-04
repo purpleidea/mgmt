@@ -21,11 +21,14 @@ to build your own.
 
 ### Downloading a pre-built release:
 
-The latest releases can be found [here](https://github.com/purpleidea/mgmt/releases/).
-An alternate mirror is available [here](https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/).
+The latest releases can be found
+[here](https://github.com/purpleidea/mgmt/releases/). An alternate mirror is
+available
+[here](https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/releases/).
 
 Make sure to verify the signatures of all packages before you use them. The
-signing key can be downloaded from [https://purpleidea.com/contact/#pgp-key](https://purpleidea.com/contact/#pgp-key)
+signing key can be downloaded from
+[https://purpleidea.com/contact/#pgp-key](https://purpleidea.com/contact/#pgp-key)
 to verify the release.
 
 If you've decided to install a pre-build release, you can skip to the

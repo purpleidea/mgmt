@@ -158,8 +158,9 @@ vardir=/var/lib/mgmt/puppet
 
 ## Caveats
 
-Please see the [README](https://github.com/ffrank/puppet-mgmtgraph/blob/master/README.md)
-of the translator module for the current state of supported and unsupported
+Please see the
+[README](https://github.com/ffrank/puppet-mgmtgraph/blob/master/README.md) of
+the translator module for the current state of supported and unsupported
 language features.
 
 You should probably make sure to always use the latest release of

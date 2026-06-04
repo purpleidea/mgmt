@@ -41,8 +41,9 @@ track of their single key-pair, even when they're using multiple services!
 
 #### The problem
 
-People have been building "[CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete)"
-and "[REST](https://en.wikipedia.org/wiki/REST)"ful API's for years. The biggest
+People have been building
+"[CRUD](https://en.wikipedia.org/wiki/Create,_read,_update_and_delete)" and
+"[REST](https://en.wikipedia.org/wiki/REST)"ful API's for years. The biggest
 missing part that most of them don't provide is events. If users want to know
 when a resource changes, they have to repeatedly poll the server, which is both
 network intensive, and introduces latency. When services were simpler, this

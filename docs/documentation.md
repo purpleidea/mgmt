@@ -21,7 +21,8 @@ For more information, you may like to read some blog posts from the author:
 * [Send/Recv in mgmt](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/)
 * [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/)
 
-There is also an [introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1)
+There is also an
+[introductory video](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1)
 available. Older videos and other material [is available](on-the-web.md).
 
 ## Setup
@@ -395,8 +396,9 @@ one so that everyone can enjoy your code! Use a "short license identifier", like
 ### Graph definition file
 
 graph.yaml is the compiled graph definition file. The format is currently
-undocumented, but by looking through the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples/yaml/)
-you can probably figure out most of it, as it's fairly intuitive. It's not
+undocumented, but by looking through the
+[examples/](https://github.com/purpleidea/mgmt/tree/master/examples/yaml/) you
+can probably figure out most of it, as it's fairly intuitive. It's not
 recommended that you use this, since it's preferable to write code in the
 [mcl language](language-guide.md) front-end.
 
@@ -500,8 +502,9 @@ GOTAGS="noaugeas novirt nodocker" make build
 
 ## Examples
 
-For example configurations, please consult the [examples/](https://github.com/purpleidea/mgmt/tree/master/examples)
-directory in the git source repository. It is available from:
+For example configurations, please consult the
+[examples/](https://github.com/purpleidea/mgmt/tree/master/examples) directory
+in the git source repository. It is available from:
 
 [https://github.com/purpleidea/mgmt/tree/master/examples](https://github.com/purpleidea/mgmt/tree/master/examples)
 
@@ -536,7 +539,8 @@ Please contact me if you'd like to invite me to speak about this at your event.
 
 You can follow along [on my technical blog](https://purpleidea.com/blog/).
 
-To report any bugs, please file a ticket at: [https://github.com/purpleidea/mgmt/issues](https://github.com/purpleidea/mgmt/issues).
+To report any bugs, please file a ticket at:
+[https://github.com/purpleidea/mgmt/issues](https://github.com/purpleidea/mgmt/issues).
 
 ## Authors
 

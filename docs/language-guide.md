@@ -201,12 +201,13 @@ This section needs better documentation.
 #### Resource
 
 Resources express the idempotent workloads that we want to have apply on our
-system. They correspond to vertices in a [graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph)
-which represent the order in which their declared state is applied. You will
-usually want to pass in a number of parameters and associated values to the
-resource to control how it behaves. For example, setting the `content` parameter
-of a `file` resource to the string `hello`, will cause the contents of that file
-to contain the string `hello` after it has run.
+system. They correspond to vertices in a
+[graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) which represent
+the order in which their declared state is applied. You will usually want to
+pass in a number of parameters and associated values to the resource to control
+how it behaves. For example, setting the `content` parameter of a `file`
+resource to the string `hello`, will cause the contents of that file to contain
+the string `hello` after it has run.
 
 ##### Undefined parameters
 
@@ -597,9 +598,10 @@ The mgmt compiler runs in a number of stages. In order of execution they are:
 
 All of the above needs to be done every time the source code changes. After this
 point, the [function engine runs](#function-engine-running-and-interpret) and
-produces events. On every event, we "[interpret](#function-engine-running-and-interpret)"
-which produces a resource graph. This series of resource graphs are passed
-to the engine as they are produced.
+produces events. On every event, we
+"[interpret](#function-engine-running-and-interpret)" which produces a resource
+graph. This series of resource graphs are passed to the engine as they are
+produced.
 
 What follows are some notes about each step.
 
@@ -619,8 +621,8 @@ The parser used is golang's implementation of
 quite abysmal, so it's helpful to rely on the documentation from standard yacc
 and trial and error. One small advantage yacc has over standard yacc is that it
 can produce error messages from examples. The best documentation is to examine
-the source. There is a short write up available [here](https://research.swtch.com/yyerror).
-The yacc file exists at:
+the source. There is a short write up available
+[here](https://research.swtch.com/yyerror). The yacc file exists at:
 [lang/parser.y](https://github.com/purpleidea/mgmt/tree/master/lang/parser/parser.y).
 Lexing and parsing run together by calling the `LexParse` method.
 
@@ -743,7 +745,8 @@ might have a signature of `func(x int, y int) int`. The simple functions have
 their types known _before_ compile time. You may also include unification
 variables in the function signature as long as the top-level type is a function.
 
-A separate discussion on this matter can be found in the [function guide](function-guide.md).
+A separate discussion on this matter can be found in the
+[function guide](function-guide.md).
 
 What follows are each of the method signatures and a description of each.
 Failure to implement the API correctly can cause the function graph engine to
@@ -1058,8 +1061,9 @@ behaviours!
 ### This is brilliant, may I give you a high-five?
 
 Thank you, and yes, probably. "Props" may also be accepted, although patches are
-preferred. If you can't do either, [donations](https://purpleidea.com/misc/donate/)
-to support the project are welcome too!
+preferred. If you can't do either,
+[donations](https://purpleidea.com/misc/donate/) to support the project are
+welcome too!
 
 ### Where can I find more information about mgmt?
 

@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # check for any markdown files that aren't in an ideal format
 
-# XXX: temporarily disabled due to style regression, please see:
-# https://github.com/markdownlint/markdownlint/issues/576
-exit 0
+# NOTE: `gem install mdl -v 0.15.0` for the last version things worked well with
 
 echo running "$0 $*"
 set -o errexit
@@ -44,7 +42,7 @@ exclude_rule 'MD039'	# Spaces inside link text
 # Line length
 # FIXME: Note this doesn't prevent a long word from being over 80, it only stops
 # new words from starting after you've already passed the 80 char limit.
-rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false
+rule 'MD013', :line_length => 80, :ignore_code_blocks => true, :tables => false, :treat_links_as_single_words => true
 EOF
 
 #STYLE="test/mdl.style"	# style file

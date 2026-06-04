@@ -11,7 +11,8 @@ knowledge is assumed.
 ## Theory
 
 Functions in `mgmt` are similar to functions in other languages, however they
-also have a [reactive](https://en.wikipedia.org/wiki/Functional_reactive_programming)
+also have a
+[reactive](https://en.wikipedia.org/wiki/Functional_reactive_programming)
 component. Our functions can produce events over time, and there are different
 ways to write functions. For some background on this design, please read the
 [original article](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/)
@@ -25,17 +26,19 @@ itself. These are currently not available yet, but are coming soon. Stay tuned!
 ## Simple Function API
 
 Most functions should be implemented using the simple function API. This API
-allows you to implement simple, static, [pure](https://en.wikipedia.org/wiki/Pure_function)
-functions that don't require you to write much boilerplate code. They will be
-automatically re-evaluated as needed when their input values change. These will
-all be automatically made available as helper functions within mgmt templates,
-and are also available for use anywhere inside mgmt programs.
+allows you to implement simple, static,
+[pure](https://en.wikipedia.org/wiki/Pure_function) functions that don't require
+you to write much boilerplate code. They will be automatically re-evaluated as
+needed when their input values change. These will all be automatically made
+available as helper functions within mgmt templates, and are also available for
+use anywhere inside mgmt programs.
 
-You'll need some basic knowledge of using the [`types`](https://github.com/purpleidea/mgmt/tree/master/lang/types)
-library which is included with mgmt. This library lets you interact with the
-available types and values in the mgmt language. It is very easy to use, and
-should be fairly intuitive. Most of what you'll need to know can be inferred
-from looking at example code.
+You'll need some basic knowledge of using the
+[`types`](https://github.com/purpleidea/mgmt/tree/master/lang/types) library
+which is included with mgmt. This library lets you interact with the available
+types and values in the mgmt language. It is very easy to use, and should be
+fairly intuitive. Most of what you'll need to know can be inferred from looking
+at example code.
 
 To implement a function, you'll need to create a file that imports the
 [`lang/funcs/simple/`](https://github.com/purpleidea/mgmt/tree/master/lang/funcs/simple/)
@@ -328,9 +331,10 @@ you'd like to contribute one, please contact us and tell us about your idea!
 
 Yes, you can use a function generator in `golang` to build multiple different
 implementations from the same function generator. You just need to implement a
-function which *returns* a `golang` type of `func([]types.Value) (types.Value, error)`
-which is what `FuncValue` expects. The generator function can use any input it
-wants to build the individual functions, thus helping with code reuse.
+function which *returns* a `golang` type of
+`func([]types.Value) (types.Value, error)` which is what `FuncValue` expects.
+The generator function can use any input it wants to build the individual
+functions, thus helping with code reuse.
 
 ### How do I determine the signature of my simple, polymorphic function?
 
@@ -352,7 +356,8 @@ implementations.
 
 ### Where can I find more information about mgmt?
 
-Additional blog posts, videos and other material [is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
+Additional blog posts, videos and other material
+[is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
 
 ## Suggestions
 

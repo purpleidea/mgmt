@@ -13,7 +13,8 @@ separately. Certain meta parameters aren't very useful when combined with
 certain resources, but in general, it should be fairly obvious, such as when
 combining the `noop` meta parameter with the [Noop](#Noop) resource.
 
-You might want to look at the [generated documentation](https://godoc.org/github.com/purpleidea/mgmt/engine/resources)
+You might want to look at the
+[generated documentation](https://godoc.org/github.com/purpleidea/mgmt/engine/resources)
 for more up-to-date information about these resources.
 
 * [Augeas](#Augeas): Manipulate files using augeas.

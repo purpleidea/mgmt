@@ -78,7 +78,8 @@ fine.
 
 Since the primary supported systems are Linux and these are the environments
 tested, it is wise to run these suites during macOS development as well. To ease
-this, Docker can be leveraged ([Docker for Mac](https://docs.docker.com/docker-for-mac/)).
+this, Docker can be leveraged
+([Docker for Mac](https://docs.docker.com/docker-for-mac/)).
 
 Before running any of the commands below create the development Docker image:
 
@@ -124,8 +125,9 @@ This project has both unit tests in the form of golang tests and integration
 tests using shell scripting.
 
 Native golang tests are preferred over tests written in our shell testing
-framework. Please see [https://golang.org/pkg/testing/](https://golang.org/pkg/testing/)
-for more information.
+framework. Please see
+[https://golang.org/pkg/testing/](https://golang.org/pkg/testing/) for more
+information.
 
 To run all tests:
 

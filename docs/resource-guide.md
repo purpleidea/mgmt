@@ -4,10 +4,11 @@
 
 The `mgmt` tool has built-in resource primitives which make up the building
 blocks of any configuration. Each instance of a resource is mapped to a single
-vertex in the resource [graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph).
-This guide is meant to instruct developers on how to write a brand new resource.
-Since `mgmt` and the core resources are written in golang, some prior golang
-knowledge is assumed.
+vertex in the resource
+[graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph). This guide is
+meant to instruct developers on how to write a brand new resource. Since `mgmt`
+and the core resources are written in golang, some prior golang knowledge is
+assumed.
 
 ## Theory
 
@@ -661,7 +662,8 @@ func (obj *FooRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 ## Send/Recv
 
 In `mgmt` there is a novel concept called _Send/Recv_. For some background,
-please read the [introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
+please read the
+[introductory article](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/).
 When using this feature, the engine will automatically send the user specified
 value to the intended destination without requiring much resource specific code.
 Any time that one of the destination values is changed, the engine automatically
@@ -746,7 +748,8 @@ Higher level resource collections will be possible once the `mgmt` DSL is ready.
 ### Why does the resource API have `CheckApply` instead of two separate methods?
 
 In an early version we actually had both "parts" as separate methods, namely:
-`StateOK` (Check) and `Apply`, but the [decision](https://github.com/purpleidea/mgmt/commit/58f41eddd9c06b183f889f15d7c97af81b0331cc)
+`StateOK` (Check) and `Apply`, but the
+[decision](https://github.com/purpleidea/mgmt/commit/58f41eddd9c06b183f889f15d7c97af81b0331cc)
 was made to merge the two into a single method. There are two reasons for this:
 
 1. Many situations would involve the engine running both `Check` and `Apply`. If
@@ -817,7 +820,8 @@ since it was initially introduced.
 
 ### Where can I find more information about mgmt?
 
-Additional blog posts, videos and other material [is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
+Additional blog posts, videos and other material
+[is available!](https://github.com/purpleidea/mgmt/blob/master/docs/on-the-web.md).
 
 ## Suggestions
 

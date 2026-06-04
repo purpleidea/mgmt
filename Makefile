@@ -550,16 +550,16 @@ releases_path:
 	@echo "releases/$(VERSION)/"
 
 release_test: $(DEP_BINARY_AMD64) $(DEP_BINARY_ARM64) $(DEP_FEDORA-LATEST) $(DEP_FEDORA-OLDER) $(DEP_STREAM-LATEST) $(DEP_DEBIAN-STABLE) $(DEP_UBUNTU-LATEST) $(DEP_ARCHLINUX) $(SHA256SUMS_ASC)
-	@echo '$$< denotes ‘the first dependency of the current rule’.'
+	@echo '$$< denotes "the first dependency of the current rule".'
 	@echo '> '"$<"
 	@echo
-	@echo '$$@ denotes ‘the target of the current rule’.'
+	@echo '$$@ denotes "the target of the current rule".'
 	@echo '> '"$@"
 	@echo
-	@echo '$$^ denotes ‘the dependencies of the current rule’.'
+	@echo '$$^ denotes "the dependencies of the current rule".'
 	@echo '> '"$^"
 	@echo
-	@echo '$$* denotes ‘the stem with which the pattern of the current rule matched’.'
+	@echo '$$* denotes "the stem with which the pattern of the current rule matched".'
 	@echo '> '"$*"
 	@echo
 	@echo "TOKEN_BINARY_AMD64: $(TOKEN_BINARY_AMD64)"

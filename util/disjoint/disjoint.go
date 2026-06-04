@@ -28,7 +28,7 @@
 // additional permission.
 
 // Package disjoint implements a "disjoint-set data structure", otherwise known
-// as the "union–find data structure" which is commonly used for type
+// as the "union-find data structure" which is commonly used for type
 // unification, among other things.
 //
 // You create new elements with the NewElem function, which returns an Elem that

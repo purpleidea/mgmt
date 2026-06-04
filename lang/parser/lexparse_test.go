@@ -350,7 +350,7 @@ func TestLexParse0(t *testing.T) {
 	// FIXME: why doesn't this overflow, and thus fail?
 	// from the docs: If s is syntactically well-formed but is more than 1/2
 	// ULP away from the largest floating point number of the given size,
-	// ParseFloat returns f = ±Inf, err.Err = ErrRange.
+	// ParseFloat returns f = +/-Inf, err.Err = ErrRange.
 	//{
 	//	testCases = append(testCases, test{
 	//		name: "overflowing float",

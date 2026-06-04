@@ -16,7 +16,7 @@ if we missed something that you think is relevant!
 | Felix Frank | blog | [From Catalog To Mgmt (on puppet to mgmt "transpiling")](https://ffrank.github.io/features/2016/02/18/from-catalog-to-mgmt/) |
 | James Shubin | blog | [Automatic edges in mgmt (...and the pkg resource)](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/) |
 | James Shubin | blog | [Automatic grouping in mgmt](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/) |
-| John Arundel | tweet | [“Puppet’s days are numbered.”](https://twitter.com/bitfield/status/732157519142002688) |
+| John Arundel | tweet | ["Puppet's days are numbered."](https://twitter.com/bitfield/status/732157519142002688) |
 | Felix Frank | blog | [Puppet, Meet Mgmt (on puppet to mgmt internals)](https://ffrank.github.io/features/2016/06/12/puppet,-meet-mgmt/) |
 | Felix Frank | blog | [Puppet Powered Mgmt (puppet to mgmt tl;dr)](https://ffrank.github.io/features/2016/06/19/puppet-powered-mgmt/) |
 | James Shubin | blog | [Automatic clustering in mgmt](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/) |

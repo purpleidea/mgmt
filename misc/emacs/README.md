@@ -10,5 +10,5 @@ parallel configuration management tool.
 
 ## Installation
 
-See the MELPA Emacs Lisp package archive’s [getting started](https://melpa.org/#/getting-started)
-guide. Then, select “Options → Manage Emacs Packages” from the menu in Emacs.
+See the MELPA Emacs Lisp package archive's [getting started](https://melpa.org/#/getting-started)
+guide. Then, select "Options -> Manage Emacs Packages" from the menu in Emacs.

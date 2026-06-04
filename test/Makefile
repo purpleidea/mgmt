@@ -28,15 +28,17 @@
 # additional permission.
 
 SHELL = bash
+TEST_TOOLS = $(patsubst tools/%/,%,$(wildcard tools/*/))
+
 .PHONY: all build clean
 
 all: build
 
-build: reflowed-comments
+build: $(TEST_TOOLS)
 
 clean:
-	@rm -f reflowed-comments || true
+	@rm -f $(TEST_TOOLS) || true
 
-reflowed-comments: reflowed-comments.go
-	@echo "Generating: reflowed-comments..."
-	go build reflowed-comments.go
+$(TEST_TOOLS):
+	@echo "Generating: $@..."
+	go build -o $@ ./tools/$@

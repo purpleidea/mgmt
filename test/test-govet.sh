@@ -59,6 +59,26 @@ function naked-error() {
 	return 0
 }
 
+function receiver-check() {
+	if [ "$1" = './lang/core/generated_funcs.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/parser/y.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/parser/lexer.nn.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/interpolate/parse.generated.go' ]; then
+		return 0
+	fi
+
+	./test/receiver-check "$1"
+}
+
 # catch errors that start with a capital
 function lowercase-errors() {
 	if grep -E 'errors\.New\("[A-Z]' "$1"; then
@@ -161,6 +181,7 @@ for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -
 	run-test lowercase-errors "$file"
 	run-test consistent-imports "$file"
 	run-test reflowed-comments "$file"
+	run-test receiver-check "$file"
 done
 
 if [[ -n "$failures" ]]; then

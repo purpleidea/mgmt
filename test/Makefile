@@ -32,11 +32,15 @@ SHELL = bash
 
 all: build
 
-build: reflowed-comments
+build: reflowed-comments receiver-check
 
 clean:
-	@rm -f reflowed-comments || true
+	@rm -f reflowed-comments receiver-check || true
 
 reflowed-comments: reflowed-comments.go
 	@echo "Generating: reflowed-comments..."
 	go build reflowed-comments.go
+
+receiver-check: receiver-check.go
+	@echo "Generating: receiver-check..."
+	go build receiver-check.go

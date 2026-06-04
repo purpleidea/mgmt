@@ -1,0 +1,6 @@
+-- main.mcl --
+import "fmt"
+
+test [fmt.printf("type: %T value: %d", 42, "hello")] {}
+-- OUTPUT --
+# err: errUnify: func `printf` infer error: inconsistent type at arg index 2: type error: str != int: /main.mcl @ 3:7-3:52

@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+$ints = [1, 2, 3]
+$mapping = {"answer" => 42}
+$st = struct{name => "mgmt", count => 3}
+
+test [fmt.printf("types: %T %T %T %T %T", 42, "hello", $ints, $mapping, $st)] {}
+-- OUTPUT --
+Vertex: test[types: int str []int map{str: int} struct{name str; count int}]

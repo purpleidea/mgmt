@@ -42,8 +42,8 @@ type vertex struct {
 }
 
 // String is a required method of the Vertex interface that we must fulfill.
-func (v *vertex) String() string {
-	return v.name
+func (obj *vertex) String() string {
+	return obj.name
 }
 
 // NV is a helper function to make testing easier. It creates a new noop vertex.
@@ -57,8 +57,8 @@ type edge struct {
 }
 
 // String is a required method of the Edge interface that we must fulfill.
-func (e *edge) String() string {
-	return e.name
+func (obj *edge) String() string {
+	return obj.name
 }
 
 // NE is a helper function to make testing easier. It creates a new noop edge.

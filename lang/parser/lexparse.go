@@ -72,8 +72,8 @@ type LexParseErr struct {
 }
 
 // Error displays this error with all the relevant state information.
-func (e *LexParseErr) Error() string {
-	return fmt.Sprintf("%s: `%s` @%d:%d", e.Err, e.Str, e.Row+1, e.Col+1)
+func (obj *LexParseErr) Error() string {
+	return fmt.Sprintf("%s: `%s` @%d:%d", obj.Err, obj.Str, obj.Row+1, obj.Col+1)
 }
 
 // lexParseAST is a struct which we pass into the lexer/parser so that we have a

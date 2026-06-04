@@ -45,7 +45,7 @@ type Literal struct {
 }
 
 // token ties the Literal to the Token interface.
-func (Literal) token() {}
+func (obj Literal) token() {}
 
 // Variable is a variable name that we have found after interpolation parsing.
 type Variable struct {
@@ -53,6 +53,6 @@ type Variable struct {
 }
 
 // token ties the Variable to the Token interface.
-func (Variable) token() {}
+func (obj Variable) token() {}
 
 // TODO: do we want to allow inline-function calls in a string?

@@ -88,32 +88,32 @@ type Resource struct {
 }
 
 // UnmarshalYAML is the first stage for unmarshaling of resources.
-func (r *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	r.unmarshal = unmarshal
-	return unmarshal(&r.ResourceData)
+func (obj *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	obj.unmarshal = unmarshal
+	return unmarshal(&obj.ResourceData)
 }
 
 // Decode is the second stage for unmarshaling of resources (knowing their
 // kind).
-func (r *Resource) Decode(kind string) (err error) {
+func (obj *Resource) Decode(kind string) (err error) {
 	if kind == "" {
 		return fmt.Errorf("can't set empty kind") // bug?
 	}
-	r.resource, err = engine.NewResource(kind)
+	obj.resource, err = engine.NewResource(kind)
 	if err != nil {
 		return err
 	}
 
 	// i think this erases the `SetKind` that happens with the NewResource
 	// so as a result, we need to do it again below... this is a hack...
-	err = r.unmarshal(r.resource)
+	err = obj.unmarshal(obj.resource)
 	if err != nil {
 		return err
 	}
 
 	// set resource name and kind
-	r.resource.SetName(r.Name)
-	r.resource.SetKind(kind)
+	obj.resource.SetName(obj.Name)
+	obj.resource.SetKind(kind)
 	// TODO: I don't think meta is getting unmarshalled properly anymore
 	return
 }

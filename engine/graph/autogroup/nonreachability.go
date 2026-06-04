@@ -41,7 +41,7 @@ type NonReachabilityGrouper struct {
 }
 
 // Name returns the name for the grouper algorithm.
-func (ag *NonReachabilityGrouper) Name() string {
+func (obj *NonReachabilityGrouper) Name() string {
 	return "NonReachabilityGrouper"
 }
 
@@ -49,9 +49,9 @@ func (ag *NonReachabilityGrouper) Name() string {
 // This algorithm relies on the observation that if there's a path from a to b,
 // then they *can't* be merged (b/c of the existing dependency) so therefore we
 // merge anything that *doesn't* satisfy this condition or that of the reverse!
-func (ag *NonReachabilityGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
+func (obj *NonReachabilityGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	for {
-		v1, v2, err = ag.baseGrouper.VertexNext() // get all iterable pairs
+		v1, v2, err = obj.baseGrouper.VertexNext() // get all iterable pairs
 		if err != nil {
 			return nil, nil, errwrap.Wrapf(err, "error running autoGroup(vertexNext)")
 		}
@@ -59,11 +59,11 @@ func (ag *NonReachabilityGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error)
 		// ignore self cmp early (perf optimization)
 		if v1 != v2 && v1 != nil && v2 != nil {
 			// if NOT reachable, they're viable...
-			out1, e1 := ag.graph.Reachability(v1, v2)
+			out1, e1 := obj.graph.Reachability(v1, v2)
 			if e1 != nil {
 				return nil, nil, e1
 			}
-			out2, e2 := ag.graph.Reachability(v2, v1)
+			out2, e2 := obj.graph.Reachability(v2, v1)
 			if e2 != nil {
 				return nil, nil, e2
 			}
@@ -73,7 +73,7 @@ func (ag *NonReachabilityGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error)
 		}
 
 		// if we got here, it means we're skipping over this candidate!
-		if ok, err := ag.baseGrouper.VertexTest(false); err != nil {
+		if ok, err := obj.baseGrouper.VertexTest(false); err != nil {
 			return nil, nil, errwrap.Wrapf(err, "error running autoGroup(vertexTest)")
 		} else if !ok {
 			return nil, nil, nil // done!

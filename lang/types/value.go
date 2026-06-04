@@ -528,9 +528,9 @@ func Into(v Value, rv reflect.Value) error {
 // ValueSlice is a linear list of values. It is used for sorting purposes.
 type ValueSlice []Value
 
-func (vs ValueSlice) Len() int           { return len(vs) }
-func (vs ValueSlice) Swap(i, j int)      { vs[i], vs[j] = vs[j], vs[i] }
-func (vs ValueSlice) Less(i, j int) bool { return vs[i].Less(vs[j]) }
+func (obj ValueSlice) Len() int           { return len(obj) }
+func (obj ValueSlice) Swap(i, j int)      { obj[i], obj[j] = obj[j], obj[i] }
+func (obj ValueSlice) Less(i, j int) bool { return obj[i].Less(obj[j]) }
 
 // Base implements the missing methods that all types need.
 type Base struct{}

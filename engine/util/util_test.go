@@ -188,33 +188,33 @@ type testEngineRes struct {
 	privateProp2 []int
 }
 
-func (t *testEngineRes) CheckApply(context.Context, bool) (bool, error) { return false, nil }
+func (obj *testEngineRes) CheckApply(context.Context, bool) (bool, error) { return false, nil }
 
-func (t *testEngineRes) Cleanup() error { return nil }
+func (obj *testEngineRes) Cleanup() error { return nil }
 
-func (t *testEngineRes) Cmp(engine.Res) error { return nil }
+func (obj *testEngineRes) Cmp(engine.Res) error { return nil }
 
-func (t *testEngineRes) Default() engine.Res { return t }
+func (obj *testEngineRes) Default() engine.Res { return obj }
 
-func (t *testEngineRes) Init(*engine.Init) error { return nil }
+func (obj *testEngineRes) Init(*engine.Init) error { return nil }
 
-func (t *testEngineRes) Kind() string { return "test-kind" }
+func (obj *testEngineRes) Kind() string { return "test-kind" }
 
-func (t *testEngineRes) MetaParams() *engine.MetaParams { return nil }
+func (obj *testEngineRes) MetaParams() *engine.MetaParams { return nil }
 
-func (t *testEngineRes) Name() string { return "test-name" }
+func (obj *testEngineRes) Name() string { return "test-name" }
 
-func (t *testEngineRes) SetKind(string) {}
+func (obj *testEngineRes) SetKind(string) {}
 
-func (t *testEngineRes) SetMetaParams(*engine.MetaParams) {}
+func (obj *testEngineRes) SetMetaParams(*engine.MetaParams) {}
 
-func (t *testEngineRes) SetName(string) {}
+func (obj *testEngineRes) SetName(string) {}
 
-func (t *testEngineRes) String() string { return "test-string" }
+func (obj *testEngineRes) String() string { return "test-string" }
 
-func (t *testEngineRes) Validate() error { return nil }
+func (obj *testEngineRes) Validate() error { return nil }
 
-func (t *testEngineRes) Watch(context.Context) error { return nil }
+func (obj *testEngineRes) Watch(context.Context) error { return nil }
 
 func TestLangFieldNameToStructType(t *testing.T) {
 	k := "test-kind"

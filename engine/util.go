@@ -38,9 +38,9 @@ import (
 // ResourceSlice is a linear list of resources. It can be sorted.
 type ResourceSlice []Res
 
-func (rs ResourceSlice) Len() int           { return len(rs) }
-func (rs ResourceSlice) Swap(i, j int)      { rs[i], rs[j] = rs[j], rs[i] }
-func (rs ResourceSlice) Less(i, j int) bool { return rs[i].String() < rs[j].String() }
+func (obj ResourceSlice) Len() int           { return len(obj) }
+func (obj ResourceSlice) Swap(i, j int)      { obj[i], obj[j] = obj[j], obj[i] }
+func (obj ResourceSlice) Less(i, j int) bool { return obj[i].String() < obj[j].String() }
 
 // Sort the list of resources and return a copy without modifying the input.
 func Sort(rs []Res) []Res {

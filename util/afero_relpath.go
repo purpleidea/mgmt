@@ -284,8 +284,8 @@ type readDirFile struct {
 
 var _ fs.ReadDirFile = readDirFile{}
 
-func (r readDirFile) ReadDir(n int) ([]fs.DirEntry, error) {
-	items, err := r.File.Readdir(n)
+func (obj readDirFile) ReadDir(n int) ([]fs.DirEntry, error) {
+	items, err := obj.File.Readdir(n)
 	if err != nil {
 		return nil, err
 	}

@@ -45,17 +45,17 @@ type baseGrouper struct {
 }
 
 // Name provides a friendly name for the logs to see.
-func (ag *baseGrouper) Name() string {
+func (obj *baseGrouper) Name() string {
 	return "baseGrouper"
 }
 
 // Init is called only once and before using other AutoGrouper interface methods
 // the name method is the only exception: call it any time without side effects!
-func (ag *baseGrouper) Init(g *pgraph.Graph) error {
-	if ag.graph != nil {
+func (obj *baseGrouper) Init(g *pgraph.Graph) error {
+	if obj.graph != nil {
 		return fmt.Errorf("the init method has already been called")
 	}
-	ag.graph = g // pointer
+	obj.graph = g // pointer
 
 	// We sort deterministically, first by kind, and then by name. In
 	// particular, longer kind chunks sort first. So http:server:ui:input
@@ -70,14 +70,14 @@ func (ag *baseGrouper) Init(g *pgraph.Graph) error {
 	// continues along. If the "longer" resources appear first, then they'll
 	// group together first. We should probably put this into a new Grouper
 	// struct, but for now we might as well leave it here.
-	//vertices := ag.graph.VerticesSorted() // formerly
-	vertices := RHVSort(ag.graph.Vertices())
+	//vertices := obj.graph.VerticesSorted() // formerly
+	vertices := RHVSort(obj.graph.Vertices())
 
-	ag.vertices = vertices // cache in deterministic order!
-	ag.i = 0
-	ag.j = 0
-	if len(ag.vertices) == 0 { // empty graph
-		ag.done = true
+	obj.vertices = vertices // cache in deterministic order!
+	obj.i = 0
+	obj.j = 0
+	if len(obj.vertices) == 0 { // empty graph
+		obj.done = true
 		return nil
 	}
 	return nil
@@ -87,48 +87,48 @@ func (ag *baseGrouper) Init(g *pgraph.Graph) error {
 // an intelligent algorithm would selectively offer only valid pairs of vertices
 // these should satisfy logical grouping requirements for the autogroup designs!
 // the desired algorithms can override, but keep this method as a base iterator!
-func (ag *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
+func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	// this does a for v... { for w... { return v, w }} but stepwise!
-	l := len(ag.vertices)
-	if ag.i < l {
-		v1 = ag.vertices[ag.i]
+	l := len(obj.vertices)
+	if obj.i < l {
+		v1 = obj.vertices[obj.i]
 	}
-	if ag.j < l {
-		v2 = ag.vertices[ag.j]
+	if obj.j < l {
+		v2 = obj.vertices[obj.j]
 	}
 
 	// in case the vertex was deleted
-	if !ag.graph.HasVertex(v1) {
+	if !obj.graph.HasVertex(v1) {
 		v1 = nil
 	}
-	if !ag.graph.HasVertex(v2) {
+	if !obj.graph.HasVertex(v2) {
 		v2 = nil
 	}
 
 	// two nested loops...
-	if ag.j < l {
-		ag.j++
+	if obj.j < l {
+		obj.j++
 	}
-	if ag.j == l {
-		ag.j = 0
-		if ag.i < l {
-			ag.i++
+	if obj.j == l {
+		obj.j = 0
+		if obj.i < l {
+			obj.i++
 		}
-		if ag.i == l {
-			ag.done = true
+		if obj.i == l {
+			obj.done = true
 		}
 	}
 	// TODO: is this index swap better or even valid?
-	//if ag.i < l {
-	//	ag.i++
+	//if obj.i < l {
+	//	obj.i++
 	//}
-	//if ag.i == l {
-	//	ag.i = 0
-	//	if ag.j < l {
-	//		ag.j++
+	//if obj.i == l {
+	//	obj.i = 0
+	//	if obj.j < l {
+	//		obj.j++
 	//	}
-	//	if ag.j == l {
-	//		ag.done = true
+	//	if obj.j == l {
+	//		obj.done = true
 	//	}
 	//}
 
@@ -136,7 +136,7 @@ func (ag *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 }
 
 // VertexCmp can be used in addition to an overriding implementation.
-func (ag *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
+func (obj *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	if v1 == nil || v2 == nil {
 		return fmt.Errorf("the vertex is nil")
 	}
@@ -148,21 +148,21 @@ func (ag *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 }
 
 // VertexMerge needs to be overridden to add the actual merging functionality.
-func (ag *baseGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err error) {
+func (obj *baseGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err error) {
 	return nil, fmt.Errorf("vertexMerge needs to be overridden")
 }
 
 // EdgeMerge can be overridden, since it just simply returns the first edge.
-func (ag *baseGrouper) EdgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
+func (obj *baseGrouper) EdgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
 	return e1 // noop
 }
 
 // VertexTest processes the results of the grouping for the algorithm to know
 // return an error if something went horribly wrong, and bool false to stop.
-func (ag *baseGrouper) VertexTest(b bool) (bool, error) {
+func (obj *baseGrouper) VertexTest(b bool) (bool, error) {
 	// NOTE: this particular baseGrouper version doesn't track what happens
 	// because since we iterate over every pair, we don't care which merge!
-	if ag.done {
+	if obj.done {
 		return false, nil
 	}
 	return true, nil

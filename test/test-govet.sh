@@ -131,6 +131,26 @@ function reflowed-comments() {
 	./test/reflowed-comments "$1"
 }
 
+function receiver-check() {
+	if [ "$1" = './lang/core/generated_funcs.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/parser/y.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/parser/lexer.nn.go' ]; then
+		return 0
+	fi
+
+	if [ "$1" = './lang/interpolate/parse.generated.go' ]; then
+		return 0
+	fi
+
+	./test/receiver-check "$1"
+}
+
 # run go vet on the package list in one invocation
 base=$(go list .)
 packages=()
@@ -161,6 +181,7 @@ for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -
 	run-test lowercase-errors "$file"
 	run-test consistent-imports "$file"
 	run-test reflowed-comments "$file"
+	run-test receiver-check "$file"
 done
 
 if [[ -n "$failures" ]]; then

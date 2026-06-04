@@ -250,7 +250,10 @@ func (obj *GsettingsRes) makeComposite() (*ExecRes, error) {
 	//	"XDG_RUNTIME_DIR":          fmt.Sprintf("/run/user/%d/", uid),
 	//}
 
-	//exec.Timeout = ? // TODO: should we have a timeout to prevent blocking?
+	// TODO: should we have a timeout to prevent blocking?
+	//meta := engine.DefaultMetaParams.Copy()
+	//meta.Timeout = obj.MetaParams().Timeout
+	//exec.SetMetaParams(meta)
 
 	return exec, nil
 }

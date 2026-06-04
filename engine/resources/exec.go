@@ -103,11 +103,6 @@ type ExecRes struct {
 	// able to find the program you're trying to run.
 	Shell string `lang:"shell" yaml:"shell"`
 
-	// Timeout is the number of seconds to wait before sending a Kill to the
-	// running command. If the Kill is received before the process exits,
-	// then this be treated as an error.
-	Timeout uint64 `lang:"timeout" yaml:"timeout"`
-
 	// Env allows the user to specify environment variables for script
 	// execution. These are taken using a map of format of VAR_KEY -> value.
 	// Omitting this value or setting it to an empty array will cause the
@@ -811,13 +806,8 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
-	var innerCtx context.Context
-	var cancel context.CancelFunc
-	if obj.Timeout > 0 { // cmd.Process.Kill() is called on timeout
-		innerCtx, cancel = context.WithTimeout(ctx, time.Duration(obj.Timeout)*time.Second)
-	} else { // zero timeout means no timer
-		innerCtx, cancel = context.WithCancel(ctx)
-	}
+	// cmd.Process.Kill() is called on timeout
+	innerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
 	cmd.Dir = obj.Cwd // run program in pwd if ""
@@ -887,6 +877,9 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// process the err result from cmd, we process non-zero exits here too!
 	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+	if err == context.DeadlineExceeded {
+		return false, err
+	}
 	if err != nil && ok {
 		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
 		wStatus, ok := pStateSys.(syscall.WaitStatus)
@@ -908,12 +901,17 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 		// we get this on timeout, because ctx calls cmd.Process.Kill()
 		if sig == syscall.SIGKILL {
+			// Don't do this, since we may wish to know how it died.
+			//if innerCtx.Err() == context.DeadlineExceeded {
+			//	return false, context.DeadlineExceeded
+			//}
 			return false, errwrap.Wrapf(err, "cmd timeout, exit status: %d", exitStatus)
 		}
 
 		return false, errwrap.Wrapf(err, "unknown cmd error, signal: %s, exit status: %d", sig, exitStatus)
 
-	} else if err != nil {
+	}
+	if err != nil {
 		return false, errwrap.Wrapf(err, "general cmd error")
 	}
 
@@ -1132,9 +1130,6 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if obj.Shell != res.Shell {
 		return fmt.Errorf("the Shell differs")
-	}
-	if obj.Timeout != res.Timeout {
-		return fmt.Errorf("the Timeout differs")
 	}
 
 	if obj.WatchCmd != res.WatchCmd {

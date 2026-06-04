@@ -2,7 +2,6 @@
 exec ["exec1", "exec2", "exec3", "exec4", "exec5", "exec6", "exec7"] {
 	cmd => "sleep 10s",
 	shell => "",
-	timeout => 0,
 
 	Meta:sema => ["s:2"],
 }

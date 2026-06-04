@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # check for any markdown files that aren't in an ideal format
 
-# XXX: temporarily disabled due to style regression, please see:
-# https://github.com/markdownlint/markdownlint/issues/576
-exit 0
+# XXX: mdl versions after 0.15.0 break the standard markdown parsing rules, see:
+# https://github.com/markdownlint/markdownlint/issues/576 and:
+# https://github.com/markdownlint/markdownlint/issues/573
+#
+# install with: `gem install mdl -v 0.15.0 --no-document`
+#
+# If it doesn't show the correct version when you do `mdl --version` try:
+# `gem uninstall mdl -v 0.17.0 || gem uninstall mdl -v 0.16.0` since gem may try
+# to always run the latest version that's installed.
 
 echo running "$0 $*"
 set -o errexit

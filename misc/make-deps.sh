@@ -168,7 +168,10 @@ fi
 fold_end "Install golang tools"
 
 fold_start "Install miscellaneous tools"
-command -v mdl &>/dev/null || gem install mdl --no-document || true	# for linting markdown files
+# XXX: mdl versions after 0.15.0 break the standard markdown parsing rules, see:
+# https://github.com/markdownlint/markdownlint/issues/576 and:
+# https://github.com/markdownlint/markdownlint/issues/573
+command -v mdl &>/dev/null || gem install mdl -v 0.15.0 --no-document || true	# for linting markdown files
 command -v fpm &>/dev/null || gem install fpm --no-document || true	# for cross distro packaging
 # for checking links
 LYCHEE=$(command -v lychee 2>/dev/null) || true

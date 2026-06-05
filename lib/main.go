@@ -1171,22 +1171,22 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 	}()
 
-	// get max id (from all the previous deploys)
-	// this is what the existing cluster is already running
-	// TODO: add a timeout to context?
-	max, err := world.GetMaxDeployID(ctx)
-	if err != nil {
-		close(deployChan) // because we won't close it downstream...
-		deployCancel()
-		return errwrap.Wrapf(err, "error getting max deploy id")
-	}
-
 	// improved etcd based deploy
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		defer deployCancel()
 		defer close(deployChan) // no more are coming ever!
+
+		// get max id (from all the previous deploys)
+		// this is what the existing cluster is already running
+		// TODO: add a timeout to context?
+		max, err := world.GetMaxDeployID(ctx)
+		if err != nil {
+			err := errwrap.Wrapf(err, "error getting max deploy id")
+			cancelCause(err)
+			return
+		}
 
 		// if "empty" and we don't want to wait for a fresh deploy...
 		if obj.Deploy != nil && max != 0 {

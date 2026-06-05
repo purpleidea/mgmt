@@ -404,7 +404,7 @@ loop:
 				obj.Logf("ResolvePackages(): Signal: %+v", signal)
 			}
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -516,7 +516,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -570,7 +570,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -627,7 +627,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -676,7 +676,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -729,7 +729,7 @@ loop:
 		case signal := <-ch:
 
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 
@@ -798,7 +798,7 @@ loop:
 		select {
 		case signal := <-ch:
 			if signal.Path != interfacePath {
-				obj.Logf("Woops: Signal.Path: %+v", signal.Path)
+				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
 			}
 

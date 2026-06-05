@@ -192,11 +192,11 @@ func (obj *NspawnRes) Watch(ctx context.Context) error {
 			if event.Body[0] != obj.Name() {
 				continue
 			}
-			obj.init.Logf("Event received: %v", event.Name)
+			obj.init.Logf("event received: %v", event.Name)
 			if event.Name == machineNew {
-				obj.init.Logf("Machine started")
+				obj.init.Logf("machine started")
 			} else if event.Name == machineRemoved {
-				obj.init.Logf("Machine stopped")
+				obj.init.Logf("machine stopped")
 			} else {
 				return fmt.Errorf("unknown event: %s", event.Name)
 			}

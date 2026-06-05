@@ -105,7 +105,7 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("Watching: %s", util.EtcGroupFile) // attempting to watch...
+			obj.init.Logf("watching: %s", util.EtcGroupFile) // attempting to watch...
 		}
 
 		select {
@@ -114,10 +114,10 @@ func (obj *GroupRes) Watch(ctx context.Context) error {
 				return nil
 			}
 			if err := event.Error; err != nil {
-				return errwrap.Wrapf(err, "Unknown %s watcher error", obj)
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
-				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown

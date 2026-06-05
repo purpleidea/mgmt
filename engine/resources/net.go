@@ -337,7 +337,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 				return errwrap.Wrapf(s.err, "unknown netlink error")
 			}
 			if obj.init.Debug {
-				obj.init.Logf("Event: %+v", s.msg)
+				obj.init.Logf("event: %+v", s.msg)
 			}
 
 		case event, ok := <-recWatcher.Events():
@@ -352,7 +352,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 				return errwrap.Wrapf(err, "unknown recwatcher error")
 			}
 			if obj.init.Debug {
-				obj.init.Logf("Event(%s): %v", event.Body.Name, event.Body.Op)
+				obj.init.Logf("event(%s): %v", event.Body.Name, event.Body.Op)
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown

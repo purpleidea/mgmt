@@ -175,7 +175,7 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 		case event := <-ch:
 			// FIXME: ask packagekit for info on what packages changed
 			if obj.init.Debug {
-				obj.init.Logf("Event(%s): %s", event.Name, obj.fmtNames(obj.getNames()))
+				obj.init.Logf("event(%s): %s", event.Name, obj.fmtNames(obj.getNames()))
 			}
 
 			// since the chan is buffered, remove any supplemental

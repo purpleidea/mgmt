@@ -1216,8 +1216,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		// initial deploy from run, don't switch to this unless it's new
 		watchChan, err := world.WatchDeploy(ctx)
 		if err != nil {
-			cancelCause(err) // trigger an exit!
 			Logf("error starting deploy: %+v", err)
+			cancelCause(err) // trigger an exit!
 			return
 		}
 		canceled := false

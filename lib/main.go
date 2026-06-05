@@ -641,15 +641,15 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			cancelCause(err)
 		}()
 
-		var etcdErr error
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			etcdErr = obj.embdEtcd.Run(embdCtx)          // returns when it shuts down...
-			etcdErr = errwrap.NoContextCanceled(etcdErr) // strip
-			if etcdErr != nil {
-				Logf("etcd embd run error: %+v", etcdErr)
-				cancelCause(etcdErr)
+			err := obj.embdEtcd.Run(embdCtx)     // returns when it shuts down...
+			err = errwrap.NoContextCanceled(err) // strip
+			if err != nil {
+				Logf("etcd embd run error: %+v", err)
+				cancelCause(err)
+				return
 			}
 			// XXX: if this exits before the engine, that engine
 			// might block when trying to store some value...
@@ -665,11 +665,9 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 		case <-obj.embdEtcd.Exited():
 			Logf("etcd was destroyed!")
-			err := fmt.Errorf("etcd was destroyed on startup")
-			if etcdErr != nil {
-				err = etcdErr
-			}
-			return err
+			// any real error is reported by the goroutine above via
+			// cancelCause and folded into our returned error for us
+			return fmt.Errorf("etcd was destroyed on startup")
 		}
 		// TODO: should getting a client from EmbdEtcd already come with the NS?
 		//client, err = obj.embdEtcd.MakeClientFromNamespace(NS)

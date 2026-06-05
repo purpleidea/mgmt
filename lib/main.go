@@ -309,6 +309,24 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	Logf := func(format string, v ...interface{}) {
 		obj.Logf("main: "+format, v...)
 	}
+	defer func() {
+		if reterr == nil {
+			return
+		}
+		Logf("error: %+v", reterr)
+	}()
+
+	// Goroutines must not write to the reterr named return value directly,
+	// since that would race with the main goroutine returning. Instead we
+	// accumulate these into errList (guarded by errMutex) via cancelCause,
+	// and we add those into reterr here at the very end after wg.Wait ends.
+	errMutex := &sync.Mutex{}
+	var errList error
+	defer func() {
+		errMutex.Lock()
+		reterr = errwrap.Append(reterr, errList)
+		errMutex.Unlock()
+	}()
 
 	wg := &sync.WaitGroup{} // waitgroup for inner loop & goroutines
 	defer wg.Wait()         // wait in case we have an early exit
@@ -332,12 +350,11 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	//		reterr = errwrap.Append(reterr, err) // if we didn't wrap
 	//	}
 	//}()
-	defer cancel(reterr) // may even be nil!
-	errMutex := &sync.Mutex{}
+	defer cancel(reterr)               // may even be nil!
 	cancelCause := func(cause error) { // we wrap the real cancelCause func!
 		errMutex.Lock()
-		reterr = errwrap.Append(reterr, cause) // add to the error list!
-		cancel(cause)                          // use one for this cause
+		errList = errwrap.Append(errList, cause) // add to the error list!
+		cancel(cause)                            // use one for this cause
 		errMutex.Unlock()
 	}
 
@@ -1351,9 +1368,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	wg.Wait()
 
-	if reterr != nil {
-		Logf("error: %+v", reterr)
-	}
+	// NOTE: This reterr variable may be modified via defer.
 	return reterr
 }
 

@@ -97,7 +97,7 @@ func main() {
 	// TODO: Should we pass a logger into this?
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := pprof.Run(ctx); err != nil {
-		fmt.Println(err)
+		fmt.Println(err) // TODO: let pprof log errors
 		os.Exit(util.ExitCode(err))
 		//return // redundant
 	}
@@ -111,7 +111,7 @@ func main() {
 	if cli, err := entry.Lookup(name); err == nil && cli.Name() == name {
 		data.Args = data.Args[1:] // pop off "argv[0]"
 		if err := cli.CLI(context.Background(), data); err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			os.Exit(util.ExitCode(err))
 			//return // redundant
 		}
@@ -119,7 +119,7 @@ func main() {
 	}
 
 	if err := cli.CLI(context.Background(), data); err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		os.Exit(util.ExitCode(err))
 		//return // redundant
 	}

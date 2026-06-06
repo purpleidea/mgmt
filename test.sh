@@ -55,6 +55,10 @@ function skip-testsuite() {
 # used at the end to tell if everything went fine
 failures=''
 
+if label-block "gomod"; then
+	run-testsuite ./test/test-gomod.sh
+fi
+
 if label-block "basic"; then
 	run-testsuite ./test/test-vet.sh
 	run-testsuite ./test/test-misc.sh

@@ -34,6 +34,7 @@ jobs:
           - basic
           - shell
           - race
+          - gomod
       fail-fast: false
 
     steps:
@@ -67,5 +68,6 @@ jobs:
 
       - name: Run test
         working-directory: ./go/src/github.com/purpleidea/mgmt
+        continue-on-error: ${{ matrix.test_block == 'gomod' }}
         run: |
           TEST_BLOCK="${{ matrix.test_block }}" make test

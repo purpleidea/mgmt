@@ -41,13 +41,13 @@ func TestRunArgsPprof(t *testing.T) {
 	args := &RunArgs{}
 	parser, err := arg.NewParser(arg.Config{}, args)
 	if err != nil {
-		t.Fatalf("NewParser failed: %v", err)
+		t.Fatalf("func NewParser failed: %v", err)
 	}
 	if err := parser.Parse(NormalizeArgs([]string{"--pprof"})); err != nil {
-		t.Fatalf("Parse failed: %v", err)
+		t.Fatalf("func Parse failed: %v", err)
 	}
 	if args.Pprof == nil {
-		t.Fatalf("Pprof is nil")
+		t.Fatalf("pprof is nil")
 	}
 	if *args.Pprof != "" {
 		t.Fatalf("unexpected Pprof value: %s", *args.Pprof)
@@ -56,13 +56,13 @@ func TestRunArgsPprof(t *testing.T) {
 	args = &RunArgs{}
 	parser, err = arg.NewParser(arg.Config{}, args)
 	if err != nil {
-		t.Fatalf("NewParser failed: %v", err)
+		t.Fatalf("func NewParser failed: %v", err)
 	}
 	if err := parser.Parse([]string{"--pprof", "127.0.0.1:7000"}); err != nil {
-		t.Fatalf("Parse failed: %v", err)
+		t.Fatalf("func Parse failed: %v", err)
 	}
 	if args.Pprof == nil {
-		t.Fatalf("Pprof is nil")
+		t.Fatalf("pprof is nil")
 	}
 	if *args.Pprof != "127.0.0.1:7000" {
 		t.Fatalf("unexpected Pprof value: %s", *args.Pprof)
@@ -71,13 +71,13 @@ func TestRunArgsPprof(t *testing.T) {
 	args = &RunArgs{}
 	parser, err = arg.NewParser(arg.Config{}, args)
 	if err != nil {
-		t.Fatalf("NewParser failed: %v", err)
+		t.Fatalf("func NewParser failed: %v", err)
 	}
 	if err := parser.Parse([]string{}); err != nil {
-		t.Fatalf("Parse failed: %v", err)
+		t.Fatalf("func Parse failed: %v", err)
 	}
 	if args.Pprof != nil {
-		t.Fatalf("Pprof is not nil: %s", *args.Pprof)
+		t.Fatalf("pprof is not nil: %s", *args.Pprof)
 	}
 }
 

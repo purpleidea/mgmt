@@ -64,7 +64,16 @@ function lowercase-errors() {
 	if grep -E 'errors\.New\("[A-Z]' "$1"; then
 		return 1
 	fi
+	if grep -E 't\.Error\("[A-Z]' "$1"; then # t.Error
+		return 1
+	fi
 	if grep -E 't\.Errorf\("[A-Z]' "$1"; then # t.Errorf or fmt.Errorf
+		return 1
+	fi
+	if grep -E 't\.Fatal\("[A-Z]' "$1"; then # t.Fatal
+		return 1
+	fi
+	if grep -E 't\.Fatalf\("[A-Z]' "$1"; then # t.Fatalf
 		return 1
 	fi
 	# TODO: add errwrap.Wrap* related matching

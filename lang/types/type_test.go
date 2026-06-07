@@ -1825,7 +1825,7 @@ func TestResTypeOfSkipPrivateFields(t *testing.T) {
 	typ := reflect.TypeOf(resLike{})
 	result, err := ResTypeOf(typ)
 	if err != nil {
-		t.Fatalf("ResTypeOf failed on struct with unexported field: %v", err)
+		t.Fatalf("func ResTypeOf failed on struct with unexported field: %v", err)
 	}
 	if result.Kind != KindStruct {
 		t.Fatalf("expected struct kind, got: %s", result.Kind)

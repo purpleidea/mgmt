@@ -745,7 +745,7 @@ func TestSemaPreservedWithEdges(t *testing.T) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
-		t.Fatalf("AutoGroup: %v", err)
+		t.Fatalf("func AutoGroup: %v", err)
 	}
 	if g1.NumVertices() != 2 {
 		t.Fatalf("expected 2 vertices, got %d", g1.NumVertices())
@@ -1131,7 +1131,7 @@ func TestLargeMultiFamilyLayers(t *testing.T) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
-		t.Fatalf("AutoGroup: %v", err)
+		t.Fatalf("func AutoGroup: %v", err)
 	}
 
 	// within each layer, same-letter families should merge
@@ -1265,7 +1265,7 @@ func TestLargeMixedReachabilityGrid(t *testing.T) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
-		t.Fatalf("AutoGroup: %v", err)
+		t.Fatalf("func AutoGroup: %v", err)
 	}
 
 	// x0..x4 merge (all non-reachable from each other)
@@ -1335,7 +1335,7 @@ func TestLargeDiamondChain(t *testing.T) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
-		t.Fatalf("AutoGroup: %v", err)
+		t.Fatalf("func AutoGroup: %v", err)
 	}
 
 	// At each level, the pair of m vertices should merge.

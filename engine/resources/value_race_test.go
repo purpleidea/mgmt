@@ -86,7 +86,7 @@ func TestValueResSendRecvAliasRace(t *testing.T) {
 		Logf:  func(string, ...interface{}) {},
 	}
 	if err := res.Init(init); err != nil {
-		t.Fatalf("Init failed: %+v", err)
+		t.Fatalf("func Init failed: %+v", err)
 	}
 
 	// obj.Any must be a stable, non-nil *interface{} across cycles so the

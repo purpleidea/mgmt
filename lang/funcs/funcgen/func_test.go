@@ -51,16 +51,16 @@ func testRenderFuncsWithFixture(t *testing.T, fixture string) {
 	funcs := &functions{}
 	fixtures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.yaml", fixture))
 	if err != nil {
-		t.Fatalf("Fixtures (yaml) unreadable!\n%v", err)
+		t.Fatalf("fixtures (yaml) unreadable!\n%v", err)
 	}
 	err = yaml.UnmarshalStrict(fixtures, &funcs)
 	if err != nil {
-		t.Fatalf("Fixtures (yaml) unreadable!\n%v", err)
+		t.Fatalf("fixtures (yaml) unreadable!\n%v", err)
 	}
 
 	golangFixtures, err := os.ReadFile(fmt.Sprintf("fixtures/func_%s.tpl", fixture))
 	if err != nil {
-		t.Fatalf("Fixtures (tpl) unreadable!\n%v", err)
+		t.Fatalf("fixtures (tpl) unreadable!\n%v", err)
 	}
 
 	c := config{
@@ -70,14 +70,14 @@ func testRenderFuncsWithFixture(t *testing.T, fixture string) {
 	dstFileName := fmt.Sprintf("func_%s.result", fixture)
 	err = generateTemplate(c, *funcs, "fixtures", "templates/generated_funcs.go.tpl", dstFileName)
 	if err != nil {
-		t.Fatalf("Not generating template!\n%v", err)
+		t.Fatalf("not generating template!\n%v", err)
 	}
 	result, err := os.ReadFile(fmt.Sprintf("fixtures/%s", dstFileName))
 	if err != nil {
-		t.Fatalf("Result unreadable!\n%v", err)
+		t.Fatalf("result unreadable!\n%v", err)
 	}
 
 	if !reflect.DeepEqual(golangFixtures, result) {
-		t.Fatalf("Functions differ!\n1>\n%v\n2>\n%v", string(golangFixtures), string(result))
+		t.Fatalf("functions differ!\n1>\n%v\n2>\n%v", string(golangFixtures), string(result))
 	}
 }

@@ -426,7 +426,7 @@ func TestResources1(t *testing.T) {
 		p := "/tmp/ownerfile"
 		uid, err := GetUID()
 		if err != nil {
-			t.Fatalf("GetUID: %v", err)
+			t.Fatalf("func GetUID: %v", err)
 		}
 		res.Path = p
 		res.State = FileStateExists

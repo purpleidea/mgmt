@@ -249,7 +249,7 @@ func TestUserCheckApply_ExistsNoOp(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected no-op (checkOK=true), got false")
@@ -272,7 +272,7 @@ func TestUserCheckApply_AbsentAlready(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected checkOK=true for already-absent user")
@@ -295,7 +295,7 @@ func TestUserCheckApply_CreateNoApply(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), false)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false (would need creation)")
@@ -323,7 +323,7 @@ func TestUserCheckApply_CreateApply(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false on create")
@@ -356,7 +356,7 @@ func TestUserCheckApply_ModifyShell(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false (shell differs)")
@@ -384,7 +384,7 @@ func TestUserCheckApply_Delete(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false on delete")
@@ -437,7 +437,7 @@ func TestUserCheckApply_HomeDirTrailingSlash(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: %v", err)
+		t.Fatalf("func CheckApply: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected checkOK=true (trailing-slash equivalence)")
@@ -477,7 +477,7 @@ func TestUserCheckApply_Issue842(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected no-op (checkOK=true); got false")
@@ -510,7 +510,7 @@ func TestUserCheckApply_EmptyGroupsClears(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false (supplementals need clearing)")
@@ -538,7 +538,7 @@ func TestUserCheckApply_EmptyGroupsNoopWhenAlreadyEmpty(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected checkOK=true (already no supplementals)")
@@ -569,7 +569,7 @@ func TestUserCheckApply_NilGroupsIgnoresExisting(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected checkOK=true (nil Groups ignores existing supplementals)")
@@ -625,7 +625,7 @@ func TestUserCheckApply_AbsentSkipsUIDConflict(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected no-op (checkOK=true) for absent missing user; got false")
@@ -651,7 +651,7 @@ func TestUserCmp_DoesNotMutateGroups(t *testing.T) {
 	bWant := []string{"peach", "flower", "elephant"}
 
 	if err := a.Cmp(b); err != nil {
-		t.Fatalf("Cmp: unexpected error: %v", err)
+		t.Fatalf("cmp: unexpected error: %v", err)
 	}
 	if !reflect.DeepEqual(a.Groups, aWant) {
 		t.Errorf("a.Groups mutated by Cmp:\n got: %v\nwant: %v", a.Groups, aWant)
@@ -806,17 +806,17 @@ func TestUserCheckApplyTable(t *testing.T) {
 			f.install(t)
 
 			if err := tt.res.Init(fakeUserInit(t)); err != nil {
-				t.Fatalf("Init: %v", err)
+				t.Fatalf("func Init: %v", err)
 			}
 
 			checkOK, err := tt.res.CheckApply(context.Background(), tt.apply)
 
 			if tt.wantErr {
 				if err == nil {
-					t.Fatalf("CheckApply: expected error, got nil")
+					t.Fatalf("func CheckApply: expected error, got nil")
 				}
 			} else if err != nil {
-				t.Fatalf("CheckApply: unexpected error: %v", err)
+				t.Fatalf("func CheckApply: unexpected error: %v", err)
 			}
 
 			if checkOK != tt.wantOK {

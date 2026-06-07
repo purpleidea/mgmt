@@ -53,14 +53,14 @@ func TestRunReturnsContextCanceledFromCallShutdown(t *testing.T) {
 		Logf: t.Logf,
 	}
 	if err := engine.Setup(); err != nil {
-		t.Fatalf("Setup failed: %+v", err)
+		t.Fatalf("setup failed: %+v", err)
 	}
 
 	txn := engine.Txn()
 	defer txn.Free()
 	txn.AddVertex(fn)
 	if err := txn.Commit(); err != nil {
-		t.Fatalf("Commit failed: %+v", err)
+		t.Fatalf("commit failed: %+v", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -85,7 +85,7 @@ func TestRunReturnsContextCanceledFromCallShutdown(t *testing.T) {
 			t.Fatalf("expected context.Canceled from Run, got: %+v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatalf("Run did not stop")
+		t.Fatalf("run did not stop")
 	}
 
 	if err := errwrap.WithoutContext(engine.Err()); err != context.Canceled {

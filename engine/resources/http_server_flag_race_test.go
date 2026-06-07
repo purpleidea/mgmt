@@ -74,7 +74,7 @@ func TestHTTPServerFlagSendRecvRace(t *testing.T) {
 		Logf:  func(string, ...interface{}) {},
 	}
 	if err := flag.Init(init); err != nil {
-		t.Fatalf("Init failed: %+v", err)
+		t.Fatalf("func Init failed: %+v", err)
 	}
 
 	ctx := context.Background()

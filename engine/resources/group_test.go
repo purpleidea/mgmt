@@ -139,7 +139,7 @@ func TestGroupCheckApply_AbsentSkipsGIDConflict(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false on delete; got true")
@@ -192,7 +192,7 @@ func TestGroupCheckApply_ExistsNoOp(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected no-op (checkOK=true); got false")
@@ -216,7 +216,7 @@ func TestGroupCheckApply_ExistsMatchingGID(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected no-op (checkOK=true); got false")
@@ -240,7 +240,7 @@ func TestGroupCheckApply_ModifyGID(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false (GID differs); got true")
@@ -263,7 +263,7 @@ func TestGroupCheckApply_Create(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false on create; got true")
@@ -287,7 +287,7 @@ func TestGroupCheckApply_Delete(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if checkOK {
 		t.Errorf("expected checkOK=false on delete; got true")
@@ -310,7 +310,7 @@ func TestGroupCheckApply_AbsentAlready(t *testing.T) {
 
 	checkOK, err := res.CheckApply(context.Background(), true)
 	if err != nil {
-		t.Fatalf("CheckApply: unexpected error: %v", err)
+		t.Fatalf("func CheckApply: unexpected error: %v", err)
 	}
 	if !checkOK {
 		t.Errorf("expected checkOK=true for already-absent group; got false")

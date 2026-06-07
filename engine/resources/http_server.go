@@ -439,15 +439,20 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer close(obj.eventsChanMap[res]) // where Watch sends events
-			if err := res.Watch(ctx); err != nil {
+			err := res.Watch(ctx)
+			// Close this channel *before* we report the error. This
+			// is where this Watch is writing to but it is also used
+			// as a "startup" signal, so make sure we do this first,
+			// and avoid any possible deadlocks later down the line!
+			close(obj.eventsChanMap[res]) // where Watch sends events
+			if err != nil {
 				select {
 				case multiplexedChan <- err:
 				case <-ctx.Done():
 				}
 			}
 		}()
-		// wait for Watch first Event() call or immediate error...
+		// wait for Watch first Event() call or immediate error/exit...
 		select {
 		case <-obj.eventsChanMap[res]: // triggers on start or on err...
 		}

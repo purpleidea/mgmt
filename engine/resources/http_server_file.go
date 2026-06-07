@@ -37,10 +37,13 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/recwatch"
 	"github.com/purpleidea/mgmt/util/safepath"
 )
 
@@ -63,6 +66,7 @@ type HTTPServerFileRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
 	traits.Groupable // can be grouped into HTTPServerRes
+	traits.Recvable  // can receive its Data value via send/recv
 
 	init *engine.Init
 
@@ -88,6 +92,17 @@ type HTTPServerFileRes struct {
 	// file resource. It must not be combined with the path field.
 	// TODO: should this be []byte instead?
 	Data string `lang:"data" yaml:"data"`
+
+	// Longpoll lets requests of this file be "watchable" via HTTP long poll
+	// which can be done via the http:client resource.
+	// XXX: specify if this works for Data field too and if with Send/Recv
+	Longpoll bool `lang:"longpoll" yaml:"longpoll"`
+
+	mutex *sync.Mutex // guards the fields below
+	data  string      // snapshot of the Data file content
+	mtime time.Time   // fake mtime for data
+
+	updated chan struct{} // broadcast system for long poll events
 }
 
 // Default returns some sensible defaults for this resource.
@@ -106,25 +121,64 @@ func (obj *HTTPServerFileRes) getPath() string {
 	return obj.Name()
 }
 
+// getMtime is a small helper to lookup the mtime for a file handle. It returns
+// the modification time we should report for served content. For longpolling we
+// serve our own monotonic version cursor (obj.mtime) instead of the real file's
+// mtime.
+func (obj *HTTPServerFileRes) getMtime(handle io.Reader) time.Time {
+	if obj.Longpoll {
+		obj.mutex.Lock()
+		defer obj.mutex.Unlock()
+		return obj.mtime
+	}
+
+	// Determine the last-modified time if we can.
+	mtime := time.Now()
+	f, ok := handle.(*os.File)
+	if !ok {
+		// TODO: on error do we want to pass through a good value?
+		return mtime
+	}
+
+	fi, err := f.Stat()
+	if err != nil {
+		// TODO: if Stat errors, should we fail the whole thing?
+		return mtime
+	}
+
+	return fi.ModTime()
+}
+
 // getContent returns the content that we expect from this resource. It depends
 // on whether the user specified the Path or Data fields, and whether the Path
-// exists or not.
-func (obj *HTTPServerFileRes) getContent(requestPath safepath.AbsPath) (io.ReadSeeker, error) {
+// exists or not. It also returns the mtime for this content. Make sure to close
+// with the closeContent function.
+func (obj *HTTPServerFileRes) getContent(requestPath safepath.AbsPath) (io.ReadSeeker, time.Time, error) {
 	if obj.Path != "" && obj.Data != "" {
 		// programming error! this should have been caught in Validate!
-		return nil, fmt.Errorf("must not specify Path and Data")
+		return nil, time.Time{}, fmt.Errorf("must not specify Path and Data")
 	}
 
-	if obj.Data != "" {
-		return bytes.NewReader([]byte(obj.Data)), nil
+	if obj.Path == "" { // because data of "" could be valid
+		obj.mutex.Lock()
+		data := obj.data // copy
+		mtime := obj.mtime
+		obj.mutex.Unlock()
+		return bytes.NewReader([]byte(data)), mtime, nil
 	}
 
+	var handle *os.File
 	absFile, err := obj.getContentRelative(requestPath)
 	if err != nil { // on error, we just assume no root/prefix stuff happens
-		return os.Open(obj.Path)
+		handle, err = os.Open(obj.Path)
+	} else {
+		handle, err = os.Open(absFile.Path())
+	}
+	if err != nil {
+		return nil, time.Time{}, err
 	}
 
-	return os.Open(absFile.Path())
+	return handle, obj.getMtime(handle), nil
 }
 
 // getContentRelative takes a request, and returns the absolute path to the file
@@ -166,6 +220,18 @@ func (obj *HTTPServerFileRes) getContentRelative(requestPath safepath.AbsPath) (
 	}
 
 	return safepath.JoinToAbsFile(srcAbsDir, relFile), nil // AbsFile
+}
+
+// closeContent closes a handle returned by getContent if it is closable.
+func (obj *HTTPServerFileRes) closeContent(handle io.ReadSeeker) error {
+	//if readSeekCloser, ok := handle.(io.ReadSeekCloser); ok { // same
+	//	return readSeekCloser.Close() // ignore error
+	//}
+	if closer, ok := handle.(io.Closer); ok {
+		return closer.Close() // ignore error
+	}
+
+	return nil
 }
 
 // ParentName is used to limit which resources autogroup into this one. If it's
@@ -210,32 +276,67 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	handle, err := obj.getContent(absPath)
-	if err != nil {
-		obj.init.Logf("could not get content for: %s", requestPath)
-		sendHTTPError(w, err)
+	if !obj.Longpoll {
+		handle, mtime, err := obj.getContent(absPath)
+		if err != nil {
+			obj.init.Logf("could not get content for: %s", requestPath)
+			sendHTTPError(w, err)
+			return
+		}
+		defer obj.closeContent(handle)
+
+		// XXX: is requestPath what we want for the name field?
+		http.ServeContent(w, req, requestPath, mtime, handle)
+		//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
 		return
 	}
-	//if readSeekCloser, ok := handle.(io.ReadSeekCloser); ok { // same
-	//	defer readSeekCloser.Close() // ignore error
-	//}
-	if closer, ok := handle.(io.Closer); ok {
-		defer closer.Close() // ignore error
-	}
 
-	// Determine the last-modified time if we can.
-	modtime := time.Now()
-	if f, ok := handle.(*os.File); ok {
-		fi, err := f.Stat()
-		if err == nil {
-			modtime = fi.ModTime()
+	// Long polling...
+	event := false
+	for {
+		// Subscribe to the next broadcast *before* we read the content
+		// below. Otherwise a change that lands between the read and the
+		// select would close a channel we hadn't read yet, leaving us
+		// waiting on the fresh one with a stale mtime aka a lost event!
+		obj.mutex.Lock()
+		ch := obj.updated // broadcast read
+		obj.mutex.Unlock()
+
+		handle, mtime, err := obj.getContent(absPath)
+		if err != nil {
+			obj.init.Logf("could not get content for: %s", requestPath)
+			sendHTTPError(w, err)
+			return
 		}
-		// TODO: if Stat errors, should we fail the whole thing?
-	}
 
-	// XXX: is requestPath what we want for the name field?
-	http.ServeContent(w, req, requestPath, modtime, handle)
-	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
+		if event || serveNow(req, mtime) {
+			if event {
+				// We know there's something new, so don't let
+				// ServeContent reply 304 on a same-second mtime.
+				req.Header.Del("If-Modified-Since")
+				//req.Header.Del("If-None-Match") // for etag
+			}
+			http.ServeContent(w, req, requestPath, mtime, handle)
+			obj.closeContent(handle)
+			return
+		}
+		obj.closeContent(handle) // ignore error and reopen on next loop
+
+		select {
+		case <-ch: // our content changed
+			event = true
+
+		// HTTPServerRes connects request contexts to its Watch ctx via
+		// the BaseContext field so parent shutdown unblocks this here!
+		case <-req.Context().Done():
+			// The client disappeared, hung up or http:server Watch
+			// died. This can happen during graph swap. Tell client
+			// to retry. Do not silently return an implicit 200 ok!
+			w.Header().Set("Retry-After", "1") // 1 second
+			http.Error(w, "http server shutting down", http.StatusServiceUnavailable)
+			return
+		}
+	}
 }
 
 // Validate checks if the resource data structure was populated correctly.
@@ -255,6 +356,10 @@ func (obj *HTTPServerFileRes) Validate() error {
 
 	// NOTE: if obj.Path == "" && obj.Data == "" then we have an empty file!
 
+	if obj.Longpoll && strings.HasSuffix(obj.Path, "/") {
+		return fmt.Errorf("can't use Longpoll when Path is a directory")
+	}
+
 	return nil
 }
 
@@ -262,11 +367,20 @@ func (obj *HTTPServerFileRes) Validate() error {
 func (obj *HTTPServerFileRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	obj.mutex = &sync.Mutex{}
+	obj.data = obj.Data // initial copy
+	// Logical version cursor: kept monotonic at one second resolution by
+	// nextMtime so same-second updates can't be conflated. Use nextMtime.
+	obj.mtime = time.Now().Truncate(time.Second)
+
+	obj.updated = make(chan struct{}) // broadcast make
+
 	return nil
 }
 
 // Cleanup is run by the engine to clean up after the resource is done.
 func (obj *HTTPServerFileRes) Cleanup() error {
+	close(obj.updated) // broadcast free
 	return nil
 }
 
@@ -274,6 +388,10 @@ func (obj *HTTPServerFileRes) Cleanup() error {
 // particular one does absolutely nothing but block until we've received a done
 // signal.
 func (obj *HTTPServerFileRes) Watch(ctx context.Context) error {
+	if obj.Longpoll && obj.Path != "" {
+		return obj.longpollWatch(ctx) // only needed if we have a Path!
+	}
+
 	if err := obj.init.Event(ctx); err != nil {
 		return err
 	}
@@ -285,13 +403,83 @@ func (obj *HTTPServerFileRes) Watch(ctx context.Context) error {
 	return nil
 }
 
+// longpollWatch is the variant of Watch that is used when this serves an HTTP
+// long poll client.
+func (obj *HTTPServerFileRes) longpollWatch(ctx context.Context) error {
+
+	recWatcher, err := recwatch.NewRecWatcher(obj.Path, false)
+	if err != nil {
+		return err
+	}
+	defer recWatcher.Close()
+
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case event, ok := <-recWatcher.Events():
+			if !ok { // channel shutdown
+				return nil
+			}
+			if err := event.Error; err != nil {
+				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
+			}
+			if obj.init.Debug {
+				obj.init.Logf("file changed, unblocking long poll clients")
+			}
+
+		case <-ctx.Done(): // closed by the engine to signal shutdown
+			return nil
+		}
+
+		obj.mutex.Lock()
+		obj.mtime = nextMtime(obj.mtime) // advance the version cursor
+		close(obj.updated)               // broadcast
+		obj.updated = make(chan struct{})
+		obj.mutex.Unlock()
+
+		// XXX: Do we need to send an event?
+		//if err := obj.init.Event(ctx); err != nil {
+		//	return err
+		//}
+	}
+}
+
 // CheckApply never has anything to do for this resource, so it always succeeds.
 func (obj *HTTPServerFileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
 
-	return true, nil // always succeeds, with nothing to do!
+	changed := false
+	for key, val := range obj.init.Recv() {
+		// TODO: we only recv this key for now
+		if key != "data" {
+			continue
+		}
+		obj.init.Logf("received `%s`, changed: %t", key, val.Changed)
+		changed = val.Changed
+		break
+	}
+
+	if !changed {
+		return true, nil // always succeeds, with nothing to do!
+	}
+
+	obj.mutex.Lock()
+	// did the data really change?
+	changed = obj.Data != obj.data
+	if changed {
+		obj.data = obj.Data
+		obj.mtime = nextMtime(obj.mtime) // advance the version cursor
+		close(obj.updated)               // broadcast
+		obj.updated = make(chan struct{})
+	}
+	obj.mutex.Unlock()
+
+	return !changed, nil
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -313,6 +501,9 @@ func (obj *HTTPServerFileRes) Cmp(r engine.Res) error {
 	}
 	if obj.Data != res.Data {
 		return fmt.Errorf("the Data differs")
+	}
+	if obj.Longpoll != res.Longpoll {
+		return fmt.Errorf("the Longpoll differs")
 	}
 
 	return nil
@@ -336,4 +527,39 @@ func (obj *HTTPServerFileRes) UnmarshalYAML(unmarshal func(interface{}) error) e
 
 	*obj = HTTPServerFileRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// serveNow specifies if we're ready to send new data (based on the client
+// request) or not.
+func serveNow(req *http.Request, mtime time.Time) bool {
+	ims := req.Header.Get("If-Modified-Since")
+	if ims == "" {
+		return true // no cursor, so serve it now
+	}
+	t, err := http.ParseTime(ims)
+	if err != nil {
+		return true
+	}
+	// We compare at one second granularity to match what survives in the
+	// HTTP date headers: the cursor (ims) only ever has second resolution,
+	// and our served mtime is kept monotonic at second resolution too (see
+	// nextMtime), so this serves iff there's a strictly newer version.
+	return mtime.Truncate(time.Second).After(t) // mtime <= cursor -> hold
+}
+
+// nextMtime returns a logical "modified" timestamp that is strictly greater
+// than prev once both are truncated to one second resolution. We use it instead
+// of a bare time.Now() so that several updates landing within the same wall
+// clock second still advance the cursor. Without this, HTTP's second-granular
+// Last-Modified / If-Modified-Since would conflate them and a client that
+// reconnects between two same-second updates would never be told about the
+// second one (a lost update). The returned value can be slightly in the future
+// when updates come faster than once per second, which is fine for a cursor.
+func nextMtime(prev time.Time) time.Time {
+	now := time.Now().Truncate(time.Second)
+	min := prev.Truncate(time.Second).Add(time.Second)
+	if now.Before(min) {
+		return min
+	}
+	return now
 }

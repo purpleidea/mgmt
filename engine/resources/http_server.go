@@ -385,7 +385,13 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 
 // Cleanup is run by the engine to clean up after the resource is done.
 func (obj *HTTPServerRes) Cleanup() error {
-	return nil
+	var result error
+	for _, res := range obj.GetGroup() {
+		if err := res.Cleanup(); err != nil {
+			result = errwrap.Append(result, err)
+		}
+	}
+	return result
 }
 
 // Watch is the primary listener for this resource and it outputs events.

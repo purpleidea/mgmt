@@ -431,6 +431,11 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		Handler:      obj.serveMux,
 		ReadTimeout:  time.Duration(readTimeout) * time.Second,
 		WriteTimeout: time.Duration(writeTimeout) * time.Second,
+		BaseContext: func(net.Listener) context.Context {
+			// This means that our ctx will get used as the parent
+			// for all the requests. Closing this cancels them all!
+			return ctx
+		},
 		//MaxHeaderBytes: 1 << 20, XXX: should we add a param for this?
 	}
 

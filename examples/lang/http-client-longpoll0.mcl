@@ -1,0 +1,40 @@
+# Client side of a cross-agent event channel built on an http long poll.
+#
+# Point this at the /event endpoint served by one of the long poll server
+# examples (possibly on another machine):
+#
+#	examples/lang/http-server-file-longpoll0.mcl (value comes from a file)
+#	examples/lang/http-server-file-longpoll1.mcl (value comes via send/recv)
+#
+# The client holds a GET open. Each time the server's value changes it downloads
+# the new contents, writes them to the Name path, and emits them on send/recv so
+# the rest of the graph can react. That is how this agent receives events from
+# the other one.
+#
+# run the server:
+#	mgmt run --tmp-prefix lang examples/lang/http-server-file-longpoll0.mcl
+# or:
+#	mgmt run --tmp-prefix lang examples/lang/http-server-file-longpoll1.mcl
+# run the client:
+#	mgmt run --tmp-prefix lang examples/lang/http-client-longpoll0.mcl
+# use different ports if you are on the same physical machine:
+#	--client-urls http://localhost:2381 --server-urls http://localhost:2382
+# push an event:
+#	echo "event $(date)" > /tmp/mgmt-longpoll-file
+#
+# longpoll => true requires mtime_check => true: the client's If-Modified-Since
+# header is the long poll version cursor that tells the server which version we
+# already have, so it knows when to hold the connection open vs. respond.
+
+http:client "/tmp/mgmt-longpoll-event" {
+	url => "http://127.0.0.1:8080/event",
+	mtime_check => true,
+	longpoll => true,
+	longpoll_conditional => true, # TODO: is this well-implemented?
+}
+
+# react to each received event
+print "event" {
+	Meta:autogroup => false,
+}
+Http:Client["/tmp/mgmt-longpoll-event"].content -> Print["event"].msg

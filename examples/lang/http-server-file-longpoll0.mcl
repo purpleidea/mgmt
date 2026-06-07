@@ -1,0 +1,48 @@
+# Server side of a cross-agent event channel built on an http long poll.
+#
+# This agent serves a file over http and *holds* long poll GET requests open
+# until that file's contents change on disk, at which point every waiting client
+# is sent the new data. Pair it with a client agent running:
+#
+#	examples/lang/http-client-longpoll0.mcl
+#
+# Whenever this file changes, the client is notified and downloads the new
+# contents immediately. That is how two mgmt agents can connect by HTTP events.
+#
+# run this agent:
+#	mgmt run --tmp-prefix lang examples/lang/http-server-file-longpoll0.mcl
+# run the client:
+#	mgmt run --tmp-prefix lang examples/lang/http-client-longpoll0.mcl
+# use different ports if you are on the same physical machine:
+#	--client-urls http://localhost:2381 --server-urls http://localhost:2382
+# push an event:
+#	echo "event $(date)" > /tmp/mgmt-longpoll-file
+#
+# How it works: the long poll uses Last-Modified / If-Modified-Since as its
+# version cursor. A client sends the If-Modified-Since of the version it has. If
+# that is current, the server holds the request open until the file's mtime
+# advances, then replies with the new body and a newer Last-Modified.
+#
+# NOTE: long poll holds the connection open, so don't set write_timeout on the
+# http server, or it would cut the held connections off.
+
+$file = "/tmp/mgmt-longpoll-file"
+
+# Bootstrap the file we serve. We only ensure that it exists (we don't manage
+# its content) so that your external edits stick instead of being reverted.
+# Change it to push an event to every connected client, e.g.:
+#	echo "event $(date)" > /tmp/mgmt-longpoll-file
+file $file {
+	state => $const.res.file.state.exists,
+}
+
+http:server ":8080" { # :8080 avoids needing root to bind :80
+}
+
+# Serve $file, and notify long poll clients whenever its contents change.
+http:server:file "/event" {
+	path => $file,
+	longpoll => true, # hold GETs open until the file changes
+
+	Depend => File[$file], # TODO: add autoedges
+}

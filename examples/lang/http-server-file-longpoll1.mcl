@@ -1,0 +1,33 @@
+# Server side of a cross-agent event channel where the long polled value arrives
+# via send/recv. Here a flag (fed by external POSTs) drives the data, so an
+# external POST to /push is broadcast to every long poll client waiting on
+# /event. This is the most direct "connect two agents by events" demo.
+#
+# run this agent:
+#	mgmt run --tmp-prefix lang examples/lang/http-server-file-longpoll1.mcl
+# run the client:
+#	mgmt run --tmp-prefix lang examples/lang/http-client-longpoll0.mcl
+# use different ports if you are on the same physical machine:
+#	--client-urls http://localhost:2381 --server-urls http://localhost:2382
+# push an event:
+#	wget --post-data 'key=hello' -O - http://127.0.0.1:8080/push
+#
+# Because the value lands via send/recv it is updated in place (no graph churn),
+# so the held client connections survive across updates.
+
+http:server ":8080" {
+}
+
+# POST an event in here. The value of the `key` field becomes the payload:
+#	wget --post-data 'key=hello' -O - http://127.0.0.1:8080/push
+http:server:flag "/push" {
+	key => "key",
+}
+
+# Serve the latest pushed value to every long poll client. Its `data` arrives
+# over send/recv from the flag (the edge below) rather than as a static param.
+http:server:file "/event" {
+	longpoll => true,
+}
+
+Http:Server:Flag["/push"].value -> Http:Server:File["/event"].data

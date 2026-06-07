@@ -1,0 +1,7 @@
+http:client "/tmp/output" {
+	url => "http://example.com/",
+	method => "GET",
+
+	#Meta:poll => 30, # required when not using long poll
+	Meta:poll => -1, # download only once
+}

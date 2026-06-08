@@ -72,6 +72,9 @@ const (
 var (
 	// commentPrefixTrimmed is a trimmed copy of the CommentPrefix constant.
 	commentPrefixTrimmed = strings.TrimRightFunc(CommentPrefix, unicode.IsSpace)
+
+	// commentDirectivePattern matches other special golang directive comments.
+	commentDirectivePattern = regexp.MustCompile(`^//(line |extern |export |[a-z0-9]+:[a-z0-9])`)
 )
 
 func main() {
@@ -165,6 +168,11 @@ func Check(filename string) error {
 
 			// skip the magic compiler comments
 			if strings.HasPrefix(s, CommentGolangPrefix) {
+				break // skip to the end of this block
+			}
+
+			// skip other special golang directive comments
+			if commentDirectivePattern.MatchString(s) {
 				break // skip to the end of this block
 			}
 

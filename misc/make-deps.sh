@@ -58,6 +58,7 @@ if [ -n "$YUM" ]; then
 	# dependencies for building packages with fpm
 	$sudo_command $YUM install -y gcc make rpm-build libffi-devel bsdtar mkosi || true
 	$sudo_command $YUM install -y graphviz || true # for debugging
+	$sudo_command $YUM install -y golangci-lint || true # for linting golang
 fi
 if [ -n "$APT" ]; then
 	$sudo_command $APT update -y
@@ -181,6 +182,14 @@ if [ -z "$LYCHEE" ]; then
 	LYCHEE_FILE="${LYCHEE_TMP}lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
 	wget "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-${LYCHEE_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -O "$LYCHEE_FILE"
 	$sudo_command tar -C /usr/local/bin -xzvf "$LYCHEE_FILE"
+fi
+# For linting golang in CI we need to add this since it's not in apt ubuntu/CI.
+# The dnf version above works fine though.
+if in_env && ! command -v golangci-lint >/dev/null 2>&1; then
+	GOLANGCILINT_VERSION='v2.12.2'	# any v2.x works; pinned for reproducible lints
+	GOLANGCILINT_BIN=$(go env GOBIN)
+	[ -z "$GOLANGCILINT_BIN" ] && GOLANGCILINT_BIN="$(go env GOPATH)/bin"
+	wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b "$GOLANGCILINT_BIN" "$GOLANGCILINT_VERSION"
 fi
 fold_end "Install miscellaneous tools"
 

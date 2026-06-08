@@ -134,7 +134,7 @@ func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 		return nil, fmt.Errorf("got nil input instead of ptr to struct")
 	}
 	typ := reflect.TypeOf(stptr)
-	if k := typ.Kind(); k != reflect.Ptr { // we only look at *Struct's
+	if k := typ.Kind(); k != reflect.Pointer { // we only look at *Struct's
 		return nil, fmt.Errorf("input is not a ptr, got: %+v", k)
 	}
 	st := typ.Elem()                         // elem for ptr to struct (dereference the pointer)
@@ -206,12 +206,12 @@ func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 strin
 	}
 
 	// If we're sending _from_ an interface... (value res `any` field)
-	if kind1 == reflect.Interface || kind1 == reflect.Ptr {
+	if kind1 == reflect.Interface || kind1 == reflect.Pointer {
 		// TODO: Can we do more checks instead of only returning early?
 		return nil
 	}
 	// If we're sending _to_ an interface... (value res `any` field)
-	if kind2 == reflect.Interface || kind2 == reflect.Ptr {
+	if kind2 == reflect.Interface || kind2 == reflect.Pointer {
 		// TODO: Can we do more checks instead of only returning early?
 		return nil
 	}
@@ -458,7 +458,7 @@ func WriteData(p string, data *string) (int, error) {
 		return -1, err
 	}
 
-	c, err := file.Write([]byte(*data))
+	c, err := file.WriteString(*data)
 	if err != nil {
 		return c, errwrap.Wrapf(err, "can't write file")
 	}
@@ -572,7 +572,7 @@ func DebugStructFields(st interface{}) string {
 	t := reflect.TypeOf(st)
 
 	// if it's a pointer, get the element it points to
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 		t = t.Elem()
 	}

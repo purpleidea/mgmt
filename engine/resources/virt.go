@@ -904,7 +904,7 @@ func (obj *VirtRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 }
 
 // getDomainType returns the correct domain type based on the uri.
-func (obj VirtRes) getDomainType() string {
+func (obj *VirtRes) getDomainType() string {
 	switch obj.uriScheme {
 	case lxcURI:
 		return "<domain type='lxc'>"
@@ -914,7 +914,7 @@ func (obj VirtRes) getDomainType() string {
 }
 
 // getOSType returns the correct os type based on the uri.
-func (obj VirtRes) getOSType() string {
+func (obj *VirtRes) getOSType() string {
 	switch obj.uriScheme {
 	case lxcURI:
 		return "<type>exe</type>"
@@ -923,7 +923,7 @@ func (obj VirtRes) getOSType() string {
 	}
 }
 
-func (obj VirtRes) getOSInit() string {
+func (obj *VirtRes) getOSInit() string {
 	switch obj.uriScheme {
 	case lxcURI:
 		return fmt.Sprintf("<init>%s</init>", obj.OSInit)

@@ -515,7 +515,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		refresh = false // We did a start or stop, so a reload is not needed.
 
-		// TODO: Should we permanenty error after a long timeout here?
+		// TODO: Should we permanently error after a long timeout here?
 		for {
 			warn := true // warn once
 			select {
@@ -581,7 +581,7 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "failed to reload unit")
 	}
 
-	// TODO: Should we permanenty error after a long timeout here?
+	// TODO: Should we permanently error after a long timeout here?
 	for {
 		warn := true // warn once
 		select {

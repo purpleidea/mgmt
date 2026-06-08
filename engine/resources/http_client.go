@@ -1077,7 +1077,7 @@ func (obj *HTTPClientRes) Sends() interface{} {
 	}
 }
 
-// progressWriter is just a helper that implementes io.Writer to give the user
+// progressWriter is just a helper that implements io.Writer to give the user
 // progress updates on a slow download. It throttles its log output so a fast
 // stream doesn't drown the log.
 type progressWriter struct {

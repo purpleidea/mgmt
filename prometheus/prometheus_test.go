@@ -74,8 +74,8 @@ func TestInitKindMetrics(t *testing.T) {
 
 	for _, metric := range metrics {
 		for name, count := range expectedMetrics {
-			if *metric.Name == name {
-				value := len(metric.Metric)
+			if metric.GetName() == name {
+				value := len(metric.GetMetric())
 				expectedMetrics[name] = [2]int{count[0], value}
 			}
 		}

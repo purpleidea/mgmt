@@ -50,13 +50,14 @@ import (
 // `&ValueSends{Any: obj.cachedAny}`. That makes the published snapshot's `Any`
 // pointer alias obj.Any's long-lived *interface{} storage. The engine recv path
 // (lang/types.Into) writes back into that *non-nil* *interface{} destination
-// *in place*: in types.Into the `for kind == reflect.Ptr` loop only reallocates
-// when the pointer is nil, otherwise it descends with rv.Elem() and the
-// isInterface branch does rv.Set(x), mutating the existing interface{} word. A
-// downstream Worker reads that same word from the previously published snapshot
-// via types.ValueOf (see engine/graph/sendrecv.go). The Sendable atomic.Pointer
-// only synchronizes the slot, not the aliased pointee, so without the
-// snapshotAny copy this is a data race that the race detector flags.
+// *in place*: in types.Into the `for kind == reflect.Pointer` loop only
+// reallocates when the pointer is nil, otherwise it descends with rv.Elem() and
+// the isInterface branch does rv.Set(x), mutating the existing interface{}
+// word. A downstream Worker reads that same word from the previously published
+// snapshot via types.ValueOf (see engine/graph/sendrecv.go). The Sendable
+// atomic.Pointer only synchronizes the slot, not the aliased pointee, so
+// without the snapshotAny copy this is a data race that the race detector
+// flags.
 //
 // The two goroutines below mirror that exact handoff at the smallest shared
 // state: the sender drives real CheckApply cycles (so the snapshotAny call site

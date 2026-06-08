@@ -39,7 +39,7 @@ import (
 // It returns an empty string if a specific name was not found.
 func LookupSubcommand(obj interface{}, st interface{}) string {
 	val := reflect.ValueOf(obj)
-	if val.Kind() == reflect.Ptr { // max one de-referencing
+	if val.Kind() == reflect.Pointer { // max one de-referencing
 		val = val.Elem()
 	}
 

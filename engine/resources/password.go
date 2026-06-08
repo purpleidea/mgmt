@@ -150,7 +150,7 @@ func (obj *PasswordRes) write(password string) (int, error) {
 		return -1, err
 	}
 
-	c, err := file.Write([]byte(password + newline))
+	c, err := file.WriteString(password + newline)
 	if err != nil {
 		return c, errwrap.Wrapf(err, "can't write file")
 	}

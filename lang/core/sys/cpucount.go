@@ -101,7 +101,7 @@ func (obj *CPUCount) Init(init *interfaces.Init) error {
 // Stream starts a mainloop and runs Event when it's time to Call() again. It
 // will first poll sysfs to get the initial cpu count, and then receives UEvents
 // from the kernel as CPUs are added/removed.
-func (obj CPUCount) Stream(ctx context.Context) error {
+func (obj *CPUCount) Stream(ctx context.Context) error {
 	ss, err := socketset.NewSocketSet(rtmGrps, socketFile, unix.NETLINK_KOBJECT_UEVENT)
 	if err != nil {
 		return errwrap.Wrapf(err, "error creating socket set")

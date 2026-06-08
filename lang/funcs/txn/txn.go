@@ -279,7 +279,7 @@ func (obj *opDeleteVertex) String() string {
 // "running".
 type GraphTxn struct {
 
-	// Post runs some effects after the Commit has run succesfully, but
+	// Post runs some effects after the Commit has run successfully, but
 	// before it exits.
 	Post func( /* deltaOps */ ) error
 

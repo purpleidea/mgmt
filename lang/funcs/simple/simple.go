@@ -258,7 +258,7 @@ func StructRegister(moduleName string, args interface{}) error {
 	//fmt.Printf("A: %+v\n", args)
 
 	val := reflect.ValueOf(args)
-	if val.Kind() == reflect.Ptr { // max one de-referencing
+	if val.Kind() == reflect.Pointer { // max one de-referencing
 		val = val.Elem()
 	}
 	typ := val.Type()

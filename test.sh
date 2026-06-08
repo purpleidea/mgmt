@@ -72,8 +72,9 @@ if label-block "basic"; then
 	run-testsuite ./test/test-examples.sh
 	run-testsuite ./test/test-gotest.sh
 	# FIXME: this fails with go.mod
-	skip-testsuite ./test/test-gometalinter.sh
-	run-testsuite ./test/test-golint.sh	# test last, because this test is somewhat arbitrary
+	#skip-testsuite ./test/test-gometalinter.sh	# deprecated
+	run-testsuite ./test/test-golangci-lint.sh	# test last, because this test is somewhat arbitrary
+	#run-testsuite ./test/test-golint.sh	# TODO: add back this diff logic with golangci-lint
 	# FIXME: this now fails everywhere :(
 	skip-testsuite ./test/test-reproducible.sh
 fi

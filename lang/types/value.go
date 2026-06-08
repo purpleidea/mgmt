@@ -112,7 +112,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 	value := v
 	typ := value.Type()
 	kind := typ.Kind()
-	for kind == reflect.Ptr {
+	for kind == reflect.Pointer {
 		// Prevent panic() if value is a nil pointer and return an error.
 		if value.IsNil() {
 			return nil, ErrNilValue
@@ -312,7 +312,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 func Into(v Value, rv reflect.Value) error {
 	typ := rv.Type()
 	kind := typ.Kind()
-	for kind == reflect.Ptr {
+	for kind == reflect.Pointer {
 		typ = typ.Elem() // un-nest one pointer
 		kind = typ.Kind()
 

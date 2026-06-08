@@ -268,8 +268,8 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 
 		// Here we unpack one-level, and then leave the complex stuff
 		// for the Into() method below.
-		// for kind1 == reflect.Interface || kind1 == reflect.Ptr // wrong
-		// if kind1 == reflect.Interface || kind1 == reflect.Ptr  // wrong
+		// for kind1 == reflect.Interface || kind1 == reflect.Pointer // wrong
+		// if kind1 == reflect.Interface || kind1 == reflect.Pointer  // wrong
 		// for kind1 == reflect.Interface // wrong
 		if kind1 == reflect.Interface {
 			value1 = value1.Elem() // un-nest one interface
@@ -278,8 +278,8 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 
 		// This second block is identical, but it's just accidentally
 		// symmetrical. The types of input structs are different shapes.
-		// for kind2 == reflect.Interface || kind2 == reflect.Ptr // wrong
-		// if kind2 == reflect.Interface || kind2 == reflect.Ptr  // wrong
+		// for kind2 == reflect.Interface || kind2 == reflect.Pointer // wrong
+		// if kind2 == reflect.Interface || kind2 == reflect.Pointer  // wrong
 		// for kind2 == reflect.Interface // wrong
 		if kind2 == reflect.Interface {
 			value2 = value2.Elem() // un-nest one interface

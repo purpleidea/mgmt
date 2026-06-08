@@ -247,7 +247,7 @@ func GetFunctionName(fn interface{}) string {
 	if pc == nil {
 		// This part works for structs, the other parts work for funcs.
 		t := reflect.TypeOf(fn)
-		if t.Kind() == reflect.Ptr {
+		if t.Kind() == reflect.Pointer {
 			t = t.Elem()
 		}
 

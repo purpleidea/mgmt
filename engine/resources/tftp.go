@@ -703,7 +703,7 @@ func (obj *TFTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // resource context is cancelled.
 func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
 	value := reflect.ValueOf(rf)
-	if value.Kind() != reflect.Ptr || value.IsNil() {
+	if value.Kind() != reflect.Pointer || value.IsNil() {
 		return nil, fmt.Errorf("unexpected transfer type: %T", rf)
 	}
 
@@ -721,7 +721,7 @@ func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
 	if conn.Kind() == reflect.Interface {
 		conn = conn.Elem()
 	}
-	if conn.Kind() != reflect.Ptr || conn.IsNil() {
+	if conn.Kind() != reflect.Pointer || conn.IsNil() {
 		return nil, fmt.Errorf("unexpected connection type: %T", connValue.Interface())
 	}
 

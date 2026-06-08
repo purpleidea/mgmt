@@ -76,9 +76,9 @@ const (
 	KindStruct
 	KindFunc
 	KindVariant
-
-	KindUnification = Kind(MaxInt8) // keep this last
 )
+
+const KindUnification Kind = Kind(MaxInt8) // keep this last
 
 // Type is the datastructure representing any type. It can be recursive for
 // container types like lists, maps, and structs.
@@ -214,7 +214,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 
 	typ := t
 	kind := typ.Kind()
-	for kind == reflect.Ptr {
+	for kind == reflect.Pointer {
 		typ = typ.Elem() // un-nest one pointer
 		kind = typ.Kind()
 	}

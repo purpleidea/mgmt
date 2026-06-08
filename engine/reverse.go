@@ -82,6 +82,18 @@ type ReversibleMeta struct {
 	// TODO: add options here, including whether to reverse edges, etc...
 }
 
+// Copy copies this struct and returns a new one.
+func (obj *ReversibleMeta) Copy() *ReversibleMeta {
+	if obj == nil {
+		return nil
+	}
+	return &ReversibleMeta{
+		Disabled:  obj.Disabled,
+		Reversal:  obj.Reversal,
+		Overwrite: obj.Overwrite,
+	}
+}
+
 // Cmp compares two ReversibleMeta structs and determines if they're equivalent.
 func (obj *ReversibleMeta) Cmp(rm *ReversibleMeta) error {
 	if obj.Disabled != rm.Disabled {

@@ -1,0 +1,33 @@
+file "/tmp/reversible-meta-copy-mre/" {
+	state => $const.res.file.state.exists,
+}
+
+# Step 1 of the runtime proof for the reversible meta aliasing bug.
+#
+# Run this file first, let it converge, and then run
+# `test/shell/reversible-meta-copy-mre-cleanup.mcl` with the same `--prefix`.
+#
+# Example:
+#   ./mgmt run --prefix /tmp/reversible-meta-copy-mre-prefix \
+#     --converged-timeout=2 --no-pgp lang \
+#     test/shell/reversible-meta-copy-mre.mcl
+#
+#   ./mgmt run --prefix /tmp/reversible-meta-copy-mre-prefix \
+#     --converged-timeout=2 --no-pgp lang \
+#     test/shell/reversible-meta-copy-mre-cleanup.mcl
+#
+# Expected on a correct engine:
+# 1. This run creates `/tmp/reversible-meta-copy-mre/target`.
+# 2. The cleanup run logs `adding 1 reversals...` and removes the target.
+#
+# Buggy engine behavior:
+# 1. This run converges and then deletes its own pending reverse state during
+#    shutdown cleanup.
+# 2. The cleanup run has no stored reversal to add, so the target is left
+#    behind.
+file "/tmp/reversible-meta-copy-mre/target" {
+	state => $const.res.file.state.exists,
+	content => "proof\n",
+
+	Meta:reverse => true,
+}

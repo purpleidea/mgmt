@@ -132,7 +132,6 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	obj.ClearIterBody(obj.lastInputListLength) // XXX: pass in size?
 
 	for i := 0; i < obj.lastInputListLength; i++ {
-		i := i
 		argName := "forInputList"
 
 		inputElemFunc := SimpleFnToDirectFunc(

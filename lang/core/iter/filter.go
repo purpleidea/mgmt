@@ -337,7 +337,6 @@ func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	obj.init.Txn.AddEdge(outputListFunc, obj.outputFunc, edge)
 
 	for i := 0; i < obj.lastInputListLength; i++ {
-		i := i
 		inputElemFunc := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("filterInputElem[%d]", i),
 			&types.FuncValue{

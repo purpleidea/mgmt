@@ -361,8 +361,6 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 	obj.init.Txn.AddEdge(outputListFunc, obj.outputFunc, edge)
 
 	for i := 0; i < obj.lastN; i++ {
-		i := i
-
 		inputElem1Func := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("zipInputElem1[%d]", i),
 			&types.FuncValue{

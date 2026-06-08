@@ -52,7 +52,6 @@ func TestMacFmt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			m, err := MacFmt(context.Background(), []types.Value{&types.StrValue{V: tt.in}})
 			if (err != nil) != tt.wantErr {
@@ -83,7 +82,6 @@ func TestOldMacFmt(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			m, err := OldMacFmt(context.Background(), []types.Value{&types.StrValue{V: tt.in}})
 			if (err != nil) != tt.wantErr {

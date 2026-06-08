@@ -250,7 +250,6 @@ func TestValueOfJSON1(t *testing.T) {
 	for index, tc := range testCases {
 		name := fmt.Sprintf("test ValueOfJSON1 #%d_", index)
 
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			t.Logf("json: %s", tc.str)
 			typ := tc.typ

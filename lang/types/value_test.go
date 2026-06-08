@@ -984,7 +984,6 @@ func TestValueInto0(t *testing.T) {
 	for index, tc := range testCases {
 		name := fmt.Sprintf("test Into() %s #%d", reflect.TypeOf(tc.container).Elem(), index)
 		// https://github.com/purpleidea/mgmt/pull/629/files#r568305689
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			rvo := reflect.ValueOf(tc.container)
 
@@ -1064,7 +1063,6 @@ func TestValueInto1(t *testing.T) {
 	for index, tc := range testCases {
 		name := fmt.Sprintf("test Into() %s #%d", reflect.TypeOf(tc.container).Elem(), index)
 
-		tc := tc
 		t.Run(name, func(t *testing.T) {
 			ctrVal := reflect.ValueOf(tc.container)
 

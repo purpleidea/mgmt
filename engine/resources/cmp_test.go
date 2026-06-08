@@ -38,17 +38,17 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
-func newRes(t testing.TB, kind, name string) engine.RecvableRes {
-	t.Helper()
+func newRes(tb testing.TB, kind, name string) engine.RecvableRes {
+	tb.Helper()
 
 	res, err := engine.NewNamedResource(kind, name)
 	if err != nil {
-		t.Fatalf("error creating resource: %v", err)
+		tb.Fatalf("error creating resource: %v", err)
 	}
 
 	r, ok := res.(engine.RecvableRes)
 	if !ok {
-		t.Fatalf("resource is not recvable")
+		tb.Fatalf("resource is not recvable")
 	}
 	return r
 }

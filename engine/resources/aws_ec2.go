@@ -871,7 +871,7 @@ func (obj *AwsEc2Res) snsListener(listenAddr string) (net.Listener, error) {
 
 // snsPostHandler listens for posts on the SNS Endpoint.
 func (obj *AwsEc2Res) snsPostHandler(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "POST" {
+	if req.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}

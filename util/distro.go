@@ -66,7 +66,7 @@ func GetFedoraDownloadURL(ctx context.Context) (string, error) {
 	client := &http.Client{
 		CheckRedirect: checkRedirectFunc,
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", FedoraDownloadURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, FedoraDownloadURL, nil)
 	if err != nil {
 		return "", err
 	}
@@ -100,7 +100,7 @@ type FedoraRelease struct {
 func LatestFedoraVersion(ctx context.Context, arch string) (string, error) {
 	client := &http.Client{}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", FedoraReleasesEndpointJSON, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, FedoraReleasesEndpointJSON, nil)
 	if err != nil {
 		return "", err
 	}

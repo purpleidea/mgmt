@@ -63,6 +63,7 @@ func (obj *fakeGroupFuncs) lookupGroup(name string) (*user.Group, error) {
 	return nil, user.UnknownGroupError(name)
 }
 
+//nolint:revive // Matches os/user.LookupGroupId.
 func (obj *fakeGroupFuncs) lookupGroupId(gid string) (*user.Group, error) {
 	if g, ok := obj.byID[gid]; ok {
 		return g, nil

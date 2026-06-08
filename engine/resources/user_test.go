@@ -68,6 +68,7 @@ func (obj *fakeUserFuncs) lookup(name string) (*user.User, error) {
 	return nil, user.UnknownUserError(name)
 }
 
+//nolint:revive // Matches os/user.LookupId.
 func (obj *fakeUserFuncs) lookupId(uid string) (*user.User, error) {
 	if u, ok := obj.usersByID[uid]; ok {
 		return u, nil
@@ -76,6 +77,7 @@ func (obj *fakeUserFuncs) lookupId(uid string) (*user.User, error) {
 	return nil, user.UnknownUserIdError(n)
 }
 
+//nolint:revive // Matches os/user.LookupGroupId.
 func (obj *fakeUserFuncs) lookupGroupId(gid string) (*user.Group, error) {
 	if g, ok := obj.groups[gid]; ok {
 		return g, nil

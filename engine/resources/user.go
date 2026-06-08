@@ -588,8 +588,10 @@ func isUnknownUserID(err error) bool {
 // points that CheckApply uses, behind func-typed fields. Shadowing `user`
 // inside CheckApply with a value of this type swaps the whole bundle at once.
 type userFuncs struct {
-	Lookup        func(name string) (*user.User, error)
-	LookupId      func(uid string) (*user.User, error)
+	Lookup func(name string) (*user.User, error)
+	//nolint:revive // Matches os/user.LookupId.
+	LookupId func(uid string) (*user.User, error)
+	//nolint:revive // Matches os/user.LookupGroupId.
 	LookupGroupId func(gid string) (*user.Group, error)
 	GroupIds      func(u *user.User) ([]string, error)
 	Shell         func(ctx context.Context, name string) (string, error)

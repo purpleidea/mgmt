@@ -313,7 +313,8 @@ func isUnknownGroupID(err error) bool {
 // with a value of this type swaps the whole bundle at once, which lets tests
 // serve lookups from memory and capture the command that would be run.
 type groupFuncs struct {
-	LookupGroup   func(name string) (*user.Group, error)
+	LookupGroup func(name string) (*user.Group, error)
+	//nolint:revive // Matches os/user.LookupGroupId.
 	LookupGroupId func(gid string) (*user.Group, error)
 	RunCmd        func(ctx context.Context, cmdName string, args []string) error
 }

@@ -270,7 +270,7 @@ func (obj *FileRes) mode() (os.FileMode, error) {
 		return os.FileMode(0), errwrap.Wrapf(err, "mode should be an octal number or symbolic mode (%s)", obj.Mode)
 	}
 
-	return os.FileMode(m), nil
+	return m, nil
 }
 
 // Default returns some sensible defaults for this resource.

@@ -214,11 +214,11 @@ func modeValueFrom(who string, modeType uint32) os.FileMode {
 	for _, w := range who {
 		switch w {
 		case 'u':
-			i += ModeUser * uint32(modeType)
+			i += ModeUser * modeType
 		case 'g':
-			i += ModeGroup * uint32(modeType)
+			i += ModeGroup * modeType
 		case 'o':
-			i += ModeOther * uint32(modeType)
+			i += ModeOther * modeType
 		}
 	}
 

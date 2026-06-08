@@ -183,7 +183,7 @@ func (obj *CPUCount) Call(ctx context.Context, args []types.Value) (types.Value,
 	}
 
 	return &types.IntValue{
-		V: int64(count),
+		V: count,
 	}, nil
 
 }

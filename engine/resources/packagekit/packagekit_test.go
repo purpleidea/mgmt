@@ -37,7 +37,7 @@ import (
 
 func TestNewPkError(t *testing.T) {
 	err := newPkError([]interface{}{
-		uint32(PkErrorEnumPackageAlreadyInstalled),
+		PkErrorEnumPackageAlreadyInstalled,
 		"higher version is already installed",
 	})
 	pkErr, ok := err.(*PkError)

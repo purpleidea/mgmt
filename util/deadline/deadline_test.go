@@ -27,6 +27,8 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
+//go:build !root
+
 // Package deadline_test has examples to test the testing deadline system.
 package deadline_test
 

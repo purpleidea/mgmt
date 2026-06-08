@@ -70,6 +70,11 @@ type API struct {
 	// CancelImpl is the implementation for the Cancel API. The API is the
 	// collection of public methods that exist on this struct.
 	*CancelImpl
+
+	// HTTPPool is the implementation for the HTTP API's. It is the bridge
+	// that lets http client resources publish their response status and
+	// output file location for http.response functions to consume.
+	*HTTPPool
 }
 
 // Init initializes the API before first use. It returns itself so it can be
@@ -102,6 +107,12 @@ func (obj *API) Init() *API {
 		//Prefix: obj.Prefix,
 		//Debug:  obj.Debug,
 		//Logf:   obj.Logf,
+	})
+
+	obj.HTTPPool = &HTTPPool{}
+	obj.HTTPPool.Init(&HTTPPoolInit{
+		Debug: obj.Debug,
+		Logf:  obj.Logf,
 	})
 
 	return obj
@@ -650,4 +661,149 @@ func (obj *CancelImpl) Exit(code int) error {
 	err := util.ExitCodeError{Code: code} // magic error!
 	obj.init.Cancel(err)
 	return nil
+}
+
+// HTTPPoolInit are the init values that the HTTP API needs to work correctly.
+type HTTPPoolInit struct {
+	Debug bool
+	Logf  func(format string, v ...interface{})
+}
+
+// HTTPResponse is the response state that an http client resource publishes for
+// a given uid, so that a corresponding http.response function can read it back.
+type HTTPResponse struct {
+	// Status is the most recent HTTP status code (eg: 200) for the named
+	// resource. It is zero if nothing is known yet, and -1 if an
+	// engine-level error happened (eg: a transport, disk, or validation
+	// failure) rather than getting an HTTP status code.
+	Status int
+
+	// Path is the absolute path to the file holding the downloaded body. It
+	// is empty if no valid body is currently available.
+	Path string
+}
+
+// HTTPPool is the implementation for the HTTP API's. It is an in-memory,
+// watchable registry that bridges http client resources (which publish their
+// response status and output file locations) and http.response functions (which
+// read and watch that data). It is intentionally not backed by disk, since the
+// response state is only meaningful while the engine is running. The function
+// engine starts before resources do, so an unknown uid simply reads back as the
+// zero value, which is exactly the desired "nothing has happened yet" state.
+type HTTPPool struct {
+	init   *HTTPPoolInit
+	mutex  *sync.Mutex
+	values map[string]*HTTPResponse
+	notify map[chan struct{}]string // one chan (unique ptr) for each watch
+}
+
+// Init runs some initialization code for the HTTP API.
+func (obj *HTTPPool) Init(init *HTTPPoolInit) {
+	obj.init = init
+	obj.mutex = &sync.Mutex{}
+	obj.values = make(map[string]*HTTPResponse)
+	obj.notify = make(map[chan struct{}]string)
+}
+
+// HTTPSet publishes the response state for a given uid and notifies any
+// watchers if it changed. It is called by the http:client resource. Passing the
+// same values as already stored is a no-op that does not notify.
+func (obj *HTTPPool) HTTPSet(ctx context.Context, uid string, status int, path string) error {
+	if uid == "" {
+		return fmt.Errorf("uid is empty")
+	}
+
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	// If we're already in the correct state, then return early and *don't*
+	// send any events at the very end...
+	if v, exists := obj.values[uid]; exists && v.Status == status && v.Path == path {
+		return nil // already in the correct state
+	}
+	obj.values[uid] = &HTTPResponse{
+		Status: status,
+		Path:   path,
+	}
+
+	for ch, k := range obj.notify { // send notifications to any watchers...
+		if k != uid { // there might be more than one watcher per uid
+			continue
+		}
+		select {
+		case ch <- struct{}{}: // must be async and not block forever
+			// send
+
+		default:
+			// The notify chan is buffered (1) so if it's full then
+			// a notification is already pending and dropping this
+			// one coalesces them, which is exactly what we want.
+		}
+	}
+
+	return nil
+}
+
+// HTTPGet reads the response state for a given uid. If nothing has been
+// published yet, it returns an empty (zero-value) response and no error, since
+// a zero status is exactly the "nothing has happened yet" state that consumers
+// want to see. The returned value is a copy that is safe for the caller to use
+// without holding our lock.
+func (obj *HTTPPool) HTTPGet(ctx context.Context, uid string) (*HTTPResponse, error) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	resp, exists := obj.values[uid]
+	if !exists { // nothing published yet
+		return &HTTPResponse{ // empty
+			Status: 0,
+			Path:   "",
+		}, nil
+	}
+	return &HTTPResponse{ // return a copy
+		Status: resp.Status,
+		Path:   resp.Path,
+	}, nil
+}
+
+// HTTPWatch watches the response state for a given uid. Like ValueWatch, it
+// sends a single startup event and then one event for each subsequent change.
+func (obj *HTTPPool) HTTPWatch(ctx context.Context, uid string) (chan struct{}, error) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	notifyCh := make(chan struct{}, 1) // so we can async send
+	obj.notify[notifyCh] = uid         // add (while within the mutex)
+	notifyCh <- struct{}{}             // startup signal, send one!
+	ch := make(chan struct{})
+	go func() {
+		defer func() { // cleanup
+			obj.mutex.Lock()
+			defer obj.mutex.Unlock()
+			delete(obj.notify, notifyCh) // free memory (in mutex)
+		}()
+		for {
+			select {
+			case _, ok := <-notifyCh:
+				if !ok {
+					// programming error
+					panic("unexpected channel closure")
+				}
+				// recv
+
+			case <-ctx.Done():
+				return // we exit
+			}
+
+			select {
+			case ch <- struct{}{}:
+				// send
+
+			case <-ctx.Done():
+				return // we exit
+			}
+		}
+	}()
+
+	return ch, nil
 }

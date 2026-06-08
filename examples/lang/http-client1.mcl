@@ -1,0 +1,44 @@
+# Demonstrates the net/http.response function, a reactive bridge that exposes an
+# http:client resource's download state to the mcl function world. Each time the
+# resource (re)downloads (or fails to download) a file, the response function
+# emits a fresh struct of {status int; output str}.
+#
+# status is:
+#	0: nothing has happened yet (or no matching http:client resource)
+#	-1: an engine-level error happened (eg: a network or disk failure)
+#	200: the most recent response code (or some other HTTP status code)
+# output is the most recently downloaded body.
+#
+# The argument to http.response is the uid, which is the name of the http:client
+# resource it reads from.
+#
+# run it:
+#	mgmt run --tmp-prefix lang examples/lang/http-client1.mcl
+
+import "fmt"
+import "net/http"
+
+$uid = "/tmp/output"
+
+http:client "${uid}" {
+	url => "http://example.com/",
+	method => "GET",
+
+	Meta:poll => 30, # re-check every 30 seconds
+}
+
+$response = http.response($uid)
+
+# react to the status code as it changes over time
+print "status" {
+	msg => fmt.printf("http status: %d", $response->status),
+
+	Meta:autogroup => false,
+}
+
+# react to the downloaded body as it changes over time
+print "output" {
+	msg => $response->output, # no message seen in this is the empty string!
+
+	Meta:autogroup => false,
+}

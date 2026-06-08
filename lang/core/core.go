@@ -51,6 +51,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/map"
 	_ "github.com/purpleidea/mgmt/lang/core/math"
 	_ "github.com/purpleidea/mgmt/lang/core/net"
+	_ "github.com/purpleidea/mgmt/lang/core/net/http"
 	_ "github.com/purpleidea/mgmt/lang/core/os"
 	_ "github.com/purpleidea/mgmt/lang/core/regexp"
 	_ "github.com/purpleidea/mgmt/lang/core/strings"

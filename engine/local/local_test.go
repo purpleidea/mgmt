@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestWrite(t *testing.T) {
@@ -59,4 +60,81 @@ func TestWrite(t *testing.T) {
 		t.Errorf("error: %+v", err)
 		//return
 	}
+}
+
+func TestHTTPPool(t *testing.T) {
+	ctx := context.Background()
+	pool := &HTTPPool{}
+	pool.Init(&HTTPPoolInit{
+		Logf: func(format string, v ...interface{}) { t.Logf("pool: "+format, v...) },
+	})
+
+	// An unpublished uid reads back as an empty (zero-value) response. This
+	// is what lets a function like http.response("bar") report a 0 status
+	// code when only an unrelated http:client "foo" resource exists in the
+	// graph.
+	if resp, err := pool.HTTPGet(ctx, "bar"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if resp == nil || resp.Status != 0 || resp.Path != "" {
+		t.Errorf("expected empty response for unknown uid, got: %+v", resp)
+		return
+	}
+
+	// Watch "foo" before anything is published. We should get one startup
+	// event, and then one event for each subsequent change.
+	ch, err := pool.HTTPWatch(ctx, "foo")
+	if err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv := func(want bool) {
+		t.Helper()
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				t.Errorf("watch channel closed unexpectedly")
+				return
+			}
+			if !want {
+				t.Errorf("got an unexpected watch event")
+			}
+		case <-time.After(time.Second):
+			if want {
+				t.Errorf("timeout waiting for watch event")
+			}
+		}
+	}
+
+	recv(true) // startup event
+
+	// Publish a status and path for "foo" and confirm we can read it back.
+	if err := pool.HTTPSet(ctx, "foo", 200, "/tmp/foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv(true) // change event
+	if resp, err := pool.HTTPGet(ctx, "foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if resp == nil || resp.Status != 200 || resp.Path != "/tmp/foo" {
+		t.Errorf("unexpected response: %+v", resp)
+		return
+	}
+
+	// "bar" must still be unknown: publishing "foo" doesn't leak across.
+	if resp, err := pool.HTTPGet(ctx, "bar"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if resp == nil || resp.Status != 0 || resp.Path != "" {
+		t.Errorf("expected empty response for unknown uid, got: %+v", resp)
+		return
+	}
+
+	// Setting the same value again is a no-op that must not notify.
+	if err := pool.HTTPSet(ctx, "foo", 200, "/tmp/foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv(false) // no event expected
 }

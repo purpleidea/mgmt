@@ -58,6 +58,17 @@ const (
 
 	httpClientLongpollWaitTime = 60 // seconds, arbitrary
 
+	// httpClientStatusNone is the sentinel meaning that this CheckApply has
+	// no new outcome to report (eg: a 304 not-modified, or a local cache
+	// hit). When this is the case we leave the previously published value
+	// in the local bridge untouched, so that the status code we captured
+	// alongside the data on the last real change persists.
+	httpClientStatusNone = 0
+
+	// httpClientStatusError is the status we publish to the local bridge
+	// when an engine-level error happens (eg: a transport, disk, or
+	// validation failure) instead of getting an HTTP status code.
+	httpClientStatusError = -1
 )
 
 func init() {
@@ -72,11 +83,16 @@ func init() {
 // a redownload. This resource sends the file contents as a send/recv edge. This
 // resource can use an http long poll endpoint to receive events and know when a
 // file has changed. If you attempt to use the Longpoll option with an endpoint
-// which does not support that, then you may cause infinite looping.
+// which does not support that, then you may cause infinite looping. This
+// resource publishes its response status and output file location to the local
+// API bridge, so that a net/http.response("${name}") function can read and
+// watch the status and output data which changes over time as this resource
+// downloads files. One interesting detail: while you could just write the file
+// to a known location and read it via os.readfile, that would be usually worse
+// since that would see filesystem (inotify) style events when it's written,
+// rather than the safer, internal event system which notifies only once, and
+// when the actual (precise) change occurs.
 // TODO: send/recv the http status too?
-// FIXME: read the contents from an http.client("${name}") function which could
-// initially return a struct of {data => "", code => 0} which eventually changes
-// over time as this resource downloads a file...
 // TODO: add support for TLS
 type HTTPClientRes struct {
 	traits.Base     // add the base methods without re-implementation
@@ -149,6 +165,12 @@ type HTTPClientRes struct {
 	// we consumed the resp. This prevents Watch from running the next long
 	// poll prematurely, which gives us natural backpressure.
 	ackCh chan struct{}
+
+	// status and output record the outcome of the download operations so
+	// that they can be passed to the local API for use in the
+	// net/http.response function.
+	status int
+	output string
 }
 
 // Default returns some sensible defaults for this resource.
@@ -613,11 +635,25 @@ func (obj *HTTPClientRes) longpollWatch(ctx context.Context, client *http.Client
 // XXX: We don't want the initial CheckApply to return true until the Watch has
 // started up, so we must block there until that's the case if their Startup is
 // not perfectly timed. (How can a long poll always know when watcher is ready?)
-func (obj *HTTPClientRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+func (obj *HTTPClientRes) CheckApply(ctx context.Context, apply bool) (checkOK bool, reterr error) {
 	if obj.init.Debug {
 		obj.init.Logf("CheckApply")
 	}
 	obj.sha256 = "" // start by always invalidating the sha256 cache
+
+	// Reset the response state that we publish to the local bridge so that
+	// the net/http.response("${name}") function can read it. Below we set
+	// obj.status and obj.output at the points wherever we can determine
+	// their values.
+	obj.status = httpClientStatusNone
+	obj.output = ""
+	defer func() {
+		if err := obj.publishResponse(ctx, reterr); err != nil { // reads whatever is in reterr
+			// rare, and not even possible today
+			checkOK = false
+			reterr = errwrap.Append(reterr, err)
+		}
+	}()
 
 	if obj.MetaParams().Poll != 0 {
 		// TODO: merge this code into this main CheckApply if we can...
@@ -713,6 +749,13 @@ func (obj *HTTPClientRes) pollCheckApply(ctx context.Context, apply bool) (bool,
 			return false, err
 		}
 
+		// A local sha256 match is positive confirmation that we hold
+		// valid data, so report 200 and pass along the path. This also
+		// seeds the bridge with a 200 on a fresh start where we find a
+		// correct file already on disk but have no previously captured
+		// state. (Unlike a 304, this isn't relabeling a server's code.)
+		obj.status = http.StatusOK
+		obj.output = obj.dst
 		return true, nil
 	}
 
@@ -763,9 +806,18 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 			return false, err
 		}
 
+		// 304 means our on-disk data is still current. Record this as
+		// the outcome and let publishResponse decide what to do with
+		// the bridge. Usually it leaves the last captured value alone
+		// (so a steady stream of 304s never surfaces as a status), but
+		// it seeds a 200 on a fresh start where the bridge is empty.
+		obj.status = http.StatusNotModified
+		obj.output = obj.dst
 		return true, nil
 	}
 	if resp.StatusCode != http.StatusOK {
+		obj.status = resp.StatusCode // report the HTTP code (eg: 404, 500)
+		obj.output = ""
 		return false, fmt.Errorf("unexpected status: %s", resp.Status)
 	}
 
@@ -774,6 +826,8 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 	// In noop mode we must not write to disk. The server has content for us
 	// but saving it (writing the file) is a change we're not allowed to do.
 	if !apply {
+		// XXX: leave the obj.status / obj.output untouched rather than
+		// reporting a code for data we didn't actually capture?
 		// XXX: do we need to send/recv in noop mode?
 		return false, nil
 	}
@@ -880,7 +934,58 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 		return false, err
 	}
 
+	obj.status = resp.StatusCode // 200, freshly downloaded and validated
+	obj.output = obj.dst
 	return unchanged, nil
+}
+
+// publishResponse writes the current response state to the local bridge so that
+// a corresponding net/http.response("${name}") function can read and watch it.
+// We publish when there's a new outcome to report: a fresh download (the real
+// status code paired with its data), an HTTP failure code, or -1 for an engine
+// type error (eg: a transport, disk, or validation failure). When nothing
+// changes we leave the bridge untouched so the status and data captured on the
+// last real change persist. The http.StatusNotModified (304) case is special:
+// the data is current but it's not a new outcome, so we keep whatever the
+// bridge already has (which keeps a steady stream of 304s from ever surfacing
+// as a status, so consumers see a stable 200 rather than a 200-or-304), unless
+// the bridge is still empty, in which case we seed a 200 since we genuinely
+// hold valid data. We don't publish during a clean shutdown.
+func (obj *HTTPClientRes) publishResponse(ctx context.Context, reterr error) error {
+	if ctx.Err() != nil { // clean shutdown, don't publish a spurious error
+		return nil // let CheckApply pass through the correct error!
+	}
+
+	status := obj.status
+	switch obj.status {
+	case httpClientStatusNone:
+		if reterr == nil {
+			return nil // nothing changed, keep the bridge's last value
+		}
+		status = httpClientStatusError // engine-level failure, no HTTP code
+
+	case http.StatusNotModified: // 304
+		prev, err := obj.init.Local.HTTPGet(ctx, obj.Name())
+		if err != nil {
+			// rare, and not even possible today
+			return errwrap.Wrapf(err, "could not read http response")
+		}
+		if prev == nil {
+			// programming error
+			return fmt.Errorf("unexpected nil response")
+		}
+		if prev.Status != 0 { // the bridge already holds a captured value
+			return nil // keep the bridge's last captured value
+		}
+		status = http.StatusOK // seed a 200 since we hold valid data
+	}
+
+	if err := obj.init.Local.HTTPSet(ctx, obj.Name(), status, obj.output); err != nil {
+		// rare, and not even possible today
+		return errwrap.Wrapf(err, "could not publish http response")
+	}
+
+	return nil
 }
 
 // send is a helper to avoid duplication of the same send operation.

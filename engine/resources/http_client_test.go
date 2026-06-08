@@ -47,6 +47,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 )
 
 // serverResp is one scripted response from the test server.
@@ -158,6 +159,11 @@ func newFakeInit(t *testing.T) *fakeInit {
 		Debug: testing.Verbose(),
 		Logf:  func(format string, v ...interface{}) { t.Logf("res: "+format, v...) },
 	}
+	fi.init.Local = (&local.API{
+		Prefix: filepath.Join(tmpdir, "local"),
+		Debug:  testing.Verbose(),
+		Logf:   func(format string, v ...interface{}) { t.Logf("local: "+format, v...) },
+	}).Init()
 	return fi
 }
 

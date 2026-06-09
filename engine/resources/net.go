@@ -307,6 +307,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 				case <-closeChan:
 					return
 				}
+				continue
 			}
 			select {
 			case nlChan <- &nlChanStruct{

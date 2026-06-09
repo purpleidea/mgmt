@@ -329,7 +329,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 		case s, ok := <-nlChan:
 			if !ok {
 				if done {
-					return nil
+					return ctx.Err()
 				}
 				done = true
 				continue
@@ -344,7 +344,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 		case event, ok := <-recWatcher.Events():
 			if !ok {
 				if done {
-					return nil
+					return ctx.Err()
 				}
 				done = true
 				continue
@@ -357,7 +357,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

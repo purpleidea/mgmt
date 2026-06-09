@@ -152,6 +152,13 @@ func (obj *TFTPServerRes) Validate() error {
 func (obj *TFTPServerRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	// TODO: should we do this in the engine? Do we want to decide it here?
+	for _, res := range obj.GetGroup() { // grouped elements
+		if err := res.Init(init); err != nil {
+			return errwrap.Wrapf(err, "autogrouped Init failed")
+		}
+	}
+
 	obj.once = &sync.Once{}
 	obj.start = make(chan struct{})
 

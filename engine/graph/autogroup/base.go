@@ -106,11 +106,13 @@ func (obj *baseGrouper) Init(g *pgraph.Graph) error {
 // the desired algorithms can override, but keep this method as a base iterator!
 func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	// this does a for v... { for w... { return v, w }} but stepwise!
-	// fast-forward over pairs whose kinds could never group together, so
-	// large graphs full of ungroupable resources don't pay the full cost
+	// fast-forward over pairs whose kinds could never group together, and
+	// over pairs with an already merged away (deleted) vertex, so large
+	// graphs full of ungroupable resources don't pay the full cost
 	for !obj.done {
 		c1, c2 := obj.chunks[obj.i], obj.chunks[obj.j]
-		if c1 == c2 || c1 == "" || c2 == "" {
+		b := c1 == c2 || c1 == "" || c2 == ""
+		if b && obj.graph.HasVertex(obj.vertices[obj.i]) && obj.graph.HasVertex(obj.vertices[obj.j]) {
 			break // a candidate pair
 		}
 		obj.advance()
@@ -122,14 +124,6 @@ func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	}
 	if obj.j < l {
 		v2 = obj.vertices[obj.j]
-	}
-
-	// in case the vertex was deleted
-	if !obj.graph.HasVertex(v1) {
-		v1 = nil
-	}
-	if !obj.graph.HasVertex(v2) {
-		v2 = nil
 	}
 
 	obj.advance()

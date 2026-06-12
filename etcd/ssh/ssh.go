@@ -42,6 +42,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/etcd"
@@ -64,6 +66,13 @@ const (
 	defaultSSHDir                     = "~/.ssh/"
 	defaultKnownHostsPath             = "~/.ssh/known_hosts"
 	allowRSA                          = true // are big keys okay?
+
+	// closeTimeout bounds how long we wait for the etcd client to close
+	// during cleanup before we force the underlying ssh transport down to
+	// unblock it. The grpc graceful close can otherwise block forever if
+	// the connection is genuinely dead and can never drain. See
+	// closeClient.
+	closeTimeout = 60 * time.Second
 )
 
 // World is an implementation of the world API for etcd over SSH.
@@ -107,6 +116,11 @@ type World struct {
 	init *engine.WorldInit
 
 	cleanups []func() error
+
+	// sshMutex guards sshCleanups, which is mutated by the grpc dialer on
+	// every (re)connect and read by closeSSH on shutdown.
+	sshMutex    *sync.Mutex
+	sshCleanups []func() error
 }
 
 // keySigners gets a list of possible key signers. These are used to get the
@@ -324,6 +338,8 @@ func (obj *World) hostKeyCallback(hostkey ssh.PublicKey) ssh.HostKeyCallback {
 func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 	obj.init = init
 	obj.cleanups = []func() error{}
+	obj.sshMutex = &sync.Mutex{}
+	obj.sshCleanups = nil
 
 	if len(obj.Seeds) == 0 {
 		return fmt.Errorf("at least one seed is required")
@@ -467,8 +483,6 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		HostKeyAlgorithms: obj.prioritizeHostKeyAlgorithms(preferredAlgoOrder, keyTypes),
 	}
 
-	sshCleanups := []func() error{}
-
 	// This runs repeatedly when etcd tries to reconnect.
 	grpcWithContextDialerFunc := func(ctx context.Context, addr string) (net.Conn, error) {
 
@@ -479,16 +493,8 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 			}
 
 			// Cleanup previous connection...
-			var errs error
-			for i := len(sshCleanups) - 1; i >= 0; i-- { // reverse
-				f := sshCleanups[i]
-				if err := f(); err != nil {
-					errs = errwrap.Append(errs, err)
-				}
-			}
-			sshCleanups = nil // clean
-			if errs != nil {
-				obj.init.Logf("error cleaning on reconnect: %+v", errs)
+			if err := obj.closeSSH(); err != nil {
+				obj.init.Logf("error cleaning on reconnect: %+v", err)
 			}
 
 			obj.init.Logf("ssh: %s@%s", user, sshAddr)
@@ -498,7 +504,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				obj.init.Logf("ssh dial error: %v", err)
 				continue
 			}
-			sshCleanups = append(sshCleanups, func() error {
+			obj.addSSHCleanup(func() error {
 				e := sshClient.Close()
 				if obj.init.Debug && e != nil {
 					obj.init.Logf("ssh client close error: %+v", e)
@@ -514,8 +520,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 				continue
 			}
 
-			// TODO: do we need a mutex around adding these?
-			sshCleanups = append(sshCleanups, func() error {
+			obj.addSSHCleanup(func() error {
 				e := tunnel.Close()
 				if e == io.EOF { // XXX: why does this happen?
 					return nil // ignore
@@ -556,7 +561,9 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		return errwrap.Append(obj.cleanup(), err)
 	}
 	obj.cleanups = append(obj.cleanups, func() error {
-		e := etcdClient.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), closeTimeout)
+		defer cancel()
+		e := obj.closeClient(ctx, etcdClient)
 		if obj.init.Debug && e != nil {
 			obj.init.Logf("etcd client close error: %+v", e)
 		}
@@ -585,6 +592,54 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 	})
 
 	return nil
+}
+
+// closeClient closes the etcd client, bounded by ctx. The etcd and grpc Close
+// methods are not context-aware and can block forever on a genuinely dead
+// connection: the grpc reader is parked in a raw conn.Read that only a conn
+// close (not a context cancellation) can interrupt. So if ctx is done before
+// Close returns, we tear down the ssh transport ourselves to unblock the reader
+// and then wait for Close to actually return. The close goroutine is always
+// joined, never abandoned.
+func (obj *World) closeClient(ctx context.Context, etcdClient *clientv3.Client) error {
+	errch := make(chan error, 1) // buffered so the goroutine can't leak
+	go func() {
+		errch <- etcdClient.Close()
+	}()
+	select {
+	case err := <-errch:
+		return err // closed cleanly within the deadline
+	case <-ctx.Done():
+	}
+	// Close is stuck; force the ssh transport down to unblock the grpc
+	// reader, then wait for Close to actually return.
+	if err := obj.closeSSH(); err != nil && obj.init.Debug {
+		obj.init.Logf("ssh force close error: %+v", err)
+	}
+	return <-errch
+}
+
+// addSSHCleanup registers a "close" action for the current ssh connection.
+func (obj *World) addSSHCleanup(fn func() error) {
+	obj.sshMutex.Lock()
+	defer obj.sshMutex.Unlock()
+	obj.sshCleanups = append(obj.sshCleanups, fn)
+}
+
+// closeSSH tears down the current ssh client and tunnel, if any. It runs on
+// reconnect (to drop the stale connection) and on shutdown (to unblock a stuck
+// etcd client Close, see closeClient). It is safe to call more than once.
+func (obj *World) closeSSH() error {
+	obj.sshMutex.Lock()
+	defer obj.sshMutex.Unlock()
+	var errs error
+	for i := len(obj.sshCleanups) - 1; i >= 0; i-- { // reverse
+		if err := obj.sshCleanups[i](); err != nil {
+			errs = errwrap.Append(errs, err)
+		}
+	}
+	obj.sshCleanups = nil // clean
+	return errs
 }
 
 // cleanup performs all the "close" actions either at the very end or as we go.

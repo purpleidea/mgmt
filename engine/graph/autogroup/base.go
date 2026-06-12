@@ -147,6 +147,19 @@ func (obj *baseGrouper) VertexCmp(v1, v2 pgraph.Vertex) error {
 	return nil // success
 }
 
+// VertexViable returns whether the graph would still make sense if these two
+// vertices were merged. This base version always says yes; algorithms should
+// override it with their structural check. It is split out from VertexCmp so
+// that the cheap resource comparison can run first, and this potentially more
+// expensive graph traversal only runs for pairs which actually want to merge.
+func (obj *baseGrouper) VertexViable(v1, v2 pgraph.Vertex) error {
+	if v1 == nil || v2 == nil {
+		return fmt.Errorf("the vertex is nil")
+	}
+
+	return nil // viable
+}
+
 // VertexMerge needs to be overridden to add the actual merging functionality.
 func (obj *baseGrouper) VertexMerge(v1, v2 pgraph.Vertex) (v pgraph.Vertex, err error) {
 	return nil, fmt.Errorf("vertexMerge needs to be overridden")

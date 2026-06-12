@@ -69,6 +69,13 @@ func AutoGroup(ctx context.Context, ag engine.AutoGrouper, g *pgraph.Graph, debu
 				logf("!GroupCmp err: %+v", err)
 			}
 
+			// does the graph shape allow this merge?
+		} else if err := ag.VertexViable(v, w); err != nil { // viable ?
+			if debug {
+				logf("!VertexViable for: %s into: %s", wStr, vStr)
+				logf("!VertexViable err: %+v", err)
+			}
+
 			// remove grouped vertex and merge edges (res is safe)
 		} else if err := VertexMerge(g, v, w, ag.VertexMerge, ag.EdgeMerge); err != nil { // merge...
 			logf("!VertexMerge for: %s into: %s", wStr, vStr)

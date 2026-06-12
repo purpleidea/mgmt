@@ -102,6 +102,7 @@ type AutoGrouper interface {
 	Init(*pgraph.Graph) error                                        // only call once
 	VertexNext() (pgraph.Vertex, pgraph.Vertex, error)               // mostly algorithmic
 	VertexCmp(pgraph.Vertex, pgraph.Vertex) error                    // can we merge these ?
+	VertexViable(pgraph.Vertex, pgraph.Vertex) error                 // does the graph allow it ?
 	VertexMerge(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error) // vertex merge fn to use
 	EdgeMerge(pgraph.Edge, pgraph.Edge) pgraph.Edge                  // edge merge fn to use
 	VertexTest(bool) (bool, error)                                   // call until false

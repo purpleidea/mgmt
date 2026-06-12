@@ -389,6 +389,9 @@ func (obj *MountRes) Cmp(r engine.Res) error {
 	if obj.State != res.State {
 		return fmt.Errorf("the State differs")
 	}
+	if obj.Device != res.Device {
+		return fmt.Errorf("the Device differs")
+	}
 	if obj.Type != res.Type {
 		return fmt.Errorf("the Type differs")
 	}
@@ -396,7 +399,7 @@ func (obj *MountRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the Options differ")
 	}
 	if obj.Freq != res.Freq {
-		return fmt.Errorf("the Type differs")
+		return fmt.Errorf("the Freq differs")
 	}
 	if obj.PassNo != res.PassNo {
 		return fmt.Errorf("the PassNo differs")

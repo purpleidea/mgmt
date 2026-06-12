@@ -4,6 +4,7 @@ go 1.25.7
 
 require (
 	github.com/alexflint/go-arg v1.5.1
+	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/ashcrow/osrelease v0.0.0-20180626175927-9b292693c55c
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/bmc-toolbox/bmclib/v2 v2.3.5-0.20260201115749-55a0937f00cf
@@ -13,6 +14,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.4.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/deniswernert/go-fstab v0.0.0-20141204152952-eb4090f26517
+	github.com/docker/cli v27.5.1+incompatible
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/fsnotify/fsnotify v1.9.0

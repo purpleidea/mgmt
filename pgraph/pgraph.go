@@ -129,12 +129,20 @@ func (obj *Graph) Copy() *Graph {
 		kv:        obj.kv,
 	}
 	for v1, m := range obj.adjacency {
+		newGraph.adjacency[v1] = nil // preserve any lazy (nil) maps
+		if m == nil {
+			continue
+		}
 		newGraph.adjacency[v1] = make(map[Vertex]Edge, len(m))
 		for v2, e := range m {
 			newGraph.adjacency[v1][v2] = e // copy
 		}
 	}
 	for v1, m := range obj.revadjmap {
+		newGraph.revadjmap[v1] = nil // preserve any lazy (nil) maps
+		if m == nil {
+			continue
+		}
 		newGraph.revadjmap[v1] = make(map[Vertex]Edge, len(m))
 		for v2, e := range m {
 			newGraph.revadjmap[v1][v2] = e // copy
@@ -231,11 +239,15 @@ func (obj *Graph) AddVertex(xv ...Vertex) {
 		if v == nil {
 			panic("nil vertex")
 		}
+		// The inner maps start as nil and get allocated by AddEdge on
+		// first use. Nil maps are safe to range over, read, len() and
+		// delete() from, so only the writes in AddEdge need to care.
+		// This halves the allocations for graphs full of vertices.
 		if _, exists := obj.adjacency[v]; !exists {
-			obj.adjacency[v] = make(map[Vertex]Edge)
+			obj.adjacency[v] = nil
 		}
 		if _, exists := obj.revadjmap[v]; !exists {
-			obj.revadjmap[v] = make(map[Vertex]Edge)
+			obj.revadjmap[v] = nil
 		}
 	}
 }
@@ -273,7 +285,13 @@ func (obj *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	// TODO: check if an edge exists to avoid overwriting it!
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
 	// NOTE: Interpret() depends on overwriting it at the moment...
+	if obj.adjacency[v1] == nil { // lazily allocated by AddVertex
+		obj.adjacency[v1] = make(map[Vertex]Edge)
+	}
 	obj.adjacency[v1][v2] = e
+	if obj.revadjmap[v2] == nil { // lazily allocated by AddVertex
+		obj.revadjmap[v2] = make(map[Vertex]Edge)
+	}
 	obj.revadjmap[v2][v1] = e
 }
 

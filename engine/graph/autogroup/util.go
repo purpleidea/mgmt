@@ -66,7 +66,10 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)
 		e := g.Adjacency()[x][v2] // previous edge
-		r, err := g.Reachability(x, v1)
+		// We need the actual path here (not just a bool) to merge the
+		// edge through it below. The unsafe variant skips the redundant
+		// per-call DAG validation. Our caller guarantees a DAG.
+		r, err := g.ReachabilityUnsafe(x, v1)
 		if err != nil {
 			return err
 		}
@@ -95,8 +98,8 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 
 	// 3) edges that point from v2 to X now point from v1 to X (no dupes)
 	for _, x := range g.OutgoingGraphVertices(v2) { // all from vertex v (v -> ???)
-		e := g.Adjacency()[v2][x] // previous edge
-		r, err := g.Reachability(v1, x)
+		e := g.Adjacency()[v2][x]             // previous edge
+		r, err := g.ReachabilityUnsafe(v1, x) // see note in step 2
 		if err != nil {
 			return err
 		}

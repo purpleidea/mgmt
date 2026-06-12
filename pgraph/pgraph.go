@@ -974,9 +974,11 @@ func (obj *Graph) HasPath(a, b Vertex) bool {
 		return true
 	}
 
-	stack := make([]Vertex, 0, len(obj.adjacency)) // XXX: what size?
-	stack = append(stack, a)
-	visited := make(map[Vertex]struct{}, len(obj.adjacency))
+	// NOTE: These start small and grow on demand. Sizing them by vertex
+	// count looks clever, but this gets called in tight loops where the
+	// traversal usually exits early, and the over-allocation dominated.
+	stack := []Vertex{a}
+	visited := make(map[Vertex]struct{})
 	visited[a] = struct{}{}
 	for len(stack) > 0 {
 		last := len(stack) - 1

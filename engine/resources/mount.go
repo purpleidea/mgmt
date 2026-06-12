@@ -261,7 +261,7 @@ func (obj *MountRes) Watch(ctx context.Context) error {
 		case event, ok := <-recWatcher.Events():
 			if !ok {
 				if done {
-					return nil
+					return ctx.Err()
 				}
 				done = true
 				continue
@@ -276,7 +276,7 @@ func (obj *MountRes) Watch(ctx context.Context) error {
 		case event, ok := <-ch:
 			if !ok {
 				if done {
-					return nil
+					return ctx.Err()
 				}
 				done = true
 				continue
@@ -286,7 +286,7 @@ func (obj *MountRes) Watch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

@@ -48,20 +48,10 @@ import (
 func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(pgraph.Edge, pgraph.Edge) pgraph.Edge) error {
 	// methodology
 	// 1) edges between v1 and v2 are removed
-	//Loop:
-	for k1 := range g.Adjacency() {
-		for k2 := range g.Adjacency()[k1] {
-			// v1 -> v2 || v2 -> v1
-			if (k1 == v1 && k2 == v2) || (k1 == v2 && k2 == v1) {
-				g.DeleteEdgeBetween(k1, k2) // delete map & edge
-				// NOTE: if we assume this is a DAG, then we can
-				// assume only v1 -> v2 OR v2 -> v1 exists, and
-				// we can break out of these loops immediately!
-				//break Loop
-				break
-			}
-		}
-	}
+	// NOTE: since this is a DAG, at most one of the two directions exists,
+	// but deleting an edge which isn't there is a cheap noop anyway.
+	g.DeleteEdgeBetween(v1, v2) // delete map & edge
+	g.DeleteEdgeBetween(v2, v1) // delete map & edge
 
 	// 2) edges that point towards v2 from X now point to v1 from X (no dupes)
 	for _, x := range g.IncomingGraphVertices(v2) { // all to vertex v (??? -> v)

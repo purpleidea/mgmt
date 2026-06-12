@@ -1642,7 +1642,7 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 	to := net.IP(obj.to.AsSlice())
 	allocator, err := bitmap.NewIPv4Allocator(from, to)
 	if err != nil {
-		return nil
+		return errwrap.Wrapf(err, "could not create allocator")
 	}
 	obj.allocator = allocator
 	obj.mutex = &sync.Mutex{}

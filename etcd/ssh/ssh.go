@@ -527,7 +527,12 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 			})
 
 			obj.init.Logf("ssh tunnel connected")
-			return tunnel, nil // connected successfully
+			// We hand grpc a wrapped conn whose Close also closes
+			// the ssh client. An ssh channel's Close does not
+			// unblock a pending Read, which breaks the net.Conn
+			// contract that grpc's transport shutdown relies on.
+			// (See tunnelConn.)
+			return &tunnelConn{Conn: tunnel, client: sshClient}, nil
 		}
 
 		if reterr != nil {
@@ -598,6 +603,35 @@ func (obj *World) cleanup() error {
 // Cleanup runs last.
 func (obj *World) Cleanup() error {
 	return obj.cleanup()
+}
+
+// tunnelConn is the net.Conn that we hand to grpc for an ssh tunnel. It ties
+// the tunnel channel and its dedicated ssh client together so that closing the
+// conn also closes the client. This is necessary because an ssh channel's Close
+// does not unblock a goroutine already blocked in the channel's Read, which
+// violates the net.Conn contract. The grpc transport relies on that contract to
+// shut down: its Close calls conn.Close and then waits, without a timeout, for
+// its reader goroutine to exit. Without this, an etcd client Close over an ssh
+// tunnel can block forever (e.g. on program shutdown), because the reader stays
+// parked until the remote happens to send something. Closing the ssh client
+// tears down the mux and unblocks all channel reads. Each tunnel has its own
+// dedicated ssh client, so closing it here is safe.
+type tunnelConn struct {
+	net.Conn // the ssh tunnel channel
+
+	client *ssh.Client // the ssh client backing this tunnel
+}
+
+// Close closes the ssh tunnel and then the ssh client that backs it.
+func (obj *tunnelConn) Close() error {
+	err := obj.Conn.Close()
+	if err == io.EOF { // XXX: why does this happen?
+		err = nil // ignore
+	}
+	if e := obj.client.Close(); e != nil && err == nil {
+		err = e
+	}
+	return err
 }
 
 // dialSSHWithContext wraps ssh.Dial so that we can have a context to cancel.

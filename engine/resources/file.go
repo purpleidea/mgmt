@@ -1984,7 +1984,7 @@ func printFiles(fileInfos map[string]FileInfo) string {
 // file. The comparison against os.ErrInvalid and errors.Is checks don't work.
 func isInvalidSymlink(err error) bool {
 	if perr, ok := err.(*os.PathError); ok {
-		return perr.Err == syscall.EINVAL
+		return perr.Err == unix.EINVAL
 	}
 	return false
 }

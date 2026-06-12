@@ -33,7 +33,6 @@ package coresys
 
 import (
 	"fmt"
-	"syscall"
 	"time"
 	"unsafe"
 
@@ -48,12 +47,12 @@ func uptime() (int64, error) {
 	}
 
 	// make sure size is correct
-	var boottime syscall.Timeval
+	var boottime unix.Timeval
 	if len(rawBoottime) != int(unsafe.Sizeof(boottime)) {
 		return 0, fmt.Errorf("invalid boottime encountered while calculating uptime")
 	}
 
 	// uptime is difference between current time and boot time
-	boottime = *(*syscall.Timeval)(unsafe.Pointer(&rawBoottime[0]))
+	boottime = *(*unix.Timeval)(unsafe.Pointer(&rawBoottime[0]))
 	return time.Now().Unix() - boottime.Sec, nil
 }

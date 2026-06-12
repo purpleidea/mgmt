@@ -31,7 +31,8 @@ package util
 
 import (
 	"os"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // TODO: Consider replacing this with: github.com/gofrs/flock if it's better.
@@ -63,13 +64,13 @@ func (obj *Flock) TryLock() (func() error, error) {
 	}
 
 	// Exclusive lock in non-blocking mode, we add a shared lock.
-	if err := syscall.Flock(int(obj.file.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+	if err := unix.Flock(int(obj.file.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		return nil, nil // can't lock
 	}
 
 	// We're locked!
 	return func() error {
 		defer obj.file.Close()
-		return syscall.Flock(int(obj.file.Fd()), syscall.LOCK_UN)
+		return unix.Flock(int(obj.file.Fd()), unix.LOCK_UN)
 	}, nil
 }

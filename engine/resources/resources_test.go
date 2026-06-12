@@ -196,9 +196,13 @@ func FileOwnerExpect(p, o string) Step { // path & owner
 	return &manualStep{
 		action: func() error { return nil },
 		expect: func() error {
-			var stat syscall.Stat_t
-			if err := syscall.Stat(p, &stat); err != nil {
+			fileInfo, err := os.Stat(p)
+			if err != nil {
 				return err
+			}
+			stat, ok := fileInfo.Sys().(*syscall.Stat_t)
+			if !ok {
+				return fmt.Errorf("file stat type did not match in %s", p)
 			}
 			i, err := strconv.ParseUint(o, 10, 32)
 			if err != nil {

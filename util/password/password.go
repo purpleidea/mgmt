@@ -42,7 +42,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	sha512Crypt "github.com/tredoe/osutil/user/crypt/sha512_crypt"
@@ -87,11 +86,11 @@ func ReadPasswordCtxPrompt(ctx context.Context, prompt string) ([]byte, error) {
 func ReadPasswordCtxFdPrompt(ctx context.Context, fd int, prompt string) ([]byte, error) {
 
 	// XXX: https://github.com/golang/go/issues/24842
-	if err := syscall.SetNonblock(fd, true); err != nil {
+	if err := unix.SetNonblock(fd, true); err != nil {
 		return nil, err
 	}
-	defer syscall.SetNonblock(fd, false) // TODO: is this necessary?
-	file := os.NewFile(uintptr(fd), "")  // XXX: name?
+	defer unix.SetNonblock(fd, false)   // TODO: is this necessary?
+	file := os.NewFile(uintptr(fd), "") // XXX: name?
 
 	// We do some term magic to not print the password. This is taken from:
 	// golang.org/x/term/term_unix.go:readPassword

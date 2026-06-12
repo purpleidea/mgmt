@@ -46,6 +46,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// socketRcvbufSize is the size in bytes we request for the netlink socket
+// receive buffer. A larger buffer helps avoid dropping events (and the
+// resulting ENOBUFS errors) during bursts of netlink messages. The kernel may
+// double this value for bookkeeping, and will cap it at net.core.rmem_max
+// unless the SO_RCVBUFFORCE option (which needs CAP_NET_ADMIN) is used.
+const socketRcvbufSize = 8 * 1024 * 1024 // 8 MiB
+
 // SocketSet is used to receive events from a socket and shut it down cleanly
 // when asked. It contains a socket for events and a pipe socket to unblock
 // receive on shutdown.
@@ -69,6 +76,18 @@ func NewSocketSet(groups uint32, name string, proto int) (*SocketSet, error) {
 		Pid:    uint32(os.Getpid()), // set PID to our process
 	}); err != nil {
 		return nil, errwrap.Wrapf(err, "error binding netlink socket")
+	}
+
+	// Increase the size of the socket receive buffer to help avoid dropping
+	// events (and getting ENOBUFS) when a large burst of messages arrives
+	// faster than we can read them. We try SO_RCVBUFFORCE first since it
+	// ignores the rmem_max limit (but needs CAP_NET_ADMIN) and fall back to
+	// the regular SO_RCVBUF which is capped by rmem_max. This is
+	// best-effort, so we ignore any errors and carry on with the default
+	// buffer size.
+	if err := unix.SetsockoptInt(fdEvents, unix.SOL_SOCKET, unix.SO_RCVBUFFORCE, socketRcvbufSize); err != nil {
+		// ignore the error and fall back to the non-privileged option
+		_ = unix.SetsockoptInt(fdEvents, unix.SOL_SOCKET, unix.SO_RCVBUF, socketRcvbufSize)
 	}
 
 	// this pipe unblocks unix.Select upon closing
@@ -115,6 +134,14 @@ func (obj *SocketSet) ReceiveBytes() ([]byte, error) {
 	if err != nil {
 		// if fdEvents is closed
 		if err == unix.EBADF { // bad file descriptor
+			return nil, nil
+		}
+		// The kernel ran out of buffer space and dropped one or more
+		// events. This is recoverable: the socket is still usable, we
+		// have just lost some messages. Return empty (like the EINTR
+		// case) so the caller resyncs its state on the next pass rather
+		// than treating this as a fatal error.
+		if err == unix.ENOBUFS { // no buffer space available
 			return nil, nil
 		}
 		return nil, errwrap.Wrapf(err, "error receiving messages")

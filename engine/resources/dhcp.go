@@ -1967,7 +1967,7 @@ func (obj *DHCPRangeRes) leaseClean() (time.Duration, error) {
 	for mac, record := range obj.records { // see who is expired...
 		expiry := time.Unix(int64(record.Expires), 0) // 0 is nsec
 		//if !expiry.After(now) // same
-		if delta := expiry.Sub(now); delta > 0 { // positive if expired
+		if delta := expiry.Sub(now); delta > 0 { // positive if not expired
 			if min == -1 { // initialize
 				min = delta
 			}

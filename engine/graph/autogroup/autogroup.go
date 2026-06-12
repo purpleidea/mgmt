@@ -59,25 +59,25 @@ func AutoGroup(ctx context.Context, ag engine.AutoGrouper, g *pgraph.Graph, debu
 			return errwrap.Wrapf(err, "error running autoGroup(vertexNext)")
 		}
 		merged := false
-		// save names since they change during the runs
-		vStr := fmt.Sprintf("%v", v) // valid even if it is nil
-		wStr := fmt.Sprintf("%v", w)
 
 		if err := ag.VertexCmp(v, w); err != nil { // cmp ?
 			if debug {
-				logf("!GroupCmp for: %s into: %s", wStr, vStr)
+				logf("!GroupCmp for: %v into: %v", w, v)
 				logf("!GroupCmp err: %+v", err)
 			}
 
 			// does the graph shape allow this merge?
 		} else if err := ag.VertexViable(v, w); err != nil { // viable ?
 			if debug {
-				logf("!VertexViable for: %s into: %s", wStr, vStr)
+				logf("!VertexViable for: %v into: %v", w, v)
 				logf("!VertexViable err: %+v", err)
 			}
 
 			// remove grouped vertex and merge edges (res is safe)
-		} else if err := VertexMerge(g, v, w, ag.VertexMerge, ag.EdgeMerge); err != nil { // merge...
+			// Almost all pairs fail the above checks, so it's only
+			// now worth saving the names, since they change during
+			// the merge and we want the originals in the messages.
+		} else if vStr, wStr, err := fmt.Sprintf("%v", v), fmt.Sprintf("%v", w), VertexMerge(g, v, w, ag.VertexMerge, ag.EdgeMerge); err != nil { // merge...
 			logf("!VertexMerge for: %s into: %s", wStr, vStr)
 			if debug {
 				logf("!VertexMerge err: %+v", err)

@@ -43,6 +43,8 @@ import (
 // then by deleting v2 from the graph. Since more than one edge between two
 // vertices is not allowed, duplicate edges are merged as well. An edge merge
 // function can be provided if you'd like to control how you merge the edges!
+// The input graph must be a DAG, and the two vertices must not be reachable
+// from each other, which also guarantees that the result stays a DAG.
 func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgraph.Vertex, pgraph.Vertex) (pgraph.Vertex, error), edgeMergeFn func(pgraph.Edge, pgraph.Edge) pgraph.Edge) error {
 	// methodology
 	// 1) edges between v1 and v2 are removed
@@ -144,10 +146,12 @@ func VertexMerge(g *pgraph.Graph, v1, v2 pgraph.Vertex, vertexMergeFn func(pgrap
 	}
 	g.DeleteVertex(v2) // remove grouped vertex
 
-	// 5) creation of a cyclic graph should throw an error
-	if _, err := g.TopologicalSort(); err != nil { // am i a dag or not?
-		return errwrap.Wrapf(err, "the TopologicalSort failed") // not a dag
-	}
+	// NOTE: We used to validate acyclicity here after every single merge,
+	// with a full topological sort. That's provably unnecessary when the
+	// caller only merges mutually unreachable vertices of a DAG: any new
+	// cycle through the merged vertex would imply a pre-existing path
+	// between v1 and v2, which the viability check already excluded. The
+	// caller validates the whole result once at the end of the run.
 	return nil // success
 }
 

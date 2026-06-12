@@ -89,8 +89,12 @@ func AutoGroup(ctx context.Context, ag engine.AutoGrouper, g *pgraph.Graph, debu
 		}
 	}
 
-	// It would be great to ensure we didn't add any graph cycles here, but
-	// instead of checking now, we'll move the check into the main loop.
+	// Creation of a cyclic graph would be a programming error in one of the
+	// groupers, since merging mutually unreachable vertices of a DAG can't
+	// create a cycle. Validate the result once instead of after each merge.
+	if _, err := g.TopologicalSort(); err != nil { // am i a dag or not?
+		return errwrap.Wrapf(err, "the TopologicalSort failed") // not a dag
+	}
 
 	return nil
 }

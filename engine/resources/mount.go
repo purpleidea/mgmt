@@ -465,7 +465,7 @@ func strMapEq(x, y map[string]string) bool {
 		return false
 	}
 	for k, v := range x {
-		if val, ok := x[k]; !ok || v != val {
+		if val, ok := y[k]; !ok || v != val {
 			return false
 		}
 	}

@@ -171,6 +171,7 @@ RouteMetric={{ .Metric }}
 	$args = struct{
 		#dev => $dev,
 		dns => $dns,
+		metric => $metric,
 	}
 
 	file "/etc/systemd/network/${dev}-dhcp.network" {

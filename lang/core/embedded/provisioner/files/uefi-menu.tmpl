@@ -12,12 +12,12 @@ insmod gzio
 set default=0
 set timeout=15
 
-menuentry 'Install {{ .distro }} {{ .version }} {{ .arch }} ( kickstart )'  --class fedora --class gnu-linux --class gnu --class os {
-	linuxefi /{{ .distro }}{{ .version }}-{{ .arch }}/vmlinuz ip=dhcp inst.repo={{ .inst_repo_base }}releases/{{ .version }}/{{ .flavour }}/{{ .arch }}/os/ inst.ks={{ .ks }}
-	initrdefi /{{ .distro }}{{ .version }}-{{ .arch }}/initrd.img
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( kickstart )'  --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz ip=dhcp inst.repo={{ .Inst_repo_base }}releases/{{ .Version }}/{{ .Flavour }}/{{ .Arch }}/os/ inst.ks={{ .Ks }}
+	initrdefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
 }
 
-menuentry 'Install {{ .distro }} {{ .version }} {{ .arch }} ( manual )'  --class fedora --class gnu-linux --class gnu --class os {
-	linuxefi /{{ .distro }}{{ .version }}-{{ .arch }}/vmlinuz ip=dhcp inst.repo={{ .inst_repo_base }}releases/{{ .version }}/{{ .flavour }}/{{ .arch }}/os/
-	initrdefi /{{ .distro }}{{ .version }}-{{ .arch }}/initrd.img
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )'  --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz ip=dhcp inst.repo={{ .Inst_repo_base }}releases/{{ .Version }}/{{ .Flavour }}/{{ .Arch }}/os/
+	initrdefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
 }

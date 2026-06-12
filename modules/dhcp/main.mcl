@@ -41,6 +41,10 @@ class server($st) {
 	$maxleasetime = $st->maxleasetime || 7200
 
 	$tmpl = struct{
+		domain => "", # XXX: not implemented
+		dns => "", # XXX: not implemented (switch to list?)
+		omapiport => "", # XXX: not implemented
+		serveridentifier => "", # XXX: not implemented
 		defaultleasetime => $defaultleasetime,
 		maxleasetime => $maxleasetime,
 		authoritative => $authoritative,
@@ -155,6 +159,7 @@ class server:subnet($name, $st) {
 	$range = $st->range || struct{start => "", end => ""} # struct with start, end fields
 	$range_start = $range->start || ""
 	$range_end = $range->end || ""
+	$nextserver = $st->nextserver || ""
 
 	$comment = $st->comment || ""
 
@@ -172,7 +177,11 @@ class server:subnet($name, $st) {
 		router => "${router}", # TODO: support multiple
 		dns => golang_strings.join($dns, ", "),
 		range => $valid_range,
-		#nextserver => "${nextserver}",
+		nextserver => "${nextserver}",
+		filename => "", # XXX: not implemented
+		serveridentifier => "", # XXX: not implemented
+		defaultleasetime => "", # XXX: not implemented
+		maxleasetime => "", # XXX: not implemented
 		#filename => "${filename}",
 		comment => "${comment}",
 	}

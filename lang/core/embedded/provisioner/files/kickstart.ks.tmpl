@@ -1,6 +1,6 @@
-{{ if .comment -}}
+{{ if .Comment -}}
 #
-#	{{ .comment }}
+#	{{ .Comment }}
 #
 {{- end }}
 #
@@ -10,19 +10,19 @@
 # at: https://pagure.io/fedora-kickstarts which I am not an expert at reading.
 # If you have recommendations for improvements, please let us know! Thanks.
 #
-# flavour: {{ .flavour }}
-# part: {{ .part }}
-# bios: {{ .bios }}
+# flavour: {{ .Flavour }}
+# part: {{ .Part }}
+# bios: {{ .Bios }}
 
 #
 #	system
 #
 text	# text based install (not graphical)
-{{ if .lang -}}
-{{- $length_minus1 := math_minus1 (len .lang | printf "%d" | golang_strconv_atoi ) -}}
-lang {{ index .lang 0 }}
-{{- if gt (len .lang) 1 }} --addsupport=
-{{- range $i, $x := .lang -}}
+{{ if .Lang -}}
+{{- $length_minus1 := math_minus1 (len .Lang | printf "%d" | golang_strconv_atoi ) -}}
+lang {{ index .Lang 0 }}
+{{- if gt (len .Lang) 1 }} --addsupport=
+{{- range $i, $x := .Lang -}}
 {{ if eq $i 0 }}{{ continue }}{{ end }}
 {{- $x -}}
 {{- if lt $i $length_minus1 -}},{{- end -}}
@@ -30,29 +30,29 @@ lang {{ index .lang 0 }}
 {{- end -}}
 {{- end }}
 keyboard us
-{{ if .timezone -}}
+{{ if .Timezone -}}
 # System timezone
-timezone {{ .timezone }} --isUtc
-{{- if .ntp_servers }} --ntpservers={{ golang_strings_join .ntp_servers "," }}{{ end -}}
+timezone {{ .Timezone }} --isUtc
+{{- if .Ntp_servers }} --ntpservers={{ golang_strings_join .Ntp_servers "," }}{{ end -}}
 {{- end }}
 
 #
 #	security
 #
-{{ if .password -}}
+{{ if .Password -}}
 # password can be encrypted with:
 # python3 -c 'import crypt; print(crypt.crypt("password", crypt.mksalt(crypt.METHOD_SHA512)))'
 # or
 # openssl passwd -6 -salt <YOUR_SALT> (salt can be omitted to generate one)
-rootpw --iscrypted --allow-ssh {{ .password }}
+rootpw --iscrypted --allow-ssh {{ .Password }}
 {{ else }}
 rootpw --iscrypted --lock
 {{- end }}
 selinux --enforcing
 services --enabled=sshd,NetworkManager,chronyd
-{{ if .sshkeys -}}
+{{ if .Sshkeys -}}
 # TODO: sort in a deterministic order
-{{ range $user, $pubkey := .sshkeys -}}
+{{ range $user, $pubkey := .Sshkeys -}}
 {{ if $pubkey -}}
 sshkey --username {{ $user }} "{{ $pubkey }}"
 {{- end -}}
@@ -67,7 +67,7 @@ sshkey --username {{ $user }} "{{ $pubkey }}"
 # --activate
 #	any matching devices beyond the first will also be activated
 #
-network --bootproto=dhcp --device=link --activate{{ if .hostname }} --hostname={{ .hostname }}{{ end }}
+network --bootproto=dhcp --device=link --activate{{ if .Hostname }} --hostname={{ .Hostname }}{{ end }}
 
 firewall --enabled --service=mdns
 
@@ -96,16 +96,16 @@ fi
 
 # XXX: We use --passphrase="password" as a temp password since "" doesn't work!
 zerombr
-clearpart --all --initlabel --disklabel={{ if .bios }}msdos{{ else }}gpt{{ end }}
-{{ if eq .part "btrfs" -}}
-autopart --type=btrfs --noswap --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
-{{- else if eq .part "plain" -}}
-autopart --type=plain --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
+clearpart --all --initlabel --disklabel={{ if .Bios }}msdos{{ else }}gpt{{ end }}
+{{ if eq .Part "btrfs" -}}
+autopart --type=btrfs --noswap --nohome{{ if .Luks }} --encrypted --passphrase="password"{{ end }}
+{{- else if eq .Part "plain" -}}
+autopart --type=plain --nohome{{ if .Luks }} --encrypted --passphrase="password"{{ end }}
 {{- else -}}
-autopart --type=plain --nohome{{ if .luks }} --encrypted --passphrase="password"{{ end }}
+autopart --type=plain --nohome{{ if .Luks }} --encrypted --passphrase="password"{{ end }}
 {{- end }}
 
-{{ if .luks -}}
+{{ if .Luks -}}
 %post --interpreter=/bin/bash --log /root/post_partitioning.log --erroronfail
 # This runs in our chroot, so this file is /mnt/sysimage/etc/crypttab to the OS.
 
@@ -128,13 +128,13 @@ dracut --force --regenerate-all
 #
 #	repositories
 #
-{{ if .url -}}
-url --url="{{ .url }}"
+{{ if .Url -}}
+url --url="{{ .Url }}"
 {{- end }}
 
-{{ if .repos -}}
+{{ if .Repos -}}
 # TODO: sort in a deterministic order
-{{- range $name, $baseurl := .repos }}
+{{- range $name, $baseurl := .Repos }}
 repo --name="{{ $name }}" --baseurl="{{ $baseurl }}"
 {{- end }}
 {{- end }}
@@ -146,7 +146,7 @@ repo --name="{{ $name }}" --baseurl="{{ $baseurl }}"
 @core
 @standard
 @hardware-support
-{{ if eq .flavour "Workstation" -}}
+{{ if eq .Flavour "Workstation" -}}
 # Packages for Workstation:
 -initial-setup
 -initial-setup-gui
@@ -167,7 +167,7 @@ glibc-all-langpacks
 # Exclude unwanted packages from @anaconda-tools group
 -gfs2-utils
 -reiserfs-utils
-{{- else if eq .flavour "Server" -}}
+{{- else if eq .Flavour "Server" -}}
 # Packages for Server:
 fedora-release-server
 # install the default groups for the server environment since installing the environment is not working
@@ -182,7 +182,7 @@ fedora-release-server
 -generic-release*
 {{- end }}
 # User packages:
-{{ range $i, $x := .packages -}}
+{{ range $i, $x := .Packages -}}
 {{ $x }}
 {{ end -}}
 %end
@@ -198,12 +198,12 @@ firstboot --reconfig
 #
 #	flavour
 #
-{{ if eq .flavour "Workstation" -}}
+{{ if eq .Flavour "Workstation" -}}
 %post
 # Explicitly set graphical.target as default as this is how initial-setup detects which version to run
 systemctl set-default graphical.target
 %end
-{{ else if eq .flavour "Server" -}}
+{{ else if eq .Flavour "Server" -}}
 %post
 # setup systemd to boot to the right runlevel
 echo -n "Setting default runlevel to multiuser text mode"
@@ -216,7 +216,7 @@ echo .
 #	post
 #
 %post --log /root/post_ks.log --erroronfail
-{{ range $i, $x := .post -}}
+{{ range $i, $x := .Post -}}
 {{ $x }}
 {{ end -}}
 %end

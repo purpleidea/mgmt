@@ -510,13 +510,15 @@ func (obj *MountRes) fstabEntryRemove(file string, mount *fstab.Mount) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "error parsing file: %s", file)
 	}
-	for i, m := range mounts {
+	filtered := fstab.Mounts{}
+	for _, m := range mounts {
 		// remove any entry with the defined mountpoint
 		if m.File == mount.File {
-			mounts = append(mounts[:i], mounts[i+1:]...)
+			continue
 		}
+		filtered = append(filtered, m)
 	}
-	return obj.fstabWrite(file, mounts)
+	return obj.fstabWrite(file, filtered)
 }
 
 // fstabWrite generates an fstab file with the given mounts, and writes them to

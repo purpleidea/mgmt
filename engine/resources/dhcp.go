@@ -486,6 +486,11 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 	newLogger := &overEngineeredLogger{
 		logf: func(format string, v ...interface{}) {
+			// Once we've started exiting, the library logs the
+			// closed conn read garbage that we don't care about.
+			if s := fmt.Sprintf(format, v...); ctx.Err() != nil && strings.Contains(s, net.ErrClosed.Error()) {
+				return
+			}
 			obj.init.Logf(format, v...)
 		},
 	}

@@ -268,6 +268,15 @@ func (obj *Graph) DeleteEdge(xe ...Edge) {
 	}
 }
 
+// DeleteEdgeBetween deletes the edge from v1 to v2 if it exists. Unlike
+// DeleteEdge, which removes an edge object wherever it appears, this removes
+// the single directed edge between the two vertices in O(1) time.
+func (obj *Graph) DeleteEdgeBetween(v1, v2 Vertex) {
+	if m, exists := obj.adjacency[v1]; exists {
+		delete(m, v2)
+	}
+}
+
 // HasVertex returns if the input vertex exists in the graph.
 func (obj *Graph) HasVertex(v Vertex) bool {
 	if _, exists := obj.adjacency[v]; exists {

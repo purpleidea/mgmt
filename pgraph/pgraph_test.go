@@ -996,6 +996,39 @@ func TestDeleteEdge2(t *testing.T) {
 	}
 }
 
+func TestDeleteEdgeBetween1(t *testing.T) {
+	g, _ := NewGraph("g")
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v2, v1, e3)
+
+	g.DeleteEdgeBetween(v1, v2)
+	g.DeleteEdgeBetween(v1, v2) // duplicate delete should be a noop
+	g.DeleteEdgeBetween(v1, v3) // no such edge, should be a noop
+
+	if g.NumEdges() != 2 {
+		t.Errorf("expected number of edges: 2, instead of: %d", g.NumEdges())
+	}
+	if e := g.FindEdge(v1, v2); e != nil {
+		t.Errorf("expected edge v1 -> v2 to be deleted, got: %s", e)
+	}
+	if e := g.FindEdge(v2, v1); e != e3 { // reverse direction must remain
+		t.Errorf("expected edge v2 -> v1 to remain")
+	}
+	if g.NumVertices() != 3 { // vertices must not be removed
+		t.Errorf("expected number of vertices: 3, instead of: %d", g.NumVertices())
+	}
+}
+
 func TestFindEdge1(t *testing.T) {
 	g, _ := NewGraph("g")
 

@@ -286,7 +286,7 @@ func (obj *Value) ValueWatch(ctx context.Context, key string) (chan struct{}, er
 				// recv
 
 			case <-ctx.Done():
-				break // we exit
+				return // we exit
 			}
 
 			select {
@@ -294,7 +294,7 @@ func (obj *Value) ValueWatch(ctx context.Context, key string) (chan struct{}, er
 				// send
 
 			case <-ctx.Done():
-				break // we exit
+				return // we exit
 			}
 		}
 	}()

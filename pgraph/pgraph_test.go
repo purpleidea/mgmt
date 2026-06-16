@@ -996,6 +996,89 @@ func TestDeleteEdge2(t *testing.T) {
 	}
 }
 
+// checkReverseIndex verifies that the internal reverse adjacency index is an
+// exact mirror of the adjacency map. Any mismatch is a programming error in one
+// of the graph mutation methods.
+func checkReverseIndex(t *testing.T, g *Graph) {
+	t.Helper()
+	countAdjacency := 0
+	for v1, m := range g.adjacency {
+		if _, exists := g.revadjmap[v1]; !exists {
+			t.Errorf("vertex %s missing from reverse index", v1)
+		}
+		for v2, e := range m {
+			countAdjacency++
+			if ex, exists := g.revadjmap[v2][v1]; !exists || ex != e {
+				t.Errorf("edge %s -> %s missing or wrong in reverse index", v1, v2)
+			}
+		}
+	}
+	countReverse := 0
+	for v1, m := range g.revadjmap {
+		if _, exists := g.adjacency[v1]; !exists {
+			t.Errorf("vertex %s in reverse index but not in adjacency", v1)
+		}
+		countReverse += len(m)
+	}
+	if countAdjacency != countReverse {
+		t.Errorf("adjacency has %d edges, reverse index has %d", countAdjacency, countReverse)
+	}
+}
+
+func TestReverseIndex1(t *testing.T) {
+	g := &Graph{} // ensure lazy initialization works too
+	checkReverseIndex(t, g)
+
+	v1 := NV("v1")
+	v2 := NV("v2")
+	v3 := NV("v3")
+	v4 := NV("v4")
+
+	e1 := NE("e1")
+	e2 := NE("e2")
+	e3 := NE("e3")
+	e4 := NE("e4")
+
+	g.AddVertex(v1)
+	checkReverseIndex(t, g)
+
+	g.AddEdge(v1, v2, e1)
+	g.AddEdge(v2, v3, e2)
+	g.AddEdge(v3, v1, e3)
+	g.AddEdge(v3, v4, e4)
+	g.AddEdge(v3, v4, e1) // overwrite an edge
+	checkReverseIndex(t, g)
+
+	g.DeleteEdgeBetween(v2, v3)
+	checkReverseIndex(t, g)
+
+	g.DeleteEdge(e1) // appears twice in the graph
+	checkReverseIndex(t, g)
+
+	g.DeleteVertex(v3)
+	checkReverseIndex(t, g)
+	if g.NumVertices() != 3 {
+		t.Errorf("expected number of vertices: 3, instead of: %d", g.NumVertices())
+	}
+
+	cp := g.Copy()
+	checkReverseIndex(t, cp)
+
+	fn := func(v Vertex) (Vertex, error) { return NV(v.String()), nil }
+	cpfn, err := g.CopyWithFn(fn)
+	if err != nil {
+		t.Errorf("unexpected error: %+v", err)
+		return
+	}
+	checkReverseIndex(t, cpfn)
+
+	g.DeleteVertex(v1, v2, v4)
+	checkReverseIndex(t, g)
+	if g.NumVertices() != 0 {
+		t.Errorf("expected number of vertices: 0, instead of: %d", g.NumVertices())
+	}
+}
+
 func TestDeleteEdgeBetween1(t *testing.T) {
 	g, _ := NewGraph("g")
 

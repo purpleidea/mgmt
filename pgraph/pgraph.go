@@ -60,6 +60,7 @@ type Graph struct {
 	Name string
 
 	adjacency map[Vertex]map[Vertex]Edge // Vertex -> Vertex (edge)
+	revadjmap map[Vertex]map[Vertex]Edge // Vertex <- Vertex (edge) mirror index
 	kv        map[string]interface{}     // some values associated with the graph
 }
 
@@ -82,6 +83,7 @@ func (obj *Graph) Init() error {
 	}
 
 	obj.adjacency = make(map[Vertex]map[Vertex]Edge)
+	obj.revadjmap = make(map[Vertex]map[Vertex]Edge)
 	//obj.kv = make(map[string]interface{}) // not required
 	return nil
 }
@@ -119,12 +121,19 @@ func (obj *Graph) Copy() *Graph {
 	newGraph := &Graph{
 		Name:      obj.Name,
 		adjacency: make(map[Vertex]map[Vertex]Edge, len(obj.adjacency)),
+		revadjmap: make(map[Vertex]map[Vertex]Edge, len(obj.revadjmap)),
 		kv:        obj.kv,
 	}
 	for v1, m := range obj.adjacency {
 		newGraph.adjacency[v1] = make(map[Vertex]Edge, len(m))
 		for v2, e := range m {
 			newGraph.adjacency[v1][v2] = e // copy
+		}
+	}
+	for v1, m := range obj.revadjmap {
+		newGraph.revadjmap[v1] = make(map[Vertex]Edge, len(m))
+		for v2, e := range m {
+			newGraph.revadjmap[v1][v2] = e // copy
 		}
 	}
 	return newGraph
@@ -143,6 +152,7 @@ func (obj *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, e
 	newGraph := &Graph{
 		Name:      obj.Name,
 		adjacency: make(map[Vertex]map[Vertex]Edge, len(obj.adjacency)),
+		revadjmap: make(map[Vertex]map[Vertex]Edge, len(obj.revadjmap)),
 		kv:        obj.kv,
 	}
 	vm := make(map[Vertex]Vertex) // copy mapping from old ptr to new ptr...
@@ -154,7 +164,7 @@ func (obj *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, e
 			return nil, err
 		}
 		vm[v1] = v // mapping
-		newGraph.adjacency[v] = make(map[Vertex]Edge)
+		newGraph.AddVertex(v)
 		for v2, e := range m {
 			vx, exists := vm[v2] // copied equivalent of v2
 			if !exists {
@@ -168,8 +178,8 @@ func (obj *Graph) CopyWithFn(vertexCpFn func(Vertex) (Vertex, error)) (*Graph, e
 			//if err != nil {
 			//	return nil, err
 			//}
-			//newGraph.adjacency[v][vx] = edge
-			newGraph.adjacency[v][vx] = e // store the edge
+			//newGraph.AddEdge(v, vx, edge)
+			newGraph.AddEdge(v, vx, e) // store the edge
 		}
 	}
 	return newGraph, nil
@@ -210,12 +220,18 @@ func (obj *Graph) AddVertex(xv ...Vertex) {
 	if obj.adjacency == nil { // initialize on first use
 		obj.adjacency = make(map[Vertex]map[Vertex]Edge)
 	}
+	if obj.revadjmap == nil { // initialize on first use
+		obj.revadjmap = make(map[Vertex]map[Vertex]Edge)
+	}
 	for _, v := range xv {
 		if v == nil {
 			panic("nil vertex")
 		}
 		if _, exists := obj.adjacency[v]; !exists {
 			obj.adjacency[v] = make(map[Vertex]Edge)
+		}
+		if _, exists := obj.revadjmap[v]; !exists {
+			obj.revadjmap[v] = make(map[Vertex]Edge)
 		}
 	}
 }
@@ -228,10 +244,15 @@ func (obj *Graph) DeleteVertex(xv ...Vertex) {
 		if v == nil {
 			panic("nil vertex")
 		}
-		delete(obj.adjacency, v)
-		for k := range obj.adjacency {
+		// remove the mirror entries of the incoming/outgoing edges
+		for k := range obj.revadjmap[v] { // edges that point to v
 			delete(obj.adjacency[k], v)
 		}
+		for k := range obj.adjacency[v] { // edges that point from v
+			delete(obj.revadjmap[k], v)
+		}
+		delete(obj.adjacency, v)
+		delete(obj.revadjmap, v)
 		return
 	}
 
@@ -249,6 +270,7 @@ func (obj *Graph) AddEdge(v1, v2 Vertex, e Edge) {
 	// NOTE: VertexMerge() depends on overwriting it at the moment...
 	// NOTE: Interpret() depends on overwriting it at the moment...
 	obj.adjacency[v1][v2] = e
+	obj.revadjmap[v2][v1] = e
 }
 
 // DeleteEdge uses variadic input to delete all the listed edges from the graph.
@@ -261,7 +283,7 @@ func (obj *Graph) DeleteEdge(xe ...Edge) {
 		for v2, edge := range obj.adjacency[v1] {
 			for _, e := range xe {
 				if e == edge {
-					delete(obj.adjacency[v1], v2)
+					obj.DeleteEdgeBetween(v1, v2)
 				}
 			}
 		}
@@ -274,6 +296,9 @@ func (obj *Graph) DeleteEdge(xe ...Edge) {
 func (obj *Graph) DeleteEdgeBetween(v1, v2 Vertex) {
 	if m, exists := obj.adjacency[v1]; exists {
 		delete(m, v2)
+	}
+	if m, exists := obj.revadjmap[v2]; exists {
+		delete(m, v1)
 	}
 }
 

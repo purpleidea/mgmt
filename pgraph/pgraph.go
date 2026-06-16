@@ -65,13 +65,17 @@ type Graph struct {
 }
 
 // Vertex is the primary vertex struct in this library. It can be anything that
-// implements Stringer. The string output must be stable and unique in a graph.
+// implements Stringer. The string output must be stable and unique in a graph
+// for many types of comparison to work properly. At a minimum, differentiating
+// between two graphs requires that equivalent vertices between those two graphs
+// produce the same String() output.
 type Vertex interface {
 	fmt.Stringer // String() string
 }
 
 // Edge is the primary edge struct in this library. It can be anything that
-// implements Stringer. The string output must be stable and unique in a graph.
+// implements Stringer. The string output must be stable and unique in a graph
+// for many types of comparison to work properly.
 type Edge interface {
 	fmt.Stringer // String() string
 }

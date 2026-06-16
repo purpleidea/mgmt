@@ -166,17 +166,16 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 				edge = e // overwrite edge
 			}
 
-			oldGraph.adjacency[vertex1][vertex2] = edge // store it (AddEdge)
-			edgeKeep[edge] = struct{}{}                 // mark as saved
+			oldGraph.AddEdge(vertex1, vertex2, edge) // store it
+			edgeKeep[edge] = struct{}{}              // mark as saved
 		}
 	}
 
 	// delete unused edges in a single pass over adjacency
 	for v1 := range oldGraph.adjacency {
-		m := oldGraph.adjacency[v1]
-		for v2, e := range m {
+		for v2, e := range oldGraph.adjacency[v1] {
 			if _, ok := edgeKeep[e]; !ok {
-				delete(m, v2)
+				oldGraph.DeleteEdgeBetween(v1, v2)
 			}
 		}
 	}

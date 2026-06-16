@@ -1036,10 +1036,32 @@ func (obj *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool,
 		return fmt.Errorf("base graph has %d edges, while input graph has %d", e1, e2)
 	}
 
+	// index the input graph by String() since most comparison functions
+	// only ever match vertices with equal String() values, so probing the
+	// same-String candidates first usually avoids the full quadratic scan
+	index := make(map[string][]Vertex, len(graph.adjacency))
+	for v2 := range graph.adjacency {
+		s := v2.String()
+		index[s] = append(index[s], v2)
+	}
+
 	var m = make(map[Vertex]Vertex) // obj to graph vertex correspondence
 Loop:
 	// check vertices
 	for v1 := range obj.adjacency { // for each vertex in g
+		for _, v2 := range index[v1.String()] { // probe the candidates
+			b, err := vertexCmpFn(v1, v2)
+			if err != nil {
+				return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
+			}
+			// does it match ?
+			if b {
+				m[v1] = v2 // store the mapping
+				continue Loop
+			}
+		}
+		// fall back to the full scan, since unlike GraphSync we can't
+		// require that the comparison function respects String() here
 		for v2 := range graph.adjacency { // does it match in graph ?
 			b, err := vertexCmpFn(v1, v2)
 			if err != nil {

@@ -300,8 +300,10 @@ func (obj *Graph) NumEdges() int {
 }
 
 // Adjacency returns the adjacency map representing this graph. This is useful
-// for users who which to operate on the raw data structure more efficiently.
-// This works because maps are reference types so we can edit this at will.
+// for users who wish to read the raw data structure more efficiently. The
+// returned map must be treated as read-only: any mutations must go through the
+// graph API (AddVertex, AddEdge, DeleteVertex, DeleteEdge, DeleteEdgeBetween,
+// and so on) so that any internal indexes stay consistent.
 func (obj *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
 	return obj.adjacency
 }

@@ -521,11 +521,9 @@ func (obj *Graph) Logf(logf func(format string, v ...interface{})) {
 // IncomingGraphVertices returns an array (slice) of all directed vertices to
 // vertex v (??? -> v). OKTimestamp should probably use this.
 func (obj *Graph) IncomingGraphVertices(v Vertex) []Vertex {
-	var s []Vertex
-	for k := range obj.adjacency { // reverse paths
-		if _, exists := obj.adjacency[k][v]; exists {
-			s = append(s, k)
-		}
+	s := make([]Vertex, 0, len(obj.revadjmap[v]))
+	for k := range obj.revadjmap[v] { // reverse paths
+		s = append(s, k)
 	}
 	return s
 }
@@ -553,12 +551,8 @@ func (obj *Graph) GraphVertices(v Vertex) []Vertex {
 // Eg: (??? -> v).
 func (obj *Graph) IncomingGraphEdges(v Vertex) []Edge {
 	var edges []Edge
-	for v1 := range obj.adjacency { // reverse paths
-		for v2, e := range obj.adjacency[v1] {
-			if v2 == v {
-				edges = append(edges, e)
-			}
-		}
+	for _, e := range obj.revadjmap[v] { // reverse paths
+		edges = append(edges, e)
 	}
 	return edges
 }
@@ -685,13 +679,7 @@ func (obj *Graph) InDegree() map[Vertex]int {
 	}
 	result := make(map[Vertex]int, len(obj.adjacency))
 	for k := range obj.adjacency {
-		result[k] = 0 // initialize
-	}
-
-	for k := range obj.adjacency {
-		for z := range obj.adjacency[k] {
-			result[z]++
-		}
+		result[k] = len(obj.revadjmap[k])
 	}
 	return result
 }

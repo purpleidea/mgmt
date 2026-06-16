@@ -54,6 +54,11 @@ func strEdgeCmpFn(e1, e2 Edge) (bool, error) {
 // mutate existing elements into new ones, if they support this. This updates
 // the Graph on success only. If it fails, then the graph won't have been
 // modified.
+//
+// The vertexCmpFn arg must only ever return true for vertices which have equal
+// String() values. This lets us index the old graph by String() and only run
+// the comparisons on the matching candidates, instead of comparing every new
+// vertex against every old vertex.
 // FIXME: should we do this with copies of the vertex resources?
 func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (bool, error), vertexAddFn func(Vertex) error, vertexRemoveFn func(Vertex) error, edgeCmpFn func(Edge, Edge) (bool, error)) error {
 	oldGraph := obj.Copy() // work on a copy of the old graph
@@ -80,24 +85,31 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 	}
 
 	var lookup = make(map[Vertex]Vertex, len(newGraph.adjacency))
-	var vertexKeep []Vertex             // list of vertices which are the same in new graph
-	var vertexDels []Vertex             // list of vertices which are to be removed
-	var vertexAdds []Vertex             // list of vertices which are to be added
-	edgeKeep := make(map[Edge]struct{}) // set of edges which are the same in new graph
+	var vertexDels []Vertex                                          // list of vertices which are to be removed
+	var vertexAdds []Vertex                                          // list of vertices which are to be added
+	vertexKeep := make(map[Vertex]struct{}, len(newGraph.adjacency)) // set of vertices which are the same in new graph
+	edgeKeep := make(map[Edge]struct{})                              // set of edges which are the same in new graph
+
+	// index the old graph by String() so each new vertex only gets compared
+	// against the candidates which could possibly match; see contract above
+	oldIndex := make(map[string][]Vertex, len(oldGraph.adjacency))
+	for v := range oldGraph.adjacency {
+		s := v.String()
+		oldIndex[s] = append(oldIndex[s], v)
+	}
 
 	// XXX: run this as a topological sort or reverse topological sort?
 	for v := range newGraph.adjacency { // loop through the vertices (resources)
 		var vertex Vertex
 		// step one, direct compare with res.Cmp
-		if vertex == nil { // redundant guard for consistency
-			fn := func(vv Vertex) (bool, error) {
-				b, err := vertexCmpFn(vv, v)
-				return b, errwrap.Wrapf(err, "vertexCmpFn failed")
-			}
-			var err error
-			vertex, err = oldGraph.VertexMatchFn(fn)
+		for _, vv := range oldIndex[v.String()] {
+			b, err := vertexCmpFn(vv, v)
 			if err != nil {
-				return errwrap.Wrapf(err, "VertexMatchFn failed")
+				return errwrap.Wrapf(err, "vertexCmpFn failed")
+			}
+			if b {
+				vertex = vv
+				break
 			}
 		}
 
@@ -112,12 +124,12 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 			vertexAdds = append(vertexAdds, v) // append
 			vertex = v
 		}
-		lookup[v] = vertex                      // used for constructing edges
-		vertexKeep = append(vertexKeep, vertex) // append
+		lookup[v] = vertex              // used for constructing edges
+		vertexKeep[vertex] = struct{}{} // mark as kept
 	}
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
 	for v := range oldGraph.adjacency {
-		if !VertexContains(v, vertexKeep) {
+		if _, exists := vertexKeep[v]; !exists {
 			vertexDels = append(vertexDels, v) // append
 		}
 	}

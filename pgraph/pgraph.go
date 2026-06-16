@@ -578,8 +578,9 @@ func (obj *Graph) GraphEdges(v Vertex) []Edge {
 
 // DFS returns a depth first search for the graph, starting at the input vertex.
 func (obj *Graph) DFS(start Vertex) []Vertex {
-	var d []Vertex // discovered
-	var s []Vertex // stack
+	var result []Vertex
+	var s []Vertex                 // stack
+	d := make(map[Vertex]struct{}) // discovered (map for O(1) lookups)
 	if _, exists := obj.adjacency[start]; !exists {
 		return nil // TODO: error
 	}
@@ -588,15 +589,16 @@ func (obj *Graph) DFS(start Vertex) []Vertex {
 	for len(s) > 0 {
 		v, s = s[len(s)-1], s[:len(s)-1] // s.pop()
 
-		if !VertexContains(v, d) { // if not discovered
-			d = append(d, v) // label as discovered
+		if _, exists := d[v]; !exists { // if not discovered
+			d[v] = struct{}{} // label as discovered
+			result = append(result, v)
 
 			for _, w := range obj.GraphVertices(v) {
 				s = append(s, w)
 			}
 		}
 	}
-	return d
+	return result
 }
 
 // FilterGraph builds a new graph containing only vertices from the list.
@@ -639,13 +641,13 @@ func (obj *Graph) FilterGraphWithFn(fn func(Vertex) (bool, error)) (*Graph, erro
 func (obj *Graph) DisconnectedGraphs() ([]*Graph, error) {
 	graphs := []*Graph{}
 	var start Vertex
-	var d []Vertex // discovered
+	d := make(map[Vertex]struct{}) // discovered map for O(1) lookups
 	c := obj.NumVertices()
 	for len(d) < c {
 
 		// get an undiscovered vertex to start from
-		for _, s := range obj.Vertices() {
-			if !VertexContains(s, d) {
+		for s := range obj.adjacency {
+			if _, exists := d[s]; !exists {
 				start = s
 				break
 			}
@@ -659,8 +661,10 @@ func (obj *Graph) DisconnectedGraphs() ([]*Graph, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not run DisconnectedGraphs() properly")
 		}
-		// add number of elements found to found variable
-		d = append(d, dfs...) // extend
+		// add number of elements found to the discovered set
+		for _, v := range dfs {
+			d[v] = struct{}{}
+		}
 
 		// append this new graph to the list
 		graphs = append(graphs, newGraph)

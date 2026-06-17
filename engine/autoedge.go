@@ -93,6 +93,19 @@ type ResUID interface {
 	IsReversed() bool // true means this resource happens before the generator
 }
 
+// ResUIDHashable is an optional extension of the ResUID interface. A UID which
+// implements it, promises that for any two UID's of the same concrete type,
+// UIDHash() returns equal strings if and only if IFF() would match them. This
+// allows the autoedge matching to find candidates with a hash lookup instead of
+// a linear scan. Only implement this if your IFF method is a pure equality
+// comparison of some value, such as a path.
+type ResUIDHashable interface {
+	ResUID
+
+	// UIDHash returns the matching identity of this UID as a string.
+	UIDHash() string
+}
+
 // The BaseUID struct is used to provide a unique resource identifier.
 type BaseUID struct {
 	Name string // name and kind are the values of where this is coming from

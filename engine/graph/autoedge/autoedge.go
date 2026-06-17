@@ -32,6 +32,7 @@ package autoedge
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -64,7 +65,7 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 		default:
 		}
 
-		autoEdgeObj, e := res.AutoEdges()
+		autoEdgeObj, e := res.AutoEdges() // XXX: add a ctx
 		if e != nil {
 			err = errwrap.Append(err, e) // collect all errors
 			continue
@@ -79,6 +80,18 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 	}
 	if err != nil {
 		return errwrap.Wrapf(err, "the auto edges had errors")
+	}
+
+	// Build the candidate index. This must happen after the AutoEdges()
+	// calls above, because some of them populate the data that UIDs()
+	// returns. (The pkg resource fills in its file list there.) The graph
+	// topology may change below, but the vertices themselves don't, so the
+	// index stays valid for the whole matching phase.
+	index := newUIDIndex()
+	for _, res := range sorted { // stable sort order for determinism
+		for _, uid := range res.UIDs() { // call UIDs() only once per res
+			index.insert(res, uid)
+		}
 	}
 
 	// now that we're guaranteed error free, we can modify the graph safely
@@ -108,7 +121,7 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 			}
 
 			// match and add edges
-			result := addEdgesByMatchingUIDS(res, uids, graph, debug, logf)
+			result := addEdgesByMatchingUIDS(res, uids, index, graph, debug, logf)
 
 			// report back, and find out if we should continue
 			if !autoEdgeObj.Test(result) {
@@ -123,35 +136,29 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 }
 
 // addEdgesByMatchingUIDS adds edges to the vertex in a graph based on if it
-// matches a uid list.
+// matches a uid list. The index must contain the candidate UIDs of all of the
+// eligible (edgeable, not disabled) resources in the graph.
 // TODO: add ctx?
-func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
+func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, index *uidIndex, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
-	// loop through each uid, and see if it matches any vertex
+	// loop through each uid, and see if it matches any candidate
 	for _, uid := range uids {
 		var found = false
-		// uid is a ResUID object
-		for _, v := range graph.Vertices() { // search
-			r, ok := v.(engine.EdgeableRes)
-			if !ok {
-				continue
-			}
-			if r.AutoEdgeMeta().Disabled { // skip if this res is disabled
-				continue
-			}
+		// we must match to an effective UID for the resource,
+		// that is to say, the name value of a res is a helpful
+		// handle, but it is not necessarily a unique identity!
+		// remember, resources can return multiple UID's each!
+		for _, entry := range index.candidates(uid) { // search
+			r := entry.res
 			if res == r { // skip self
 				continue
 			}
 			if debug {
 				logf("match: %s with UID: %s", r, uid)
 			}
-			// we must match to an effective UID for the resource,
-			// that is to say, the name value of a res is a helpful
-			// handle, but it is not necessarily a unique identity!
-			// remember, resources can return multiple UID's each!
-			if UIDExistsInUIDs(uid, r.UIDs()) {
+			if uid.IFF(entry.uid) {
 				// add edge from: r -> res
 				if uid.IsReversed() {
 					txt := fmt.Sprintf("%s -> %s", r, res)
@@ -171,6 +178,75 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, graph 
 		result = append(result, found)
 	}
 	return result
+}
+
+// uidEntry pairs a candidate UID with the resource that returned it from UIDs.
+type uidEntry struct {
+	res engine.EdgeableRes
+	uid engine.ResUID
+}
+
+// uidBucket holds the candidate UIDs of a single concrete UID type. Since a
+// concrete type either implements the optional engine.ResUIDHashable interface
+// or doesn't, exactly one of the two fields is used per bucket. Both preserve
+// the deterministic, sorted insert order within their lists.
+type uidBucket struct {
+	entries []*uidEntry            // linear list, scanned with IFF
+	hashed  map[string][]*uidEntry // keyed by UIDHash() for direct lookup
+}
+
+// uidIndex is a lookup index of every candidate UID in the graph, bucketed by
+// the concrete type of the UID. Bucketing by type is exactly equivalent to the
+// previous full graph scan, because every IFF implementation type-asserts its
+// own concrete type and can therefore never match a UID of a different type.
+// Note that we must NOT bucket by GetKind(), since the kind fields of the
+// "wanted" UIDs don't reliably line up with those of the candidates. (For
+// example the exec resource asks for file, user and group UIDs which carry the
+// "exec" kind.)
+type uidIndex struct {
+	buckets map[reflect.Type]*uidBucket
+}
+
+// newUIDIndex builds an empty index.
+func newUIDIndex() *uidIndex {
+	return &uidIndex{
+		buckets: make(map[reflect.Type]*uidBucket),
+	}
+}
+
+// insert adds a candidate UID from a resource into the index.
+func (obj *uidIndex) insert(res engine.EdgeableRes, uid engine.ResUID) {
+	t := reflect.TypeOf(uid)
+	bucket, exists := obj.buckets[t]
+	if !exists {
+		bucket = &uidBucket{}
+		obj.buckets[t] = bucket
+	}
+	entry := &uidEntry{res: res, uid: uid}
+	if hashable, ok := uid.(engine.ResUIDHashable); ok {
+		if bucket.hashed == nil {
+			bucket.hashed = make(map[string][]*uidEntry)
+		}
+		hash := hashable.UIDHash()
+		bucket.hashed[hash] = append(bucket.hashed[hash], entry)
+		return
+	}
+
+	bucket.entries = append(bucket.entries, entry) // not hashable, add here
+}
+
+// candidates returns the list of candidate entries which could possibly match
+// the given wanted UID. Anything not returned here is guaranteed to not match.
+func (obj *uidIndex) candidates(uid engine.ResUID) []*uidEntry {
+	bucket, exists := obj.buckets[reflect.TypeOf(uid)]
+	if !exists {
+		return nil // empty list
+	}
+	if hashable, ok := uid.(engine.ResUIDHashable); ok {
+		return bucket.hashed[hashable.UIDHash()]
+	}
+
+	return bucket.entries // not hashable, returned here
 }
 
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.

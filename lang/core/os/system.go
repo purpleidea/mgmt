@@ -145,9 +145,18 @@ func (obj *SystemFunc) Stream(ctx context.Context) (reterr error) {
 	processedChan := make(chan struct{})
 	close(processedChan)
 
+	// Set by the stdout goroutine if it errors. It's safe to read in the
+	// defer below without a lock because the read happens-after the
+	// goroutine's write: processedChan is only closed once the goroutine
+	// has returned (see wg.Wait() below).
+	var procErr error
+
 	// Wait for the current process to exit, if any.
 	defer func() {
 		<-processedChan
+		if reterr == nil {
+			reterr = procErr
+		}
 	}()
 
 	// Kill the current process, if any. A new cancel function is created
@@ -227,12 +236,12 @@ func (obj *SystemFunc) Stream(ctx context.Context) (reterr error) {
 					case obj.values <- s: // buffered
 					case <-ctx.Done():
 						// don't block here on shutdown
-						reterr = ctx.Err() // return err
+						procErr = ctx.Err() // return err
 						return
 					}
 
 					if err := obj.init.Event(ctx); err != nil { // send event
-						reterr = err // return err
+						procErr = err // return err
 						return
 					}
 				}

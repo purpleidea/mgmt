@@ -1,0 +1,6 @@
+-- main.mcl --
+import "test"
+# one_stream should only produce one value, and will error if given a second event
+test [test.one_stream(13)] {}
+-- OUTPUT --
+Vertex: test[xxxxxxxxxxxxx]

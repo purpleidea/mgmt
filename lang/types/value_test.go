@@ -839,10 +839,15 @@ func TestValueInto0(t *testing.T) {
 			value:     mustValue(int64(-12345)),
 			compare:   int64(-12345),
 		},
-		{
+		{ // MaxInt64 is the largest value representable by an mcl int
 			container: &u,
-			value:     mustValue(uint64(math.MaxUint64)),
-			compare:   uint64(math.MaxUint64),
+			value:     mustValue(uint64(math.MaxInt64)),
+			compare:   uint64(math.MaxInt64),
+		},
+		{ // a negative mcl int can't be stored in an unsigned field
+			container: &u,
+			value:     &IntValue{V: -1},
+			shouldErr: true,
 		},
 		{ // ensure -1 from an int64 fits into an int8
 			container: &i8,
@@ -1079,6 +1084,16 @@ func TestValueInto1(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+// TestValueOfMaxUint64 is the old uint64(MaxUint64) Into() case. It used to
+// "round-trip" into a uint64 container, but mcl ints are int64, so MaxUint64
+// isn't even representable: it now fails to convert instead of bit-preserving
+// to -1 and silently wrapping back. (The failure is at ValueOf(), not Into().)
+func TestValueOfMaxUint64(t *testing.T) {
+	if _, err := ValueOfGolang(uint64(math.MaxUint64)); err == nil {
+		t.Errorf("function ValueOf() didn't return an error but one was expected")
 	}
 }
 

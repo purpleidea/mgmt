@@ -33,6 +33,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"reflect"
 	"sort"
@@ -144,7 +145,13 @@ func ValueOf(v reflect.Value) (Value, error) {
 		return &IntValue{V: value.Int()}, nil
 
 	case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
-		return &IntValue{V: int64(value.Uint())}, nil
+		// mcl integers are int64, so an unsigned value above MaxInt64
+		// can't be represented without silently becoming negative.
+		u := value.Uint()
+		if u > math.MaxInt64 {
+			return nil, fmt.Errorf("unsigned value `%d` overflows the int64 mcl int", u)
+		}
+		return &IntValue{V: int64(u)}, nil
 
 	case reflect.Float64, reflect.Float32:
 		return &FloatValue{V: value.Float()}, nil
@@ -382,8 +389,15 @@ func Into(v Value, rv reflect.Value) error {
 			return nil
 
 		case reflect.Uint, reflect.Uint64, reflect.Uint32, reflect.Uint16, reflect.Uint8:
+			// A negative mcl int can't be stored in an unsigned field
+			// without wrapping around to a huge value, so reject it.
+			// This must come before the uint64 conversion below, which
+			// would otherwise turn a negative into a large positive.
+			if v.V < 0 {
+				return fmt.Errorf("can't store negative int `%d` into unsigned `%s` field", v.V, rv.Kind())
+			}
 			ff := reflect.Zero(typ)
-			if ff.OverflowUint(uint64(v.V)) { // TODO: is this correct?
+			if ff.OverflowUint(uint64(v.V)) {
 				return fmt.Errorf("%+v is an `%s`, and rv `%d` will overflow it", rv.Interface(), rv.Kind(), v.V)
 			}
 			rv.SetUint(uint64(v.V))

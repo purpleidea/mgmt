@@ -1,0 +1,10 @@
+-- main.mcl --
+# A uint64 field can hold up to MaxUint64, but mcl integers are int64, so this
+# literal (MaxUint64) can't even be lexed: it's a hard integer overflow error.
+# This is the *weak* guard: it only blocks large literals, not values reached
+# by arithmetic (see uint64-negative-wrap.txtar).
+test "t1" {
+	uint64 => 18446744073709551615,
+}
+-- OUTPUT --
+# err: errLexParse: integer: overflow: `18446744073709551615` @6:12

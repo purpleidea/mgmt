@@ -1,0 +1,12 @@
+-- main.mcl --
+# `0 - 1` is a perfectly normal mcl int (-1) produced by arithmetic, not a
+# literal, so the lexer's large-integer guard does nothing here. When stored
+# into a uint64 field it is currently silently wrapped to MaxUint64 instead of
+# being rejected. After the "reject the impossible cases" fix, this should be a
+# hard interpret error.
+$x = 0 - 1
+test "t1" {
+	uint64 => $x,
+}
+-- OUTPUT --
+# err: errInterpret: error building resource: can't store negative int `-1` into unsigned `uint64` field

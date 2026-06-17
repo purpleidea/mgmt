@@ -30,6 +30,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -54,7 +55,7 @@ type EdgeableRes interface {
 	// AutoEdges returns a struct that implements the AutoEdge interface.
 	// This interface can be used to generate automatic edges to other
 	// resources.
-	AutoEdges() (AutoEdge, error)
+	AutoEdges(ctx context.Context) (AutoEdge, error)
 }
 
 // AutoEdgeMeta provides some parameters specific to automatic edges.

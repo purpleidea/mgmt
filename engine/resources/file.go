@@ -86,6 +86,8 @@ func init() {
 	})
 }
 
+var _ engine.EdgeableRes = &FileRes{} // compile time check
+
 const (
 	// KindFile is the kind string used to identify this resource.
 	KindFile = "file"
@@ -1646,7 +1648,7 @@ func (obj *FileResAutoEdges) Test(input []bool) bool {
 
 // AutoEdges generates a simple linear sequence of each parent directory from
 // the bottom up!
-func (obj *FileRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *FileRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	var data []engine.ResUID // store linear result chain here...
 	// don't use any memoization run in Init (this gets called before Init)
 	values := util.PathSplitFullReversed(obj.getPath())

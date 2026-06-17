@@ -57,6 +57,8 @@ func init() {
 	engine.RegisterResource("exec", func() engine.Res { return &ExecRes{} })
 }
 
+var _ engine.EdgeableRes = &ExecRes{} // compile time check
+
 // ExecRes is an exec resource for running commands.
 //
 // This resource attempts to minimise the effects of the execution environment,
@@ -1251,7 +1253,7 @@ func (obj *ExecResAutoEdges) Test(input []bool) bool {
 }
 
 // AutoEdges returns the AutoEdge interface. In this case the systemd units.
-func (obj *ExecRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *ExecRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	var data []engine.ResUID
 	var reversed = true
 

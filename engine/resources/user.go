@@ -49,6 +49,8 @@ func init() {
 	engine.RegisterResource("user", func() engine.Res { return &UserRes{} })
 }
 
+var _ engine.EdgeableRes = &UserRes{} // compile time check
+
 // UserRes is a user account resource. Managing POSIX users and groups is sneaky
 // and annoying. It turns out that you can't *just* create a user without any
 // group.
@@ -483,7 +485,7 @@ type UserResAutoEdges struct {
 // group to user, and if the user is absent the edge goes from user to group.
 // This ensures that we don't add users to groups that don't exist or delete
 // groups before we delete their members.
-func (obj *UserRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *UserRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	var result []engine.ResUID
 	var reversed bool
 	if obj.State == "exists" {

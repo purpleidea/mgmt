@@ -65,7 +65,7 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 		default:
 		}
 
-		autoEdgeObj, e := res.AutoEdges() // XXX: add a ctx
+		autoEdgeObj, e := res.AutoEdges(ctx)
 		if e != nil {
 			err = errwrap.Append(err, e) // collect all errors
 			continue

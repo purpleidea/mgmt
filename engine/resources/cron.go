@@ -81,6 +81,8 @@ func init() {
 	engine.RegisterResource("cron", func() engine.Res { return &CronRes{} })
 }
 
+var _ engine.EdgeableRes = &CronRes{} // compile time check
+
 // CronRes is a systemd-timer cron resource.
 // TODO: If we want to have an actual `crond` resource, name it LegacyCron.
 type CronRes struct {
@@ -501,7 +503,7 @@ func (obj *CronUID) IFF(uid engine.ResUID) bool {
 }
 
 // AutoEdges returns the AutoEdge interface.
-func (obj *CronRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *CronRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	return nil, nil
 }
 

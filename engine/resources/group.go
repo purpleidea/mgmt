@@ -47,6 +47,8 @@ func init() {
 	engine.RegisterResource("group", func() engine.Res { return &GroupRes{} })
 }
 
+var _ engine.EdgeableRes = &GroupRes{} // compile time check
+
 // GroupRes is a user group resource.
 type GroupRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -242,7 +244,7 @@ type GroupUID struct {
 }
 
 // AutoEdges returns the AutoEdge interface.
-func (obj *GroupRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *GroupRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	return nil, nil
 }
 

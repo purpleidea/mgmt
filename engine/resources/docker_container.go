@@ -65,6 +65,8 @@ func init() {
 	engine.RegisterResource("docker:container", func() engine.Res { return &DockerContainerRes{} })
 }
 
+var _ engine.EdgeableRes = &DockerContainerRes{} // compile time check
+
 // DockerContainerRes is a docker container resource.
 type DockerContainerRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -512,7 +514,7 @@ type DockerContainerResAutoEdges struct {
 
 // AutoEdges returns edges to any docker:image resource that matches the image
 // specified in the docker:container resource definition.
-func (obj *DockerContainerRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *DockerContainerRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	var result []engine.ResUID
 	var reversed bool
 	if obj.State != "removed" {

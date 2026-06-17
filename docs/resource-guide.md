@@ -489,7 +489,7 @@ if another resource can match a dependency to this one.
 #### AutoEdges
 
 ```golang
-AutoEdges() (engine.AutoEdge, error)
+AutoEdges(ctx context.Context) (engine.AutoEdge, error)
 ```
 
 This returns a struct that implements the `AutoEdge` interface. This struct

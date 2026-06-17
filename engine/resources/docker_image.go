@@ -53,6 +53,8 @@ func init() {
 	engine.RegisterResource("docker:image", func() engine.Res { return &DockerImageRes{} })
 }
 
+var _ engine.EdgeableRes = &DockerImageRes{} // compile time check
+
 // DockerImageRes is a docker image resource. The resource's name must be a
 // docker image in any supported format (url, image, or image:tag).
 type DockerImageRes struct {
@@ -308,7 +310,7 @@ func (obj *DockerImageRes) UIDs() []engine.ResUID {
 }
 
 // AutoEdges returns the AutoEdge interface.
-func (obj *DockerImageRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *DockerImageRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	return nil, nil
 }
 

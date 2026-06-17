@@ -47,6 +47,8 @@ func init() {
 	engine.RegisterResource("pkg", func() engine.Res { return &PkgRes{} })
 }
 
+var _ engine.EdgeableRes = &PkgRes{} // compile time check
+
 const (
 	// PkgStateInstalled is the string that represents that the package
 	// should be installed.
@@ -128,7 +130,7 @@ func (obj *PkgRes) Init(init *engine.Init) error {
 
 	aem := obj.AutoEdgeMeta() // get current values
 	if obj.fileList == nil && !aem.Disabled {
-		if err := obj.populateFileList(); err != nil {
+		if err := obj.populateFileList(context.TODO()); err != nil {
 			return errwrap.Wrapf(err, "error populating file list in init")
 		}
 	}
@@ -299,7 +301,8 @@ func (obj *PkgRes) notFoundError(bus *packagekit.Conn, name string) error {
 
 // populateFileList fills in the fileList structure with what is in the package.
 // TODO: should this work properly if pkg has been autogrouped ?
-func (obj *PkgRes) populateFileList() error {
+// XXX: use the ctx inside this function
+func (obj *PkgRes) populateFileList(ctx context.Context) error {
 
 	bus, err := packagekit.NewBus()
 	if err != nil {
@@ -714,13 +717,13 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 
 // AutoEdges produces an object which generates a minimal pkg file optimization
 // sequence of edges.
-func (obj *PkgRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *PkgRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	// in contrast with the FileRes AutoEdges() function which contains
 	// more of the mechanics, most of the AutoEdge mechanics for the PkgRes
 	// are contained in the Test() method! This design is completely okay!
 
 	if obj.fileList == nil {
-		if err := obj.populateFileList(); err != nil {
+		if err := obj.populateFileList(ctx); err != nil {
 			return nil, errwrap.Wrapf(err, "error populating file list for automatic edges")
 		}
 	}

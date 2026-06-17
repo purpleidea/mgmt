@@ -53,6 +53,8 @@ func init() {
 	engine.RegisterResource("svc", func() engine.Res { return &SvcRes{} })
 }
 
+var _ engine.EdgeableRes = &SvcRes{} // compile time check
+
 // The SystemdUnitMode* constants do the following from the docs:
 //
 // The mode needs to be one of replace, fail, isolate, ignore-dependencies,
@@ -744,7 +746,7 @@ func (obj *SvcResAutoEdgesCron) Test([]bool) bool {
 
 // AutoEdges returns the AutoEdge interface. In this case, systemd unit file
 // resources and cron (systemd-timer) resources.
-func (obj *SvcRes) AutoEdges() (engine.AutoEdge, error) {
+func (obj *SvcRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 	var data []engine.ResUID
 	var svcFiles []string
 

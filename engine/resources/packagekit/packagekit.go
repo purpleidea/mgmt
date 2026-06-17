@@ -400,7 +400,11 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return []string{}, fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if obj.Debug {
 				obj.Logf("ResolvePackages(): Signal: %+v", signal)
 			}
@@ -518,7 +522,11 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
@@ -572,7 +580,11 @@ func (obj *Conn) InstallPackages(packageIDs []string, transactionFlags uint64) e
 loop:
 	for {
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
@@ -629,7 +641,11 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
@@ -678,7 +694,11 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop
@@ -730,7 +750,12 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				err = fmt.Errorf("signal channel closed unexpectedly")
+				return
+			}
 
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
@@ -804,7 +829,11 @@ loop:
 	for {
 		// FIXME: add a timeout option to error in case signals are dropped!
 		select {
-		case signal := <-ch:
+		case signal, ok := <-ch:
+			if !ok {
+				// channel closed, e.g. the bus connection died
+				return nil, fmt.Errorf("signal channel closed unexpectedly")
+			}
 			if signal.Path != interfacePath {
 				obj.Logf("woops: Signal.Path: %+v", signal.Path)
 				continue loop

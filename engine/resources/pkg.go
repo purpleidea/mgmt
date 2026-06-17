@@ -233,7 +233,7 @@ func (obj *PkgRes) groupMappingHelper() map[string]string {
 	return result
 }
 
-func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packagekit.PkPackageIDActionData, error) {
+func (obj *PkgRes) pkgMappingHelper(ctx context.Context, bus *packagekit.Conn) (map[string]*packagekit.PkPackageIDActionData, error) {
 	packageMap := obj.groupMappingHelper() // get the grouped values
 	packageMap[obj.Name()] = obj.State     // key is pkg name, value is pkg state
 	var filter uint64                      // initializes at the "zero" value of 0
@@ -251,7 +251,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 	if !obj.AllowUnsupported {
 		filter |= packagekit.PkFilterEnumSupported
 	}
-	result, err := bus.PackagesToPackageIDs(packageMap, filter)
+	result, err := bus.PackagesToPackageIDs(ctx, packageMap, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't run PackagesToPackageIDs")
 	}
@@ -261,7 +261,7 @@ func (obj *PkgRes) pkgMappingHelper(bus *packagekit.Conn) (map[string]*packageki
 // notFoundError returns the "can't find package" error, augmented with a hint
 // if the package would have been visible with one of the AllowNonFree or
 // AllowUnsupported search filters relaxed.
-func (obj *PkgRes) notFoundError(bus *packagekit.Conn, name string) error {
+func (obj *PkgRes) notFoundError(ctx context.Context, bus *packagekit.Conn, name string) error {
 	notFoundErr := fmt.Errorf("can't find package named '%s'", name)
 
 	var candidates []string
@@ -284,7 +284,7 @@ func (obj *PkgRes) notFoundError(bus *packagekit.Conn, name string) error {
 	}
 	// intentionally drop PkFilterEnumFree and PkFilterEnumSupported
 
-	result, err := bus.PackagesToPackageIDs(packageMap, filter)
+	result, err := bus.PackagesToPackageIDs(ctx, packageMap, filter)
 	if err != nil {
 		return errwrap.Wrapf(err, "can't run PackagesToPackageIDs")
 	}
@@ -301,7 +301,6 @@ func (obj *PkgRes) notFoundError(bus *packagekit.Conn, name string) error {
 
 // populateFileList fills in the fileList structure with what is in the package.
 // TODO: should this work properly if pkg has been autogrouped ?
-// XXX: use the ctx inside this function
 func (obj *PkgRes) populateFileList(ctx context.Context) error {
 
 	bus, err := packagekit.NewBus()
@@ -316,7 +315,7 @@ func (obj *PkgRes) populateFileList(ctx context.Context) error {
 		}
 	}
 
-	result, err := obj.pkgMappingHelper(bus)
+	result, err := obj.pkgMappingHelper(ctx, bus)
 	if err != nil {
 		return errwrap.Wrapf(err, "the pkgMappingHelper failed")
 	}
@@ -325,7 +324,7 @@ func (obj *PkgRes) populateFileList(ctx context.Context) error {
 	// package doesn't exist, this is an error!
 	if !ok || !data.Found {
 		// common if we made a package name typo or repo doesn't exist!
-		return obj.notFoundError(bus, obj.Name())
+		return obj.notFoundError(ctx, bus, obj.Name())
 	}
 	if data.PackageID == "" {
 		// this can happen if you specify a bad version like "latest"
@@ -333,7 +332,7 @@ func (obj *PkgRes) populateFileList(ctx context.Context) error {
 	}
 
 	packageIDs := []string{data.PackageID} // just one for now
-	filesMap, err := bus.GetFilesByPackageID(packageIDs)
+	filesMap, err := bus.GetFilesByPackageID(ctx, packageIDs)
 	if err != nil {
 		return errwrap.Wrapf(err, "can't run GetFilesByPackageID")
 	}
@@ -361,7 +360,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.init.Logf("packagekit: "+format, v...)
 	}
 
-	result, err := obj.pkgMappingHelper(bus)
+	result, err := obj.pkgMappingHelper(ctx, bus)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "the pkgMappingHelper failed")
 	}
@@ -376,7 +375,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	for _, name := range packageList {
 		p, ok := result[name]
 		if !ok || !p.Found {
-			return false, obj.notFoundError(bus, name)
+			return false, obj.notFoundError(ctx, bus, name)
 		}
 	}
 	//stateList := []string{obj.State}

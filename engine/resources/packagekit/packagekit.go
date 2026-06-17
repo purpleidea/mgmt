@@ -33,6 +33,7 @@
 package packagekit
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -369,7 +370,7 @@ func (obj *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 }
 
 // ResolvePackages runs the PackageKit Resolve method and returns the result.
-func (obj *Conn) ResolvePackages(packages []string, filter uint64) ([]string, error) {
+func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter uint64) ([]string, error) {
 	packageIDs := []string{}
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := obj.CreateTransaction() // emits Destroy on close
@@ -433,16 +434,19 @@ loop:
 			} else {
 				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
 			}
+
+		case <-ctx.Done(): // the engine cancelled us, e.g. a slow network
+			return []string{}, ctx.Err()
 		}
 	}
 	return packageIDs, nil
 }
 
 // IsInstalledList queries a list of packages to see if they are installed.
-func (obj *Conn) IsInstalledList(packages []string) ([]bool, error) {
+func (obj *Conn) IsInstalledList(ctx context.Context, packages []string) ([]bool, error) {
 	var filter uint64          // initializes at the "zero" value of 0
 	filter += PkFilterEnumArch // always search in our arch
-	packageIDs, err := obj.ResolvePackages(packages, filter)
+	packageIDs, err := obj.ResolvePackages(ctx, packages, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error resolving packages")
 	}
@@ -477,8 +481,8 @@ func (obj *Conn) IsInstalledList(packages []string) ([]bool, error) {
 
 // IsInstalled returns if a package is installed.
 // TODO: this could be optimized by making the resolve call directly
-func (obj *Conn) IsInstalled(pkg string) (bool, error) {
-	p, err := obj.IsInstalledList([]string{pkg})
+func (obj *Conn) IsInstalled(ctx context.Context, pkg string) (bool, error) {
+	p, err := obj.IsInstalledList(ctx, []string{pkg})
 	if err != nil {
 		return false, err
 	}
@@ -699,7 +703,7 @@ loop:
 
 // GetFilesByPackageID gets the list of files that are contained inside a list
 // of packageIDs.
-func (obj *Conn) GetFilesByPackageID(packageIDs []string) (files map[string][]string, err error) {
+func (obj *Conn) GetFilesByPackageID(ctx context.Context, packageIDs []string) (files map[string][]string, err error) {
 	// NOTE: the maximum number of files in an RPM is 52116 in Fedora 23
 	// https://gist.github.com/purpleidea/b98e60dcd449e1ac3b8a
 	ch := make(chan *dbus.Signal, PkBufferSize) // we need to buffer :(
@@ -762,6 +766,10 @@ loop:
 				err = fmt.Errorf("error in body: %v", signal.Body)
 				return
 			}
+
+		case <-ctx.Done(): // the engine cancelled us, e.g. a slow network
+			err = ctx.Err()
+			return
 		}
 	}
 	return
@@ -837,7 +845,7 @@ loop:
 // outside mgmt. The packageMap input has the package names as keys and
 // requested states as values. These states can be: installed, uninstalled,
 // newest or a requested version str.
-func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint64) (map[string]*PkPackageIDActionData, error) {
+func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string]string, filter uint64) (map[string]*PkPackageIDActionData, error) {
 	count := 0
 	packages := make([]string, len(packageMap))
 	for k := range packageMap { // lol, golang has no hash.keys() function!
@@ -852,7 +860,7 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 	if obj.Debug {
 		obj.Logf("PackagesToPackageIDs(): %s", strings.Join(packages, ", "))
 	}
-	resolved, err := obj.ResolvePackages(packages, filter)
+	resolved, err := obj.ResolvePackages(ctx, packages, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error resolving")
 	}
@@ -978,7 +986,7 @@ func (obj *Conn) PackagesToPackageIDs(packageMap map[string]string, filter uint6
 			if obj.Debug {
 				obj.Logf("PackagesToPackageIDs(): Recurse: %s", strings.Join(checkPackages, ", "))
 			}
-			recursion, err = obj.PackagesToPackageIDs(filteredPackageMap, filter+PkFilterEnumNewest)
+			recursion, err = obj.PackagesToPackageIDs(ctx, filteredPackageMap, filter+PkFilterEnumNewest)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "recursion error")
 			}

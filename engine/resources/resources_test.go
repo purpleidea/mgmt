@@ -511,9 +511,6 @@ func TestResources1(t *testing.T) {
 				close(readyChan)
 			}
 			eventChan := make(chan struct{})
-			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
-			defer doneCtxCancel()
-
 			tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
 			debug := testing.Verbose()                // set via the -test.v flag to `go test`
 			logf := func(format string, v ...interface{}) {
@@ -612,8 +609,11 @@ func TestResources1(t *testing.T) {
 			defer closeFn()
 
 			// run watch
+			doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 			wg := &sync.WaitGroup{}
 			defer wg.Wait() // if we return early
+			defer close(changedChan)
+			defer doneCtxCancel()
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -628,6 +628,12 @@ func TestResources1(t *testing.T) {
 			// TODO: can we block here if the test fails early?
 			select {
 			case <-readyChan: // called by Event() in Watch
+			case _, ok := <-eventChan:
+				if !ok {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: Watch exited before startup", index)
+					return
+				}
 			}
 			wg.Add(1)
 			go func() { // run timeline

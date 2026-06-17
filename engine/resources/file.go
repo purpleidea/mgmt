@@ -1577,6 +1577,15 @@ func (obj *FileUID) IFF(uid engine.ResUID) bool {
 	return obj.path == res.path
 }
 
+// UIDHash returns the matching identity of this UID. Since IFF is a pure path
+// equality comparison, this satisfies the engine.ResUIDHashable contract, and
+// lets the autoedge matching find file candidates with a map lookup. This is
+// the UID type which shows up in large numbers, since every file resource also
+// asks about each of its parent directories when seeking automatic edges.
+func (obj *FileUID) UIDHash() string {
+	return obj.path
+}
+
 // FileResAutoEdges holds the state of the auto edge generator.
 type FileResAutoEdges struct {
 	// We do all of these first...

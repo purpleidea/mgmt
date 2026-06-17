@@ -415,15 +415,18 @@ func (obj *Instance) wait(ctx context.Context, requireActivity bool) error {
 
 		var converged bool
 		for i := obj.convergerStatusIndex; i < len(lines); i++ {
-			obj.convergerStatusIndex = i + 1 // new max
 			line := lines[i]
 			if line == "false" { // activity!
+				obj.convergerStatusIndex = i + 1 // new max
 				activity = true
 				continue
 			}
 			if line == "true" { // converged!
+				obj.convergerStatusIndex = i + 1 // new max
 				converged = activity
+				continue
 			}
+			break // possibly a partial write; do not consume it yet
 		}
 		if converged {
 			return nil

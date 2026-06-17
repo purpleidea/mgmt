@@ -1404,6 +1404,7 @@ func (obj *ExecRes) getCredential() (*syscall.Credential, error) {
 		return nil, fmt.Errorf("running as root is required if you want to use exec with a different user/group")
 	}
 
+	//nolint:gosec // G115: uid/gid values resolved from the system are non-negative
 	return &syscall.Credential{Uid: uint32(wantedUID), Gid: uint32(wantedGID)}, nil
 }
 

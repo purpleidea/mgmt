@@ -26,7 +26,22 @@ sed ':a; s/^\( *\)	/\1  /; ta' >"$glc_config" <<'EOF'
 version: "2"
 run:
 	relative-path-mode: gomod
+issues:
+	# show every finding: the defaults (50 per linter, 3 per same issue)
+	# silently truncate the output and hide the true number of problems.
+	max-issues-per-linter: 0
+	max-same-issues: 0
 linters:
+	settings:
+		gosec:
+			# G204 (subprocess with variable) and G304 (file inclusion
+			# via variable) fire on nearly every file and exec operation
+			# in mgmt: as a config management engine, running commands
+			# and reading/writing files at config-supplied paths is its
+			# core purpose, so these are intentional everywhere.
+			excludes:
+				- G204
+				- G304
 	exclusions:
 		rules:
 			- path: ^etcd/client/resources/resources\.go$
@@ -34,6 +49,9 @@ linters:
 				source: '^[[:space:]]*(thn (:=|= append)|out, err := client\.Txn\(ctx, ifs, thn, els\))'
 				linters:
 					- misspell
+			- path: ^lang/core/generated_funcs\.go$
+				linters:
+					- gosec
 EOF
 
 # TODO: run more linters here if we're brave...
@@ -88,7 +106,7 @@ glc="$glc --enable=goheader"
 #glc="$glc --enable=gomodguard" # deprecated
 #glc="$glc --enable=gomodguard_v2" # future
 glc="$glc --enable=goprintffuncname"
-#glc="$glc --enable=gosec"
+glc="$glc --enable=gosec"
 glc="$glc --enable=gosmopolitan"
 glc="$glc --enable=govet"
 glc="$glc --enable=grouper"

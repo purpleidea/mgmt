@@ -186,6 +186,7 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string
 
 	// FIXME: should we be using a different client?
 	client := http.DefaultClient
+	//nolint:gosec // G704: proxyURL is rooted at the operator-configured Head; proxying to it is this resource's purpose
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, proxyURL, nil) // (*Request, error)
 	if err != nil {
 		return nil, err
@@ -201,6 +202,7 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string
 		// NOTE: Using this header breaks wget2!
 		//w.WriteHeader(http.StatusProcessing) // http 102, RFC 2518, 10.1
 
+		//nolint:gosec // G704: request targets the operator-configured Head; proxying to it is this resource's purpose
 		response, err := client.Do(request) // (*Response, error)
 		if err != nil {
 			return err

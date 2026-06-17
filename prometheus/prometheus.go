@@ -36,6 +36,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -149,7 +150,11 @@ func (obj *Prometheus) Init() error {
 // prometheus would expect.
 func (obj *Prometheus) Start() error {
 	http.Handle("/metrics", promhttp.Handler())
-	go http.ListenAndServe(obj.Listen, nil)
+	srv := &http.Server{
+		Addr:              obj.Listen,
+		ReadHeaderTimeout: 60 * time.Second, // safety against slowloris
+	}
+	go srv.ListenAndServe()
 	return nil
 }
 

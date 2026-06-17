@@ -303,7 +303,7 @@ func (obj *SysctlRes) runtimeCheckApply(ctx context.Context, apply bool) (bool, 
 		return false, nil
 	}
 
-	if err := os.WriteFile(obj.toPath(), expected, 0644); err != nil {
+	if err := os.WriteFile(obj.toPath(), expected, 0600); err != nil {
 		return false, err
 	}
 
@@ -339,6 +339,7 @@ func (obj *SysctlRes) persistCheckApply(ctx context.Context, apply bool) (bool, 
 		return false, nil
 	}
 
+	//nolint:gosec // G306: /etc/sysctl.d config files are world-readable by convention
 	if err := os.WriteFile(obj.getFilename(), expected, 0644); err != nil {
 		return false, err
 	}

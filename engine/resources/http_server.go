@@ -246,6 +246,7 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		obj.init.Logf("Got file at root: %s", p)
 	}
 
+	//nolint:gosec // G703: p is validated against Root above (HasPrefix + optional SecureJoin)
 	handle, err := os.Open(p)
 	if err != nil {
 		obj.init.Logf("could not open: %s", p)
@@ -505,7 +506,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		case <-obj.interruptChan:
 			// TODO: should we bubble up the error from Close?
 			// TODO: do we need a mutex around this Close?
-			obj.server.Close() // kill it quickly!
+			_ = obj.server.Close() // kill it quickly!
 		case <-shutdownChan:
 			// let this exit
 		}
@@ -531,6 +532,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		innerCtx := context.Background()
 		if i := obj.getShutdownTimeout(); i != nil && *i > 0 {
 			var cancel context.CancelFunc
+			//nolint:gosec // G115: shutdown timeout is trusted operator config in s; only wraps above 2^63
 			innerCtx, cancel = context.WithTimeout(innerCtx, time.Duration(*i)*time.Second)
 			defer cancel()
 		}
@@ -538,7 +540,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		if err == context.DeadlineExceeded {
 			// TODO: should we bubble up the error from Close?
 			// TODO: do we need a mutex around this Close?
-			obj.server.Close() // kill it now
+			_ = obj.server.Close() // kill it now
 		}
 	}()
 

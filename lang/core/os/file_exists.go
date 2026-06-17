@@ -116,7 +116,7 @@ func (obj *FileExistsFunc) Stream(ctx context.Context) error {
 	defer wg.Wait()
 	defer func() {
 		if obj.recWatcher != nil {
-			obj.recWatcher.Close() // close previous watcher
+			_ = obj.recWatcher.Close() // close previous watcher
 			wg.Wait()
 		}
 	}()
@@ -142,7 +142,7 @@ func (obj *FileExistsFunc) Stream(ctx context.Context) error {
 			obj.filename = &filename
 
 			if obj.recWatcher != nil {
-				obj.recWatcher.Close() // close previous watcher
+				_ = obj.recWatcher.Close() // close previous watcher
 				wg.Wait()
 			}
 			// create new watcher

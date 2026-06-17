@@ -35,6 +35,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -1326,9 +1327,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 
 		case "retry":
 			x := v.Int() // must not panic
-			// TODO: check that it doesn't overflow
+			if x > math.MaxInt16 || x < math.MinInt16 {
+				return nil, fmt.Errorf("retry value %d overflows int16", x)
+			}
+			retry := int16(x) // safe: bounds checked above
 			apply = append(apply, func(res engine.Res) {
-				res.MetaParams().Retry = int16(x)
+				res.MetaParams().Retry = retry
 			})
 
 		case "retryreset":
@@ -1338,23 +1342,33 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 
 		case "delay":
 			x := v.Int() // must not panic
-			// TODO: check that it isn't signed
+			if x < 0 {
+				return nil, fmt.Errorf("delay value %d is negative", x)
+			}
+			delay := uint64(x) // safe: non-negative checked above
 			apply = append(apply, func(res engine.Res) {
-				res.MetaParams().Delay = uint64(x)
+				res.MetaParams().Delay = delay
 			})
 
 		case "timeout":
 			x := v.Int() // must not panic
-			// TODO: check that it isn't signed
+			if x < 0 {
+				return nil, fmt.Errorf("timeout value %d is negative", x)
+			}
+			timeout := uint64(x) // safe: non-negative checked above
 			apply = append(apply, func(res engine.Res) {
-				res.MetaParams().Timeout = uint64(x)
+				res.MetaParams().Timeout = timeout
 			})
 
 		case "poll":
 			x := v.Int() // must not panic
-			// TODO: check that it doesn't overflow and isn't signed
+			// TODO: check that it isn't signed
+			if x > math.MaxInt32 || x < math.MinInt32 {
+				return nil, fmt.Errorf("poll value %d overflows int32", x)
+			}
+			poll := int32(x) // safe: bounds checked above
 			apply = append(apply, func(res engine.Res) {
-				res.MetaParams().Poll = int32(x)
+				res.MetaParams().Poll = poll
 			})
 
 		case "limit": // rate.Limit
@@ -1460,9 +1474,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 			}
 			if val, exists := v.Struct()["retry"]; exists {
 				x := val.Int() // must not panic
-				// TODO: check that it doesn't overflow
+				if x > math.MaxInt16 || x < math.MinInt16 {
+					return nil, fmt.Errorf("retry value %d overflows int16", x)
+				}
+				retry := int16(x) // safe: bounds checked above
 				apply = append(apply, func(res engine.Res) {
-					res.MetaParams().Retry = int16(x)
+					res.MetaParams().Retry = retry
 				})
 			}
 			if val, exists := v.Struct()["retryreset"]; exists {
@@ -1472,23 +1489,32 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 			}
 			if val, exists := v.Struct()["delay"]; exists {
 				x := val.Int() // must not panic
-				// TODO: check that it isn't signed
+				if x < 0 {
+					return nil, fmt.Errorf("delay value %d is negative", x)
+				}
+				delay := uint64(x) // safe: non-negative checked above
 				apply = append(apply, func(res engine.Res) {
-					res.MetaParams().Delay = uint64(x)
+					res.MetaParams().Delay = delay
 				})
 			}
 			if val, exists := v.Struct()["timeout"]; exists {
 				x := val.Int() // must not panic
-				// TODO: check that it isn't signed
+				if x < 0 {
+					return nil, fmt.Errorf("timeout value %d is negative", x)
+				}
+				timeout := uint64(x) // safe: non-negative checked above
 				apply = append(apply, func(res engine.Res) {
-					res.MetaParams().Timeout = uint64(x)
+					res.MetaParams().Timeout = timeout
 				})
 			}
 			if val, exists := v.Struct()["poll"]; exists {
 				x := val.Int() // must not panic
-				// TODO: check that it doesn't overflow
+				if x > math.MaxInt32 || x < math.MinInt32 {
+					return nil, fmt.Errorf("poll value %d overflows int32", x)
+				}
+				poll := int32(x) // safe: bounds checked above
 				apply = append(apply, func(res engine.Res) {
-					res.MetaParams().Poll = int32(x)
+					res.MetaParams().Poll = poll
 				})
 			}
 			if val, exists := v.Struct()["limit"]; exists {

@@ -100,7 +100,7 @@ func newTestServer() *testServer {
 		// Don't write a body for 304-- net/http will drop it anyway,
 		// but skipping it makes intent explicit.
 		if resp.status != http.StatusNotModified {
-			w.Write([]byte(resp.body))
+			_, _ = w.Write([]byte(resp.body))
 		}
 	}))
 	return obj
@@ -732,6 +732,7 @@ func TestHTTPClientLongpollRetryAfterGraceCoversTransportFailure(t *testing.T) {
 	firstReq := make(chan struct{}, 1)
 	firstRespSent := make(chan struct{}, 1)
 	server := &http.Server{
+		ReadHeaderTimeout: 60 * time.Second, // safety against slowloris
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			select {
 			case firstReq <- struct{}{}:
@@ -812,15 +813,16 @@ func TestHTTPClientLongpollRetryAfterGraceCoversTransportFailure(t *testing.T) {
 		t.Fatalf("second Listen: %v", err)
 	}
 	server = &http.Server{
+		ReadHeaderTimeout: 60 * time.Second, // safety against slowloris
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("v1"))
+			_, _ = w.Write([]byte("v1"))
 		}),
 	}
 	serverDone = make(chan error, 1)
 	go func() { serverDone <- server.Serve(ln) }()
 	defer func() {
-		server.Close()
+		_ = server.Close()
 		<-serverDone
 	}()
 

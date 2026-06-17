@@ -161,7 +161,7 @@ func (obj *Instance) Close() error {
 			return errwrap.Wrapf(err, "can't remove instance dir")
 		}
 	}
-	obj.Kill() // safety
+	_ = obj.Kill() // safety
 	return nil
 }
 
@@ -330,7 +330,7 @@ func (obj *Instance) Quit(ctx context.Context) error {
 		select {
 		case err = <-done:
 		case <-ctx.Done():
-			obj.Kill() // should cause the Wait() to exit
+			_ = obj.Kill() // should cause the Wait() to exit
 			err = ctx.Err()
 		}
 	}()

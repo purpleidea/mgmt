@@ -136,7 +136,7 @@ func (obj *MountRes) TestFstabEntryAdd(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryAddTests {
-		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0600); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}
@@ -182,7 +182,7 @@ func (obj *MountRes) TestFstabEntryRemove(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryRemoveTests {
-		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0600); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}
@@ -277,7 +277,7 @@ func TestFstabEntryExists(t *testing.T) {
 	defer os.Remove(file.Name())
 
 	for _, test := range fstabEntryExistsTests {
-		if err := os.WriteFile(file.Name(), test.fstabMock, 0644); err != nil {
+		if err := os.WriteFile(file.Name(), test.fstabMock, 0600); err != nil {
 			t.Errorf("error writing fstab file: %s: %v", file.Name(), err)
 			return
 		}

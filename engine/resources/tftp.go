@@ -207,6 +207,7 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 
 	// Use nil in place of handler to disable read or write operations.
 	server := tftp.NewServer(obj.readHandler(ctx), obj.writeHandler())
+	//nolint:gosec // G115: timeout is trusted operator config in s; only wraps above 2^63
 	server.SetTimeout(time.Duration(obj.Timeout) * time.Second) // optional
 	server.SetBackoff(func(int) time.Duration {
 		// Match the library's default randomized retry delay while
@@ -216,6 +217,7 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 		case <-ctx.Done():
 			return 0
 		default:
+			//nolint:gosec // G404: jitter for retry backoff, not security-sensitive
 			return time.Duration(rand.Int63n(int64(time.Second)))
 		}
 	})
@@ -453,7 +455,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 
 				select {
 				case <-ctx.Done():
-					transfer.Close() // this unblocks ReadFrom
+					_ = transfer.Close() // this unblocks ReadFrom
 				case <-done:
 				}
 			}()
@@ -723,6 +725,7 @@ func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
 		return nil, fmt.Errorf("nil transfer connection")
 	}
 
+	//nolint:gosec // G103: reflection into the tftp library's unexported conn field
 	connValue := reflect.NewAt(connField.Type(), unsafe.Pointer(connField.UnsafeAddr())).Elem()
 	conn := reflect.ValueOf(connValue.Interface())
 	if conn.Kind() == reflect.Interface {
@@ -741,6 +744,7 @@ func tftpTransferConn(rf io.ReaderFrom) (*net.UDPConn, error) {
 		return nil, fmt.Errorf("nil UDP connection")
 	}
 
+	//nolint:gosec // G103: reflection into the library's unexported UDP conn field
 	udpValue := reflect.NewAt(udpField.Type(), unsafe.Pointer(udpField.UnsafeAddr())).Elem()
 	udpConn, ok := udpValue.Interface().(*net.UDPConn)
 	if !ok {

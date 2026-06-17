@@ -316,7 +316,7 @@ func TestHTTPServerLongpollShutdownUnblocksHeldClient(t *testing.T) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "event")
-	if err := os.WriteFile(path, []byte("v1"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("v1"), 0o600); err != nil {
 		t.Fatalf("func WriteFile: %v", err)
 	}
 
@@ -383,7 +383,7 @@ func TestHTTPServerLongpollShutdownUnblocksHeldClient(t *testing.T) {
 			held <- httpResult{err: err}
 			return
 		}
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		held <- httpResult{
 			status:     resp.StatusCode,
 			retryAfter: resp.Header.Get("Retry-After"),
@@ -506,7 +506,7 @@ func TestHTTPServerFileLongpollDataCursorAdvancesPerUpdate(t *testing.T) {
 func TestHTTPServerFileLongpollPathServesLogicalMtime(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "event")
-	if err := os.WriteFile(path, []byte("v1"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("v1"), 0o600); err != nil {
 		t.Fatalf("func WriteFile: %v", err)
 	}
 

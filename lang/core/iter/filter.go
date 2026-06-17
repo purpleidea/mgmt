@@ -478,7 +478,9 @@ func (obj *FilterFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 
 // Cleanup runs after that function was removed from the graph.
 func (obj *FilterFunc) Cleanup(ctx context.Context) error {
-	obj.init.Txn.Reverse()
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return err
+	}
 	//obj.init.Txn.DeleteVertex(subgraphInput) // XXX: should we delete it?
 	return obj.init.Txn.Commit()
 }

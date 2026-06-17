@@ -391,7 +391,7 @@ func (obj *EmbdEtcd) Init() error {
 		}
 	}
 
-	if err := os.MkdirAll(obj.Prefix, 0770); err != nil {
+	if err := os.MkdirAll(obj.Prefix, 0750); err != nil {
 		return errwrap.Wrapf(err, "couldn't mkdir: %s", obj.Prefix)
 	}
 

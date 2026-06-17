@@ -423,8 +423,11 @@ func Into(v Value, rv reflect.Value) error {
 
 		switch kind {
 		case reflect.Slice:
-			pow := nextPowerOfTwo(uint(count))
-			nval := reflect.MakeSlice(rv.Type(), count, int(pow))
+			// NOTE: We formerly over-allocated the capacity to the
+			// next power of two, but the slice is only ever filled
+			// by index below, never appended to, so a capacity of
+			// count is enough? pow := nextPowerOfTwo(uint(count))
+			nval := reflect.MakeSlice(rv.Type(), count, count)
 			rv.Set(nval)
 
 		case reflect.Array:

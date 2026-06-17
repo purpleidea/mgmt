@@ -128,7 +128,7 @@ func generate(length uint16) (string, error) {
 		return "", fmt.Errorf("string is empty")
 	}
 
-	if uint16(len(output)) != length { // safety against weird bugs
+	if len(output) != int(length) { // safety against weird bugs
 		return "", fmt.Errorf("random string is too short") // bug!
 	}
 

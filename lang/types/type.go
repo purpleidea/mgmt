@@ -821,7 +821,7 @@ func (obj *Type) string(table map[*Elem]uint) string {
 		}
 
 		//fmt.Printf("?%d: %p\n", int(num), obj.Uni.Find()) // debug
-		return "?" + strconv.Itoa(int(num))
+		return "?" + strconv.FormatUint(uint64(num), 10)
 	}
 
 	panic("malformed type")

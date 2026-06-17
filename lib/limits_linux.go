@@ -82,7 +82,7 @@ func raisePathValue(path string, value int, logf func(format string, v ...interf
 
 	data := []byte(strconv.Itoa(value) + "\n")
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return false, err
 	}
 	logf("raised limit of %s to %d", path, value)

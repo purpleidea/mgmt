@@ -255,9 +255,9 @@ func (obj *HTTPServerUIInputRes) SetValue(ctx context.Context, vs []string) erro
 	}
 
 	obj.mutex.Lock()
-	obj.setValue(ctx, value) // also sends an event
+	err := obj.setValue(ctx, value) // also sends an event
 	obj.mutex.Unlock()
-	return nil
+	return err
 }
 
 // setValue is the helper version where the caller must provide the mutex.

@@ -145,6 +145,7 @@ func LexParseWithOffsets(input io.Reader, offsets map[uint64]string) (interfaces
 
 	// TODO: switch this to an offset in bytes instead of lines
 	// TODO: we'll also need a way to convert that into the new row number!
+	//nolint:gosec // G115: a parser row number is non-negative
 	row := uint64(e.Row)
 	var i uint64           // initial condition
 	filename := offsets[0] // (assumption)

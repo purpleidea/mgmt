@@ -183,7 +183,10 @@ func (obj *CronRes) makeComposite() (*FileRes, error) {
 	}
 	file.State = obj.State
 	if obj.State != "absent" {
-		s := obj.unitFileContents()
+		s, err := obj.unitFileContents()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error building unit file contents")
+		}
 		file.Content = &s
 	}
 	return file, nil
@@ -566,7 +569,7 @@ func (obj *CronRes) UnitFilePath() (string, error) {
 
 // unitFileContents returns the contents of the unit file representing the
 // CronRes struct.
-func (obj *CronRes) unitFileContents() string {
+func (obj *CronRes) unitFileContents() (string, error) {
 	u := []*unit.UnitOption{}
 
 	// [Unit]
@@ -600,6 +603,8 @@ func (obj *CronRes) unitFileContents() string {
 	u = append(u, &unit.UnitOption{Section: "Install", Name: "WantedBy", Value: "timers.target"})
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(unit.Serialize(u))
-	return buf.String()
+	if _, err := buf.ReadFrom(unit.Serialize(u)); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

@@ -41,8 +41,12 @@ import (
 // correctly for all kinds of resources.
 func TestInitKindMetrics(t *testing.T) {
 	var prom Prometheus
-	prom.Init()
-	prom.InitKindMetrics([]string{"file", "exec"})
+	if err := prom.Init(); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+	if err := prom.InitKindMetrics([]string{"file", "exec"}); err != nil {
+		t.Fatalf("func InitKindMetrics: %v", err)
+	}
 
 	// Get a list of metrics collected by Prometheus.
 	// This is the only way to get Prometheus metrics

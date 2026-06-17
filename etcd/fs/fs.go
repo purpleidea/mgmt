@@ -547,7 +547,7 @@ func (obj *Fs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, er
 		return nil, err
 	}
 	if flag&os.O_CREATE > 0 && flag&os.O_EXCL > 0 && !chmod {
-		f.Close()
+		_ = f.Close()
 		return nil, &os.PathError{Op: "open", Path: name, Err: ErrExist}
 	}
 	f.readOnly = flag&(os.O_WRONLY|os.O_RDWR) == os.O_RDONLY
@@ -556,13 +556,13 @@ func (obj *Fs) OpenFile(name string, flag int, perm os.FileMode) (afero.File, er
 
 	if flag&os.O_APPEND > 0 {
 		if _, err := f.Seek(0, os.SEEK_END); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 	}
 	if flag&os.O_TRUNC > 0 && flag&(os.O_RDWR|os.O_WRONLY) > 0 {
 		if err := f.Truncate(0); err != nil {
-			f.Close()
+			_ = f.Close()
 			return nil, err
 		}
 	}
@@ -696,7 +696,7 @@ func (obj *Fs) RemoveAll(path string) error {
 	}
 
 	// Close directory, because windows won't remove opened directory.
-	fd.Close()
+	_ = fd.Close()
 
 	// Remove directory.
 	err1 := obj.Remove(path)

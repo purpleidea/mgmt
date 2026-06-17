@@ -305,10 +305,12 @@ func (obj *LineRes) remove(ctx context.Context) (bool, error) {
 		fileLines = append(fileLines, scanner.Text())
 	}
 	if err := scanner.Err(); err != nil {
-		file.Close() // don't leak
+		_ = file.Close() // don't leak
 		return false, err
 	}
-	file.Close() // close before we eventually write
+	if err := file.Close(); err != nil { // close before we eventually write
+		return false, err
+	}
 
 	// check if the last line ends with a newline
 	nl := ""

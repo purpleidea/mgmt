@@ -892,7 +892,7 @@ func (obj *Engine) AddEdge(f1, f2 interfaces.Func, fe *interfaces.FuncEdge) erro
 	}
 	if err := obj.addVertex(f2); err != nil {
 		// rollback f1 on error of f2
-		obj.deleteVertex(f1) // ignore any error
+		_ = obj.deleteVertex(f1) // ignore any error
 		return err
 	}
 
@@ -1072,7 +1072,7 @@ func (obj *Engine) ExecGraphviz(ctx context.Context, dir string) error {
 		return fmt.Errorf("dir must end with a slash")
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 

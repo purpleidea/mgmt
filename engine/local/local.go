@@ -322,7 +322,7 @@ func (obj *Value) getPrefix() (string, error) {
 	// already a directory, MkdirAll does nothing and returns nil. (Good!)
 	// TODO: I hope MkdirAll is thread-safe on path creation in case another
 	// future local API tries to make the base (parent) directory too!
-	if err := os.MkdirAll(obj.prefix, 0755); err != nil {
+	if err := os.MkdirAll(obj.prefix, 0750); err != nil {
 		return "", err
 	}
 	obj.prefixExists = true // former race write
@@ -434,7 +434,7 @@ func (obj *VarDirImpl) VarDir(ctx context.Context, reldir string) (string, error
 	// TODO: Should we mkdir this?
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
-	if err := os.MkdirAll(result, 0755); err != nil {
+	if err := os.MkdirAll(result, 0750); err != nil {
 		return "", err
 	}
 
@@ -461,7 +461,7 @@ func (obj *VarDirImpl) getPrefix() (string, error) {
 	// already a directory, MkdirAll does nothing and returns nil. (Good!)
 	// TODO: I hope MkdirAll is thread-safe on path creation in case another
 	// future local API tries to make the base (parent) directory too!
-	if err := os.MkdirAll(obj.prefix, 0755); err != nil {
+	if err := os.MkdirAll(obj.prefix, 0750); err != nil {
 		return "", err
 	}
 	obj.prefixExists = true // former race write
@@ -537,7 +537,7 @@ func (obj *PoolImpl) Pool(ctx context.Context, namespace, uid string, config *Po
 
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return 0, err
 	}
 
@@ -620,7 +620,7 @@ func (obj *PoolImpl) getPrefix() (string, error) {
 	// already a directory, MkdirAll does nothing and returns nil. (Good!)
 	// TODO: I hope MkdirAll is thread-safe on path creation in case another
 	// future local API tries to make the base (parent) directory too!
-	if err := os.MkdirAll(obj.prefix, 0755); err != nil {
+	if err := os.MkdirAll(obj.prefix, 0750); err != nil {
 		return "", err
 	}
 	obj.prefixExists = true // former race write

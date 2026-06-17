@@ -127,6 +127,7 @@ func (obj *Engine) Init() error {
 		return fmt.Errorf("the prefix of `%s` is invalid", obj.Prefix)
 	}
 	// 0775 since we want children to be able to read this!
+	//nolint:gosec // G301: children must be able to read this prefix
 	if err := os.MkdirAll(obj.Prefix, 0775); err != nil {
 		return errwrap.Wrapf(err, "can't create prefix")
 	}

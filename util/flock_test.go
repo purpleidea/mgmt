@@ -55,7 +55,7 @@ func ExampleFlock() {
 	}
 	fmt.Printf("locked...\n")
 	time.Sleep(1 * time.Second)
-	unlock()
+	_ = unlock()
 	fmt.Printf("unlocked...\n")
 
 	// Output: hello

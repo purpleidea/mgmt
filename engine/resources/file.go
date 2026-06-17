@@ -256,7 +256,7 @@ func (obj *FileRes) isDir() bool {
 // not empty.
 func (obj *FileRes) mode() (os.FileMode, error) {
 	// First check if this is an octal number.
-	if n, err := strconv.ParseInt(obj.Mode, 8, 32); err == nil {
+	if n, err := strconv.ParseUint(obj.Mode, 8, 32); err == nil {
 		return os.FileMode(n), nil
 	}
 
@@ -696,7 +696,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		obj.init.Logf("apply: %v -> %s", src, dst)
 	}
 
-	dstClose() // unlock file usage so we can write to it
+	_ = dstClose() // unlock file usage so we can write to it (may return os.ErrInvalid)
 	dstFile, err = os.Create(dst)
 	if err != nil {
 		return sha256sum, false, err
@@ -821,7 +821,7 @@ func (obj *FileRes) syncCheckApply(ctx context.Context, apply bool, src, dst str
 
 		_, checkOK, err := obj.fileCheckApply(ctx, apply, fin, dst, "")
 		if err != nil {
-			fin.Close()
+			_ = fin.Close()
 			return false, err
 		}
 		return checkOK, fin.Close()
@@ -1035,6 +1035,7 @@ func (obj *FileRes) stateCheckApply(ctx context.Context, apply bool) (bool, erro
 	// one is magically created right after our exists test. The chmod used
 	// is what is used by the os.Create function.
 	// TODO: is using O_EXCL okay?
+	//nolint:gosec // G302: mimics os.Create (0666); the Mode param sets the real mode
 	f, err := os.OpenFile(obj.getPath(), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "problem creating empty file")

@@ -172,6 +172,7 @@ func (obj *HTTPServerFileRes) getContent(requestPath safepath.AbsPath) (io.ReadS
 	if err != nil { // on error, we just assume no root/prefix stuff happens
 		handle, err = os.Open(obj.Path)
 	} else {
+		//nolint:gosec // G703: getContentRelative validates absFile is under the served root via safepath
 		handle, err = os.Open(absFile.Path())
 	}
 	if err != nil {
@@ -317,10 +318,10 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 				//req.Header.Del("If-None-Match") // for etag
 			}
 			http.ServeContent(w, req, requestPath, mtime, handle)
-			obj.closeContent(handle)
+			_ = obj.closeContent(handle)
 			return
 		}
-		obj.closeContent(handle) // ignore error and reopen on next loop
+		_ = obj.closeContent(handle) // ignore error and reopen on next loop
 
 		select {
 		case <-ch: // our content changed

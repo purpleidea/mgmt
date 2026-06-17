@@ -67,7 +67,9 @@ func BenchmarkResGraphMapper(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
-				engine.ResGraphMapper(oldGraph, newGraph)
+				if _, err := engine.ResGraphMapper(oldGraph, newGraph); err != nil {
+					b.Fatal(err)
+				}
 			}
 		})
 	}

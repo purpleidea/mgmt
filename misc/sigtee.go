@@ -56,6 +56,7 @@ func main() {
 	// Make sure we ignore ^C and ^\ when run in a shell pipe.
 	signal.Ignore(os.Interrupt, syscall.SIGQUIT) // TODO: add os.Kill ?
 
+	//nolint:gosec // G703: this is a tee clone; the user names their own output file
 	f, err := os.Create(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "can't write to: %s\n", filename)

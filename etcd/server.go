@@ -74,7 +74,7 @@ func (obj *EmbdEtcd) runServer(ctx context.Context, newCluster bool, peerURLsMap
 	defer obj.Logf("server: runServer: done!")
 	defer obj.serverExitsSignal.Send()
 	dataDir := fmt.Sprintf("%s/", path.Join(obj.Prefix, "server"))
-	if err := os.MkdirAll(dataDir, 0770); err != nil {
+	if err := os.MkdirAll(dataDir, 0750); err != nil {
 		return errwrap.Wrapf(err, "couldn't mkdir: %s", dataDir)
 	}
 

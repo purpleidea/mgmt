@@ -78,7 +78,7 @@ func newFakePippetReceiver(jsonTestOutput string) *fakePippetReceiver {
 
 	go func() {
 		// this will appear on the fake stdout
-		input.Write([]byte(jsonTestOutput))
+		_, _ = input.Write([]byte(jsonTestOutput))
 	}()
 
 	return result

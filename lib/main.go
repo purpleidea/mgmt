@@ -402,6 +402,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		prefix = *p
 	}
 	// make sure the working directory prefix exists
+	//nolint:gosec // G301: children must be able to read this prefix
 	if obj.TmpPrefix || os.MkdirAll(prefix, 0775) != nil { // 0775 =D
 		if obj.TmpPrefix || obj.AllowTmpPrefix {
 			var err error
@@ -410,6 +411,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				return fmt.Errorf("can't create temporary prefix")
 			}
 			// 0775 since we want children to be able to read this!
+			//nolint:gosec // G302: children must be able to read this prefix
 			if err := os.Chmod(prefix, 0775); err != nil {
 				return fmt.Errorf("can't set mode correctly")
 			}
@@ -483,6 +485,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 		pgpPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgp"))
 		// 0700 since we DON'T want anyone else to be able to read this!
+		//nolint:gosec // G703: prefix is the operator's own working dir, joined and cleaned by path.Join
 		if err := os.MkdirAll(pgpPrefix, 0700); err != nil {
 			return errwrap.Wrapf(err, "can't create pgp prefix")
 		}
@@ -533,6 +536,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		go func() {
 			defer wg.Done()
 			select {
+			//nolint:gosec // G115: max-runtime is trusted operator config in s; only wraps above 2^63
 			case <-time.After(time.Duration(i) * time.Second):
 				cancelCause(fmt.Errorf("max runtime reached")) // trigger an exit!
 
@@ -544,7 +548,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	// raise inotify limits
 	if !obj.NoRaiseLimits {
-		raiseLimits(Logf) // just alert the user...
+		_, _ = raiseLimits(Logf) // just alert the user...
 	}
 
 	convergerCtx, convergerCancel := context.WithCancel(context.Background())
@@ -988,7 +992,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			}
 
 			if err := obj.ge.Validate(); err != nil { // validate the new graph
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("graph validate failed: %+v", err)
 				continue
 			}
@@ -1021,7 +1025,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				}
 				return err
 			}); err != nil { // apply an operation to the new graph
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
 				continue
 			}
@@ -1033,7 +1037,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			} else {
 				timing = time.Now()
 				if err := obj.ge.AutoEdge(deployCtx); err != nil {
-					obj.ge.Abort() // delete graph
+					_ = obj.ge.Abort() // delete graph
 					Logf("error running auto edges: %+v", err)
 					continue
 				}
@@ -1047,7 +1051,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			} else {
 				timing = time.Now()
 				if err := obj.ge.AutoGroup(deployCtx, &autogroup.NonReachabilityGrouper{}); err != nil {
-					obj.ge.Abort() // delete graph
+					_ = obj.ge.Abort() // delete graph
 					Logf("error running auto grouping: %+v", err)
 					continue
 				}
@@ -1058,7 +1062,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// XXX: shouldn't this run before autoedge/autogroup?
 			// run reversals; modifies the graph
 			if err := obj.ge.Reversals(deployCtx); err != nil {
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error running the reversals: %+v", err)
 				continue
 			}
@@ -1076,7 +1080,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				_, e := graph.TopologicalSort() // am i a dag or not?
 				return e
 			}); err != nil { // apply an operation to the new graph
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error running the TopologicalSort: %+v", err)
 				continue
 			}
@@ -1103,7 +1107,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// new incoming graph!
 			timing = time.Now()
 			if err := obj.ge.SendRecv(); err != nil { // apply an operation to the new graph
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
 				continue
 			}
@@ -1116,7 +1120,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				// This graph isn't necessarily destroyed, but
 				// since an error is not expected here, we can
 				// either shutdown or wait for the next deploy.
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error running commit: %+v", err)
 				// block gapi until a newDeploy comes in...
 				if gapiImpl != nil { // currently running...
@@ -1138,7 +1142,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			if err := obj.ge.Exporter.Prune(pruneCtx, obj.ge.Graph()); err != nil {
 				// This should just cause a permanent error here
 				// which turns into a shutdown.
-				obj.ge.Abort() // delete graph
+				_ = obj.ge.Abort() // delete graph
 				Logf("error running the exporter Prune: %+v", err)
 				pruneCancel()
 				cancelCause(err) // trigger an exit!

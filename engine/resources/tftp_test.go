@@ -153,7 +153,7 @@ func TestTFTPServerWaitsForSuccessfulCheckApplyBeforeServing(t *testing.T) {
 	}
 	tftpExpectNoData(t, addr, "example.bin")
 
-	if err := os.MkdirAll(root, 0777); err != nil {
+	if err := os.MkdirAll(root, 0750); err != nil {
 		t.Fatalf("mkdir root failed: %+v", err)
 	}
 	checkOK, err := obj.CheckApply(ctx, true)
@@ -288,7 +288,7 @@ func tftpWaitForData(addr string, filename string, data []byte, timeout time.Dur
 	if err != nil {
 		return err
 	}
-	client.Close()
+	_ = client.Close()
 	if len(packet) >= 4 && packet[0] == 0 && packet[1] == 3 && string(packet[4:]) == string(data) {
 		return nil
 	}
@@ -305,12 +305,12 @@ func tftpReadFirstData(addr string, filename string, timeout time.Duration) (*ne
 
 		buf := make([]byte, 516)
 		if err := client.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
-			client.Close()
+			_ = client.Close()
 			return nil, nil, err
 		}
 		n, _, err := client.ReadFromUDP(buf)
 		if err != nil {
-			client.Close()
+			_ = client.Close()
 			time.Sleep(25 * time.Millisecond)
 			continue
 		}
@@ -336,7 +336,7 @@ func tftpWriteRRQ(addr string, filename string) (*net.UDPConn, error) {
 	rrq = append(rrq, []byte("octet")...)
 	rrq = append(rrq, 0)
 	if _, err := client.WriteToUDP(rrq, serverAddr); err != nil {
-		client.Close()
+		_ = client.Close()
 		return nil, err
 	}
 	return client, nil
@@ -349,7 +349,7 @@ func tftpHeldUDPAddr(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("listen udp failed: %+v", err)
 	}
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { _ = conn.Close() })
 
 	return conn.LocalAddr().String()
 }

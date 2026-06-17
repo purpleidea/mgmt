@@ -630,12 +630,12 @@ func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
 		return nil, err
 	}
 	if err = conn.Auth(nil); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		conn = nil
 		return
 	}
 	if err = conn.Hello(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		conn = nil
 	}
 	return conn, nil // success
@@ -649,12 +649,12 @@ func SessionBusPrivateUsable() (conn *dbus.Conn, err error) {
 		return nil, err
 	}
 	if err = conn.Auth(nil); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		conn = nil
 		return
 	}
 	if err = conn.Hello(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		conn = nil
 	}
 	return conn, nil // success

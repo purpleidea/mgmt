@@ -699,7 +699,7 @@ func dialSSHWithContext(ctx context.Context, network, addr string, config *ssh.C
 
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, err
 	}
 

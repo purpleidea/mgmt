@@ -196,6 +196,7 @@ func buildRandomDAG(n, avgDeg int, seed int64) *Graph {
 	if n <= 0 {
 		return g
 	}
+	//nolint:gosec // G404: deterministic seed for reproducible benchmark data
 	r := rand.New(rand.NewSource(seed))
 	vs := make([]Vertex, n)
 	for i := 0; i < n; i++ {

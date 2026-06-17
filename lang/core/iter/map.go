@@ -423,7 +423,9 @@ func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 
 // Cleanup runs after that function was removed from the graph.
 func (obj *MapFunc) Cleanup(ctx context.Context) error {
-	obj.init.Txn.Reverse()
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return err
+	}
 	//obj.init.Txn.DeleteVertex(subgraphInput) // XXX: should we delete it?
 	return obj.init.Txn.Commit()
 }

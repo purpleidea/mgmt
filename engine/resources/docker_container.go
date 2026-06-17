@@ -435,7 +435,7 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 	stopOpts := container.StopOptions{
 		Timeout: timeout,
 	}
-	obj.client.ContainerStop(ctx, id, stopOpts)
+	_ = obj.client.ContainerStop(ctx, id, stopOpts)
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:
@@ -450,7 +450,7 @@ func (obj *DockerContainerRes) containerStop(ctx context.Context, id string, tim
 func (obj *DockerContainerRes) containerRemove(ctx context.Context, id string, opts container.RemoveOptions) error {
 	obj.init.Logf("removing...")
 	ch, errCh := obj.client.ContainerWait(ctx, id, container.WaitConditionRemoved)
-	obj.client.ContainerRemove(ctx, id, opts)
+	_ = obj.client.ContainerRemove(ctx, id, opts)
 	// TODO: Should we add ctx here or does cancelling above guarantee exit?
 	select {
 	case <-ch:

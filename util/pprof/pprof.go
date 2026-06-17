@@ -52,6 +52,7 @@ func Run(ctx context.Context) error {
 	s := os.Getenv("MGMT_PPROF_PATH")
 	logf := func(format string, v ...interface{}) {
 		// TODO: is this a sane prefix to use here?
+		//nolint:gosec // G706: format and args come from internal callers, not untrusted input
 		log.Printf(format, v...) // XXX: use parent logger when available
 	}
 
@@ -62,6 +63,7 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("pprof path is not absolute")
 	}
 
+	//nolint:gosec // G703: path comes from MGMT_PPROF_PATH set by the operator, and is checked to be absolute above
 	f, err := os.Create(s)
 	if err != nil {
 		return fmt.Errorf("could not create CPU profile: %v", err)

@@ -387,7 +387,7 @@ func (obj *GzipRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// Copy the input file into the writer, which writes it out compressed.
 	count, err := util.CopyContext(ctx, gzipWriter, input) // dst, src
 	if err != nil {
-		gzipWriter.Close() // Might as well always close!
+		_ = gzipWriter.Close() // Might as well always close!
 		return false, err
 	}
 

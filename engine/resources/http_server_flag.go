@@ -146,6 +146,11 @@ func (obj *HTTPServerFlagRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	// Limit the request body size before parsing the form, to avoid memory
+	// exhaustion from an oversized POST. Flag values are small key/value
+	// pairs.
+	req.Body = http.MaxBytesReader(w, req.Body, 4*1024*1024) // 4 MiB
+
 	//requestPath := req.URL.Path
 	//if err := req.ParseForm(); err != nil { // needed to access querystring
 	//	sendHTTPError(w, err)

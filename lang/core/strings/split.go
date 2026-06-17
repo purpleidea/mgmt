@@ -60,9 +60,11 @@ func Split(ctx context.Context, input []types.Value) (types.Value, error) {
 	listVal := types.NewList(types.TypeListStr)
 
 	for _, segment := range segments {
-		listVal.Add(&types.StrValue{
+		if err := listVal.Add(&types.StrValue{
 			V: segment,
-		})
+		}); err != nil {
+			return nil, err
+		}
 	}
 
 	return listVal, nil

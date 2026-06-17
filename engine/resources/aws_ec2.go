@@ -555,7 +555,8 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 	}
 	// set up the sns server
 	snsServer := &http.Server{
-		Handler: http.HandlerFunc(obj.snsPostHandler),
+		Handler:           http.HandlerFunc(obj.snsPostHandler),
+		ReadHeaderTimeout: 60 * time.Second, // safety against slowloris
 	}
 	// close the listener and shutdown the sns server when we're done
 	defer func() {
@@ -984,6 +985,7 @@ func (obj *AwsEc2Res) snsGetCert(url string) (*x509.Certificate, error) {
 		return nil, fmt.Errorf("invalid certificate url: %s", url)
 	}
 	// download the signing certificate
+	//nolint:gosec // G107: url is validated against SnsCertURLRegex above
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "http get error")

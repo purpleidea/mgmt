@@ -739,6 +739,7 @@ func getLoopInfo(loop string) (*loopInfo, error) {
 
 	// deserialize the contents
 	retInfo := &loopInfo{}
+	//nolint:gosec // G103: unsafe.Pointer is required to pass the struct to the ioctl syscall
 	_, _, errno := unix.Syscall(unix.SYS_IOCTL, f.Fd(), getStatus64, uintptr(unsafe.Pointer(retInfo)))
 	if errno == unix.ENXIO {
 		return nil, fmt.Errorf("device not backed by a file")

@@ -236,6 +236,7 @@ func (obj *VirtRes) Watch(ctx context.Context) error {
 		if err != nil {
 			return errwrap.Wrapf(err, "could not lookup MaxCPUs on init")
 		}
+		//nolint:gosec // G115: libvirt returns a non-negative vCPU count (err checked above)
 		maxCPUs := uint(i)
 		if obj.MaxCPUs != maxCPUs { // max cpu slots is hard to change
 			// we'll need to reboot to fix this one...
@@ -664,6 +665,7 @@ func (obj *VirtRes) attrCheckApply(ctx context.Context, apply bool, dom *libvirt
 		if err != nil {
 			return false, errwrap.Wrapf(err, "domain.GetVcpus failed from qemu-guest-agent")
 		}
+		//nolint:gosec // G115: libvirt returns a non-negative vCPU count (err checked above)
 		onlineCPUs := uint(i)
 		if onlineCPUs != obj.CPUs {
 			if !apply {

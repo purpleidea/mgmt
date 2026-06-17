@@ -309,7 +309,7 @@ func TestOpenFileCreateExclFailsWhenFileExists(t *testing.T) {
 	}
 	f, err := fs.OpenFile("/file", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 	if err == nil {
-		f.Close()
+		_ = f.Close()
 		t.Fatalf("openfile with O_CREATE|O_EXCL succeeded, want error")
 	}
 	if !os.IsExist(err) {

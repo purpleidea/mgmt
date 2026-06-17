@@ -464,7 +464,9 @@ func (obj *ReduceFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 
 // Cleanup runs after that function was removed from the graph.
 func (obj *ReduceFunc) Cleanup(ctx context.Context) error {
-	obj.init.Txn.Reverse()
+	if err := obj.init.Txn.Reverse(); err != nil {
+		return err
+	}
 	return obj.init.Txn.Commit()
 }
 

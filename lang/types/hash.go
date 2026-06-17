@@ -155,7 +155,7 @@ func (obj *Hasher) Hash(value Value) Hash {
 
 // similar to appendT in: src/hash/maphash/maphash_purego.go
 func appendT(h *maphash.Hash, val Value) {
-	h.WriteString(val.Type().String())
+	_, _ = h.WriteString(val.Type().String()) // never errors
 
 	switch val.Type().Kind {
 	case KindBool:
@@ -165,15 +165,16 @@ func appendT(h *maphash.Hash, val Value) {
 			}
 			return 0
 		}
-		h.WriteByte(btoi(val.Bool()))
+		_ = h.WriteByte(btoi(val.Bool())) // never errors
 
 	case KindStr:
-		h.WriteString(val.Str())
+		_, _ = h.WriteString(val.Str()) // never errors
 
 	case KindInt:
 		var buf [8]byte
+		//nolint:gosec // G115: intentional bit reinterpretation for hashing; sign is irrelevant
 		binary.LittleEndian.PutUint64(buf[:], uint64(val.Int()))
-		h.Write(buf[:])
+		_, _ = h.Write(buf[:]) // never errors
 
 	case KindFloat:
 		float64Hash(h, val.Float())
@@ -216,7 +217,7 @@ func appendT(h *maphash.Hash, val Value) {
 			// do not want to hash to the same value,
 			// struct{a,b string}{"foo",""} and
 			// struct{a,b string}{"","foo"}.
-			h.Write(buf[:])
+			_, _ = h.Write(buf[:]) // never errors
 
 			appendT(h, v) // causes subsequent h.Write( ... )
 		}
@@ -228,17 +229,17 @@ func appendT(h *maphash.Hash, val Value) {
 // similar to float64 in: src/hash/maphash/maphash_purego.go
 func float64Hash(h *maphash.Hash, f float64) {
 	if f == 0 {
-		h.WriteByte(0)
+		_ = h.WriteByte(0) // never errors
 		return
 	}
 	var buf [8]byte
 	if f != f {
 		binary.LittleEndian.PutUint64(buf[:], randUint64())
-		h.Write(buf[:])
+		_, _ = h.Write(buf[:]) // never errors
 		return
 	}
 	binary.LittleEndian.PutUint64(buf[:], math.Float64bits(f))
-	h.Write(buf[:])
+	_, _ = h.Write(buf[:]) // never errors
 }
 
 // similar to randUint64 in: src/hash/maphash/maphash_purego.go

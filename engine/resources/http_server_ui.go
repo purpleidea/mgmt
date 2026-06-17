@@ -319,6 +319,7 @@ func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		h["path"] = obj.getPath()
 		if obj.Data != nil {
 			h["title"] = obj.Data.Title // template var
+			//nolint:gosec // G203: Head is operator-configured raw HTML, not attacker input
 			h["head"] = template.HTML(obj.Data.Head)
 		}
 		c.HTML(http.StatusOK, httpServerUIIndexHTMLTmpl, h)

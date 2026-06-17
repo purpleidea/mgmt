@@ -107,6 +107,7 @@ func (obj *Sendable) Sent() interface{} {
 // use. It is safe to call concurrently: the first user wins the CAS, everyone
 // else (including readers on other workers) only loads and compares.
 func (obj *Sendable) copyCheck() {
+	//nolint:gosec // G103: unsafe.Pointer is used as an identity token for the copy check
 	self := unsafe.Pointer(obj)
 	if atomic.CompareAndSwapPointer(&obj.addr, nil, self) {
 		return // first use of this Sendable

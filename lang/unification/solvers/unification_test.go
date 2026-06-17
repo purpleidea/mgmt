@@ -687,7 +687,10 @@ func TestUnification1(t *testing.T) {
 			ThenBranch: &ast.ExprInt{V: 42},
 			ElseBranch: &ast.ExprInt{V: 13},
 		}
-		cond.SetType(types.TypeStr) // should fail unification
+		// setting this (wrong) type should later fail unification
+		if err := cond.SetType(types.TypeStr); err != nil {
+			t.Fatalf("func SetType: %v", err)
+		}
 		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{
@@ -736,7 +739,10 @@ func TestUnification1(t *testing.T) {
 		//}
 		wvar := &ast.ExprBool{V: true}
 		xvar := &ast.ExprVar{Name: "w"}
-		xvar.SetType(types.TypeStr) // should fail unification
+		// setting this (wrong) type should later fail unification
+		if err := xvar.SetType(types.TypeStr); err != nil {
+			t.Fatalf("func SetType: %v", err)
+		}
 		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{
@@ -789,7 +795,10 @@ func TestUnification1(t *testing.T) {
 		//}
 		wvar := &ast.ExprBool{V: true}
 		xvar := &ast.ExprVar{Name: "w"}
-		xvar.SetType(types.TypeStr) // should fail unification
+		// setting this (wrong) type should later fail unification
+		if err := xvar.SetType(types.TypeStr); err != nil {
+			t.Fatalf("func SetType: %v", err)
+		}
 		expr := &ast.ExprCall{
 			Name: "fmt.printf",
 			Args: []interfaces.Expr{

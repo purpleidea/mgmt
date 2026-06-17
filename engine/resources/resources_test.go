@@ -98,6 +98,7 @@ type startupStep struct {
 func (obj *startupStep) Action() error {
 	select {
 	case <-obj.ch: // called by Event() in Watch
+	//nolint:gosec // G115: ms is a test-controlled value
 	case <-time.After(time.Duration(obj.ms) * time.Millisecond):
 		return fmt.Errorf("took too long to startup")
 	}
@@ -127,6 +128,7 @@ func (obj *changedStep) Action() error {
 		if checkOK != obj.expect {
 			return fmt.Errorf("got unexpected checkOK value of: %t", checkOK)
 		}
+	//nolint:gosec // G115: ms is a test-controlled value
 	case <-time.After(time.Duration(obj.ms) * time.Millisecond):
 		return fmt.Errorf("took too long to startup")
 	}
@@ -156,6 +158,7 @@ func (obj *clearChangedStep) Action() error {
 			if !ok {
 				return fmt.Errorf("channel closed unexpectedly")
 			}
+		//nolint:gosec // G115: ms is a test-controlled value
 		case <-time.After(time.Duration(obj.ms) * time.Millisecond):
 			return nil // done waiting
 		}
@@ -267,6 +270,7 @@ func TestResources1(t *testing.T) {
 	sleep := func(ms uint) Step {
 		return &manualStep{
 			action: func() error {
+				//nolint:gosec // G115: ms is a test-controlled value
 				time.Sleep(time.Duration(ms) * time.Millisecond)
 				return nil
 			},
@@ -336,7 +340,7 @@ func TestResources1(t *testing.T) {
 			timeline: timeline,
 			expect:   func() error { return nil },
 			// build file for inotifywait
-			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0666) },
+			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0600) },
 			cleanup: func() error { return os.Remove(f) },
 		})
 	}
@@ -372,7 +376,7 @@ func TestResources1(t *testing.T) {
 			timeline: timeline,
 			expect:   func() error { return nil },
 			// build file for inotifywait
-			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0666) },
+			startup: func() error { return os.WriteFile(f, []byte("starting...\n"), 0600) },
 			cleanup: func() error { return os.Remove(f) },
 		})
 	}
@@ -420,7 +424,7 @@ func TestResources1(t *testing.T) {
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
-			startup:  func() error { return os.WriteFile(p, []byte(content), 0666) },
+			startup:  func() error { return os.WriteFile(p, []byte(content), 0600) },
 			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
@@ -450,7 +454,7 @@ func TestResources1(t *testing.T) {
 			fail:     false,
 			timeline: timeline,
 			expect:   func() error { return nil },
-			startup:  func() error { return os.WriteFile(p, []byte(content), 0666) },
+			startup:  func() error { return os.WriteFile(p, []byte(content), 0600) },
 			cleanup:  func() error { return os.Remove(p) },
 		})
 	}
@@ -880,7 +884,7 @@ func TestResources2(t *testing.T) {
 	fileWrite := func(p, s string) func() error {
 		// write the file to path
 		return func() error {
-			return os.WriteFile(p, []byte(s), 0666)
+			return os.WriteFile(p, []byte(s), 0600)
 		}
 	}
 	fileExpect := func(p, s string) func() error {
@@ -940,9 +944,9 @@ func TestResources2(t *testing.T) {
 		// mkdir at the path
 		return func() error {
 			if all {
-				return os.MkdirAll(p, 0777)
+				return os.MkdirAll(p, 0750)
 			}
-			return os.Mkdir(p, 0777)
+			return os.Mkdir(p, 0750)
 		}
 	}
 

@@ -140,7 +140,9 @@ func (obj *PGP) WriteFile(path string, buff *bytes.Buffer) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "can't create writer")
 	}
-	buff.WriteTo(w)
+	if _, err := buff.WriteTo(w); err != nil {
+		return errwrap.Wrapf(err, "can't write buffer")
+	}
 
 	if err := w.Flush(); err != nil {
 		return errwrap.Wrapf(err, "can't flush buffered data")

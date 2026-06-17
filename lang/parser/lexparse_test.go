@@ -2400,7 +2400,9 @@ func TestLexParseWithOffsets1(t *testing.T) {
 	str2 := strings.NewReader(code2)
 	str3 := strings.NewReader(code3)
 	// TODO: this is currently in number of lines instead of bytes
+	//nolint:gosec // G115: test-controlled non-negative offset
 	o1 := uint64(len(strings.Split(code1, "\n")) - 1)
+	//nolint:gosec // G115: test-controlled non-negative offset
 	o2 := uint64(len(strings.Split(code2, "\n")) - 1)
 	//o1 := uint64(len(code1))
 	//o2 := uint64(len(code2))

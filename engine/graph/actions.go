@@ -481,6 +481,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			if delay > 0 {
 				errDelayExpired := engine.Error("delay exit")
 				err = func() error { // slim watch main loop
+					//nolint:gosec // G115: delay is trusted operator config in ms; only wraps above 2^63
 					timer := time.NewTimer(time.Duration(delay) * time.Millisecond)
 					defer state.init.Logf("the Watch delay expired!")
 					defer timer.Stop() // it's nice to cleanup
@@ -857,6 +858,7 @@ func safeCheckApply(ctx context.Context, res engine.Res, apply bool) (checkOK bo
 		return res.CheckApply(ctx, apply)
 	}
 
+	//nolint:gosec // G115: timeout is trusted operator config in ms; only wraps above 2^63
 	duration := time.Duration(timeout) * time.Millisecond
 	checkApplyCtx, cancel := context.WithTimeout(ctx, duration)
 	defer cancel()

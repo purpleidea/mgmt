@@ -161,7 +161,9 @@ func setup() error {
 	defer cancel()
 
 	res = &DockerContainerRes{}
-	res.Init(res.init)
+	if err := res.Init(res.init); err != nil {
+		return err
+	}
 
 	p, err := res.client.ImagePull(ctx, "alpine", image.PullOptions{})
 	if err != nil {

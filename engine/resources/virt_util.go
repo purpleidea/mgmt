@@ -158,10 +158,10 @@ func libvirtNewBackgroundBool(handle *engine.BackgroundHandle) engine.Background
 // randMAC returns a random mac address in the libvirt range.
 func randMAC() string {
 	rand.Seed(time.Now().UnixNano())
-	return "52:54:00" +
-		fmt.Sprintf(":%x", rand.Intn(255)) +
-		fmt.Sprintf(":%x", rand.Intn(255)) +
-		fmt.Sprintf(":%x", rand.Intn(255))
+	// non-crypto pseudo-random is sufficient for a MAC address
+	//nolint:gosec // G404: not used for anything security-sensitive
+	a, b, c := rand.Intn(255), rand.Intn(255), rand.Intn(255)
+	return fmt.Sprintf("52:54:00:%x:%x:%x", a, b, c)
 }
 
 // isNotFound tells us if this is a domain or network not found error.

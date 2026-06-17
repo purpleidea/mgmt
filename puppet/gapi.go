@@ -363,15 +363,15 @@ func (obj *GAPI) cleanup() error {
 	}
 
 	if obj.puppetFile != "" {
-		os.Remove(obj.puppetFile) // clean up, don't bother with error
+		_ = os.Remove(obj.puppetFile) // clean up, don't bother with error
 	}
 	// make this as safe as possible, check we're removing a tempdir too!
 	if obj.puppetDir != "" && obj.puppetDir != "/" && strings.HasPrefix(obj.puppetDir, os.TempDir()) {
-		os.RemoveAll(obj.puppetDir)
+		_ = os.RemoveAll(obj.puppetDir)
 	}
 	obj.puppetString = "" // free!
 	if obj.puppetConf != "" {
-		os.Remove(obj.puppetConf)
+		_ = os.Remove(obj.puppetConf)
 	}
 
 	obj.wg.Wait()

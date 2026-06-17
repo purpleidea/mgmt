@@ -627,7 +627,7 @@ func (obj *Apparatus) SchedulerCleanup(namespace string, orphan bool) {
 	}
 
 	if !orphan { // scheduler died prematurely, might as well close these...
-		session.Close()                          // ignore any error
+		_ = session.Close()                      // ignore any error
 		delete(obj.schedulerSessions, namespace) // don't leak memory!
 		return
 	}

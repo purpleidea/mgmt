@@ -115,7 +115,8 @@ func ReadPasswordCtxFdPrompt(ctx context.Context, fd int, prompt string) ([]byte
 	go func() {
 		defer wg.Done()
 		<-ctx.Done()
-		file.SetReadDeadline(time.Now())
+		// best-effort: unblock the pending read on cancellation
+		_ = file.SetReadDeadline(time.Now())
 	}()
 
 	if prompt != "" {

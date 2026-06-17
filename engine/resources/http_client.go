@@ -263,8 +263,11 @@ func (obj *HTTPClientRes) retryAfter(resp *http.Response) (time.Duration, bool, 
 	if s == "" {
 		return 0, false, nil
 	}
-	seconds, err := strconv.ParseUint(s, 10, 64)
-	if err == nil {
+	// The Retry-After header is untrusted server input, so parse it as a
+	// signed value and reject anything out of range or negative rather than
+	// silently wrapping into a bogus duration.
+	seconds, err := strconv.ParseInt(s, 10, 64)
+	if err == nil && seconds >= 0 {
 		return time.Duration(seconds) * time.Second, true, nil
 	}
 	t, err := http.ParseTime(s)
@@ -411,7 +414,7 @@ func (obj *HTTPClientRes) Cleanup() error {
 	// Close the body so that we don't leak the underlying connection.
 	select {
 	case r := <-obj.respCh:
-		r.Body.Close()
+		_ = r.Body.Close()
 	default:
 	}
 	return nil
@@ -573,11 +576,11 @@ func (obj *HTTPClientRes) longpollWatch(ctx context.Context, client *http.Client
 
 		// Did the server tell us to reconnect?
 		if d, ok, err := obj.retryAfter(resp); err != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return err
 
 		} else if ok {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			obj.init.Logf("long poll server requested reconnect after %s", d)
 			if err := ctxSleep(ctx, d); err != nil {
@@ -594,7 +597,7 @@ func (obj *HTTPClientRes) longpollWatch(ctx context.Context, client *http.Client
 		// but it is an extra point of redundancy just to make sure...
 		select {
 		case old := <-obj.respCh:
-			old.Body.Close()
+			_ = old.Body.Close()
 
 		default:
 		}
@@ -606,7 +609,7 @@ func (obj *HTTPClientRes) longpollWatch(ctx context.Context, client *http.Client
 		case obj.respCh <- resp:
 
 		case <-ctx.Done():
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return ctx.Err()
 		}
 
@@ -844,7 +847,11 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 		if !tmpdel {
 			return
 		}
-		os.Remove(obj.tmp) // cleanup the partial file if not moved...
+		// cleanup the partial file if not moved...
+		if err := os.Remove(obj.tmp); err != nil {
+			// XXX: should we bubble an error up instead?
+			obj.init.Logf("error removing tmp file %q: %v", obj.tmp, err)
+		}
 	}()
 
 	file, err := os.Create(obj.tmp)

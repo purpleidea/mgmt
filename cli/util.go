@@ -47,6 +47,7 @@ func NormalizeArgs(args []string) []string {
 		switch {
 		case arg == "--pprof":
 			result = append(result, arg)
+			//nolint:gosec // G602: short-circuit guards args[i+1] against out-of-range
 			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") || util.StrInList(args[i+1], gapiNames) {
 				result = append(result, "")
 			}

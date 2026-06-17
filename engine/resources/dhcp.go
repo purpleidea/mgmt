@@ -505,23 +505,23 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 	server, err := server4.NewServer(obj.Interface, addr, obj.handler4(), opts...)
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return errwrap.Wrapf(err, "could not start listener")
 	}
 
 	if err := obj.init.Event(ctx); err != nil {
-		server.Close()
+		_ = server.Close()
 		return err
 	}
 
 	select {
 	case <-obj.start: // opened by CheckApply after runtime checks succeed
 	case <-ctx.Done(): // closed by the engine to signal shutdown
-		server.Close()
+		_ = server.Close()
 		return context.Cause(ctx)
 	}
 	if err := dhcpDrainPacketConn(conn); err != nil {
-		server.Close()
+		_ = server.Close()
 		return errwrap.Wrapf(err, "could not drain queued packets")
 	}
 	//defer obj.mutex.RLock()

@@ -39,7 +39,6 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/hashicorp/consul/api"
@@ -135,8 +134,10 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
+	innerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	ch := make(chan error)
-	exit := make(chan struct{})
 
 	kv := obj.client.KV()
 
@@ -146,8 +147,6 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 		defer wg.Done()
 
 		opts := &api.QueryOptions{RequireConsistent: true}
-		innerCtx, cancel := util.ContextWithCloser(context.Background(), exit)
-		defer cancel()
 		opts = opts.WithContext(innerCtx)
 
 		for {
@@ -190,7 +189,6 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 		}
 	}()
 
-	defer close(exit)
 	for {
 		select {
 		case err, ok := <-ch:

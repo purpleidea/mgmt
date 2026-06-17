@@ -89,8 +89,9 @@ func (obj *Server) Run(ctx context.Context) (reterr error) {
 	}
 	obj.Listen = listener.Addr().String() // rewrite cleanly
 	obj.server = &http.Server{
-		Addr:    obj.Listen,
-		Handler: mux,
+		Addr:              obj.Listen,
+		Handler:           mux,
+		ReadHeaderTimeout: 60 * time.Second, // safety against slowloris
 	}
 
 	wg := &sync.WaitGroup{}

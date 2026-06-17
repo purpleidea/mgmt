@@ -144,6 +144,7 @@ func (obj *Svc) Run(ctx context.Context) error {
 		}
 		unitPath := "/etc/systemd/system/mgmt.service"
 
+		//nolint:gosec // G306: systemd unit files are world-readable by convention
 		if err := os.WriteFile(unitPath, []byte(unitData), 0644); err != nil {
 			return err
 		}

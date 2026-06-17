@@ -97,7 +97,7 @@ func (obj *Firstboot) Run(ctx context.Context) error {
 	if obj.SetupFirstbootArgs.Mkdir {
 		// TODO: Should we also make LoggingDir and LockFilePath's dir?
 		if s := obj.SetupFirstbootArgs.ScriptsDir; s != "" {
-			if err := os.MkdirAll(s, 0755); err != nil {
+			if err := os.MkdirAll(s, 0750); err != nil {
 				return err
 			}
 			obj.Logf("mkdir: %s", s)
@@ -151,6 +151,7 @@ func (obj *Firstboot) Run(ctx context.Context) error {
 		}
 		unitPath := "/etc/systemd/system/mgmt-firstboot.service"
 
+		//nolint:gosec // G306: systemd unit files are world-readable by convention
 		if err := os.WriteFile(unitPath, []byte(unitData), 0644); err != nil {
 			return err
 		}

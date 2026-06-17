@@ -176,7 +176,7 @@ func (obj *PasswordRes) generate() (string, error) {
 		return "", fmt.Errorf("password is empty")
 	}
 
-	if uint16(len(output)) != obj.Length { // safety against weird bugs
+	if len(output) != int(obj.Length) { // safety against weird bugs
 		return "", fmt.Errorf("password length is too short") // bug!
 	}
 
@@ -185,7 +185,7 @@ func (obj *PasswordRes) generate() (string, error) {
 
 // check validates a stored password string
 func (obj *PasswordRes) check(value string) error {
-	length := uint16(len(value))
+	length := len(value)
 
 	if !obj.Saved && length == 0 { // expecting an empty string
 		return nil
@@ -194,11 +194,11 @@ func (obj *PasswordRes) check(value string) error {
 		return fmt.Errorf("expected empty token only")
 	}
 
-	if length != obj.Length {
+	if length != int(obj.Length) {
 		return fmt.Errorf("string length is not %d", obj.Length)
 	}
 Loop:
-	for i := uint16(0); i < length; i++ {
+	for i := 0; i < length; i++ {
 		for j := 0; j < len(alphabet); j++ {
 			if value[i] == alphabet[j] {
 				continue Loop

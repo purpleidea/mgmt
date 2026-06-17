@@ -210,11 +210,11 @@ func TestAstFunc1(t *testing.T) {
 
 				name := filepath.Join(tmpdir, file.Name)
 				dir := filepath.Dir(name)
-				if err := os.MkdirAll(dir, 0770); err != nil {
+				if err := os.MkdirAll(dir, 0750); err != nil {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := os.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0600); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -740,11 +740,11 @@ func TestAstFunc2(t *testing.T) {
 
 				name := filepath.Join(tmpdir, file.Name)
 				dir := filepath.Dir(name)
-				if err := os.MkdirAll(dir, 0770); err != nil {
+				if err := os.MkdirAll(dir, 0750); err != nil {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := os.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0600); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -1676,11 +1676,11 @@ func TestAstFunc3(t *testing.T) {
 
 				name := filepath.Join(tmpdir, file.Name)
 				dir := filepath.Dir(name)
-				if err := os.MkdirAll(dir, 0770); err != nil {
+				if err := os.MkdirAll(dir, 0750); err != nil {
 					t.Errorf("err making dir(%s): %+v", dir, err)
 					return
 				}
-				if err := os.WriteFile(name, file.Data, 0660); err != nil {
+				if err := os.WriteFile(name, file.Data, 0600); err != nil {
 					t.Errorf("err writing file(%s): %+v", name, err)
 					return
 				}
@@ -2488,7 +2488,11 @@ func TestAstFunc3(t *testing.T) {
 			}
 
 			fastPause := false
-			ge.Pause(fastPause) // sync
+			if err := ge.Pause(fastPause); err != nil { // sync
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: error pausing: %+v", index, err)
+				return
+			}
 			if err := ge.Commit(context.Background()); err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: error running commit: %+v", index, err)
@@ -2597,7 +2601,7 @@ func overwriteTest(t *testing.T, index int, txtarFile string, archive *txtar.Arc
 		}
 	}
 	data := txtar.Format(archive)
-	if err := os.WriteFile(txtarFile, data, 0644); err != nil {
+	if err := os.WriteFile(txtarFile, data, 0600); err != nil {
 		t.Errorf("test #%d: FAIL", index)
 		t.Errorf("test #%d: error: %+v", index, err)
 		return false

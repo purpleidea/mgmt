@@ -233,11 +233,13 @@ func (obj *RecWatcher) Watch() error {
 				if _, exists := obj.watches[event.Name]; exists {
 					send = true
 					if event.Op&fsnotify.Remove == fsnotify.Remove {
-						obj.watcher.Remove(event.Name)
+						// best-effort: the watch may already be gone
+						_ = obj.watcher.Remove(event.Name)
 						delete(obj.watches, event.Name)
 					}
 					if (event.Op&fsnotify.Create == fsnotify.Create) && isDir(event.Name) {
-						obj.watcher.Add(event.Name)
+						// best-effort: re-add on the next event if this fails
+						_ = obj.watcher.Add(event.Name)
 						obj.watches[event.Name] = struct{}{}
 						if err := obj.addSubFolders(event.Name); err != nil {
 							return err
@@ -270,7 +272,8 @@ func (obj *RecWatcher) Watch() error {
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					if index > 1 {
 						//obj.options.logf("removal!")
-						obj.watcher.Remove(current)
+						// best-effort: the watch may already be gone
+						_ = obj.watcher.Remove(current)
 						index--
 					}
 				}
@@ -278,15 +281,17 @@ func (obj *RecWatcher) Watch() error {
 				// when the file is moved, remove the watcher and add a new one,
 				// so we stop tracking the old inode.
 				if deltaDepth >= 0 && (event.Op&fsnotify.Rename == fsnotify.Rename) {
-					obj.watcher.Remove(current)
-					obj.watcher.Add(current)
+					// best-effort: re-establish the watch on the new inode
+					_ = obj.watcher.Remove(current)
+					_ = obj.watcher.Add(current)
 				}
 
 				// we must be a parent watcher, so descend in
 				if deltaDepth < 0 {
 					if index < len(patharray) {
 						// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
-						obj.watcher.Remove(current)
+						// best-effort: the watch may already be gone
+						_ = obj.watcher.Remove(current)
 						index++
 					}
 				}
@@ -298,7 +303,8 @@ func (obj *RecWatcher) Watch() error {
 				if deltaDepth >= 0 && (event.Op&fsnotify.Remove == fsnotify.Remove) {
 					if index > 1 {
 						//obj.options.logf("removal!")
-						obj.watcher.Remove(current)
+						// best-effort: the watch may already be gone
+						_ = obj.watcher.Remove(current)
 						index--
 					}
 				}
@@ -310,7 +316,8 @@ func (obj *RecWatcher) Watch() error {
 					}
 					if index < len(patharray) {
 						// XXX: we can block here due to: https://github.com/fsnotify/fsnotify/issues/123
-						obj.watcher.Remove(current)
+						// best-effort: the watch may already be gone
+						_ = obj.watcher.Remove(current)
 						index++
 					}
 				}

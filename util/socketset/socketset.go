@@ -73,7 +73,8 @@ func NewSocketSet(groups uint32, name string, proto int) (*SocketSet, error) {
 	if err := unix.Bind(fdEvents, &unix.SockaddrNetlink{
 		Family: unix.AF_NETLINK,
 		Groups: groups,
-		Pid:    uint32(os.Getpid()), // set PID to our process
+		//nolint:gosec // G115: a process ID is always non-negative and fits
+		Pid: uint32(os.Getpid()), // set PID to our process
 	}); err != nil {
 		return nil, errwrap.Wrapf(err, "error binding netlink socket")
 	}

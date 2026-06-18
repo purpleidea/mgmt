@@ -77,7 +77,7 @@ func TestParseFuncs_WithRealFixturePackage(t *testing.T) {
 		Name:      testpkgPath,
 		Alias:     "",
 		MgmtAlias: "",
-		Exclude:   []string{"ToLower"}, // verify excludes are honored
+		Exclude:   []string{"ToLower"}, // verify excludes are honoured
 	}
 
 	funcs, err := gp.parsefuncs()

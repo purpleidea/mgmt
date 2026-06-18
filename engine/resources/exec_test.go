@@ -479,7 +479,7 @@ func TestExecTimeoutBehaviour(t *testing.T) {
 			t.Errorf("error running cmd")
 			return
 		}
-		if !wStatus.Signaled() {
+		if !wStatus.Signaled() { //nolint:misspell // golang stdlib name
 			t.Errorf("did not get signal, exit status: %d", wStatus.ExitStatus())
 			return
 		}

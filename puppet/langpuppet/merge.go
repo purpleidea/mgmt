@@ -79,9 +79,9 @@ func mergeGraphs(graphFromLang, graphFromPuppet *pgraph.Graph) (*pgraph.Graph, e
 			mergeTargets[basename] = vertex
 		}
 		result.AddVertex(vertex)
-		for _, neighbor := range graphFromLang.OutgoingGraphVertices(vertex) {
-			result.AddVertex(neighbor)
-			result.AddEdge(vertex, neighbor, graphFromLang.FindEdge(vertex, neighbor))
+		for _, neighbour := range graphFromLang.OutgoingGraphVertices(vertex) {
+			result.AddVertex(neighbour)
+			result.AddEdge(vertex, neighbour, graphFromLang.FindEdge(vertex, neighbour))
 		}
 	}
 
@@ -152,20 +152,20 @@ func mergeGraphs(graphFromLang, graphFromPuppet *pgraph.Graph) (*pgraph.Graph, e
 		}
 
 		// the current vertex has been added by previous iterations,
-		// we only add neighbors here
-		for _, neighbor := range graphFromPuppet.OutgoingGraphVertices(vertex) {
-			if strings.Index(neighbor.String(), "noop[admissible_Class["+strings.Title(MergePrefixPuppet)) == 0 {
-				result.AddEdge(source, mergePairs[neighbor], graphFromPuppet.FindEdge(vertex, neighbor))
+		// we only add neighbours here
+		for _, neighbour := range graphFromPuppet.OutgoingGraphVertices(vertex) {
+			if strings.Index(neighbour.String(), "noop[admissible_Class["+strings.Title(MergePrefixPuppet)) == 0 {
+				result.AddEdge(source, mergePairs[neighbour], graphFromPuppet.FindEdge(vertex, neighbour))
 				continue
 			}
-			if strings.Index(neighbor.String(), "noop[completed_Class["+strings.Title(MergePrefixPuppet)) == 0 {
+			if strings.Index(neighbour.String(), "noop[completed_Class["+strings.Title(MergePrefixPuppet)) == 0 {
 				// mark target vertex as merged
-				merged[mergePairs[neighbor]] = true
+				merged[mergePairs[neighbour]] = true
 				continue
 			}
-			// if we reach here, this neighbor is a regular vertex
-			result.AddVertex(neighbor)
-			result.AddEdge(source, neighbor, graphFromPuppet.FindEdge(vertex, neighbor))
+			// if we reach here, this neighbour is a regular vertex
+			result.AddVertex(neighbour)
+			result.AddEdge(source, neighbour, graphFromPuppet.FindEdge(vertex, neighbour))
 		}
 	}
 

@@ -889,6 +889,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return false, errwrap.Wrapf(err, "error running cmd")
 		}
 		exitStatus := wStatus.ExitStatus()
+		//nolint:misspell // golang stdlib name (Signaled)
 		if !wStatus.Signaled() { // not a timeout or cancel (no signal)
 			// most commands error in this way
 			if s := out.String(); s == "" {

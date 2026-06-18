@@ -266,7 +266,7 @@ func (obj *Cluster) Quit(ctx context.Context) error {
 		if !ok {
 			return false // not what we're looking for
 		}
-		if !wStatus.Signaled() {
+		if !wStatus.Signaled() { //nolint:misspell // golang stdlib name
 			return false // not a timeout or cancel (no signal)
 		}
 		sig := wStatus.Signal()

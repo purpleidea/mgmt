@@ -163,8 +163,8 @@ func (obj *Metadata) ToBytes() ([]byte, error) {
 //// MarshalYAML modifies the struct before it is used to build the raw output.
 //func (obj *Metadata) MarshalYAML() (interface{}, error) {
 //	// The Marshaler interface may be implemented by types to customize
-//	// their behavior when being marshaled into a YAML document. The
-//	// returned value is marshaled in place of the original value
+//	// their behavior when being marshalled into a YAML document. The
+//	// returned value is marshal;ed in place of the original value
 //	// implementing Marshaler.
 //
 //	if obj.metadataPath == "" { // make sure metadataPath isn't saved!

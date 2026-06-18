@@ -956,8 +956,8 @@ func (obj *HetznerVMRes) enableRescueMode(ctx context.Context) error {
 	if _, _, err := obj.client.Server.EnableRescue(ctx, obj.server, opts); err != nil {
 		return errwrap.Wrapf(err, "client.Server.EnableRescue failed")
 	}
-	// NOTE: EnableRescue returns a root password, but this is ignored in favor
-	// of connecting to the server in rescue mode over SSH.
+	// NOTE: EnableRescue returns a root password, but this is ignored in
+	// favour of connecting to the server in rescue mode over SSH.
 	// TODO: add support for password login? SSH usually ok.
 
 	// Wait until the rescue enable is confirmed.

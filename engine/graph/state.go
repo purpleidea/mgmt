@@ -112,7 +112,7 @@ type State struct {
 	// eventsChan is the channel that the engine listens on for events from
 	// the Watch loop for that resource. The event is nil normally, except
 	// when events are sent on this channel from the engine. This only
-	// happens as a signaling mechanism when Watch has shutdown and we want
+	// happens as a signalling mechanism when Watch has shutdown and we want
 	// to notify the Process loop which reads from this.
 	eventsChan chan error // outgoing from resource
 

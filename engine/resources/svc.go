@@ -576,8 +576,8 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// From: https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html
 	// If a service is restarted that isn't running, it will be started
-	// unless the "Try" flavor is used in which case a service that isn't
-	// running is not affected by the restart. The "ReloadOrRestart" flavors
+	// unless the "Try" flavour is used in which case a service that isn't
+	// running is not affected by the restart. The ReloadOrRestart flavours
 	// attempt a reload if the unit supports it and use a restart otherwise.
 	if _, err := conn.ReloadOrTryRestartUnitContext(ctx, svc, SystemdUnitModeFail, result); err != nil {
 		return false, errwrap.Wrapf(err, "failed to reload unit")

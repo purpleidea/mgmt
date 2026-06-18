@@ -239,7 +239,7 @@ type pippetReceiver struct {
 // Close is called. Init should not be called directly. It is implicitly called
 // by the Register function.
 func (obj *pippetReceiver) Init() error {
-	cmd := exec.Command("puppet", "yamlresource", "receive", "--color=no")
+	cmd := exec.Command("puppet", "yamlresource", "receive", "--color=no") //nolint:misspell // puppet std arg name
 	var err error
 	obj.stdin, err = cmd.StdinPipe()
 	if err != nil {

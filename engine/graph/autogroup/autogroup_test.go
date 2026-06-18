@@ -1130,3 +1130,88 @@ func TestPgraphGroupingKinds5(t *testing.T) {
 	}
 	runGraphCmp(t, g1, g2)
 }
+
+// benchmarkAutoGroup runs the autogroup algorithm on a graph with n same-kind
+// groupable vertices, each having no edges (maximum grouping scenario).
+func benchmarkAutoGroup(b *testing.B, n int) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < n; j++ {
+			v := NewNoopResTest(fmt.Sprintf("a%d", j))
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkAutoGroup10(b *testing.B)   { benchmarkAutoGroup(b, 10) }
+func BenchmarkAutoGroup100(b *testing.B)  { benchmarkAutoGroup(b, 100) }
+func BenchmarkAutoGroup1000(b *testing.B) { benchmarkAutoGroup(b, 1000) }
+
+//func BenchmarkAutoGroup10000(b *testing.B) { benchmarkAutoGroup(b, 10000) } // too slow
+
+// BenchmarkAutoGroupMixed benchmarks with multiple different kinds where no
+// cross-kind grouping is possible, testing partition effectiveness.
+func BenchmarkAutoGroupMixed(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("a%d", j))
+			g.AddVertex(v)
+		}
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("b%d", j))
+			g.AddVertex(v)
+		}
+		for j := 0; j < 100; j++ {
+			v := NewNoopResTest(fmt.Sprintf("c%d", j))
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkAutoGroupHierarchical benchmarks hierarchical kind grouping.
+func BenchmarkAutoGroupHierarchical(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		a1 := NewKindNoopResTest("nooptestkind:foo", "a1")
+		a2 := NewKindNoopResTest("nooptestkind:foo:world", "a2")
+		a3 := NewKindNoopResTest("nooptestkind:foo:world:big", "a3")
+		a4 := NewKindNoopResTest("nooptestkind:foo:world:bad", "a4")
+		a5 := NewKindNoopResTest("nooptestkind:foo:world:bazzz", "a5")
+		g.AddVertex(a1, a2, a3, a4, a5)
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkAutoGroupNoMatch benchmarks with vertices that cannot group (all
+// different starting letters), measuring overhead of the partition and cache.
+func BenchmarkAutoGroupNoMatch(b *testing.B) {
+	letters := "abcdefghijklmnopqrstuvwxyz"
+	for i := 0; i < b.N; i++ {
+		g, _ := pgraph.NewGraph("bench")
+		for j := 0; j < 100; j++ {
+			name := fmt.Sprintf("%c%d", letters[j%len(letters)], j)
+			v := NewNoopResTest(name)
+			g.AddVertex(v)
+		}
+		debug := false
+		logf := func(format string, v ...interface{}) {}
+		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
+			b.Fatal(err)
+		}
+	}
+}

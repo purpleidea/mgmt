@@ -180,7 +180,14 @@ echo "Using: $glc"
 echo "Using: $glc_fmt"
 
 root=$(pwd)
-package_dirs=$(go list -e -f '{{.Dir}}' ./...) || fail_test "could not list golang packages"
+if [[ -n "$1" ]]; then
+	# with an argument only lint that single package directory
+	# eg: use "." for main or "engine/resources/" for example!
+	[[ -d "$1" ]] || fail_test "no such directory: $1"
+	package_dirs=$(cd "$1" && pwd)
+else
+	package_dirs=$(go list -e -f '{{.Dir}}' ./...) || fail_test "could not list golang packages"
+fi
 packages=()
 files=()
 shopt -s nullglob

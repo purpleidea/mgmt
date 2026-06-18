@@ -4,6 +4,20 @@
 
 echo running "$0"
 
+# the --gopath magic arg prepends $GOPATH/bin to $PATH so that a possibly newer
+# golangci-lint installed there is preferred over any system one.
+args=()
+for arg in "$@"; do
+	case "$arg" in
+		--gopath)
+			[ -n "$GOPATH" ] || { echo >&2 "GOPATH is empty"; exit 1; }
+			PATH="$GOPATH/bin:$PATH"
+			;;
+		*) args+=("$arg") ;;
+	esac
+done
+set -- "${args[@]}"
+
 # ensure golangci-lint is available
 command -v golangci-lint >/dev/null 2>&1 || { echo >&2 "golangci-lint not found"; exit 1; }
 
@@ -55,8 +69,11 @@ linters:
 EOF
 
 # TODO: run more linters here if we're brave...
-glc="golangci-lint run --config=$glc_config --default=none"
-glc_fmt='golangci-lint fmt --diff'
+# resolve the full path so the echoed command shows exactly what runs, which
+# matters when --gopath puts a different golangci-lint earlier in $PATH.
+glc_bin=$(command -v golangci-lint)
+glc="$glc_bin run --config=$glc_config --default=none"
+glc_fmt="$glc_bin fmt --diff"
 
 # enable linters here
 glc="$glc --enable=arangolint"

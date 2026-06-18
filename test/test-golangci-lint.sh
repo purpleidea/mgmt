@@ -56,6 +56,164 @@ linters:
 			excludes:
 				- G204
 				- G304
+		misspell:
+			# No Canadian dictionary exists upstream (misspell only
+			# ships US and UK) so we fall back to British English.
+			locale: UK
+			# Words to allow despite the locale's suggestion.
+			ignore-rules:
+				- analyze
+				- artifacts
+				- behavior
+				- capitalize
+				- capitalized
+				- customize
+				- finalizes
+				- fulfill
+				- fulfills
+				- generalized
+				- generalize
+				- initialize
+				- initialized
+				- initializes
+				- initializing
+				- localize
+				- normalized
+				- normalize
+				- optimized
+				- optimize
+				- organization
+				- organized
+				- penalize
+				- prioritize
+				- randomized
+				- realization
+				- realize
+				- realizing
+				- recognized
+				- recognize
+				- recognizes
+				- sanitize
+				- serialization
+				- serialize
+				- serializes
+				- specialized
+				- standardized
+				- standardize
+				- symbolizes
+				- synchronization
+				- synchronized
+				- synchronize
+				- synchronizes
+				- synchronizing
+				- synthesizes
+				- unrecognized
+				- utilization
+				- visualization
+				- visualizations
+				- visualize
+			# Custom typo -> correction pairs to flag and fix.
+			extra-words:
+				- typo: analyse
+				  correction: analyze
+				- typo: behavior
+				  correction: behaviour
+				- typo: artefacts
+				  correction: artifacts
+				- typo: capitalise
+				  correction: capitalize
+				- typo: capitalised
+				  correction: capitalized
+				- typo: customise
+				  correction: customize
+				- typo: finalises
+				  correction: finalizes
+				- typo: fulfil
+				  correction: fulfill
+				- typo: fulfils
+				  correction: fulfills
+				- typo: generalised
+				  correction: generalized
+				- typo: generalise
+				  correction: generalize
+				- typo: initialise
+				  correction: initialize
+				- typo: initialised
+				  correction: initialized
+				- typo: initialises
+				  correction: initializes
+				- typo: initialising
+				  correction: initializing
+				- typo: localise
+				  correction: localize
+				- typo: normalised
+				  correction: normalized
+				- typo: normalise
+				  correction: normalize
+				- typo: optimised
+				  correction: optimized
+				- typo: optimise
+				  correction: optimize
+				- typo: organisation
+				  correction: organization
+				- typo: organised
+				  correction: organized
+				- typo: penalise
+				  correction: penalize
+				- typo: prioritise
+				  correction: prioritize
+				- typo: randomised
+				  correction: randomized
+				- typo: realisation
+				  correction: realization
+				- typo: realise
+				  correction: realize
+				- typo: realising
+				  correction: realizing
+				- typo: recognised
+				  correction: recognized
+				- typo: recognise
+				  correction: recognize
+				- typo: recognises
+				  correction: recognizes
+				- typo: sanitise
+				  correction: sanitize
+				- typo: serialisation
+				  correction: serialization
+				- typo: serialise
+				  correction: serialize
+				- typo: serialises
+				  correction: serializes
+				- typo: specialised
+				  correction: specialized
+				- typo: standardised
+				  correction: standardized
+				- typo: standardise
+				  correction: standardize
+				- typo: symbolises
+				  correction: symbolizes
+				- typo: synchronisation
+				  correction: synchronization
+				- typo: synchronised
+				  correction: synchronized
+				- typo: synchronise
+				  correction: synchronize
+				- typo: synchronises
+				  correction: synchronizes
+				- typo: synchronising
+				  correction: synchronizing
+				- typo: synthesises
+				  correction: synthesizes
+				- typo: unrecognised
+				  correction: unrecognized
+				- typo: utilisation
+				  correction: utilization
+				- typo: visualisation
+				  correction: visualization
+				- typo: visualisations
+				  correction: visualizations
+				- typo: visualise
+				  correction: visualize
 	exclusions:
 		rules:
 			- path: ^etcd/client/resources/resources\.go$

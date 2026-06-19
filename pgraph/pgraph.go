@@ -308,10 +308,8 @@ func (obj *Graph) DeleteEdgeBetween(v1, v2 Vertex) {
 
 // HasVertex returns if the input vertex exists in the graph.
 func (obj *Graph) HasVertex(v Vertex) bool {
-	if _, exists := obj.adjacency[v]; exists {
-		return true
-	}
-	return false
+	_, exists := obj.adjacency[v]
+	return exists
 }
 
 // NumVertices returns the number of vertices in the graph.

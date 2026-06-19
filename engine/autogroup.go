@@ -51,7 +51,12 @@ type GroupableRes interface {
 	SetAutoGroupMeta(*AutoGroupMeta)
 
 	// GroupCmp compares two resources and decides if they're suitable for
-	// grouping. This usually needs to be unique to your resource.
+	// grouping. This usually needs to be unique to your resource. The two
+	// resources must share the first colon-separated chunk of their kind
+	// (eg: "http:server" and "http:server:ui" both start with "http") or
+	// they will never even be offered to this method, since the grouping
+	// algorithm uses that fact to prune the candidate pairs. Grouping
+	// across entirely unrelated kinds was never a sensible thing to do.
 	GroupCmp(res GroupableRes) error
 
 	// GroupRes groups resource argument (res) into self. Callers of this

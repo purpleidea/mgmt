@@ -31,7 +31,9 @@ package autogroup
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
 )
 
@@ -39,6 +41,7 @@ import (
 type baseGrouper struct {
 	graph    *pgraph.Graph   // store a pointer to the graph
 	vertices []pgraph.Vertex // cached list of vertices
+	chunks   []string        // first kind chunk per vertex ("" matches all)
 	i        int
 	j        int
 	done     bool
@@ -74,6 +77,20 @@ func (obj *baseGrouper) Init(g *pgraph.Graph) error {
 	vertices := RHVSort(obj.graph.Vertices())
 
 	obj.vertices = vertices // cache in deterministic order!
+
+	// Cache the first colon-separated chunk of each resource kind. Pairs
+	// with two different non-empty chunks can never group (see the
+	// GroupCmp docs in the engine package) so the iterator skips them.
+	obj.chunks = make([]string, len(vertices))
+	for i, v := range vertices {
+		res, ok := v.(engine.Res)
+		if !ok || res.Kind() == "" {
+			continue // empty chunk matches everything
+		}
+		// consistent specific index as we may skip gaps if we continue!
+		obj.chunks[i] = strings.SplitN(res.Kind(), ":", 2)[0]
+	}
+
 	obj.i = 0
 	obj.j = 0
 	if len(obj.vertices) == 0 { // empty graph
@@ -89,6 +106,16 @@ func (obj *baseGrouper) Init(g *pgraph.Graph) error {
 // the desired algorithms can override, but keep this method as a base iterator!
 func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	// this does a for v... { for w... { return v, w }} but stepwise!
+	// fast-forward over pairs whose kinds could never group together, so
+	// large graphs full of ungroupable resources don't pay the full cost
+	for !obj.done {
+		c1, c2 := obj.chunks[obj.i], obj.chunks[obj.j]
+		if c1 == c2 || c1 == "" || c2 == "" {
+			break // a candidate pair
+		}
+		obj.advance()
+	}
+
 	l := len(obj.vertices)
 	if obj.i < l {
 		v1 = obj.vertices[obj.i]
@@ -105,6 +132,14 @@ func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 		v2 = nil
 	}
 
+	obj.advance()
+	return
+}
+
+// advance moves the iterator indexes to the next pair in the deterministic
+// iteration order, marking the iterator as done when it runs off the end.
+func (obj *baseGrouper) advance() {
+	l := len(obj.vertices)
 	// two nested loops...
 	if obj.j < l {
 		obj.j++
@@ -131,8 +166,6 @@ func (obj *baseGrouper) VertexNext() (v1, v2 pgraph.Vertex, err error) {
 	//		obj.done = true
 	//	}
 	//}
-
-	return
 }
 
 // VertexCmp can be used in addition to an overriding implementation.

@@ -162,12 +162,12 @@ func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, index 
 				// add edge from: r -> res
 				if uid.IsReversed() {
 					txt := fmt.Sprintf("%s -> %s", r, res)
-					logf("adding: %s", txt)
+					logf("%s", txt)
 					edge := &engine.Edge{Name: txt}
 					graph.AddEdge(r, res, edge)
 				} else { // edges go the "normal" way, eg: pkg resource
 					txt := fmt.Sprintf("%s -> %s", res, r)
-					logf("adding: %s", txt)
+					logf("%s", txt)
 					edge := &engine.Edge{Name: txt}
 					graph.AddEdge(res, r, edge)
 				}

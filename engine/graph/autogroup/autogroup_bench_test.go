@@ -106,7 +106,7 @@ func BenchmarkAutoGroup(b *testing.B) {
 		{name: "letters/100", build: func() *pgraph.Graph { return buildLetters(100) }},
 		{name: "letters/1000", build: func() *pgraph.Graph { return buildLetters(1000) }},
 		{name: "chain/100", build: func() *pgraph.Graph { return buildChain(100) }},
-		//{name: "chain/1000", build: func() *pgraph.Graph { return buildChain(1000) }}, // too slow
+		{name: "chain/1000", build: func() *pgraph.Graph { return buildChain(1000) }},
 		{name: "disabled/1000", build: func() *pgraph.Graph { return buildDisabled(1000) }},
 	}
 	logf := func(format string, v ...interface{}) {} // discard

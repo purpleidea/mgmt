@@ -179,11 +179,13 @@ type Init struct {
 	//Graph func() *pgraph.Graph // TODO: not implemented, use FilteredGraph
 
 	// FilteredGraph is a function that returns a filtered variant of the
-	// current graph. Only resource that have allowed themselves to be added
-	// into this graph will appear. If they did not consent, then those
-	// vertices and any associated edges, will not be present. This must
-	// only be run during CheckApply because during Watch we can't guarantee
-	// that the graph is paused and that a commit/swap isn't happening.
+	// current graph. Only resources that have allowed themselves to be
+	// added into this (filtered) graph lookup will appear. If they did not
+	// consent, then those vertices and any associated edges, will not be
+	// present. This must only be run during CheckApply because during Watch
+	// we can't guarantee that the graph is paused and that a commit/swap
+	// isn't happening. If you use it outside of a synchronous CheckApply,
+	// then this breaks the API contract that we have here. Don't do that!
 	FilteredGraph func() (*pgraph.Graph, error)
 
 	// TODO: GraphQuery offers an interface to query the resource graph.

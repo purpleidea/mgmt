@@ -157,7 +157,7 @@ func (obj *TestRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply method for Test resource. Does nothing, returns happy!

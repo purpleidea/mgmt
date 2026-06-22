@@ -361,7 +361,7 @@ func (obj *BmcPowerRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply method for BmcPower resource. Does nothing, returns happy!

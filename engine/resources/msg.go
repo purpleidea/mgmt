@@ -125,7 +125,7 @@ func (obj *MsgRes) Watch(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
-		return nil
+		return ctx.Err()
 	}
 }
 

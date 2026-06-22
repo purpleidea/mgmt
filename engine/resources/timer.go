@@ -99,7 +99,7 @@ func (obj *TimerRes) Watch(ctx context.Context) error {
 			obj.init.Logf("received tick")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

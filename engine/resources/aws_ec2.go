@@ -531,7 +531,7 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {
@@ -625,7 +625,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 			obj.init.Logf("State: %v", msg.event)
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

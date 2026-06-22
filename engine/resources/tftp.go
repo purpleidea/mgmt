@@ -633,7 +633,7 @@ func (obj *TFTPFileRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply never has anything to apply for this resource. It does however

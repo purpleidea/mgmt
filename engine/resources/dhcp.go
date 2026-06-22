@@ -1160,7 +1160,7 @@ func (obj *DHCPHostRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.
@@ -1740,7 +1740,7 @@ func (obj *DHCPRangeRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply never has anything to do for this resource, so it always succeeds.

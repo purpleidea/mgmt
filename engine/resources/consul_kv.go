@@ -206,7 +206,7 @@ func (obj *ConsulKVRes) Watch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // signal for shutdown request
-			return nil
+			return ctx.Err()
 		}
 	}
 }

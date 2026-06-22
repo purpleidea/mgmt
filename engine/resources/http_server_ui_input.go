@@ -362,7 +362,7 @@ func (obj *HTTPServerUIInputRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 func (obj *HTTPServerUIInputRes) localWatch(ctx context.Context) error {
@@ -391,7 +391,7 @@ func (obj *HTTPServerUIInputRes) localWatch(ctx context.Context) error {
 		case <-obj.event:
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if obj.init.Debug {
@@ -433,7 +433,7 @@ func (obj *HTTPServerUIInputRes) worldWatch(ctx context.Context) error {
 		case <-obj.event:
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if obj.init.Debug {

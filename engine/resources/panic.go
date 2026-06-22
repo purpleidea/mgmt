@@ -86,7 +86,7 @@ func (obj *PanicRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // CheckApply method for Panic resource. Does nothing, returns happy!

@@ -401,7 +401,7 @@ func (obj *HTTPServerFileRes) Watch(ctx context.Context) error {
 	case <-ctx.Done(): // closed by the engine to signal shutdown
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // longpollWatch is the variant of Watch that is used when this serves an HTTP
@@ -436,7 +436,7 @@ func (obj *HTTPServerFileRes) longpollWatch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		obj.mutex.Lock()

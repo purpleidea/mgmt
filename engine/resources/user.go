@@ -212,7 +212,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return nil
+			return ctx.Err()
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

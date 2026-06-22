@@ -195,7 +195,7 @@ func (obj *SysctlRes) Watch(ctx context.Context) error {
 
 	recurse := false // single file
 
-	var events1, events2 chan recwatch.Event
+	var events1, events2 chan *recwatch.Event
 
 	if obj.Runtime {
 		recWatcher, err := recwatch.NewRecWatcher(obj.toPath(), recurse)
@@ -225,6 +225,10 @@ func (obj *SysctlRes) Watch(ctx context.Context) error {
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected close")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return err
 			}
@@ -235,6 +239,10 @@ func (obj *SysctlRes) Watch(ctx context.Context) error {
 		case event, ok := <-events2:
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected close")
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
 				return err

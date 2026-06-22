@@ -199,7 +199,7 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 	}
 	defer recWatcher.Close()
 
-	chanList := []<-chan recwatch.Event{}
+	chanList := []<-chan *recwatch.Event{}
 	for _, x := range obj.Inputs {
 		fi, err := os.Stat(x)
 		if err != nil {
@@ -230,6 +230,10 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 				//return nil
 				return fmt.Errorf("unexpected close")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
@@ -243,6 +247,10 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 				// was a `return nil`, and i'm not sure why...
 				//return nil
 				return fmt.Errorf("unexpected close")
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)

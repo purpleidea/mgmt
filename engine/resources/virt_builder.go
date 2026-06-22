@@ -447,6 +447,10 @@ func (obj *VirtBuilderRes) Watch(ctx context.Context) error {
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected close")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return err
 			}

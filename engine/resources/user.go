@@ -185,6 +185,10 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 			if !ok { // channel shutdown
 				return nil
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
@@ -195,6 +199,10 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 		case event, ok := <-groupWatcher.Events():
 			if !ok { // channel shutdown
 				return nil
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)

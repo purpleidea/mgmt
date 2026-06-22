@@ -426,8 +426,7 @@ func (obj *FileRes) Cleanup() error {
 // error, it means that something has gone wrong, and it must be restarted. On a
 // clean exit it returns nil.
 func (obj *FileRes) Watch(ctx context.Context) error {
-	// TODO: chan *recwatch.Event instead?
-	inputEvents := make(chan recwatch.Event)
+	inputEvents := make(chan *recwatch.Event)
 	defer close(inputEvents)
 
 	wg := &sync.WaitGroup{}
@@ -458,8 +457,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for {
-				// TODO: *recwatch.Event instead?
-				var event recwatch.Event
+				var event *recwatch.Event
 				var ok bool
 				var shutdown bool
 				select {
@@ -470,7 +468,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 
 				if !ok {
 					err := fmt.Errorf("channel shutdown")
-					event = recwatch.Event{Error: err}
+					event = &recwatch.Event{Error: err}
 					shutdown = true
 				}
 
@@ -499,8 +497,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for {
-				// TODO: *recwatch.Event instead?
-				var event recwatch.Event
+				var event *recwatch.Event
 				var ok bool
 				var shutdown bool
 				select {
@@ -511,7 +508,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 
 				if !ok {
 					err := fmt.Errorf("channel shutdown")
-					event = recwatch.Event{Error: err}
+					event = &recwatch.Event{Error: err}
 					shutdown = true
 				}
 
@@ -544,6 +541,10 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 				//return nil
 				return fmt.Errorf("unexpected close")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
@@ -554,6 +555,10 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		case event, ok := <-inputEvents:
 			if !ok {
 				return fmt.Errorf("unexpected close")
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s input watcher error", obj)

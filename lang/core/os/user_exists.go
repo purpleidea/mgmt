@@ -125,6 +125,10 @@ func (obj *UserExistsFunc) Stream(ctx context.Context) error {
 			if !ok {
 				return fmt.Errorf("no more events")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "error event received")
 			}

@@ -182,6 +182,11 @@ func (obj *FileExistsFunc) Stream(ctx context.Context) error {
 						if !ok {
 							return // file watcher shut down
 						}
+						if event == nil {
+							// programming error
+							err = fmt.Errorf("unexpected nil recwatch event")
+							break
+						}
 						if err = event.Error; err != nil {
 							err = errwrap.Wrapf(err, "error event received")
 						}

@@ -231,7 +231,7 @@ func (obj *GzipRes) Watch(ctx context.Context) error {
 	}
 	defer recWatcher.Close()
 
-	var events chan recwatch.Event
+	var events chan *recwatch.Event
 
 	if obj.Input != nil {
 		recWatcher, err := recwatch.NewRecWatcher(*obj.Input, recurse)
@@ -255,6 +255,10 @@ func (obj *GzipRes) Watch(ctx context.Context) error {
 				//return nil
 				return fmt.Errorf("unexpected close")
 			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
 			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
@@ -265,6 +269,10 @@ func (obj *GzipRes) Watch(ctx context.Context) error {
 		case event, ok := <-events:
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected close")
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
 				return err

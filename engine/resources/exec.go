@@ -360,7 +360,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 	defer wg.Wait()
 
 	ioChan := make(chan *cmdOutput)
-	filesChan := make(chan recwatch.Event)
+	filesChan := make(chan *recwatch.Event)
 
 	var watchCmd *exec.Cmd
 	if obj.WatchCmd != "" {
@@ -431,7 +431,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		go func() {
 			defer wg.Done()
 			for {
-				var files recwatch.Event
+				var files *recwatch.Event
 				var ok bool
 				var shutdown bool
 
@@ -443,7 +443,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 
 				if !ok {
 					err := fmt.Errorf("channel shutdown")
-					files = recwatch.Event{Error: err}
+					files = &recwatch.Event{Error: err}
 					shutdown = true
 				}
 
@@ -505,11 +505,14 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				continue
 			}
 
-		case files, ok := <-filesChan:
+		case event, ok := <-filesChan:
 			if !ok { // channel shutdown
 				return fmt.Errorf("unexpected recwatch shutdown")
 			}
-			if err := files.Error; err != nil {
+			if event == nil {
+				return fmt.Errorf("unexpected nil recwatch event")
+			}
+			if err := event.Error; err != nil {
 				return errwrap.Wrapf(err, "unknown %s watcher error", obj)
 			}
 

@@ -110,11 +110,15 @@ func waitForWatchPath(t *testing.T, logs <-chan string, path string) {
 	}
 }
 
-func expectEvent(t *testing.T, events <-chan Event) {
+func expectEvent(t *testing.T, events <-chan *Event) {
 	t.Helper()
 
 	select {
 	case event := <-events:
+		if event == nil {
+			// programming error
+			t.Fatalf("unexpected nil recwatch event")
+		}
 		if event.Error != nil {
 			t.Fatalf("unexpected watcher error: %v", event.Error)
 		}

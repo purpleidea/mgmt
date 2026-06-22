@@ -31,6 +31,7 @@
 package recwatch
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -357,6 +358,17 @@ func (obj *RecWatcher) Watch() error {
 				// TODO: can this even happen?
 				return fmt.Errorf("unexpected nil watcher error")
 			}
+			if isBadFileDescriptor(err) { // can happen on macosx
+				if index > 1 {
+					// best-effort: the watch may already be gone
+					_ = obj.watcher.Remove(current)
+					index--
+				}
+
+				// treat as an event, not an error
+				body = &fsnotify.Event{Name: obj.safename}
+				goto Send
+			}
 
 			return fmt.Errorf("unknown watcher error: %v", err)
 
@@ -434,6 +446,13 @@ func isDir(path string) bool {
 		return false
 	}
 	return finfo.IsDir()
+}
+
+func isBadFileDescriptor(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, syscall.EBADF) || err.Error() == syscall.EBADF.Error()
 }
 
 // MergeChannels is a helper function to combine different recwatch events. It

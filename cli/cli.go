@@ -50,7 +50,14 @@ func init() {
 }
 
 // CLI is the entry point for using mgmt normally from the CLI.
-func CLI(ctx context.Context, data *cliUtil.Data) error {
+func CLI(ctx context.Context, data *cliUtil.Data) (reterr error) {
+	// Log any error we're about to return so that we don't fail silently.
+	// Without this, the top-level main would only set the exit code.
+	defer func() {
+		if reterr != nil && data != nil && data.Flags.Logf != nil {
+			data.Flags.Logf("error: %v", reterr)
+		}
+	}()
 	// test for sanity
 	if data == nil {
 		return fmt.Errorf("this CLI was not run correctly")

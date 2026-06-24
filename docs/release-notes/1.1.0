@@ -1,0 +1,704 @@
+I've just released version 1.1.0 of mgmt!
+
+> 823 files changed, 25711 insertions(+), 5344 deletions(-)
+
+This is a giant release that's much faster and has no known bugs or blockers. It
+is incredibly polished, and I'm very proud of how far we've come. There are a
+few breaking changes, but they "break safely" with compiler errors and are easy
+to fix.
+
+With that, here are a few highlights from the release:
+
+* Function errors are reported with line/row and a visual marker of the error!
+
+* A huge number of performance improvements were made, including to autoedge,
+autogroup, graph swapping, deploys, and even function and resource engine perf.
+
+* The scheduler was massively overhauled, and it can now do "withdraw" and more!
+
+* Mgmt should always shut down in < 1000ms when you press ^C. If not it's a bug.
+
+* We added a good number of benchmarks which we can run periodically.
+
+* Deploy speed improved at least 500% by avoiding unnecessary round-trips.
+
+* List, maps, etc do not use trailing commas anymore unless they are multiline.
+Update your mcl. Mgmt shuts down safely if you forgot to remove one.
+
+* Golang templates require title cased fields now. Update your templates. Mgmt
+shuts down safely if you forgot one.
+
+* You can now deploy over SSH in the same way that clients can read over SSH.
+
+* The converger was rewritten to be not buggy and to support unconverged events!
+
+* The engine has a new timeout metaparam which can set a precise deadline. Any
+resource-specific timeout params should have been removed.
+
+* We finally have the http:client resource! It supports long polling, and works
+with http:server:file and friends. It's glorious. It can send/recv and it also
+works with a net/http.response function. Resources play well with functions!
+
+* The autoedge algorithm support resource hashable resource UID's for even
+faster matching. A 10,000 node test went from 17,109ms to 53ms. Wow!
+
+* The autogroup algorithm went from obscene numbers to quite low, eg: a 1,000
+node set went from 162107ms -> 179ms. Wow!
+
+And much more...
+
+
+SPONSORS
+
+The `mgmt` project is generously sponsored by:
+
+m9rx corporation - https://m9rx.com/
+
+Mgmt received a generous grant from:
+
+nlnet foundation - https://nlnet.nl/project/mgmt-config/
+
+Please reach out if you'd like to sponsor!
+
+
+DOWNLOAD
+
+Prebuilt binaries are available here for this release:
+https://github.com/purpleidea/mgmt/releases/tag/1.1.0
+
+You can also track the `git master` repo on the Fedora mirror:
+https://dl.fedoraproject.org/pub/alt/purpleidea/mgmt/repo/master/
+
+
+NEWS
+
+* The resource API only needs a single Event() function now, and it takes a ctx.
+
+* There's a new "watchdog" facility to catch buggy/broken resource on shutdown.
+
+* The precise CheckApply start time was improved. This fixes some rare bugs.
+
+* A fix in the svc resource due to an upstream bug was worked around.
+
+* The file resource can now set the selinux security context
+
+* A new deploy.file_exists function was added.
+
+* etcd/fs uses a ctx instead of a hardcoded timeout. Useful for slow networks.
+
+* The resouce engine correctly starts unpaused and empty fixing more bugs.
+
+* The function engine doesn't send duplicate tables, which speeds up perf a lot.
+
+* The send/recv mechanism was running at the wrong time. This could cause a nil
+message in the logs. Now fixed in: e381043f8b10e4b7f509fc9c6b9fd0a2e47bc1bc with
+a few more future commits, send/recv is believed to be completely stable.
+
+* All mcl code should be formatted in a standard way to get ready for mclfmt.
+
+* The "lib" context cancellation sequencing was improved.
+
+* There's a new "background" API that resources can use.
+
+* The scheduler was overhauled and we can now to fancy "withdraw" operations.
+
+* The scheduler and the virt resource both now benefit from the background API.
+
+* There's even a "pool" helper for fancier resources like libvirt.
+
+* The autoedge, autogroup and reverse stages support ctx cancellation.
+
+* Fix the operator precedence rules. "Bad code" cases should be caught now.
+
+* LLM's found and fixed a bug that was driving us crazy. Read the commit in:
+2266c3c8e9f0cce1960f54a4ce23c516c847b074
+
+* LLM's were able to finish up / write the iter.reduce, iter.zip and
+iter.flatten functions. Wow. See: 49e98ddae3ac3cf2bcf1307c3d5f7cd92ae14396
+
+* Fixed an annoying rebuild issue with `make`. No more latent misses.
+
+* Added embedded pprof server. Much easier to do performance measuring.
+
+* Improved performance of the pgraph library and did other cleanups.
+
+* We cache a lot of the work during function graph execution. More can be done!
+
+* Function graph ref counting is much faster and cleaner.
+
+* Performance of the pgraph reachability algorithm was improved dramatically.
+
+* The graphcmp went from O(n^2) to O(n) by using a map based lookup.
+
+* The graphsync operation was sped up significantly.
+
+* Many allocations were reduced all over the code base. More to come!
+
+* Topological sort performance was improved quite a lot. We use it everywhere!
+
+* The etcd/fs "posix" API had about a dozen bugs fixed in it with added tests.
+
+* The deploy package grew a new directory() function.
+
+* Performance of ResGraphMapper improved significantly.
+
+* The govet test and gofmt operation improved quite a lot. Better dev workflow.
+
+* A sneaky packagekit bug was squashed. 28d81c6a06c30f263182f66e0a9dac91ae50d5c5
+
+* The pkg resource and packagekit lib got a lot of improvements.
+
+* We return better error messages for pkg when using unfriendly distros.
+
+* We worked around a long-standing tftp shutdown bug.
+
+* The golang.template function allows a lot more cases. All fields must be title
+cased now. Update your templates. Mgmt shuts down safely if you forgot one.
+
+* Invalid templates are caught at startup instead of at runtime!
+
+* The exec resource no longer requires root if we requested running as ourself.
+
+* Deploy supports running over SSH without needing tunnelling.
+
+* The converger now supports notifications on unconverged and is not buggy.
+
+* We added a new "exit" resource. Useful for building applications.
+
+* The user resource got a major refactor and supports mock testing. It's tricky!
+
+* The user resource also watches the /etc/group list. We fixed a lot of bugs.
+
+* The group resource got some fixes as well.
+
+* The tftp and dhcp servers don't run until their "CheckApply" turns them "on".
+
+* We have added an mgmt "check" subcommand to make static testing easier.
+
+* The print resource is now more correct and has state. Who'd have figured!
+
+* The engine grew a new timeout meta param. Use it instead of per-resource code.
+
+* The fmt.printf command now supports a %T verb.
+
+* The Meta:poll metaparam allows negative values to ask for "one shot" events.
+It's unclear if we'll keep this behaviour long-term so don't rely on it without
+telling us about your use-case please.
+
+* Added an http:client resource that also supports long polling with the
+http:server file resources.
+
+* There's a companion net/http.resource function. It's a beautiful demonstration
+of the functions+resources model that I've been working on for so long. Finally
+proud to merge a really useful example of this.
+
+* The gzip and tar resource support cancellation.
+
+* Added golangci-lint tests in. Fixed many nitpicks. Added a bunch of sub lints.
+
+* Fixed some possible issues with the net resource.
+
+* Fixed some small bugs in the mount resource. More work is needed here.
+
+* Fixed some rare SSH connection deploy issues. I think we're block free now.
+
+* Fixed a small spin in our local API.
+
+* The pgraph library now stores the reverse adjacency maps for performance.
+
+* Made a bunch of method additions/changes in pgraph for increased performance.
+
+* The GraphSync performance is now measured and improved significantly. A 10,000
+node graph goes from ~1000ms to 16ms. Wow
+
+* A tree of 10,000 autoedge nodes goes from 17,109ms to 53ms. Wow
+
+* The autoedge algorithm got a major overhaul to support such improvements.
+
+* Fixed a rare race in the weird os.system function. (Don't use it anyways!)
+
+* A backlog of misc tests and bugs were fixed or ruled out.
+
+* Some overflow related issues were found and fixed.
+
+* The gosec linter was run and all issues were fixed or tagged. It's tested now.
+
+* We added spell checking as a test case. Might as well keep things neat!
+
+* 1,000 node graphs went from autogrouping in seconds or hours to subsecond in
+most cases. A long chain of 1,000 went from 162107ms -> 179ms. Wow!
+
+* The autogrouping algorithm got a major overhaul to support such improvements.
+
+* Clarify that the filteredgraph API is fixed and race-safe now.
+
+* We're looking for support to write Amazon, Cloudflare, DigitalOcean, Google,
+Hetzner, OVH, etc, resources if anyone is interested, reach out to us.
+Particularly if there is support from those organizations as well.
+
+* Many other bug fixes, changes, etc...
+
+* See the git log for more NEWS, and for anything notable I left out!
+
+
+NLNET
+
+The nlnet grant requires that you specify specific tasks as "goals" to achieve,
+and when those tasks are completed, you write up those details and they make a
+donation. What follows is that report, since it provides more detail that what
+you would usually see in release notes, and there's no reason it should be
+private.
+
+## Task #2: Parser refresh with trailing line, newline, and other fixups
+
+This patch was a giant relief to finally land. In my inexpertise when I first
+added the language, I didn't differentiate between single line lists, maps,
+structs, and multi-line ones. As a result, as silly as it sounds, trailing
+commas were *required* when using any of these expressions. For example you'd
+have to write:
+
+$some_list = [1, 2, 3,]
+
+instead of:
+
+$some_list = [1, 2, 3]
+
+It may only be a small comma, but it was a lot of work, and it really adds some
+professional polish to our project. The same comma logic is applied to all of
+the expressions in the project.
+
+The main work was done in:
+
+> lang: Use trailing commas on multiline declarations only
+> c7acc753d76f747376928ebb91925e5f1aa3cb27
+
+A contributor then noticed two additional edge cases which we polished in:
+
+> lang: parser: Error on invalid commas
+> ce8791201e3faa360d579d6da6b69f7cb4eb7fb4
+
+> lang: parser: Reject invalid types
+> e65f1de0afe32e84909257d3f1756dbe999ed7fa
+
+Lastly, this work was an important pre-requisite to eventually being about to
+add automatic mcl code formatting, which we hope to tackle in the future!
+
+
+## Task #3: Scheduler rewrite and improvements
+
+Our original scheduler was built as a proof-of-concept, but it was never used in
+very serious production workloads and as a result it had some major flaws. In
+particular it lacked the ability to programmatically "withdraw" scheduled hosts
+which is crucial for fancier dynamic scheduling.
+
+
+### Task #3a: The work starts with:
+
+> engine, lib: Add background plumbing
+> 446f8928fcd788b2c02102bfb6883d83a3c0dc56
+
+where we implemented a generic "background worker" interface that resources can
+use. This is actually quite significant because it lets us have all sorts of
+resources share a common "worker" which must be a singleton. The resources don't
+have to worry about handling the graph analysis, this is all automatic!
+
+
+### Task #3b: Next the actual scheduler modernization itself.
+
+> engine, etcd, scheduler: Add a modern scheduler
+> 446f8928fcd788b2c02102bfb6883d83a3c0dc56
+
+(Note that this work took weeks, the git timestamps were refreshed before commit
+when fixing misc test failures that we missed before our final CI run.)
+
+Getting the precise behaviour to align with the etcd API was very challenging,
+particularly since it's not well-documented. This patch required a lot of deep
+reading of the upstream source. This patch fully implements the "withdraw"
+capability which lets us build distributed systems where a group of peers first
+put their "names" into the proverbial hat when they believe a given task is
+necessary, next the cluster elects some number of them (so that they don't all
+run simultaneously) and finally when they each complete their individual task,
+they "withdraw" themselves so that a subsequent member can be scheduled. More
+than one can run simultaneously too!
+
+This patch updated both the internal API's and interfaces, as well as the mcl
+API used for the function and the resource. We believe these are more "correct"
+now. They are also better abstracted which could allow a third-party to add a
+more powerful external scheduler if they had very large enterprise scheduling
+needs.
+
+Lastly this also makes it possible to add weighted or node-specific data to the
+scheduling decisions if we want to really make things fancier!
+
+
+### Task #3c: Finally with this work out of the way, we got to:
+
+> engine: resources: Port virt resource to background API
+> 63e45480c07514edb10ad1bdb595b7791b834474
+
+> engine: Add a background pool helper
+> acf739446d718117b6a7c01029d0559ee6747e09
+
+> engine: resources: Port the virt background api to a pool
+> 1af498a655036e616385886faba02a58bda00cf0
+
+These three commits ported our important libvirt to this new API and also solved
+a long-standing deadlock/race which we would experience when using the virt
+resource.
+
+This issue was so significant, we even added custom "watchdog" detection to more
+easily detect the situation. (If you're curious we did that in:
+"engine: graph, util: Add a watchdog facility for resource shutdown" -
+45f30bab585df66587287a59fa266d03278c2726) We're glad to report that after the
+aforementioned fixes, we no longer experience these issues, and we also have
+better code!
+
+As an addendum, included in this set were related bug fixes, improvements, etc:
+
+> etcd: scheduler: Add missing namespace value
+> d5dd2b4801795d5691eb179582f8825123a1cd75
+
+> etcd: util: Add an election package
+> cda8d62b16fe8642941d77b93ec27d20e71d380c
+
+> etcd: scheduler: Use the new election package
+> 517016a6e67d799798ed42b1421f88170b5af1ec
+
+> etcd: scheduler: Don't prematurely orphan during graph swap
+> 0d36a243221995a70e295de83704130f9195ccce
+
+
+## Task #6: Converger rewrite
+
+We struggled to implement this at a recent hackathon but failed. It's a very
+important feature needed for this new generation of "real-time" tooling, and as
+a result, nobody else seems to have had to ever implement something like this,
+and we had to get it right ourselves. I believe we succeeded:
+
+> converger: Rewrite the converger to support dual state
+> 12849874bff8934b7f116877c668ed17c8528c05
+
+The code is highly concurrent, and I will say that the race detector helped me
+out significantly. I was actually almost ready to merge this when on the final
+CI run it caught an unusual (but legitimate) race! If you're curious what the
+sneaky race was, it's documented here:
+
+https://github.com/purpleidea/mgmt/blob/12849874bff8934b7f116877c668ed17c8528c05/converger/converger.go#L257
+
+Try and wrap your head around that one!
+
+In particular, for those wishing to experiment at home, we now see "converged"
+and "unconverged" messages. Demo:
+
+$ echo true > /tmp/flipflop
+$ mgmt run --tmp-prefix --converger-timeout 5 lang examples/lang/background0.mcl
+[snip]
+01:25:05 engine: background(test): running...
+01:25:06 engine: background(test): running...
+01:25:07 engine: background(test): running...
+01:25:08 engine: background(test): running...
+01:25:09 main: converger: converged for 5 seconds
+
+[snip]
+
+$ echo false > /tmp/flipflop
+
+[continued...]
+
+01:25:11 gapi: lang: interpret: interpreting...
+01:25:11 gapi: generating new graph...
+01:25:11 main: new graph took: 217ns
+01:25:11 engine: autoedge: building...
+01:25:11 main: auto edges took: 14.098µs
+01:25:11 engine: autogroup: algorithm: wrappedGrouper: NonReachabilityGrouper...
+01:25:11 main: auto grouping took: 28.576µs
+01:25:11 main: resource topological sort took: 1.014µs
+01:25:11 main: send/recv building took: 3.73µs
+01:25:11 main: commit...
+01:25:11 engine: graph sync...
+01:25:11 engine: background(test): stopped!
+01:25:11 main: export cleanup took: 14.556µs
+01:25:11 main: converger: unconverged...
+01:25:11 main: graph: Vertices(0), Edges(0)
+01:25:11 main: waiting...
+01:25:16 main: converger: converged for 5 seconds
+
+As silly as this sounds, it's incredibly important for sysadmins to know if
+there is working that is still ongoing, or if they're waiting on network or
+something that is blocked.
+
+
+## Task 4/5: Graph related, dependencies for both tasks
+
+Made edge deleting O(1), something we previously never did before.
+
+> pgraph: Add DeleteEdgeBetween method
+> 1f33b481e2c047ef1000057225d70a2f45b9fb58
+
+Previously, we would directly modify the internal adjacency map for direct
+performance. We needed to move beyond that, so we could eventually support a
+reverse adjacency map. So here's a cleanup:
+
+> pgraph: Use the graph API instead of raw map writes in GraphSync
+> 9a36537ff76e6d7677de46e060680a741ffdd29b
+
+Similarly, we can improve the efficiency of going through adjacency by using
+more precise API calls:
+
+> engine: graph: autogroup: Use the pgraph API in VertexMerge
+> 842f0a6b58bc96c862f0193eb444b0c93360db23
+
+The big change for the pgraph library now happens that consumes a bit more
+memory, but makes many operations significantly faster:
+
+> pgraph: Add a reverse adjacency index
+> ce9d2c514ee1d92cba6c10e987ed107dd965b0b3
+
+Here we make use of those new efficiencies:
+
+> pgraph: Use the reverse index for incoming edge lookups
+> 5935dbd17af755197cbe36cab9101c861272496d
+
+In this commit, we have a bonus fixup moving our DFS algo to using a lookup map.
+
+> pgraph: Use a visited map in DFS and DisconnectedGraphs
+> bb7e9fce30b709e95fb956d3a25e62cc40a91147
+
+And trivial fixes like:
+
+pgraph: Optimize simple vertex lookup function
+> d114df34d7520c1087f84ef3551dd32a997cf550
+
+Allocation optimization came to light with a fix in:
+
+> pgraph: Start the HasPath traversal structures small
+> 708cef93f0765e90e0becfb6a7fa6602c14d1f5c
+
+As well as lazy graph allocation in:
+
+> pgraph: Allocate the inner adjacency maps lazily
+> 9f90a5664ab540acbf7ad13e35cfed45aa535eba
+
+## Task #5: Autoedge improvements
+
+We start with some benchmarking to measure whether our work really helped.
+
+> engine: resources: Add an autoedge benchmark
+> 3d2b31d1daafa66a72486726f2f1783bc954df64
+
+The bulk of the algorithmic work consists of two major parts. The first involves
+being smart about caching and lookups. We also make sure to never run a function
+twice. The lookup trick involves using the reflect.Type as the key. Our earlier
+purely human work looked at this approach, and we were finally able to
+substantiate it with this commit.
+
+A second optimization is that we can have a single unique "hash" for a node edge
+to build a relationship between two vertices. For example, a file resource might
+use the "path" as the hash.
+
+> engine: graph: autoedge: Major autoedge restructuring
+> 1da5135a4d46d7eaf22d24aef9035554b5b84bca
+
+Finally we implement the hashing API where the bulk of our performance is lost.
+
+> engine: resources: file: Implement UIDHash for FileUID
+> 43d56e9a48c98fe6b30f89fba3d8c4e847202853
+
+Lastly we plumb through our ctx to modernize this algorithm.
+
+> engine: Pass ctx into autoedge call
+> 8976ce58bc38b3f9d59b2ed20e6500e7326f1500
+
+And do a small cleanup for consistency:
+
+> engine: graph: autoedge: Don't be too verbose
+> eee5dcde57b34a66f660f48a93e8fb9278161242
+
+The total autoedge performance improvements were significant. In our benchmarks
+you can see:
+
+BenchmarkAutoEdge/tree/100      1.6ms -> 0.41ms
+BenchmarkAutoEdge/tree/1000     133ms -> 4.7ms
+BenchmarkAutoEdge/tree/10000    17109ms -> 53ms
+BenchmarkAutoEdge/flat/1000     710ms -> 3.1ms
+
+Longer benchmarks that show allocations and deltas and more are also available
+in the source.
+
+## Task #4: Autogroup improvements
+
+We again start off with some benchmarking:
+
+> engine: graph: autogroup: Add benchmarks
+> 30392851d2b6b465e720990c8386cefffb2a5c67
+
+> engine: graph: autogroup: Add more performance tests
+> cbd0a0d1c783574cdebe82121aba2471f7e983d3
+
+Instead of running the topological sort every merge, we do it once per run:
+
+> engine: graph: autogroup: Validate acyclicity once per run, not per merge
+> 33236f9f3bff3e56572d408169b413eeb04e0984
+
+We also move to an "unsafe" reachability algorithm which doesn't check for
+cycles, since that check is expensive. We work out that it's provably not needed
+especially since we check at the end.
+
+> engine: graph: autogroup: Use ReachabilityUnsafe in VertexMerge
+> d4e9cb9a13fee8dc8c2acda2c11ddd11fefc83ae
+
+The O(n^2) traversal on each vertex merge can get replace with two operations:
+
+> engine: graph: autogroup: Replace the VertexMerge edge scan with lookups
+> 613f4056d5392645a23c8800bd8f20c8f32ed40b
+
+And an early "Vertex Viable" check removes the need for most uses of the compare
+(Cmp) which is much more expensive.
+
+> engine: Add VertexViable to the AutoGrouper interface
+> 1723dad7e661c792dc1725a22f0a98c15d34a301
+
+Since our resources have names such as "pkg", "file" and "http:server:file" we
+can benefit from this pattern and use it as an index to know which resources can
+autogroup! They must share a common prefix to be able to match!
+
+engine: graph: autogroup: Skip pairs with differing first kind chunks
+> b1ac60645276367bea27c6d22e3789665f5c0cae
+
+In order to save the `String()` name computation, we do it only on merge success
+which reduces allocations and increases performance.
+
+> engine: graph: autogroup: Only stringify pairs which try to merge
+> e144dd55ffb06ac337b35b29a7ec3d28bb8f8a94
+
+And once we've done a merge, we don't use it any more in the iterator.
+
+> engine: graph: autogroup: Skip merged away vertices in the iterator
+> 4913689ad0fe31e20c0263ecd3fa7bcae19123bb
+
+Lastly, the biggest change so far: we actually merge the new grouper algorithm.
+This caches the expensive reachability lookups and makes use of all the earlier
+optimizations, such as the "VertexViable" function. The simpler lookups are now
+much faster!
+
+> engine: graph: autogroup: Add cached non reachability grouper
+> 136b647e6084e2bf58c5b28a075024ab84f1ea17
+
+Here we actually enable that new algorithm.
+
+> engine, lang, lib: Switch to the new autogrouper
+> edcd85669a669b2748e6f52b53b5ba84baa7291a
+
+The total autogroup performance improvements were significant. In our benchmarks
+you can see:
+
+BenchmarkAutoGroup/group/100      4.4ms -> 2.1ms
+BenchmarkAutoGroup/group/1000     1534ms -> 1310ms
+BenchmarkAutoGroup/letters/100    23ms -> 2.3ms
+BenchmarkAutoGroup/letters/1000   1609ms -> 41ms
+BenchmarkAutoGroup/chain/100      650ms -> 3.6ms
+BenchmarkAutoGroup/chain/1000     (untested, hours) -> 460ms
+BenchmarkAutoGroup/disabled/1000  162107ms -> 179ms
+
+Longer benchmarks that show allocations and deltas and more are also available
+in the source.
+
+We're incredibly thankful to nlnet for sponsoring all this work, and look we
+look forward to working more with them in the future.
+
+
+BUGS/TODO
+
+* Function values getting _passed_ to resources doesn't work yet, but it's not a
+blocker, but it would definitely be useful. We're looking into it.
+
+* We don't have any aarch64 hardware, so no more arm64 builds or testing until
+we get a donation or sponsor for that unfortunately.
+
+* We don't have the <|> operator merged yet. Expect that when we do this, we'll
+consider removing the || (default) operator. This is the only pending language
+change that I know of, and these cases are easily caught by the compiler and can
+be easily patched.
+
+
+TALKS
+
+James doesn't have anything planned until CfgMgmtCamp 2027. If you'd like to
+book him for a private event, or sponsor his travel for your conference, please
+let us know.
+
+A recording from CfgMgmtCamp 2026 is available:
+
+See James demo some upcoming scheduler magic and more:
+https://www.youtube.com/watch?v=f8TrYow6gdY
+
+A second talk of Andrew demoing some magic clustering has not yet been posted.
+You can see a similar demo here: https://www.youtube.com/watch?v=8vz1MMGkuik
+
+
+MISC
+
+Our mailing list host (Red Hat) is no longer letting non-Red Hat employees use
+their infrastructure. We're looking for a new home. I've opened a ticket with
+Freedesktop. If you have any sway with them or other recommendations, please let
+me know:
+https://gitlab.freedesktop.org/freedesktop/freedesktop/-/issues/1082
+
+We're still looking for new contributors, and while there are easy, medium and
+hard issues available! You're also welcome to suggest your own! Please join us
+in #mgmtconfig on Matrix and ping us if you'd like help getting started! For
+details please see:
+
+https://github.com/purpleidea/mgmt/blob/master/docs/faq.md#how-do-i-contribute-to-the-project-if-i-dont-know-golang
+
+Many tagged issues exist:
+https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen
+
+Although asking in matrix is the best way to find something to work on.
+
+
+MENTORING
+
+We offer mentoring for new golang/mgmt hackers who want to get involved. This is
+fun and friendly! You get to improve your skills, and we get some patches in
+return. Ping me off-list for details.
+
+
+AI/LLM
+
+It is permitted to use AI/LLM tooling to assist in bug finding and patch writing
+but submitting unreviewed "slop" will get you banned. If anything, the new
+tooling should make it possible to set a higher bar for quality. Please ensure
+you meet and exceed that bar if you contribute to this project. The main author
+has been able to achieve some big wins using this tooling. Your mileage may
+vary. If you do use such tooling, its use must be disclosed in the commit
+message. This is not to say that there aren't problematic aspects of this
+tooling. At least for the moment, we believe the benefits to open source
+outweigh the negatives. For more on this topic please read this post by the main
+author: https://purpleidea.com/blog/2026/06/24/perspectives-on-ai-llms/
+
+
+PARTNERS
+
+James, the `mgmt config` project, and m9rx corporation, are working with
+partners to deliver products and solutions built with `mgmt`. Please reach out
+to m9rx or one of them to support our work. https://m9rx.com/about/partners/
+If you are a company or organization that would like to work with us, please
+reach out!
+
+
+THANKS
+
+To the Fedora project for their continued donation of space and bandwidth.
+
+Thanks (alphabetically) to everyone who contributed to the latest release:
+AniruthKarthik, Guenael, James Shubin, Jeffrey Clark, Jordan Sissel, Karpfen
+We had 6 unique committers since 1.0.2, and have had 111 overall.
+run 'git log 1.0.2..1.1.0' to see what has changed since 1.0.2
+
+Please see the THANKS file for more thanking.
+
+
+Happy hacking,
+James
+@purpleidea

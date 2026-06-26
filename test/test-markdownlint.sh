@@ -92,8 +92,7 @@ bad_files=$(
 
 		# check links in docs
 		if $CHECK_LINKS; then
-			# if file is from the directory docs/ then check links
-			if [[ "$i" == docs/* ]] && ! "$LYCHEE" -n "$i" 1>&2; then
+			if ! "$LYCHEE" --root-dir . --accept 200..300,302,429 --timeout 120 --max-retries 2 -n -v "$i" 1>&2; then
 				echo "$i"
 			fi
 		fi

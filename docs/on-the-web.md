@@ -32,9 +32,9 @@ if we missed something that you think is relevant!
 | Julien Pivotto | blog | [Augeas resource for mgmt](https://purpleidea.com/cached/mgmt-augeas.html) (Cached from: https://roidelapluie.be/blog/2017/02/14/mgmt-augeas/) |
 | James Shubin | blog | [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/) |
 | James Shubin | video | [Recording from Incontro DevOps 2017](https://vimeo.com/212241877) |
-| Yves Brissaud | blog | [mgmt aux HumanTalks Grenoble (french)](http://log.winsos.net/2017/04/12/mgmt-aux-human-talks-grenoble.html) |
+| Yves Brissaud | blog | [mgmt aux HumanTalks Grenoble (french)](https://web.archive.org/web/20210510221520/http://log.winsos.net/2017/04/12/mgmt-aux-human-talks-grenoble.html) |
 | James Shubin | video | [Recording from OSDC Berlin 2017](https://www.youtube.com/watch?v=LkEtBVLfygE&html5=1) |
-| Jonathan Gold | blog | [AWS:EC2 in mgmt](https://jonathangold.ca/blog/aws-ec2-in-mgmt/) |
+| Jonathan Gold | blog | [AWS:EC2 in mgmt](https://web.archive.org/web/20210517133957/https://jonathangold.ca/blog/aws-ec2-in-mgmt/) |
 | James Shubin | video | [Recording from OSMC Nuremberg 2017](https://www.youtube.com/watch?v=hSVadQLeplU&html5=1) |
 | James Shubin | video | [Recording from LCA 2018, Developers Miniconf](https://www.youtube.com/watch?v=OvgGfW0ilbE) |
 | James Shubin | video | [Recording from LCA 2018, Sysadmin Miniconf](https://www.youtube.com/watch?v=ELq1XOJMIPY) |
@@ -43,7 +43,7 @@ if we missed something that you think is relevant!
 | James Shubin | video | [Recording from FOSDEM 2018, Config Management Devroom](https://video.fosdem.org/2018/UA2.114/mgmt.webm) |
 | James Shubin | blog | [Mgmt Configuration Language](https://purpleidea.com/blog/2018/02/05/mgmt-configuration-language/) |
 | James Shubin | video | [Recording from CfgMgmtCamp.eu 2018](https://www.youtube.com/watch?v=NxObmwZDyrI) |
-| Jonathan Gold | blog | [Go Netlink and Select](https://jonathangold.ca/blog/go-netlink-and-select/) |
+| Jonathan Gold | blog | [Go Netlink and Select](https://web.archive.org/web/20181230060833/https://jonathangold.ca/blog/go-netlink-and-select/) |
 | James Shubin | video | [Recording from DevOpsDays Montreal 2018](https://www.youtube.com/watch?v=1i38c5cooHo) |
 | James Shubin | video | [Recording from FOSDEM Minimalistic Languages Devroom 2019](https://video.fosdem.org/2019/K.4.201/mgmtconfig.webm) |
 | James Shubin | video | [Recording from FOSDEM Infra Management Devroom 2019](https://video.fosdem.org/2019/UB2.252A/mgmt.webm) |

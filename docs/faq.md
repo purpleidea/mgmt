@@ -564,4 +564,3 @@ which definitely existed before the band did.
 It's best to ask on [Matrix](https://matrix.to/#/#mgmtconfig:matrix.org) to see
 if someone can help. If you don't get a response there, you can send a patch to
 this documentation. I'll merge your question, and add a patch with the answer!
-For news and updates, subscribe to the [mailing list](https://www.redhat.com/mailman/listinfo/mgmtconfig-list).

@@ -41,12 +41,12 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	dockerImage "github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
-	errwrap "github.com/pkg/errors"
 )
 
 func init() {

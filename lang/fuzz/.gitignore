@@ -2,3 +2,4 @@ corpus/
 crashers/
 suppressions/
 fuzz-fuzz.zip
+testdata/

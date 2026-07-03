@@ -1,4 +1,5 @@
 // This is an example mock BMC server/device.
+//
 // Many thanks to Joel Rebello for figuring out the specific endpoints needed.
 package main
 

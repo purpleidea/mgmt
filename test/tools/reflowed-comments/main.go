@@ -28,7 +28,7 @@
 // additional permission.
 
 // XXX: consider using the https://pkg.go.dev/go/doc parser instead and also
-// checking the other fields like the package doc string.
+// checking the other fields.
 
 package main
 
@@ -115,9 +115,12 @@ func Check(filename string) error {
 		return err
 	}
 
-	// XXX: f.Doc // CommentGroup
 	// XXX: f.Comments []*CommentGroup // list of all comments in the source file
 	// XXX: f.Decls []Decl // top-level declarations; or nil
+
+	if err := checkCommentGroup(filename, fset, f.Doc); err != nil {
+		return err
+	}
 
 	for _, node := range f.Decls {
 		var doc *ast.CommentGroup
@@ -145,62 +148,74 @@ func Check(filename string) error {
 			continue
 		}
 
-		pos := doc.Pos()
-		ff := fset.File(pos)
-		items := strings.Split(ff.Name(), "/")
-		if len(items) == 0 {
-			return fmt.Errorf("file name is empty")
+		if err := checkCommentGroup(filename, fset, doc); err != nil {
+			return err
 		}
-		name := items[len(items)-1]
-		ident := fmt.Sprintf("%s:%d", name, ff.Line(pos))
+	}
 
-		block := []string{}
-		for _, comment := range doc.List {
-			if comment == nil {
-				continue
-			}
-			s := comment.Text
+	return nil
+}
 
-			// TODO: how do we deal with multiline comments?
-			if strings.HasPrefix(s, CommentMultilinePrefix) {
-				break // skip to the end of this block
-			}
+// checkCommentGroup checks that an individual comment group is wrapped.
+func checkCommentGroup(filename string, fset *token.FileSet, doc *ast.CommentGroup) error {
+	if doc == nil { // we got nothing
+		return nil
+	}
 
-			// skip the magic compiler comments
-			if strings.HasPrefix(s, CommentGolangPrefix) {
-				break // skip to the end of this block
-			}
+	pos := doc.Pos()
+	ff := fset.File(pos)
+	items := strings.Split(ff.Name(), "/")
+	if len(items) == 0 {
+		return fmt.Errorf("file name is empty")
+	}
+	name := items[len(items)-1]
+	ident := fmt.Sprintf("%s:%d", name, ff.Line(pos))
 
-			// skip other special golang directive comments
-			if commentDirectivePattern.MatchString(s) {
-				break // skip to the end of this block
-			}
+	block := []string{}
+	for _, comment := range doc.List {
+		if comment == nil {
+			continue
+		}
+		s := comment.Text
 
-			// Allow a comment prefix that starts with a space or
-			// one that starts with a tab. (Common for code blocks!)
-			if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) && !strings.HasPrefix(s, CommentPrefixTab) {
-				return fmt.Errorf("location (%s) missing comment prefix, has: %s", ident, s)
-			}
-			if s == commentPrefixTrimmed { // blank lines
-				s = ""
-			}
-
-			if strings.HasPrefix(s, CommentPrefix) {
-				s = strings.TrimPrefix(s, CommentPrefix)
-			} else if strings.HasPrefix(s, CommentPrefixTab) {
-				s = strings.TrimPrefix(s, CommentPrefixTab)
-				//s = strings.TrimPrefix(s, commentPrefixTrimmed) // TODO: instead?
-			}
-
-			block = append(block, s)
+		// TODO: how do we deal with multiline comments?
+		if strings.HasPrefix(s, CommentMultilinePrefix) {
+			break // skip to the end of this block
 		}
 
-		if err := IsWrappedProperly(block, maxLength); err != nil {
-			m := strings.Join(block, "\n")
-			msg := filename + " " + strings.Repeat(".", maxLength-len(filename+" "+"V")) + fmt.Sprintf("V\n%+v\n", m)
-			fmt.Fprintf(os.Stderr, "%s", msg)
-			return fmt.Errorf("block (%s) failed: %+v", ident, err) // TODO: errwrap ?
+		// skip the magic compiler comments
+		if strings.HasPrefix(s, CommentGolangPrefix) {
+			break // skip to the end of this block
 		}
+
+		// skip other special golang directive comments
+		if commentDirectivePattern.MatchString(s) {
+			break // skip to the end of this block
+		}
+
+		// Allow a comment prefix that starts with a space or
+		// one that starts with a tab. (Common for code blocks!)
+		if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) && !strings.HasPrefix(s, CommentPrefixTab) {
+			return fmt.Errorf("location (%s) missing comment prefix, has: %s", ident, s)
+		}
+		if s == commentPrefixTrimmed { // blank lines
+			s = ""
+		}
+
+		if strings.HasPrefix(s, CommentPrefix) {
+			s = strings.TrimPrefix(s, CommentPrefix)
+		} else if strings.HasPrefix(s, CommentPrefixTab) {
+			s = strings.TrimPrefix(s, commentPrefixTrimmed)
+		}
+
+		block = append(block, s)
+	}
+
+	if err := IsWrappedProperly(block, maxLength); err != nil {
+		m := strings.Join(block, "\n")
+		msg := filename + " " + strings.Repeat(".", maxLength-len(filename+" "+"V")) + fmt.Sprintf("V\n%+v\n", m)
+		fmt.Fprintf(os.Stderr, "%s", msg)
+		return fmt.Errorf("block (%s) failed: %+v", ident, err) // TODO: errwrap ?
 	}
 
 	return nil

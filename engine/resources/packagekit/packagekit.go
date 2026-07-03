@@ -27,7 +27,7 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-// Package packagekit provides an interface to interact with packagekit.
+// Package packagekit provides an interface to connect to the packagekit daemon.
 // See: https://www.freedesktop.org/software/PackageKit/gtk-doc/index.html for
 // more information.
 package packagekit

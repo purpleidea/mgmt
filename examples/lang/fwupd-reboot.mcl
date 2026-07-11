@@ -1,0 +1,31 @@
+# Reboot the machine when firmware updates have been staged and are waiting
+# for one, but only then. The fwupd.reboot_needed() function is reactive: it
+# is the declarative equivalent of `fwupdmgr check-reboot-needed`, and it
+# re-evaluates automatically (via the daemon's dbus signals) whenever any
+# device changes state, so no polling is needed anywhere in this file.
+import "sys/fwupd"
+
+fwupd:remote "lvfs" {
+	enabled => true,
+	refresh_age => "24h",
+}
+
+fwupd:system "update" { # name is irrelevant
+	state => "newest",
+
+	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+}
+
+# This becomes true when at least one device has an update deployed and is
+# waiting for a reboot to apply it. (It is false while updates are merely
+# available; fwupd:system has to deploy them first.)
+$reboot_needed = fwupd.reboot_needed()
+
+if $reboot_needed {
+	# TODO: use a future "shutdown" resource here instead, which could also
+	# wait for a maintenance window instead of rebooting the moment this
+	# scope becomes active...
+	exec "reboot" {
+		cmd => "/usr/bin/systemctl reboot",
+	}
+}

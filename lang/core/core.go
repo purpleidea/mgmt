@@ -56,6 +56,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/regexp"
 	_ "github.com/purpleidea/mgmt/lang/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/core/sys"
+	_ "github.com/purpleidea/mgmt/lang/core/sys/fwupd"
 	_ "github.com/purpleidea/mgmt/lang/core/test"
 	_ "github.com/purpleidea/mgmt/lang/core/util"
 	_ "github.com/purpleidea/mgmt/lang/core/value"

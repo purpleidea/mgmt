@@ -67,16 +67,20 @@ hacking!
 
 ### Is this project ready for production?
 
-It's getting pretty close. I'm able to write modules for it now!
+Yes it is! It's been used in production for some time now. We think the level of
+polish is excellent. We have enterprise support available too through:
+[https://m9rx.com/](https://m9rx.com/).
 
-Compared to some existing automation tools out there, mgmt is a relatively new
-project. It is probably not as feature complete as some other software, but it
-also offers a number of features which are not currently available elsewhere.
+Compared to some legacy existing automation tools out there, mgmt is a
+relatively newer project. This shouldn't be seen as a detractor, we offer a
+number of valuable, modern features which are not currently available elsewhere!
 
-Because we have not released a `1.0` release yet, we are not guaranteeing
-stability of the internal or external API's. We only change them if it's really
-necessary, and we don't expect anything particularly drastic to occur. We would
-expect it to be relatively easy to adapt your code if such changes happened.
+We're past our `1.0.0` release now. If major dangerous/scary/incompatible
+changes happen, we'll bump that number. We'll bump the second number for bigger
+changes that you might want to take note of. Nothing should break in a dangerous
+way. Anything incompatible should be caught by the compiler safely or would be
+prominently mentioned in the release notes. If we bump the last number it's for
+smaller bug fixes, or other inconsequential features.
 
 As with all software, bugs can occur, and while we make no guarantees of being
 bug-free, there are a number of things we've done to reduce the chances of one
@@ -93,28 +97,7 @@ Having said all this, as with all software, there are still missing features
 which some users might want in their production environments. We're working hard
 to get all of those implemented, but we hope that you'll get involved and help
 us finish off the ones that are most important to you. We are happy to mentor
-new contributors, and have even [tagged](https://github.com/purpleidea/mgmt/issues?q=is%3Aissue+is%3Aopen+label%3Amgmtlove)
-a number of issues if you need help getting started.
-
-Some of the current limitations include:
-
-* Auth hasn't been implemented yet, so you should only use it in trusted
-environments (not on publicly accessible networks) for now.
-* The number of built-in core functions is still small. You may encounter
-scenarios where you're missing a function. The good news is that it's relatively
-easy to add this missing functionality yourself. In time, with your help, the
-list will grow!
-* Large file distribution is not yet implemented. You might want a scenario
-where mgmt is used to distribute large files (such as `.iso` images) throughout
-your cluster. While this isn't a common use-case, it won't be possible until
-someone wants to write the patch. (Mentoring available!) You can workaround this
-easily by storing those files on a separate fileserver for the interim.
-* There isn't an ecosystem of community `modules` yet. We've got this on our
-roadmap, so please stay tuned!
-
-We hope you'll participate as an early adopter. Every additional pair of helping
-hands gets us all there faster! It's quite possible to use this to build useful
-automation today, and we hope you'll start getting familiar with the software.
+new contributors too!
 
 ### Why did you use etcd? What about consul?
 

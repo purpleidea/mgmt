@@ -1,0 +1,56 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+# The mirror class points the fwupd daemon at a firmware mirror, such as an
+# internal server on a lan without internet access. The $name is the remote id
+# to create, and $uri is the base url of the mirrored lvfs downloads directory,
+# eg: "http://mirror.lan/downloads". That directory must contain the mirrored
+# metadata as firmware.xml.zst with its firmware.xml.zst.jcat signature next to
+# it, and the firmware .cab archives, all of which keep their upstream lvfs
+# signatures, so every client still verifies everything as usual. The
+# FirmwareBaseURI is what redirects the archive downloads to the mirror, since
+# the mirrored metadata still names the upstream locations.
+#
+# NOTE: The fwupd daemon only reads the remotes.d/ config files on startup, so
+# the very first convergence needs a daemon restart after the conf file is
+# written. We don't manage the svc here to avoid conflicting with any svc
+# resource you might already have; see examples/mirror.mcl for one way.
+class mirror($name, $uri) {
+	file "/etc/fwupd/remotes.d/${name}.conf" {
+		state => "exists",
+		content => "[fwupd Remote]\nEnabled=true\nTitle=Firmware mirror (${name})\nMetadataURI=${uri}/firmware.xml.zst\nFirmwareBaseURI=${uri}\n",
+
+		Before => Fwupd:Remote["${name}"],
+	}
+
+	fwupd:remote "${name}" {
+		enabled => true,
+		refresh_age => "24h", # matches the usual lvfs refresh interval
+	}
+}

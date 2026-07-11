@@ -1,0 +1,22 @@
+# Point this machine's firmware updates at an internal mirror instead of the
+# lvfs, for machines on a lan without internet access. The mirror server just
+# has to serve the mirrored downloads directory over http; the mgmt http:server
+# and http:server:file resources are one easy way to do that.
+import "git://github.com/purpleidea/mgmt/modules/fwupd/"
+
+include fwupd.mirror("internal-mirror", "http://mirror.lan/downloads")
+
+# The daemon only reads the remotes.d/ conf files on startup, so restart it when
+# the conf file changes. Listening to the file resource means its refresh
+# notification restarts the service, which makes the new remote appear.
+svc "fwupd" {
+	state => "running",
+
+	Listen => File["/etc/fwupd/remotes.d/internal-mirror.conf"],
+	Before => Fwupd:Remote["internal-mirror"],
+}
+
+# ...and from here on, the usual resources work unchanged, eg:
+fwupd:system "update" { # name is irrelevant
+	state => "newest",
+}

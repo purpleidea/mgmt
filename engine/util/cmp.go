@@ -33,6 +33,20 @@ import (
 	"fmt"
 )
 
+// BoolPtrCmp compares two pointers to booleans. If they aren't both nil or
+// aren't both of the same value, then this errors.
+func BoolPtrCmp(x, y *bool) error {
+	if (x == nil) != (y == nil) { // xor
+		return fmt.Errorf("the ptr differs")
+	}
+	if x != nil && y != nil {
+		if *x != *y { // compare the booleans
+			return fmt.Errorf("the contents of ptr differ")
+		}
+	}
+	return nil
+}
+
 // StrPtrCmp compares two pointers to strings. If they aren't both nil or aren't
 // both of the same value, then this errors.
 func StrPtrCmp(x, y *string) error {

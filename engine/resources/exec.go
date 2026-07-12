@@ -59,6 +59,12 @@ func init() {
 
 var _ engine.EdgeableRes = &ExecRes{} // compile time check
 
+const (
+	// execCmdWaitDelay is how long we give a cancelled command to close its
+	// I/O pipes before we stop waiting for it.
+	execCmdWaitDelay = 10 * time.Second // TODO: is this too long?
+)
+
 // ExecRes is an exec resource for running commands.
 //
 // This resource attempts to minimise the effects of the execution environment,
@@ -399,6 +405,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 			Setpgid: true,
 			Pgid:    0,
 		}
+		cmdSetupCancel(cmd)
 		watchCmd = cmd // store for errors
 
 		// if we have a user and group, use them
@@ -601,6 +608,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			Setpgid: true,
 			Pgid:    0,
 		}
+		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
@@ -694,6 +702,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			Setpgid: true,
 			Pgid:    0,
 		}
+		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
@@ -832,6 +841,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		Setpgid: true,
 		Pgid:    0,
 	}
+	cmdSetupCancel(cmd)
 
 	// if we have a user and group, use them
 	var err error
@@ -964,6 +974,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			Setpgid: true,
 			Pgid:    0,
 		}
+		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
@@ -1579,6 +1590,24 @@ func (obj *wrapWriter) Write(p []byte) (int, error) {
 // String returns the contents of the unshared buffer.
 func (obj *wrapWriter) String() string {
 	return obj.Buffer.String()
+}
+
+// cmdSetupCancel configures cmd so that cancelling its context kills the entire
+// process group, instead of only the direct child process. Since we run
+// commands with Setpgid, a shell child would otherwise leave orphaned
+// grandchildren behind when killed. It also sets a WaitDelay so that Wait can't
+// block forever on I/O that some grandchild might hold open. This must be
+// called before the command is started.
+func cmdSetupCancel(cmd *exec.Cmd) {
+	cmd.Cancel = func() error {
+		// The negative pid signals the whole process group instead.
+		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		if err == syscall.ESRCH { // it's already dead
+			return os.ErrProcessDone // tells os/exec to ignore this
+		}
+		return err
+	}
+	cmd.WaitDelay = execCmdWaitDelay
 }
 
 // isNameValid checks that environment variable name is valid.

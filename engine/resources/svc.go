@@ -651,6 +651,100 @@ func (obj *SvcRes) Cmp(r engine.Res) error {
 	return nil
 }
 
+// GroupCmp returns whether two resources can be grouped together or not.
+//func (obj *SvcRes) GroupCmp(r engine.GroupableRes) error {
+//	_, ok := r.(*SvcRes)
+//	if !ok {
+//		return fmt.Errorf("resource is not the same kind")
+//	}
+//	// TODO: depending on if the systemd service api allows batching, we
+//	// might be able to build this, although not sure how useful it is...
+//	// it might just eliminate parallelism by bunching up the graph
+//	return fmt.Errorf("not possible at the moment")
+//}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
+func (obj *SvcRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes SvcRes // indirection to avoid infinite recursion
+
+	def := obj.Default()     // get the default
+	res, ok := def.(*SvcRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to SvcRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = SvcRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// AutoEdges returns the AutoEdge interface. In this case, systemd unit file
+// resources and cron (systemd-timer) resources.
+func (obj *SvcRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
+	var data []engine.ResUID
+	var svcFiles []string
+
+	svc := obj.svc() // systemd name
+
+	svcFiles = []string{
+		// root svc
+		fmt.Sprintf("/etc/systemd/system/%s", svc),     // takes precedence
+		fmt.Sprintf("/usr/lib/systemd/system/%s", svc), // pkg default
+	}
+	if obj.Session {
+		// user svc
+		u, err := user.Current()
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "error getting current user")
+		}
+		if u.HomeDir == "" {
+			return nil, fmt.Errorf("user has no home directory")
+		}
+		svcFiles = []string{
+			path.Join(u.HomeDir, "/.config/systemd/user/", svc),
+		}
+	}
+	for _, x := range svcFiles {
+		var reversed = true
+		data = append(data, &FileUID{
+			BaseUID: engine.BaseUID{
+				Name:     obj.Name(),
+				Kind:     obj.Kind(),
+				Reversed: &reversed,
+			},
+			path: x, // what matters
+		})
+	}
+
+	fileEdge := &FileResAutoEdges{
+		data:    data,
+		pointer: 0,
+		found:   false,
+	}
+	cronEdge := &SvcResAutoEdgesCron{
+		session: obj.Session,
+		unit:    svc,
+	}
+
+	return engineUtil.AutoEdgeCombiner(fileEdge, cronEdge)
+}
+
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
+func (obj *SvcRes) UIDs() []engine.ResUID {
+	x := &SvcUID{
+		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+		name:    obj.Name(),  // svc name
+		session: obj.Session, // user session
+	}
+	return []engine.ResUID{x}
+}
+
 // SvcUID is the UID struct for SvcRes.
 type SvcUID struct {
 	// NOTE: there is also a name variable in the BaseUID struct, this is
@@ -742,98 +836,4 @@ func (obj *SvcResAutoEdgesCron) Next() []engine.ResUID {
 // should continue.
 func (obj *SvcResAutoEdgesCron) Test([]bool) bool {
 	return false // only get one svc -> cron edge
-}
-
-// AutoEdges returns the AutoEdge interface. In this case, systemd unit file
-// resources and cron (systemd-timer) resources.
-func (obj *SvcRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
-	var data []engine.ResUID
-	var svcFiles []string
-
-	svc := obj.svc() // systemd name
-
-	svcFiles = []string{
-		// root svc
-		fmt.Sprintf("/etc/systemd/system/%s", svc),     // takes precedence
-		fmt.Sprintf("/usr/lib/systemd/system/%s", svc), // pkg default
-	}
-	if obj.Session {
-		// user svc
-		u, err := user.Current()
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "error getting current user")
-		}
-		if u.HomeDir == "" {
-			return nil, fmt.Errorf("user has no home directory")
-		}
-		svcFiles = []string{
-			path.Join(u.HomeDir, "/.config/systemd/user/", svc),
-		}
-	}
-	for _, x := range svcFiles {
-		var reversed = true
-		data = append(data, &FileUID{
-			BaseUID: engine.BaseUID{
-				Name:     obj.Name(),
-				Kind:     obj.Kind(),
-				Reversed: &reversed,
-			},
-			path: x, // what matters
-		})
-	}
-
-	fileEdge := &FileResAutoEdges{
-		data:    data,
-		pointer: 0,
-		found:   false,
-	}
-	cronEdge := &SvcResAutoEdgesCron{
-		session: obj.Session,
-		unit:    svc,
-	}
-
-	return engineUtil.AutoEdgeCombiner(fileEdge, cronEdge)
-}
-
-// UIDs includes all params to make a unique identification of this object. Most
-// resources only return one, although some resources can return multiple.
-func (obj *SvcRes) UIDs() []engine.ResUID {
-	x := &SvcUID{
-		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(),  // svc name
-		session: obj.Session, // user session
-	}
-	return []engine.ResUID{x}
-}
-
-// GroupCmp returns whether two resources can be grouped together or not.
-//func (obj *SvcRes) GroupCmp(r engine.GroupableRes) error {
-//	_, ok := r.(*SvcRes)
-//	if !ok {
-//		return fmt.Errorf("resource is not the same kind")
-//	}
-//	// TODO: depending on if the systemd service api allows batching, we
-//	// might be able to build this, although not sure how useful it is...
-//	// it might just eliminate parallelism by bunching up the graph
-//	return fmt.Errorf("not possible at the moment")
-//}
-
-// UnmarshalYAML is the custom unmarshal handler for this struct. It is
-// primarily useful for setting the defaults.
-func (obj *SvcRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	type rawRes SvcRes // indirection to avoid infinite recursion
-
-	def := obj.Default()     // get the default
-	res, ok := def.(*SvcRes) // put in the right format
-	if !ok {
-		return fmt.Errorf("could not convert to SvcRes")
-	}
-	raw := rawRes(*res) // convert; the defaults go here
-
-	if err := unmarshal(&raw); err != nil {
-		return err
-	}
-
-	*obj = SvcRes(raw) // restore from indirection with type conversion!
-	return nil
 }

@@ -356,8 +356,7 @@ func (obj *ExecRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *ExecRes) Watch(ctx context.Context) error {
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	defer obj.wg.Wait()
 
 	ioChan := make(chan *cmdOutput)
 	filesChan := make(chan *recwatch.Event)
@@ -427,9 +426,9 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		}
 		defer recWatcher.Close()
 
-		wg.Add(1)
+		obj.wg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer obj.wg.Done()
 			for {
 				var files *recwatch.Event
 				var ok bool
@@ -1456,7 +1455,10 @@ type cmdOutput struct {
 // it can't start up the command, it will fail early. Once it's running, it will
 // return the channel which can be used for the duration of the process.
 // Cancelling the context merely unblocks the sending on the output channel, it
-// does not Kill the cmd process. For that you must do it yourself elsewhere.
+// does not Kill the cmd process. For that you must do it yourself elsewhere. It
+// always reaps the process before the wg is done, so as to never leave a zombie
+// behind, but keep in mind that reaping blocks until the process exits, so
+// whoever kills it must not wait on the wg before doing the killing.
 func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *cmdOutput, error) {
 	stdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
@@ -1479,6 +1481,14 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch)
+		waited := false
+		defer func() {
+			if waited {
+				return
+			}
+			// always reap so we don't leave a zombie
+			_ = cmd.Wait()
+		}()
 		for scanner.Scan() {
 			select {
 			case ch <- &cmdOutput{text: scanner.Text()}: // blocks here ?
@@ -1489,6 +1499,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 
 		// on EOF, scanner.Err() will be nil
 		reterr := scanner.Err()
+		waited = true
 		reterr = errwrap.Append(reterr, cmd.Wait()) // always run Wait()
 		// send any misc errors we encounter on the channel
 		if reterr != nil {

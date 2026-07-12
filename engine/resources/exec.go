@@ -154,6 +154,12 @@ type ExecRes struct {
 	// does!)
 	IfEquals *string `lang:"ifequals" yaml:"ifequals"`
 
+	// IfEqualsStdout is like IfEquals, except that it only compares against
+	// the stdout of the ifcmd, instead of against the combined stdout and
+	// stderr. This is useful when the ifcmd might print warnings to stderr
+	// which shouldn't factor into the comparison.
+	IfEqualsStdout *string `lang:"ifequals_stdout" yaml:"ifequals_stdout"`
+
 	// NIfCmd is the command that runs to guard against running the Cmd. If
 	// this command succeeds, then Cmd *will* be blocked from running. If
 	// this command returns a non-zero result, then the Cmd will be allowed
@@ -664,6 +670,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		if obj.IfEquals != nil && *obj.IfEquals == s {
 			obj.init.Logf("ifequals matched")
+			obj.safety()
+			if err := obj.send(); err != nil {
+				return false, err
+			}
+			return true, nil // don't run
+		}
+		if obj.IfEqualsStdout != nil && *obj.IfEqualsStdout == out.Stdout.String() {
+			obj.init.Logf("ifequals stdout matched")
+			obj.safety()
+			if err := obj.send(); err != nil {
+				return false, err
+			}
 			return true, nil // don't run
 		}
 	}
@@ -1172,6 +1190,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if err := engineUtil.StrPtrCmp(obj.IfEquals, res.IfEquals); err != nil {
 		return errwrap.Wrapf(err, "the IfEquals differs")
+	}
+	if err := engineUtil.StrPtrCmp(obj.IfEqualsStdout, res.IfEqualsStdout); err != nil {
+		return errwrap.Wrapf(err, "the IfEqualsStdout differs")
 	}
 
 	if obj.NIfCmd != res.NIfCmd {

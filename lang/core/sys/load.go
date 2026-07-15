@@ -41,25 +41,24 @@ import (
 )
 
 const (
-	// LoadFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
+	// LoadFuncName is the name this func is registered as.
 	LoadFuncName = "load"
 
 	loadSignature = "struct{x1 float; x5 float; x15 float}"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, LoadFuncName, func() interfaces.Func { return &Load{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, LoadFuncName, func() interfaces.Func { return &Load{} })
 }
 
-// Load is a fact which returns the current system load.
+// Load is a func which returns the current system load.
 type Load struct {
 	interfaces.Textarea
 
 	init *interfaces.Init
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *Load) String() string {
 	return LoadFuncName
@@ -73,7 +72,7 @@ func (obj *Load) Validate() error {
 // Info returns some static info about itself.
 func (obj *Load) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -81,7 +80,7 @@ func (obj *Load) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *Load) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
@@ -118,7 +117,7 @@ func (obj *Load) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *Load) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	x1, x5, x15, err := load()
 	if err != nil {

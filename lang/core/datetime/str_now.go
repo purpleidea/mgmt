@@ -40,23 +40,22 @@ import (
 )
 
 const (
-	// StrNowFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
+	// StrNowFuncName is the name this func is registered as.
 	StrNowFuncName = "str_now"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, StrNowFuncName, func() interfaces.Func { return &StrNow{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, StrNowFuncName, func() interfaces.Func { return &StrNow{} })
 }
 
-// StrNow is a fact which returns the current date and time.
+// StrNow is a func which returns the current date and time.
 type StrNow struct {
 	interfaces.Textarea
 
 	init *interfaces.Init
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *StrNow) String() string {
 	return NowFuncName
@@ -70,7 +69,7 @@ func (obj *StrNow) Validate() error {
 // Info returns some static info about itself.
 func (obj *StrNow) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -78,15 +77,15 @@ func (obj *StrNow) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *StrNow) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
 }
 
-// Stream returns the changing values that this fact has over time.
+// Stream returns the changing values that this func has over time.
 func (obj *StrNow) Stream(ctx context.Context) error {
-	// XXX: this might be an interesting fact to write because:
+	// XXX: this might be an interesting func to write because:
 	// 1) will the sleeps from the ticker be in sync with the second ticker?
 	// 2) if we care about a less precise interval (eg: minute changes) can
 	// we set this up so it doesn't tick as often? -- Yes (make this a function or create a limit function to wrap this)
@@ -121,7 +120,7 @@ func (obj *StrNow) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *StrNow) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{ // seconds since 1970 as a string...
 		V: strconv.FormatInt(time.Now().Unix(), 10), // .UTC() not necessary

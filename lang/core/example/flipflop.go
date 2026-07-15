@@ -40,16 +40,15 @@ import (
 )
 
 const (
-	// FlipFlopFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
+	// FlipFlopFuncName is the name this func is registered as.
 	FlipFlopFuncName = "flipflop"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, FlipFlopFuncName, func() interfaces.Func { return &FlipFlop{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, FlipFlopFuncName, func() interfaces.Func { return &FlipFlop{} })
 }
 
-// FlipFlop is a fact which flips a bool repeatedly. This is an example fact and
+// FlipFlop is a func which flips a bool repeatedly. This is an example func and
 // is not meant for serious computing. This would be better served by a flip
 // function which you could specify an interval for.
 type FlipFlop struct {
@@ -60,7 +59,7 @@ type FlipFlop struct {
 	value bool
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *FlipFlop) String() string {
 	return FlipFlopFuncName
@@ -74,7 +73,7 @@ func (obj *FlipFlop) Validate() error {
 // Info returns some static info about itself.
 func (obj *FlipFlop) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -82,7 +81,7 @@ func (obj *FlipFlop) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *FlipFlop) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.mutex = &sync.Mutex{}
@@ -122,7 +121,7 @@ func (obj *FlipFlop) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *FlipFlop) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	if obj.mutex == nil {
 		return nil, funcs.ErrCantSpeculate

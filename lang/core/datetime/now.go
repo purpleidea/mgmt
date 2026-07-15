@@ -39,23 +39,22 @@ import (
 )
 
 const (
-	// NowFuncName is the name this fact is registered as. It's still a Func
-	// Name because this is the name space the fact is actually using.
+	// NowFuncName is the name this func is registered as.
 	NowFuncName = "now"
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, NowFuncName, func() interfaces.Func { return &Now{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, NowFuncName, func() interfaces.Func { return &Now{} })
 }
 
-// Now is a fact which returns the current date and time.
+// Now is a func which returns the current date and time.
 type Now struct {
 	interfaces.Textarea
 
 	init *interfaces.Init
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *Now) String() string {
 	return NowFuncName
@@ -69,7 +68,7 @@ func (obj *Now) Validate() error {
 // Info returns some static info about itself.
 func (obj *Now) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -77,7 +76,7 @@ func (obj *Now) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *Now) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
@@ -85,7 +84,7 @@ func (obj *Now) Init(init *interfaces.Init) error {
 
 // Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *Now) Stream(ctx context.Context) error {
-	// XXX: this might be an interesting fact to write because:
+	// XXX: this might be an interesting func to write because:
 	// 1) will the sleeps from the ticker be in sync with the second ticker?
 	// 2) if we care about a less precise interval (eg: minute changes) can
 	// we set this up so it doesn't tick as often? -- Yes (make this a function or create a limit function to wrap this)
@@ -117,7 +116,7 @@ func (obj *Now) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *Now) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.IntValue{ // seconds since 1970...
 		V: time.Now().Unix(), // .UTC() not necessary

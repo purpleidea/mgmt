@@ -87,7 +87,7 @@ type Scaffold struct {
 
 	// D is the documentation handle for this function. We look on that
 	// struct or function for the doc string instead of the F field if this
-	// is specified. (This is used for facts.)
+	// is specified.
 	D interface{}
 }
 

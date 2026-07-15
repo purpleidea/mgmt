@@ -498,7 +498,7 @@ func TestUnification1(t *testing.T) {
 			},
 		}
 		testCases = append(testCases, test{
-			name: "single fact unification",
+			name: "single func unification",
 			ast:  stmt,
 			fail: true,
 		})

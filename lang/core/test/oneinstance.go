@@ -40,44 +40,28 @@ import (
 )
 
 const (
-	// OneInstanceAFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceAFuncName is the name this func is registered as.
 	OneInstanceAFuncName = "one_instance_a"
 
-	// OneInstanceBFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceBFuncName is the name this func is registered as.
 	OneInstanceBFuncName = "one_instance_b"
 
-	// OneInstanceCFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceCFuncName is the name this func is registered as.
 	OneInstanceCFuncName = "one_instance_c"
 
-	// OneInstanceDFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceDFuncName is the name this func is registered as.
 	OneInstanceDFuncName = "one_instance_d"
 
-	// OneInstanceEFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceEFuncName is the name this func is registered as.
 	OneInstanceEFuncName = "one_instance_e"
 
-	// OneInstanceFFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceFFuncName is the name this func is registered as.
 	OneInstanceFFuncName = "one_instance_f"
 
-	// OneInstanceGFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceGFuncName is the name this func is registered as.
 	OneInstanceGFuncName = "one_instance_g"
 
-	// OneInstanceHFuncName is the name this fact is registered as. It's
-	// still a Func Name because this is the name space the fact is actually
-	// using.
+	// OneInstanceHFuncName is the name this func is registered as.
 	OneInstanceHFuncName = "one_instance_h"
 
 	msg = "hello"
@@ -99,7 +83,7 @@ func init() {
 			Mutex: oneInstanceAMutex,
 			Flag:  &oneInstanceAFlag,
 		}
-	}) // must register the fact and name
+	})
 	funcs.ModuleRegister(ModuleName, OneInstanceCFuncName, func() interfaces.Func {
 		return &OneInstance{
 			Name:  OneInstanceCFuncName,
@@ -219,7 +203,7 @@ var (
 	oneInstanceHMutex *sync.Mutex
 )
 
-// OneInstance is a fact which flips a bool repeatedly. This is an example fact
+// OneInstance is a func which flips a bool repeatedly. This is an example func
 // and is not meant for serious computing. This would be better served by a flip
 // function which you could specify an interval for.
 type OneInstance struct {
@@ -230,7 +214,7 @@ type OneInstance struct {
 	Flag  *bool
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *OneInstance) String() string {
 	return obj.Name
@@ -244,7 +228,7 @@ func (obj *OneInstance) Validate() error {
 // Info returns some static info about itself.
 func (obj *OneInstance) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -252,7 +236,7 @@ func (obj *OneInstance) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *OneInstance) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.init.Logf("Init of `%s` @ %p", obj.Name, obj)
@@ -267,7 +251,7 @@ func (obj *OneInstance) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *OneInstance) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: msg,

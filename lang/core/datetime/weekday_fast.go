@@ -45,10 +45,10 @@ const (
 )
 
 func init() {
-	funcs.ModuleRegister(ModuleName, WeekdayFastFuncName, func() interfaces.Func { return &WeekdayFast{} }) // must register the fact and name
+	funcs.ModuleRegister(ModuleName, WeekdayFastFuncName, func() interfaces.Func { return &WeekdayFast{} })
 }
 
-// WeekdayFast is a fact which returns the current weekday. It does so more
+// WeekdayFast is a func which returns the current weekday. It does so more
 // efficiently than calling datetime.weekday(datetime.now()) because we haven't
 // yet merged any clever function engine optimizations. Once we do, this
 // function can be deprecated.
@@ -58,7 +58,7 @@ type WeekdayFast struct {
 	init *interfaces.Init
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *WeekdayFast) String() string {
 	return WeekdayFastFuncName
@@ -72,7 +72,7 @@ func (obj *WeekdayFast) Validate() error {
 // Info returns some static info about itself.
 func (obj *WeekdayFast) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -80,7 +80,7 @@ func (obj *WeekdayFast) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *WeekdayFast) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
@@ -110,7 +110,7 @@ func (obj *WeekdayFast) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *WeekdayFast) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	return &types.StrValue{
 		V: strings.ToLower(time.Now().Weekday().String()),

@@ -40,8 +40,7 @@ import (
 )
 
 const (
-	// UptimeFuncName is the name this fact is registered as. It's still a
-	// Func Name because this is the name space the fact is actually using.
+	// UptimeFuncName is the name this func is registered as.
 	UptimeFuncName = "uptime"
 )
 
@@ -49,14 +48,14 @@ func init() {
 	funcs.ModuleRegister(ModuleName, UptimeFuncName, func() interfaces.Func { return &Uptime{} })
 }
 
-// Uptime is a fact which returns the current uptime of your system.
+// Uptime is a func which returns the current uptime of your system.
 type Uptime struct {
 	interfaces.Textarea
 
 	init *interfaces.Init
 }
 
-// String returns a simple name for this fact. This is needed so this struct can
+// String returns a simple name for this func. This is needed so this struct can
 // satisfy the pgraph.Vertex interface.
 func (obj *Uptime) String() string {
 	return UptimeFuncName
@@ -70,7 +69,7 @@ func (obj *Uptime) Validate() error {
 // Info returns some static info about itself.
 func (obj *Uptime) Info() *interfaces.Info {
 	return &interfaces.Info{
-		Pure: false, // non-constant facts can't be pure!
+		Pure: false, // non-constant funcs can't be pure!
 		Memo: false,
 		Fast: false,
 		Spec: false,
@@ -78,7 +77,7 @@ func (obj *Uptime) Info() *interfaces.Info {
 	}
 }
 
-// Init runs some startup code for this fact.
+// Init runs some startup code for this func.
 func (obj *Uptime) Init(init *interfaces.Init) error {
 	obj.init = init
 	return nil
@@ -112,7 +111,7 @@ func (obj *Uptime) Stream(ctx context.Context) error {
 	}
 }
 
-// Call this fact and return the value if it is possible to do so at this time.
+// Call this func and return the value if it is possible to do so at this time.
 func (obj *Uptime) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	uptime, err := uptime() // TODO: add ctx?
 	if err != nil {

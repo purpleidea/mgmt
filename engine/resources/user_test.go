@@ -336,7 +336,7 @@ func TestUserCheckApply_CreateApply(t *testing.T) {
 	got := f.cmds[0]
 	want := fakeUserCmd{
 		Name: "useradd",
-		Args: []string{"--uid", "2000", "--home", "/home/james/", "--shell", "/bin/bash", "james"},
+		Args: []string{"--uid", "2000", "--home", "/home/james", "--shell", "/bin/bash", "james"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("command mismatch:\n got: %+v\nwant: %+v", got, want)
@@ -707,7 +707,7 @@ func TestUserCheckApplyTable(t *testing.T) {
 			apply: true,
 			wantCmd: &fakeUserCmd{
 				Name: "useradd",
-				Args: []string{"--uid", "2000", "--home", "/home/brian/", "--shell", "/bin/bash", "brian"},
+				Args: []string{"--uid", "2000", "--home", "/home/brian", "--shell", "/bin/bash", "brian"},
 			},
 		},
 		{
@@ -729,7 +729,7 @@ func TestUserCheckApplyTable(t *testing.T) {
 			apply:  true,
 			wantCmd: &fakeUserCmd{
 				Name: "usermod",
-				Args: []string{"--home", "/srv/james/", "james"},
+				Args: []string{"--home", "/srv/james", "james"},
 			},
 		},
 		{

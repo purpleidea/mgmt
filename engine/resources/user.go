@@ -76,7 +76,11 @@ type UserRes struct {
 	// Groups are a list of supplemental groups.
 	Groups []string `lang:"groups" yaml:"groups"`
 
-	// HomeDir is the path to the user's home directory.
+	// HomeDir is the path to the user's home directory. It must end with a
+	// trailing slash as it's a directory. For compatibility reasons with
+	// legacy tools, we always store a version without the trailing slash.
+	// If you have a use case that requires that slash, please let us know.
+	// The version stored is cleaned and isn't stored verbatim.
 	HomeDir *string `lang:"homedir" yaml:"homedir"`
 
 	// Shell is the users login shell. Many options may exist in the
@@ -367,7 +371,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			args = append(args, "--groups", strings.Join(obj.Groups, ","))
 		}
 		if obj.HomeDir != nil {
-			args = append(args, "--home", *obj.HomeDir)
+			args = append(args, "--home", filepath.Clean(*obj.HomeDir))
 		}
 		if obj.Shell != nil {
 			args = append(args, "--shell", *obj.Shell)

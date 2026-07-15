@@ -293,8 +293,8 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 	return start, end, []byte(strings.Join(formatted, separator)), true
 }
 
-// reflowLines greedily wraps prose while preserving paragraph starts and
-// tab-indented code blocks.
+// reflowLines greedily wraps prose while preserving paragraph starts,
+// tab-indented code blocks, and URLs that do not fit on the preceding line.
 func reflowLines(lines []string, length int) []string {
 	result := []string{}
 	words := []string{}
@@ -306,7 +306,7 @@ func reflowLines(lines []string, length int) []string {
 
 		line := words[0]
 		for _, word := range words[1:] {
-			if len(line)+len(" ")+len(word) <= length {
+			if len(line)+len(" ")+len(word) <= length || (len(line) <= length && IsSpecialLine(word)) {
 				line += " " + word
 				continue
 			}
@@ -317,7 +317,7 @@ func reflowLines(lines []string, length int) []string {
 		words = []string{}
 	}
 
-	for _, line := range lines {
+	for i, line := range lines {
 		fields := strings.Fields(line)
 		if len(fields) == 0 {
 			flush()
@@ -327,6 +327,12 @@ func reflowLines(lines []string, length int) []string {
 			continue
 		}
 		if strings.HasPrefix(line, "\t") {
+			flush()
+			result = append(result, line)
+			continue
+		}
+		if IsSpecialLine(fields[0]) && i > 0 &&
+			len(lines[i-1])+len(" ")+len(fields[0]) > length {
 			flush()
 			result = append(result, line)
 			continue

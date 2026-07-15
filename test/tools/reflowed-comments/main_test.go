@@ -116,6 +116,72 @@ func F() {}
 	}
 }
 
+func TestReflowAllowsLongURL(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+// F was modified from: https://github.com/coredhcp/coredhcp/blob/b4aa45e6f7268cc4c52f863b130bd8eb388647b2/plugins/leasetime/plugin.go#L32
+func F() {}
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected long URL to pass: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != string(data) {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestReflowDoesNotMoveLongURL(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+// F was modified from:
+// http://docs.aws.amazon.com/cli/latest/userguide/cli-config-files.html
+func F() {}
+
+// T is our internal copy of a struct as found here:
+// https://godocs.io/github.com/coreos/etcd/etcdserver/etcdserverpb#Member but
+// which uses native types where possible.
+type T struct{}
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected standalone URLs to pass: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != string(data) {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
 func TestCheckPackageDoc(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "doc.go")

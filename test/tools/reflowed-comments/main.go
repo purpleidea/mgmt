@@ -33,6 +33,8 @@
 package main
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -78,21 +80,34 @@ var (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: ./%s <file> [file...]\n", os.Args[0])
+	write := flag.Bool("w", false, "reflow comments in place")
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s [-w] <file> [file...]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(2)
 		return
 	}
 
 	exit := 0
-	for _, filename := range os.Args[1:] {
+	for _, filename := range flag.Args() {
 		if filename == "" {
 			fmt.Fprintf(os.Stderr, "filename is empty\n")
 			os.Exit(2)
 			return
 		}
 
-		if err := Check(filename); err != nil {
+		var err error
+		if *write {
+			err = Reflow(filename)
+		} else {
+			err = Check(filename)
+		}
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed with: %+v\n", err)
 			exit = 1
 		}
@@ -115,11 +130,20 @@ func Check(filename string) error {
 		return err
 	}
 
-	// XXX: f.Comments []*CommentGroup // list of all comments in the source file
-	// XXX: f.Decls []Decl // top-level declarations; or nil
+	for _, doc := range docCommentGroups(f) {
+		if err := checkCommentGroup(filename, fset, doc); err != nil {
+			return err
+		}
+	}
 
-	if err := checkCommentGroup(filename, fset, f.Doc); err != nil {
-		return err
+	return nil
+}
+
+// docCommentGroups returns the comment groups checked by this tool.
+func docCommentGroups(f *ast.File) []*ast.CommentGroup {
+	groups := []*ast.CommentGroup{}
+	if f.Doc != nil {
+		groups = append(groups, f.Doc)
 	}
 
 	for _, node := range f.Decls {
@@ -147,13 +171,174 @@ func Check(filename string) error {
 		if doc == nil { // we got nothing
 			continue
 		}
+		groups = append(groups, doc)
+	}
 
-		if err := checkCommentGroup(filename, fset, doc); err != nil {
-			return err
+	return groups
+}
+
+// Reflow fixes the comment wrapping in an individual filename.
+func Reflow(filename string) error {
+	if Debug {
+		log.Printf("filename: %s", filename)
+	}
+
+	src, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(filename)
+	if err != nil {
+		return err
+	}
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
+	if err != nil {
+		return err
+	}
+
+	newline := "\n"
+	if bytes.Contains(src, []byte("\r\n")) {
+		newline = "\r\n"
+	}
+
+	type replacement struct {
+		start int
+		end   int
+		text  []byte
+	}
+	replacements := []replacement{}
+	for _, doc := range docCommentGroups(f) {
+		start, end, text, ok := reflowCommentGroup(src, fset, doc, newline)
+		if !ok || bytes.Equal(src[start:end], text) {
+			continue
+		}
+		replacements = append(replacements, replacement{
+			start: start,
+			end:   end,
+			text:  text,
+		})
+	}
+
+	result := src
+	for i := len(replacements) - 1; i >= 0; i-- {
+		x := replacements[i]
+		updated := make([]byte, 0, len(result)-x.end+x.start+len(x.text))
+		updated = append(updated, result[:x.start]...)
+		updated = append(updated, x.text...)
+		updated = append(updated, result[x.end:]...)
+		result = updated
+	}
+
+	if bytes.Equal(src, result) {
+		return Check(filename)
+	}
+	if err := os.WriteFile(filename, result, info.Mode()); err != nil {
+		return err
+	}
+
+	return Check(filename)
+}
+
+// reflowCommentGroup returns a replacement for the checkable prefix of a
+// comment group. Multiline and directive comments, and everything after them,
+// are left untouched in the source file.
+func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, newline string) (int, int, []byte, bool) {
+	comments := []*ast.Comment{}
+	for _, comment := range doc.List {
+		if comment == nil {
+			continue
+		}
+		if strings.HasPrefix(comment.Text, CommentMultilinePrefix) ||
+			strings.HasPrefix(comment.Text, CommentGolangPrefix) ||
+			commentDirectivePattern.MatchString(comment.Text) {
+			break
+		}
+		comments = append(comments, comment)
+	}
+	if len(comments) == 0 {
+		return 0, 0, nil, false
+	}
+
+	file := fset.File(comments[0].Pos())
+	start := file.Offset(comments[0].Pos())
+	end := file.Offset(comments[len(comments)-1].End())
+	lineStart := bytes.LastIndexByte(src[:start], '\n') + 1
+	indent := src[lineStart:start]
+	separator := newline + string(indent)
+
+	lines := []string{}
+	for _, comment := range comments {
+		line := strings.TrimPrefix(comment.Text, commentPrefixTrimmed)
+		if strings.HasPrefix(line, "\t") {
+			lines = append(lines, line)
+			continue
+		}
+		lines = append(lines, strings.TrimSpace(line))
+	}
+
+	formatted := []string{}
+	for _, line := range reflowLines(lines, maxLength) {
+		switch {
+		case line == "":
+			formatted = append(formatted, commentPrefixTrimmed)
+		case strings.HasPrefix(line, "\t"):
+			formatted = append(formatted, commentPrefixTrimmed+line)
+		default:
+			formatted = append(formatted, CommentPrefix+line)
 		}
 	}
 
-	return nil
+	return start, end, []byte(strings.Join(formatted, separator)), true
+}
+
+// reflowLines greedily wraps prose while preserving paragraph starts and
+// tab-indented code blocks.
+func reflowLines(lines []string, length int) []string {
+	result := []string{}
+	words := []string{}
+
+	flush := func() {
+		if len(words) == 0 {
+			return
+		}
+
+		line := words[0]
+		for _, word := range words[1:] {
+			if len(line)+len(" ")+len(word) <= length {
+				line += " " + word
+				continue
+			}
+			result = append(result, line)
+			line = word
+		}
+		result = append(result, line)
+		words = []string{}
+	}
+
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			flush()
+			if len(result) > 0 && result[len(result)-1] != "" {
+				result = append(result, "")
+			}
+			continue
+		}
+		if strings.HasPrefix(line, "\t") {
+			flush()
+			result = append(result, line)
+			continue
+		}
+		if IsNewStart(fields[0]) {
+			flush()
+		}
+		words = append(words, fields...)
+	}
+	flush()
+
+	return result
 }
 
 // checkCommentGroup checks that an individual comment group is wrapped.

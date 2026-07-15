@@ -35,6 +35,87 @@ import (
 	"testing"
 )
 
+func TestReflow(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`// Package doc has a comment which is split poorly enough for this checker.
+// It should reject the second line because its first word fits above.  This sentence is also much too long to fit on one line without being wrapped.
+//
+//
+// NOTE:   Keep this as a new paragraph.
+//
+//	./mgmt run --tmp-prefix --no-pgp --hostname h2 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2381
+package doc
+`)
+	want := `// Package doc has a comment which is split poorly enough for this checker. It
+// should reject the second line because its first word fits above. This
+// sentence is also much too long to fit on one line without being wrapped.
+//
+// NOTE: Keep this as a new paragraph.
+//
+//	./mgmt run --tmp-prefix --no-pgp --hostname h2 --seeds=http://127.0.0.1:2379 --client-urls=http://127.0.0.1:2381
+package doc
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err == nil {
+		t.Fatalf("expected package doc reflow error")
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected reflowed package doc to pass: %+v", err)
+	}
+}
+
+func TestReflowPreservesDirective(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+// F is a function with a comment that needs to be reflowed onto the next line because it is too long.
+//go:noinline
+func F() {}
+`)
+	want := `package doc
+
+// F is a function with a comment that needs to be reflowed onto the next line
+// because it is too long.
+//go:noinline
+func F() {}
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
 func TestCheckPackageDoc(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "doc.go")

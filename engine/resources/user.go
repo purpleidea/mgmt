@@ -367,7 +367,7 @@ func (obj *UserRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			args = append(args, "--groups", strings.Join(obj.Groups, ","))
 		}
 		if obj.HomeDir != nil {
-			args = append(args, "--home", *obj.HomeDir)
+			args = append(args, "--home", filepath.Clean(*obj.HomeDir))
 		}
 		if obj.Shell != nil {
 			args = append(args, "--shell", *obj.Shell)

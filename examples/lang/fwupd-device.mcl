@@ -1,0 +1,29 @@
+# Manage the firmware version of a single device through the fwupd daemon. These
+# resources speak the org.freedesktop.fwupd D-Bus API directly (the same API
+# that the fwupdmgr cli uses) so no external tools are needed. The LVFS
+# (https://fwupd.org/) is simply the default "remote" that fwupd downloads
+# firmware metadata and payloads from.
+
+# The fwupd:remote resource manages one of the daemon's firmware sources. The
+# name is the remote id, as seen in `fwupdmgr get-remotes`. With refresh_age, it
+# also keeps the remote's metadata fresh, by downloading it (over https, in
+# golang) and handing it to the daemon via the UpdateMetadata dbus method. This
+# replaces the distro's fwupd-refresh.timer with something declarative.
+fwupd:remote "lvfs" {
+	enabled => true,
+	refresh_age => "24h", # re-download metadata if it's older than this
+}
+
+# The fwupd:device resource pins one device to one firmware version. The name is
+# the device GUID (or the 40 hex char device-id) from `fwupdmgr get-devices`. If
+# the device is already at this version, we're converged. If not, the matching
+# release is looked up in the daemon's metadata, the .cab archive is downloaded
+# and checksum-verified, and it's passed to the daemon's Install dbus method to
+# flash. The daemon verifies payload signatures too.
+fwupd:device "b585990a-003e-5270-89d5-3705a17f9a43" {
+	version => "1.2.4", # exact version to converge to
+
+	allow_downgrade => false, # error rather than flash something older
+
+	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+}

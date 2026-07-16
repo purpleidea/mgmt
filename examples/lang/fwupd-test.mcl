@@ -1,0 +1,42 @@
+# Exercise the fwupd resources end-to-end *without* flashing any physical
+# firmware, by using the fake devices that are built into the fwupd daemon
+# itself. This is the same mechanism that the fwupd project uses in its own CI.
+# Run this in a test vm: it takes over the fwupd config file.
+#
+# With TestDevices=true, the daemon creates a fake "webcam" device (starting at
+# firmware version 1.2.2) and the pre-installed fwupd-tests remote serves fake
+# firmware archives (fakedevice121.cab ... fakedevice124.cab) from local disk,
+# so the whole pipeline (metadata, release selection, download, checksum,
+# install, dbus DeviceChanged events) runs for real, and upgrades and downgrades
+# can be cycled repeatedly and safely.
+
+file "/etc/fwupd/fwupd.conf" { # fwupd >= 1.8.5; test vm only!
+	state => "exists",
+	content => "[fwupd]\nTestDevices=true\n",
+	mode => "u=rw,go=", # fwupd refuses to start if this is world-readable
+}
+
+svc "fwupd" {
+	state => "running",
+
+	Depend => File["/etc/fwupd/fwupd.conf"], # TODO: notify to restart it
+}
+
+# The fwupd-tests remote ships with fwupd, and points at local .cab files in
+# /usr/share/fwupd/remotes.d/fwupd-tests/ so no network access is needed. It is
+# disabled by default. No refresh_age: local metadata never goes stale.
+fwupd:remote "fwupd-tests" {
+	enabled => true,
+
+	Depend => Svc["fwupd"],
+}
+
+# This is the GUID of the fake webcam device. Flip version between "1.2.3" and
+# "1.2.4" (with allow_downgrade => true) to watch it converge each way.
+fwupd:device "b585990a-003e-5270-89d5-3705a17f9a43" {
+	version => "1.2.4",
+
+	allow_downgrade => true,
+
+	Depend => Fwupd:Remote["fwupd-tests"], # TODO: add autoedges
+}

@@ -1,0 +1,20 @@
+# Keep *all* device firmware on this machine up to date, using the fwupd daemon
+# over its D-Bus API. This is the declarative equivalent of running the
+# `fwupdmgr refresh && fwupdmgr update` command continuously: whenever new
+# metadata shows a newer release for any device, it converges towards it.
+
+fwupd:remote "lvfs" {
+	enabled => true,
+	refresh_age => "24h", # keep the firmware metadata fresh
+}
+
+fwupd:system "update" { # name is irrelevant
+	state => "newest", # every updatable device tracks its newest release
+
+	# devices to leave alone (GUID or device-id)
+	exclude => [
+		"2082b5e0-7a64-478a-b1b2-e3404fab6dad", # example: the system BIOS
+	],
+
+	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+}

@@ -280,10 +280,38 @@ type EsphomeEndpointRes struct {
 POC set (entity-domain names):
 
 - **`esphome:switch`** -- GPIO outputs / relays / LEDs. Name = ESPHome
-  `object_id` (overridable via an `Id` field). Fields: `endpoint str` (uid
+  `object_id` (overridable via an `id` field). Fields: `endpoint str` (uid
   of the esphome:endpoint), `state str` ("on"/"off", svc.go-style).
-- **`esphome:number`** -- setpoints/speeds (motor speed later). Fields:
-  `endpoint str`, `value float`.
+- **`esphome:number`** -- setpoints/speeds (eg: motor speed). Fields:
+  `endpoint str`, `value float`, plus the safety interlock params `stop`
+  and `safe` described below.
+
+### Motor runaway safety (`stop` + `safe`)
+
+A number entity often drives something physical, so `esphome:number` has an
+optional deadman interlock for when the device is disconnected from the
+master controller:
+
+- `stop uint32` (seconds, 0 disables): if the device was disconnected from
+  us for at least this long, then when the connection comes back, the
+  resource first commands the `safe` value and errors instead of
+  converging. With a `Meta:retry` metaparam it then recovers and re-applies
+  the desired value on the next try; without one it stays safely stopped
+  until a new graph runs (a true interlock requiring intervention). The
+  session tracks each completed outage with an id, so one outage triggers
+  the interlock at most once. With a polling endpoint, `stop` must be
+  comfortably larger than the polling interval.
+- `safe float`: the value the interlock commands (usually 0). It is also
+  commanded (best effort) when the resource is removed (Cleanup), since
+  nobody will be managing the entity from then on.
+
+mgmt can only act while it is running and connected, so this is necessarily
+only half of the story: for full protection against a runaway load, the
+device firmware must have its own failsafe, which fits the esphome
+architecture naturally since the device detects a dropped api connection
+quickly. For example, an `interval:` block that sets the motor number to 0
+when `api.connected` has been false for too long (see the yaml snippet in
+`examples/lang/esphome0.mcl`).
 
 Shared lifecycle (both):
 
@@ -292,14 +320,17 @@ Shared lifecycle (both):
   session + `session.Watch(ctx)`; forward events via `obj.init.Event(ctx)`
   -- this is what makes mgmt *repair* out-of-band flips (someone toggles the
   switch in Home Assistant -> state event -> CheckApply flips it back).
-- `CheckApply()`: `BridgeGet` conn info; if nil or not connected -> error
-  ("endpoint x not available") so the engine retries per retry metaparams.
-  Else `Configure(info)`, compare `session.State(objectID)` to desired; if
-  different and `apply`, send `SetSwitch`/`SetNumber`.
-- `Cleanup()`: `session.Release()`.
-- **AutoEdges**: `esphome:endpoint["garage"]` -> `esphome:switch` with
-  `endpoint => "garage"` (standard UIDs/AutoEdges pattern), so endpoints
-  apply first and entity resources rarely hit the "not available" retry.
+- `CheckApply()`: `BridgeGet` conn info; if nil -> error ("endpoint x not
+  available") so the engine retries per retry metaparams. Else
+  `Configure(info)` and wait briefly (`WaitConnected`, ~15s) for the
+  asynchronous connection startup; compare `session.State(objectID)` to
+  desired; if different and `apply`, send `SetSwitch`/`SetNumber`.
+- `Cleanup()`: `session.Release()` (the number resource first makes a best
+  effort to command its safe value when the interlock is enabled).
+- **Edges**: for now, declare explicit edges in mcl
+  (`Esphome:Endpoint["garage"] -> Esphome:Switch["led_1"]`) so endpoints
+  apply first. AutoEdges (standard UIDs/AutoEdges pattern) can be added
+  later.
 
 Future resources (same skeleton): `esphome:light`, `esphome:fan` (H-bridge
 motor direction/speed -- the conveyor use case), `esphome:cover`,

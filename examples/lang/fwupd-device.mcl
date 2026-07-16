@@ -25,5 +25,6 @@ fwupd:device "b585990a-003e-5270-89d5-3705a17f9a43" {
 
 	allow_downgrade => false, # error rather than flash something older
 
-	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+	# NOTE: an automatic edge runs the fwupd:remote resource before us!
+	Depend => Fwupd:Remote["fwupd-tests"], # bonus
 }

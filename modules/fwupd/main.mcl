@@ -46,7 +46,8 @@ class mirror($name, $uri) {
 		state => "exists",
 		content => "[fwupd Remote]\nEnabled=true\nTitle=Firmware mirror (${name})\nMetadataURI=${uri}/firmware.xml.zst\nFirmwareBaseURI=${uri}\n",
 
-		Before => Fwupd:Remote["${name}"],
+		# NOTE: an automatic edge runs us before the fwupd:remote resource!
+		Before => Fwupd:Remote["${name}"], # bonus
 	}
 
 	fwupd:remote "${name}" {

@@ -16,5 +16,6 @@ fwupd:system "update" { # name is irrelevant
 		"2082b5e0-7a64-478a-b1b2-e3404fab6dad", # example: the system BIOS
 	],
 
-	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+	# NOTE: an automatic edge runs the fwupd:remote resource before us!
+	Depend => Fwupd:Remote["lvfs"], # bonus
 }

@@ -13,7 +13,8 @@ fwupd:remote "lvfs" {
 fwupd:system "update" { # name is irrelevant
 	state => "newest",
 
-	Depend => Fwupd:Remote["lvfs"], # TODO: add autoedges
+	# NOTE: an automatic edge runs the fwupd:remote resource before us!
+	Depend => Fwupd:Remote["lvfs"], # bonus
 }
 
 # This becomes true when at least one device has an update deployed and is

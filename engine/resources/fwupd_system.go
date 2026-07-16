@@ -64,6 +64,7 @@ const (
 // remote metadata is updated.
 type FwupdSystemRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Edgeable
 
 	init *engine.Init
 
@@ -224,4 +225,33 @@ func (obj *FwupdSystemRes) UnmarshalYAML(unmarshal func(interface{}) error) erro
 
 	*obj = FwupdSystemRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// AutoEdges returns the AutoEdge interface. Every fwupd:remote resource in the
+// graph should happen before us, since any one of them could be the source of
+// the releases that we want to install.
+func (obj *FwupdSystemRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
+	return fwupdConsumerAutoEdges(ctx, obj.Name(), obj.Kind())
+}
+
+// FwupdSystemUID is the UID struct for FwupdSystemRes.
+type FwupdSystemUID struct {
+	engine.BaseUID
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false. Any
+// two fwupd:system resources are equivalent, since the name is irrelevant and
+// they all manage the same set of devices.
+func (obj *FwupdSystemUID) IFF(uid engine.ResUID) bool {
+	_, ok := uid.(*FwupdSystemUID)
+	return ok
+}
+
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
+func (obj *FwupdSystemRes) UIDs() []engine.ResUID {
+	x := &FwupdSystemUID{
+		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+	}
+	return []engine.ResUID{x}
 }

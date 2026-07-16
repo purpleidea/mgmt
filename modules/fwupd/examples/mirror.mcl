@@ -12,8 +12,9 @@ include fwupd.mirror("internal-mirror", "http://mirror.lan/downloads")
 svc "fwupd" {
 	state => "running",
 
+	# NOTE: an automatic edge runs us before the fwupd:remote resource!
+	Before => Fwupd:Remote["internal-mirror"], # bonus
 	Listen => File["/etc/fwupd/remotes.d/internal-mirror.conf"],
-	Before => Fwupd:Remote["internal-mirror"],
 }
 
 # ...and from here on, the usual resources work unchanged, eg:

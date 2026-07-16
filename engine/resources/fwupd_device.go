@@ -61,6 +61,7 @@ func init() {
 // remote metadata is updated.
 type FwupdDeviceRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Edgeable
 
 	init *engine.Init
 
@@ -230,4 +231,37 @@ func (obj *FwupdDeviceRes) UnmarshalYAML(unmarshal func(interface{}) error) erro
 
 	*obj = FwupdDeviceRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// AutoEdges returns the AutoEdge interface. Every fwupd:remote resource in the
+// graph should happen before us, since any one of them could be the source of
+// the release that we want to install.
+func (obj *FwupdDeviceRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
+	return fwupdConsumerAutoEdges(ctx, obj.Name(), obj.Kind())
+}
+
+// FwupdDeviceUID is the UID struct for FwupdDeviceRes.
+type FwupdDeviceUID struct {
+	engine.BaseUID
+
+	device string // the device guid or daemon device-id
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false.
+func (obj *FwupdDeviceUID) IFF(uid engine.ResUID) bool {
+	res, ok := uid.(*FwupdDeviceUID)
+	if !ok {
+		return false
+	}
+	return obj.device == res.device
+}
+
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
+func (obj *FwupdDeviceRes) UIDs() []engine.ResUID {
+	x := &FwupdDeviceUID{
+		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+		device:  obj.getDevice(),
+	}
+	return []engine.ResUID{x}
 }

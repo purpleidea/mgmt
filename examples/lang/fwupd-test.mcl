@@ -28,7 +28,8 @@ svc "fwupd" {
 fwupd:remote "fwupd-tests" {
 	enabled => true,
 
-	Depend => Svc["fwupd"],
+	# NOTE: an automatic edge runs the fwupd svc resource before us!
+	Depend => Svc["fwupd"], # bonus
 }
 
 # This is the GUID of the fake webcam device. Flip version between "1.2.3" and
@@ -38,5 +39,6 @@ fwupd:device "b585990a-003e-5270-89d5-3705a17f9a43" {
 
 	allow_downgrade => true,
 
-	Depend => Fwupd:Remote["fwupd-tests"], # TODO: add autoedges
+	# NOTE: an automatic edge runs the fwupd:remote resource before us!
+	Depend => Fwupd:Remote["fwupd-tests"], # bonus
 }

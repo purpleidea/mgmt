@@ -442,6 +442,59 @@ func fwupdWatch(ctx context.Context, init *engine.Init, tick <-chan time.Time, f
 	}
 }
 
+// FwupdAutoEdges is a simple auto edge generator which yields each of its
+// wanted uids exactly once, whether they match or not.
+type FwupdAutoEdges struct {
+	uids    []engine.ResUID
+	pointer int
+}
+
+// Next returns the next automatic edge.
+func (obj *FwupdAutoEdges) Next() []engine.ResUID {
+	if obj.pointer >= len(obj.uids) {
+		return nil
+	}
+	value := obj.uids[obj.pointer]
+	obj.pointer++
+	return []engine.ResUID{value} // we return one, even though api supports N
+}
+
+// Test takes the output of the last call to Next() and outputs true if we
+// should continue.
+func (obj *FwupdAutoEdges) Test(input []bool) bool {
+	return obj.pointer < len(obj.uids) // are there any more left?
+}
+
+// fwupdConsumerAutoEdges creates the edges which put every fwupd:remote
+// resource before a resource that consumes firmware releases. We ask the daemon
+// which remote ids actually exist, so that each matching fwupd:remote resource
+// in the graph gets a precise edge, and we always append one wildcard as well,
+// which catches a remote that this graph is in the middle of creating (eg: a
+// conf file the daemon hasn't loaded yet) and costs at most one extra, still
+// valid, edge. If the daemon isn't reachable, the wildcard alone gives us at
+// least one edge.
+func fwupdConsumerAutoEdges(ctx context.Context, name, kind string) (engine.AutoEdge, error) {
+	reversed := true // fwupd:remote happens before the consumer
+	base := engine.BaseUID{Name: name, Kind: kind, Reversed: &reversed}
+	uids := []engine.ResUID{}
+	if client, err := newFwupdClient(); err == nil {
+		defer client.Close()
+		if remotes, err := client.Remotes(ctx); err == nil {
+			for _, remote := range remotes {
+				uids = append(uids, &FwupdRemoteUID{
+					BaseUID: base,
+					remote:  remote.RemoteID,
+				})
+			}
+		}
+	}
+	uids = append(uids, &FwupdRemoteUID{
+		BaseUID: base,
+		remote:  "", // wildcard, matches any fwupd:remote resource
+	})
+	return &FwupdAutoEdges{uids: uids}, nil
+}
+
 // fwupdInstall downloads a release, verifies its checksum, and asks the daemon
 // to flash it onto the given device. The download location is first resolved
 // through the rules of the remote the release came from, notably the

@@ -35,6 +35,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/purpleidea/mgmt/engine"
+
 	"github.com/godbus/dbus/v5"
 )
 
@@ -241,6 +243,49 @@ func TestFwupdVerifyChecksums(t *testing.T) {
 	}
 	if string(b) != "hello world\n" {
 		t.Errorf("func fwupdVerifyChecksums did not rewind, read: %q", string(b))
+	}
+}
+
+func TestFwupdRemoteUIDIFF(t *testing.T) {
+	lvfs := &FwupdRemoteUID{remote: "lvfs"}
+	tests := &FwupdRemoteUID{remote: "fwupd-tests"}
+	wildcard := &FwupdRemoteUID{remote: ""}
+
+	if !lvfs.IFF(lvfs) {
+		t.Errorf("func IFF: same remote did not match")
+	}
+	if lvfs.IFF(tests) {
+		t.Errorf("func IFF: different remotes matched")
+	}
+	if !wildcard.IFF(lvfs) || !wildcard.IFF(tests) {
+		t.Errorf("func IFF: the wildcard did not match")
+	}
+	if lvfs.IFF(&FwupdDeviceUID{device: "lvfs"}) {
+		t.Errorf("func IFF: another uid type matched")
+	}
+}
+
+func TestFwupdAutoEdges(t *testing.T) {
+	// every wanted uid must come out exactly once, matched or not
+	uids := []engine.ResUID{
+		&FwupdRemoteUID{remote: "lvfs"},
+		&FwupdRemoteUID{remote: ""},
+	}
+	autoEdge := &FwupdAutoEdges{uids: uids}
+
+	x := autoEdge.Next()
+	if len(x) != 1 || x[0] != uids[0] {
+		t.Fatalf("func Next: got %v", x)
+	}
+	if !autoEdge.Test([]bool{true}) { // a match must not stop the sequence
+		t.Fatalf("func Test: stopped early")
+	}
+	x = autoEdge.Next()
+	if len(x) != 1 || x[0] != uids[1] {
+		t.Fatalf("func Next: got %v", x)
+	}
+	if autoEdge.Test([]bool{false}) {
+		t.Fatalf("func Test: did not stop at the end")
 	}
 }
 

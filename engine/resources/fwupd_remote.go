@@ -59,6 +59,7 @@ func init() {
 // releases.
 type FwupdRemoteRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Edgeable
 
 	init *engine.Init
 
@@ -270,4 +271,52 @@ func (obj *FwupdRemoteRes) UnmarshalYAML(unmarshal func(interface{}) error) erro
 
 	*obj = FwupdRemoteRes(raw) // restore from indirection with type conversion!
 	return nil
+}
+
+// AutoEdges returns the AutoEdge interface. A remote happens after the svc that
+// runs the daemon, and after the file resource that manages its conf file, if
+// either of those exists in the graph.
+func (obj *FwupdRemoteRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
+	reversed := true // these happen before the remote
+	uids := []engine.ResUID{
+		&FileUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind(), Reversed: &reversed},
+			path:    fmt.Sprintf("/etc/fwupd/remotes.d/%s.conf", obj.Name()),
+		},
+		&SvcUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind(), Reversed: &reversed},
+			name:    "fwupd", // the daemon
+		},
+	}
+	return &FwupdAutoEdges{uids: uids}, nil
+}
+
+// FwupdRemoteUID is the UID struct for FwupdRemoteRes.
+type FwupdRemoteUID struct {
+	engine.BaseUID
+
+	remote string // the remote id, empty means match any
+}
+
+// IFF aka if and only if they are equivalent, return true. If not, false. An
+// empty remote id on either side is a wildcard which matches any remote.
+func (obj *FwupdRemoteUID) IFF(uid engine.ResUID) bool {
+	res, ok := uid.(*FwupdRemoteUID)
+	if !ok {
+		return false
+	}
+	if obj.remote == "" || res.remote == "" {
+		return true // wildcard
+	}
+	return obj.remote == res.remote
+}
+
+// UIDs includes all params to make a unique identification of this object. Most
+// resources only return one, although some resources can return multiple.
+func (obj *FwupdRemoteRes) UIDs() []engine.ResUID {
+	x := &FwupdRemoteUID{
+		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+		remote:  obj.Name(), // the remote id
+	}
+	return []engine.ResUID{x}
 }

@@ -1,0 +1,104 @@
+# Control an esphome device: a button (gpio input) drives an led (gpio output).
+#
+# The esphome:endpoint resource holds the connection params, and everything
+# else names it via its endpoint param. All of the functions and resources that
+# talk to one endpoint share a single real connection to the device. Until the
+# endpoint resource runs, the functions simply return their zero values.
+#
+# run it:
+#	mgmt run --tmp-prefix lang examples/lang/esphome0.mcl
+#
+# This expects a device flashed with entities roughly like:
+#
+#	api:
+#	  encryption:
+#	    key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+#	binary_sensor:
+#	  - platform: gpio
+#	    id: button_a
+#	    name: "Button A"
+#	    pin:
+#	      number: GPIO4
+#	      mode: INPUT_PULLUP
+#	      inverted: true
+#	switch:
+#	  - platform: gpio
+#	    id: led_1
+#	    name: "LED 1"
+#	    pin: GPIO5
+#	number:
+#	  - platform: template
+#	    id: motor_speed
+#	    name: "Motor Speed"
+#	    min_value: 0
+#	    max_value: 1
+#	    step: 0.01
+#	    optimistic: true
+#
+# SAFETY: mgmt can only stop a motor while it is running and connected, so the
+# stop/safe interlock on esphome:number below is not sufficient on its own. For
+# real protection against a runaway load, also give the firmware its own
+# failsafe, which stops the motor when nothing has been connected for too long:
+#
+#	interval:
+#	  - interval: 10s
+#	    then:
+#	      - if:
+#	          condition:
+#	            not:
+#	              api.connected:
+#	          then:
+#	            - number.set:
+#	                id: motor_speed
+#	                value: 0
+
+import "fmt"
+import "net/esphome"
+
+esphome:endpoint "garage" {
+	host => "192.168.1.50",
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=", # noise psk
+	interval => 0, # native push events; > 0 polls (reconnects) every N sec
+}
+
+$pressed = esphome.binary_sensor("garage", "button_a")
+
+# The led follows the button, and if someone flips it out-of-band (eg: from
+# home assistant), mgmt sees the state event and repairs it.
+esphome:switch "led_1" {
+	endpoint => "garage",
+
+	state => if $pressed {
+		"on"
+	} else {
+		"off"
+	},
+}
+
+# If the device was unreachable for 30s or more, then when it comes back, this
+# first commands the safe value (0) and errors instead of converging. The retry
+# metaparams below make it recover on the next try; leave them out if you want
+# it to stay safely stopped until a human runs a new graph.
+esphome:number "motor_speed" {
+	endpoint => "garage",
+
+	value => if $pressed {
+		0.75
+	} else {
+		0.0
+	},
+
+	stop => 30, # seconds of disconnection before we interlock
+	safe => 0.0,
+
+	Meta:retry => -1,     # retry forever
+	Meta:delay => 5000,   # wait 5s between retries
+}
+
+# Handy while debugging: watch the connection state change over time.
+print "connected" {
+	msg => fmt.printf("garage is connected: %v", esphome.connected("garage")),
+}
+
+Esphome:Endpoint["garage"] -> Esphome:Switch["led_1"]
+Esphome:Endpoint["garage"] -> Esphome:Number["motor_speed"]

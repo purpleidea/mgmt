@@ -1,0 +1,632 @@
+// Mgmt
+// Copyright (C) James Shubin and the project contributors
+// Written by James Shubin <james@shubin.ca> and the project contributors
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+//
+// Additional permission under GNU GPL version 3 section 7
+//
+// If you modify this program, or any covered work, by linking or combining it
+// with embedded mcl code and modules (and that the embedded mcl code and
+// modules which link with this program, contain a copy of their source code in
+// the authoritative form) containing parts covered by the terms of any other
+// license, the licensors of this program grant you additional permission to
+// convey the resulting work. Furthermore, the licensors of this program grant
+// the original author, James Shubin, additional permission to update this
+// additional permission if he deems it necessary to achieve the goals of this
+// additional permission.
+
+package resources
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util/errwrap"
+	esphomeUtil "github.com/purpleidea/mgmt/util/esphome"
+)
+
+const (
+	// esphomeKind is the base kind of the esphome family of resources.
+	esphomeKind = "esphome"
+
+	// esphomeConnectWait is how long the entity resources wait in
+	// CheckApply for the shared session to become healthy, before giving
+	// up. This tolerates the asynchronous connection startup.
+	esphomeConnectWait = 15 * time.Second
+
+	// esphomeCleanupTimeout is how long the number resource waits when
+	// trying to apply the safe value during Cleanup.
+	esphomeCleanupTimeout = 10 * time.Second
+
+	// esphomeStateOn is the on state of a switch.
+	esphomeStateOn = "on"
+
+	// esphomeStateOff is the off state of a switch.
+	esphomeStateOff = "off"
+)
+
+func init() {
+	// NOTE: The endpoint kind string must match the bridge namespace that
+	// the functions read from, which is why it uses that constant.
+	engine.RegisterResource(esphomeUtil.BridgeNamespace, func() engine.Res { return &EsphomeEndpointRes{} })
+	engine.RegisterResource(esphomeKind+":switch", func() engine.Res { return &EsphomeSwitchRes{} })
+	engine.RegisterResource(esphomeKind+":number", func() engine.Res { return &EsphomeNumberRes{} })
+}
+
+// EsphomeEndpointRes describes how to connect to one esphome device. It doesn't
+// hold the device connection itself: it validates the params and publishes them
+// over the local Bridge API for the esphome functions and the other esphome
+// resources to consume. Its name is the uid that all of those consumers use as
+// their endpoint param. Consumers which run before this resource has published
+// (functions run before resources do!) simply see zero values until it does.
+type EsphomeEndpointRes struct {
+	traits.Base // add the base methods without re-implementation
+
+	init *engine.Init
+
+	// Host is the ip address or hostname of the esphome device.
+	Host string `lang:"host" yaml:"host"`
+
+	// Port is the port of the esphome native api. It defaults to 6053.
+	Port int `lang:"port" yaml:"port"`
+
+	// Key is the base64 encoded noise encryption key of the device, from
+	// the `api: encryption: key:` field of the device yaml. If it is empty,
+	// then a plaintext connection is attempted instead.
+	Key string `lang:"key" yaml:"key"`
+
+	// Password is the legacy api password. This auth mechanism was
+	// deprecated and then removed from esphome, and it is currently not
+	// supported. Prefer Key.
+	Password string `lang:"password" yaml:"password"`
+
+	// Interval selects how we watch the device for events. Zero means we
+	// hold a persistent connection open, over which the device pushes
+	// state changes to us natively as they happen. A positive value means
+	// we poll instead: every interval seconds we connect, read a full
+	// state snapshot, send any pending commands, and then disconnect.
+	Interval uint32 `lang:"interval" yaml:"interval"`
+}
+
+// connInfo builds the value that we publish over the bridge.
+func (obj *EsphomeEndpointRes) connInfo() *esphomeUtil.ConnInfo {
+	return &esphomeUtil.ConnInfo{
+		Host:     obj.Host,
+		Port:     obj.Port,
+		Key:      obj.Key,
+		Password: obj.Password,
+		Interval: obj.Interval,
+	}
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *EsphomeEndpointRes) Default() engine.Res {
+	return &EsphomeEndpointRes{
+		Port: esphomeUtil.DefaultPort,
+	}
+}
+
+// Validate if the params passed in are valid data.
+func (obj *EsphomeEndpointRes) Validate() error {
+	if obj.Name() == "" {
+		return fmt.Errorf("empty name")
+	}
+	if obj.Password != "" {
+		return fmt.Errorf("legacy password auth is not supported, use the noise key")
+	}
+	return obj.connInfo().Validate()
+}
+
+// Init runs some startup code for this resource.
+func (obj *EsphomeEndpointRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+
+	return nil
+}
+
+// Cleanup is run by the engine to clean up after the resource is done. We
+// unpublish our connection info so that the consumers disconnect and fall back
+// to their zero values.
+func (obj *EsphomeEndpointRes) Cleanup() error {
+	if obj.init == nil {
+		return nil
+	}
+	return obj.init.Local.BridgeSet(context.TODO(), esphomeUtil.BridgeNamespace, obj.Name(), nil)
+}
+
+// Watch is the primary listener for this resource and it outputs events. Our
+// state lives in the in-memory bridge which only we write to, so after the
+// startup event there is nothing to watch.
+func (obj *EsphomeEndpointRes) Watch(ctx context.Context) error {
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+	}
+
+	return ctx.Err()
+}
+
+// CheckApply publishes our connection info over the bridge if it isn't already
+// current.
+func (obj *EsphomeEndpointRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	info := obj.connInfo()
+
+	val, err := obj.init.Local.BridgeGet(ctx, esphomeUtil.BridgeNamespace, obj.Name())
+	if err != nil {
+		return false, err
+	}
+	if published, ok := val.(*esphomeUtil.ConnInfo); ok && published.Cmp(info) == nil {
+		return true, nil // already published and current
+	}
+
+	if !apply {
+		return false, nil
+	}
+
+	obj.init.Logf("publishing connection info for %s", info.Addr())
+	if err := obj.init.Local.BridgeSet(ctx, esphomeUtil.BridgeNamespace, obj.Name(), info); err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+// Cmp compares two resources and returns an error if they are not equivalent.
+func (obj *EsphomeEndpointRes) Cmp(r engine.Res) error {
+	res, ok := r.(*EsphomeEndpointRes)
+	if !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+
+	return obj.connInfo().Cmp(res.connInfo())
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
+func (obj *EsphomeEndpointRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes EsphomeEndpointRes // indirection to avoid infinite recursion
+
+	def := obj.Default()                 // get the default
+	res, ok := def.(*EsphomeEndpointRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to EsphomeEndpointRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = EsphomeEndpointRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// esphomeBridgeConfigure reads the connection info that the named endpoint
+// resource published (if any) and passes it into the shared session. A missing
+// or unpublished endpoint configures the session with nil, which disconnects
+// it, and returns nil info without an error.
+func esphomeBridgeConfigure(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) (*esphomeUtil.ConnInfo, error) {
+	val, err := init.Local.BridgeGet(ctx, esphomeUtil.BridgeNamespace, endpoint)
+	if err != nil {
+		return nil, err
+	}
+	info, ok := val.(*esphomeUtil.ConnInfo)
+	if !ok || info == nil {
+		session.Configure(nil)
+		return nil, nil
+	}
+	session.Configure(info)
+	return info, nil
+}
+
+// esphomeWatch is the shared Watch mainloop of the esphome entity resources. It
+// forwards both the bridge events (the endpoint resource publishing or
+// unpublishing its connection info) and the session events (entity states
+// changing, connects and disconnects) as resource events, which is what lets
+// mgmt repair out-of-band changes made directly on the device.
+func esphomeWatch(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) error {
+	bridgeCh, err := init.Local.BridgeWatch(ctx, esphomeUtil.BridgeNamespace, endpoint)
+	if err != nil {
+		return err
+	}
+	sessionCh, err := session.Watch(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := init.Event(ctx); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case _, ok := <-bridgeCh:
+			if !ok {
+				return nil
+			}
+			if _, err := esphomeBridgeConfigure(ctx, init, session, endpoint); err != nil {
+				return err
+			}
+
+		case _, ok := <-sessionCh:
+			if !ok {
+				return nil
+			}
+
+		case <-ctx.Done(): // closed by the engine to signal shutdown
+			return ctx.Err()
+		}
+
+		if err := init.Event(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+// esphomeSessionReady configures the session from the bridge and waits for the
+// device to be healthy. It errors if the endpoint isn't published or the device
+// can't be reached, which makes the engine retry as per the resource retry
+// metaparams.
+func esphomeSessionReady(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) error {
+	info, err := esphomeBridgeConfigure(ctx, init, session, endpoint)
+	if err != nil {
+		return err
+	}
+	if info == nil {
+		return fmt.Errorf("endpoint `%s` is not available yet", endpoint)
+	}
+	if err := session.WaitConnected(ctx, esphomeConnectWait); err != nil {
+		return errwrap.Wrapf(err, "device `%s` is not connected", endpoint)
+	}
+	return nil
+}
+
+// EsphomeSwitchRes manages a switch entity on an esphome device, such as a gpio
+// output pin, a relay, or an led. The name is the object_id of the entity from
+// the device yaml, unless the id field overrides it. Because we subscribe to
+// the device state, an out-of-band change (eg: someone toggling the switch from
+// home assistant or the device web ui) generates an event, and mgmt repairs it.
+type EsphomeSwitchRes struct {
+	traits.Base // add the base methods without re-implementation
+
+	init *engine.Init
+
+	// Endpoint is the name of the esphome:endpoint resource which knows
+	// how to connect to the device that this entity lives on.
+	Endpoint string `lang:"endpoint" yaml:"endpoint"`
+
+	// State is the desired state of the switch. It must be either `on` or
+	// `off`.
+	State string `lang:"state" yaml:"state"`
+
+	// Id is the object_id of the switch entity on the device. It defaults
+	// to the name of this resource.
+	Id string `lang:"id" yaml:"id"`
+
+	session *esphomeUtil.Session
+}
+
+// getId returns the object_id of the entity we manage.
+func (obj *EsphomeSwitchRes) getId() string {
+	if obj.Id != "" {
+		return obj.Id
+	}
+	return obj.Name()
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *EsphomeSwitchRes) Default() engine.Res {
+	return &EsphomeSwitchRes{}
+}
+
+// Validate if the params passed in are valid data.
+func (obj *EsphomeSwitchRes) Validate() error {
+	if obj.Endpoint == "" {
+		return fmt.Errorf("empty endpoint")
+	}
+	if obj.State != esphomeStateOn && obj.State != esphomeStateOff {
+		return fmt.Errorf("state must be `%s` or `%s`", esphomeStateOn, esphomeStateOff)
+	}
+	if obj.getId() == "" {
+		return fmt.Errorf("empty id")
+	}
+	return nil
+}
+
+// Init runs some startup code for this resource. Reserving the shared session
+// is only in-memory bookkeeping: nothing connects until the endpoint resource
+// publishes its connection info and someone passes it in.
+func (obj *EsphomeSwitchRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+
+	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
+
+	return nil
+}
+
+// Cleanup is run by the engine to clean up after the resource is done.
+func (obj *EsphomeSwitchRes) Cleanup() error {
+	if obj.session != nil {
+		obj.session.Release()
+	}
+	return nil
+}
+
+// Watch is the primary listener for this resource and it outputs events.
+func (obj *EsphomeSwitchRes) Watch(ctx context.Context) error {
+	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
+}
+
+// CheckApply checks the cached entity state and commands the switch if needed.
+func (obj *EsphomeSwitchRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+		return false, err
+	}
+
+	desired := obj.State == esphomeStateOn
+
+	state := obj.session.State(obj.getId())
+	if state != nil && state.Domain == esphomeUtil.DomainSwitch && !state.Missing && state.Bool == desired {
+		return true, nil // state is good
+	}
+
+	if !apply {
+		return false, nil
+	}
+
+	obj.init.Logf("turning %s", obj.State)
+	if err := obj.session.SetSwitch(ctx, obj.getId(), desired); err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+// Cmp compares two resources and returns an error if they are not equivalent.
+func (obj *EsphomeSwitchRes) Cmp(r engine.Res) error {
+	res, ok := r.(*EsphomeSwitchRes)
+	if !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+
+	if obj.Endpoint != res.Endpoint {
+		return fmt.Errorf("the Endpoint differs")
+	}
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
+	}
+	if obj.Id != res.Id {
+		return fmt.Errorf("the Id differs")
+	}
+	return nil
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
+func (obj *EsphomeSwitchRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes EsphomeSwitchRes // indirection to avoid infinite recursion
+
+	def := obj.Default()               // get the default
+	res, ok := def.(*EsphomeSwitchRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to EsphomeSwitchRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = EsphomeSwitchRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// EsphomeNumberRes manages a number entity on an esphome device, such as a
+// setpoint or a motor speed. The name is the object_id of the entity from the
+// device yaml, unless the id field overrides it.
+//
+// Because a number often drives something physical, this resource has an
+// optional safety interlock for when the device becomes disconnected from us:
+// see the stop and safe fields. Note that mgmt can only act while it is running
+// and connected, so for full protection against a runaway load you must also
+// configure a failsafe in the device firmware itself, for example an esphome
+// script that stops the motor when `api.connected` has been false for too long.
+// The device natively detects a dropped api connection quickly, so that pairs
+// well with this resource.
+type EsphomeNumberRes struct {
+	traits.Base // add the base methods without re-implementation
+
+	init *engine.Init
+
+	// Endpoint is the name of the esphome:endpoint resource which knows
+	// how to connect to the device that this entity lives on.
+	Endpoint string `lang:"endpoint" yaml:"endpoint"`
+
+	// Value is the desired value of the number entity.
+	Value float64 `lang:"value" yaml:"value"`
+
+	// Id is the object_id of the number entity on the device. It defaults
+	// to the name of this resource.
+	Id string `lang:"id" yaml:"id"`
+
+	// Stop enables the safety interlock when set to a positive number of
+	// seconds. If the device was disconnected from us for at least this
+	// long, then when the connection comes back, we first command the safe
+	// value, and error instead of converging. With a retry metaparam the
+	// resource then recovers and re-applies the desired value on the next
+	// try; without one it stays safely stopped until a new graph runs.
+	// When this is set, we also command the safe value when this resource
+	// is removed. When using a polling endpoint, this must be comfortably
+	// larger than the polling interval, since we only ever control the
+	// device for a moment during each poll.
+	Stop uint32 `lang:"stop" yaml:"stop"`
+
+	// Safe is the value that the safety interlock commands. This is
+	// usually the value which stops whatever the number drives.
+	Safe float64 `lang:"safe" yaml:"safe"`
+
+	session *esphomeUtil.Session
+
+	// outageID remembers the last outage that we already handled, so that
+	// each outage triggers the interlock at most once.
+	outageID uint64
+}
+
+// getId returns the object_id of the entity we manage.
+func (obj *EsphomeNumberRes) getId() string {
+	if obj.Id != "" {
+		return obj.Id
+	}
+	return obj.Name()
+}
+
+// Default returns some sensible defaults for this resource.
+func (obj *EsphomeNumberRes) Default() engine.Res {
+	return &EsphomeNumberRes{}
+}
+
+// Validate if the params passed in are valid data.
+func (obj *EsphomeNumberRes) Validate() error {
+	if obj.Endpoint == "" {
+		return fmt.Errorf("empty endpoint")
+	}
+	if obj.getId() == "" {
+		return fmt.Errorf("empty id")
+	}
+	return nil
+}
+
+// Init runs some startup code for this resource.
+func (obj *EsphomeNumberRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+
+	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
+
+	return nil
+}
+
+// Cleanup is run by the engine to clean up after the resource is done. If the
+// safety interlock is enabled, we make a best effort to leave the entity at the
+// safe value, since nobody will be managing it from now on.
+func (obj *EsphomeNumberRes) Cleanup() error {
+	if obj.session == nil {
+		return nil
+	}
+	if obj.Stop > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
+		defer cancel()
+		if err := obj.session.SetNumber(ctx, obj.getId(), obj.Safe); err != nil {
+			obj.init.Logf("could not apply the safe value on cleanup: %v", err)
+		}
+	}
+	obj.session.Release()
+	return nil
+}
+
+// Watch is the primary listener for this resource and it outputs events.
+func (obj *EsphomeNumberRes) Watch(ctx context.Context) error {
+	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
+}
+
+// CheckApply checks the cached entity state and commands the number if needed.
+// If the safety interlock is enabled and the device just came back from an
+// outage which lasted too long, it commands the safe value and errors instead.
+func (obj *EsphomeNumberRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+		return false, err
+	}
+
+	if obj.Stop > 0 {
+		outage, id := obj.session.LastOutage()
+		if id != obj.outageID && outage >= time.Duration(obj.Stop)*time.Second {
+			if !apply {
+				return false, nil
+			}
+			if err := obj.session.SetNumber(ctx, obj.getId(), obj.Safe); err != nil {
+				return false, errwrap.Wrapf(err, "could not apply the safe value after an outage")
+			}
+			obj.outageID = id // each outage triggers at most once
+			return false, fmt.Errorf("device was disconnected for %.1fs (stop is %ds), applied safe value %v", outage.Seconds(), obj.Stop, obj.Safe)
+		}
+		obj.outageID = id // a benign outage, or one we already handled
+	}
+
+	state := obj.session.State(obj.getId())
+	if state != nil && state.Domain == esphomeUtil.DomainNumber && !state.Missing && state.Float == obj.Value {
+		return true, nil // state is good
+	}
+
+	if !apply {
+		return false, nil
+	}
+
+	obj.init.Logf("setting value to %v", obj.Value)
+	if err := obj.session.SetNumber(ctx, obj.getId(), obj.Value); err != nil {
+		return false, err
+	}
+
+	return false, nil
+}
+
+// Cmp compares two resources and returns an error if they are not equivalent.
+func (obj *EsphomeNumberRes) Cmp(r engine.Res) error {
+	res, ok := r.(*EsphomeNumberRes)
+	if !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+
+	if obj.Endpoint != res.Endpoint {
+		return fmt.Errorf("the Endpoint differs")
+	}
+	if obj.Value != res.Value {
+		return fmt.Errorf("the Value differs")
+	}
+	if obj.Id != res.Id {
+		return fmt.Errorf("the Id differs")
+	}
+	if obj.Stop != res.Stop {
+		return fmt.Errorf("the Stop differs")
+	}
+	if obj.Safe != res.Safe {
+		return fmt.Errorf("the Safe differs")
+	}
+	return nil
+}
+
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
+func (obj *EsphomeNumberRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes EsphomeNumberRes // indirection to avoid infinite recursion
+
+	def := obj.Default()               // get the default
+	res, ok := def.(*EsphomeNumberRes) // put in the right format
+	if !ok {
+		return fmt.Errorf("could not convert to EsphomeNumberRes")
+	}
+	raw := rawRes(*res) // convert; the defaults go here
+
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	*obj = EsphomeNumberRes(raw) // restore from indirection with type conversion!
+	return nil
+}

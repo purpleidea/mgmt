@@ -75,15 +75,19 @@ const (
 	DomainButton = "button"
 
 	// DomainFan is the entity domain for fans, including H-bridge motor
-	// controllers exposed through ESPHome's fan abstraction.
+	// controllers exposed through esphome's fan abstraction.
 	DomainFan = "fan"
 
 	// DomainLight is the entity domain for lights.
 	DomainLight = "light"
 
-	// Fan directions used by the Native API.
+	// Fan directions used by the native api.
 	FanDirectionForward = "forward"
 	FanDirectionReverse = "reverse"
+
+	// LightColorModeRGB is the native RGB color mode required by the current
+	// light resource.
+	LightColorModeRGB = "COLOR_MODE_RGB"
 
 	// Log levels accepted by the esphome native api.
 	LogLevelError       = "error"
@@ -150,6 +154,11 @@ type ConnInfo struct {
 	// resource and deliberately excluded from Cmp: it doesn't affect the
 	// wire connection identity.
 	Logf func(*LogEntry)
+
+	// ConnectLogf reports connection failures and retry delays. It is
+	// supplied by the endpoint resource and deliberately excluded from Cmp:
+	// it doesn't affect the wire connection identity.
+	ConnectLogf func(format string, v ...interface{})
 }
 
 // Addr returns the host:port pair to dial.
@@ -252,20 +261,40 @@ type State struct {
 	Missing bool
 }
 
-// FanCommand is the complete desired fan state sent by MGMT.
+// FanCommand is the complete desired fan state sent by mgmt.
 type FanCommand struct {
-	State     bool
-	Speed     int32
+	// State is true when the fan should be on.
+	State bool
+
+	// Speed is the desired device-defined speed level.
+	Speed int32
+
+	// Direction is the desired forward or reverse direction.
 	Direction string
+
+	// HasSpeed and HasDirection select the optional capability-specific
+	// fields. A stop command leaves both false so any fan can be stopped.
+	HasSpeed     bool
+	HasDirection bool
 }
 
-// LightCommand is the complete desired RGB light state sent by MGMT.
+// LightCommand is the complete desired RGB light state sent by mgmt.
 type LightCommand struct {
-	State      bool
+	// State is true when the light should be on.
+	State bool
+
+	// Brightness is the normalized brightness in the range 0..1.
 	Brightness float64
-	Red        float64
-	Green      float64
-	Blue       float64
+
+	// Red, Green, and Blue are normalized color channels in the range 0..1.
+	Red   float64
+	Green float64
+	Blue  float64
+
+	// HasBrightness and HasRGB select optional capability-specific fields. An
+	// off command leaves both false so any light can be turned off.
+	HasBrightness bool
+	HasRGB        bool
 }
 
 // EntityInfo describes one entity that a device advertises.
@@ -273,16 +302,30 @@ type EntityInfo struct {
 	// Key is the numeric entity key used by the wire protocol.
 	Key uint32
 
-	// ObjectID is the legacy object_id. ESPHome 2026.7 and newer can leave
+	// ObjectID is the legacy object_id. esphome 2026.7 and newer can leave
 	// this empty, so consumers should also support Name.
 	ObjectID string
 
 	// Name is the entity name and the preferred identifier for current
-	// ESPHome versions.
+	// esphome versions.
 	Name string
 
 	// Domain is the entity domain, eg: "binary_sensor" or "switch".
 	Domain string
+
+	// FanSupportsSpeed reports whether a fan accepts speed commands.
+	FanSupportsSpeed bool
+
+	// FanSupportedSpeedCount is the highest discrete speed level accepted
+	// by a fan.
+	FanSupportedSpeedCount int32
+
+	// FanSupportsDirection reports whether a fan accepts direction commands.
+	FanSupportsDirection bool
+
+	// LightSupportedColorModes contains the native color modes advertised by
+	// a light.
+	LightSupportedColorModes []string
 }
 
 // EntityState is one state update as reported by the driver.

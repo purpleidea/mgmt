@@ -103,10 +103,21 @@ func (obj *apiClientDriver) entities() ([]*EntityInfo, error) {
 		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainButton})
 	}
 	for _, e := range registry.Fans() {
-		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainFan})
+		result = append(result, &EntityInfo{
+			Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainFan,
+			FanSupportsSpeed: e.SupportsSpeed, FanSupportedSpeedCount: e.SupportedSpeedCount,
+			FanSupportsDirection: e.SupportsDirection,
+		})
 	}
 	for _, e := range registry.Lights() {
-		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainLight})
+		modes := make([]string, 0, len(e.SupportedColorModes))
+		for _, mode := range e.SupportedColorModes {
+			modes = append(modes, mode.String())
+		}
+		result = append(result, &EntityInfo{
+			Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainLight,
+			LightSupportedColorModes: modes,
+		})
 	}
 	return result, nil
 }
@@ -237,9 +248,9 @@ func (obj *apiClientDriver) setFan(key uint32, command FanCommand) error {
 	return obj.client.SetFan(key, apiclient.FanCommandOpts{
 		HasState:      true,
 		State:         command.State,
-		HasSpeedLevel: true,
+		HasSpeedLevel: command.HasSpeed,
 		SpeedLevel:    command.Speed,
-		HasDirection:  true,
+		HasDirection:  command.HasDirection,
 		Direction:     direction,
 	})
 }
@@ -248,11 +259,11 @@ func (obj *apiClientDriver) setLight(key uint32, command LightCommand) error {
 	return obj.client.SetLight(key, apiclient.LightCommandOpts{
 		HasState:      true,
 		State:         command.State,
-		HasBrightness: true,
+		HasBrightness: command.HasBrightness,
 		Brightness:    float32(command.Brightness),
-		HasColorMode:  true,
+		HasColorMode:  command.HasRGB,
 		ColorMode:     pb.ColorMode_COLOR_MODE_RGB,
-		HasRGB:        true,
+		HasRGB:        command.HasRGB,
 		Red:           float32(command.Red),
 		Green:         float32(command.Green),
 		Blue:          float32(command.Blue),

@@ -111,10 +111,9 @@ print "led state" {
 	msg => fmt.printf("on-board led is on: %v", $led_on),
 }
 
-# This block appears when the device reports that the LED is on. The exec
-# resource supplies the deliberate delay; the edge prevents the switch command
-# from running until it completes. Once the command turns the LED off, the
-# pushed state event removes this block again.
+# This block appears when the device reports that the LED is on. The firmware
+# supplies the deliberate delay before turning it on again. Once mgmt commands
+# the LED off, the pushed state event removes this block until the next cycle.
 if $led_on {
 
 	esphome:switch $led {

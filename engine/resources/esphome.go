@@ -52,8 +52,8 @@ const (
 	// up. This tolerates the asynchronous connection startup.
 	esphomeConnectWait = 15 * time.Second
 
-	// esphomeCleanupTimeout is how long the number resource waits when
-	// trying to apply the safe value during Cleanup.
+	// esphomeCleanupTimeout is how long the entity resources wait when
+	// trying to apply a safe state during Cleanup.
 	esphomeCleanupTimeout = 10 * time.Second
 
 	// esphomeStateOn is the on state of a switch.
@@ -62,6 +62,13 @@ const (
 	// esphomeStateOff is the off state of a switch.
 	esphomeStateOff = "off"
 )
+
+var esphomeNamedColors = map[string]uint64{
+	"black": 0x000000, "white": 0xffffff, "red": 0xff0000,
+	"green": 0x00ff00, "blue": 0x0000ff, "yellow": 0xffff00,
+	"cyan": 0x00ffff, "magenta": 0xff00ff, "orange": 0xff8000,
+	"purple": 0x8000ff,
+}
 
 func init() {
 	// NOTE: The endpoint kind string must match the bridge namespace that
@@ -92,7 +99,7 @@ type EsphomeEndpointRes struct {
 
 	// Key is the base64 encoded noise encryption key of the device, from
 	// the `api: encryption: key:` field of the device yaml. It is required;
-	// MGMT never silently downgrades a device connection to plaintext.
+	// mgmt never silently downgrades a device connection to plaintext.
 	Key string `lang:"key" yaml:"key"`
 
 	// Password is the legacy api password. This auth mechanism was
@@ -129,6 +136,11 @@ func (obj *EsphomeEndpointRes) connInfo() *esphomeUtil.ConnInfo {
 			}
 			for _, line := range strings.Split(entry.Message, "\n") {
 				obj.init.Logf("device log [%s]: %s", entry.Level, line)
+			}
+		},
+		ConnectLogf: func(format string, v ...interface{}) {
+			if obj.init != nil {
+				obj.init.Logf(format, v...)
 			}
 		},
 	}
@@ -514,7 +526,10 @@ type EsphomeNumberRes struct {
 	session *esphomeUtil.Session
 	// cleanupInfo keeps the last successfully used endpoint configuration so
 	// cleanup can reconnect long enough to apply the safe value even when the
-	// endpoint resource is removed first during a graph shutdown.
+	// endpoint resource is removed first during a graph shutdown. The engine
+	// serializes CheckApply and Cleanup for one resource, which protects this
+	// field without a separate mutex. It can be stale after an unconfirmed
+	// endpoint change, so the ordered live session is always preferred.
 	cleanupInfo *esphomeUtil.ConnInfo
 
 	// outageID remembers the last outage that we already handled, so that
@@ -565,7 +580,7 @@ func (obj *EsphomeNumberRes) Cleanup() error {
 	if obj.Stop > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
-		if err := obj.session.SetNumberWithInfo(ctx, obj.cleanupInfo, obj.getId(), obj.Safe); err != nil {
+		if err := obj.session.SetNumberForCleanup(ctx, obj.cleanupInfo, obj.getId(), obj.Safe); err != nil {
 			obj.init.Logf("could not apply the safe value on cleanup: %v", err)
 		}
 	}
@@ -665,33 +680,64 @@ func (obj *EsphomeNumberRes) UnmarshalYAML(unmarshal func(interface{}) error) er
 	return nil
 }
 
-// EsphomeFanRes manages an ESPHome fan entity. ESPHome's hbridge fan platform
+// EsphomeFanRes manages an esphome fan entity. The hbridge fan platform
 // makes this a useful abstraction for a reversible DC motor such as the
-// conveyor demo. The name is the exact ESPHome entity name (or a legacy
+// conveyor demo. The name is the exact esphome entity name (or a legacy
 // object_id), unless id overrides it.
 //
-// Stop is an MGMT-side recovery and cleanup interlock. It is not a substitute
+// Stop is an mgmt-side recovery and cleanup interlock. It is not a substitute
 // for a local firmware timeout, a current limit, guards, or a physical e-stop.
 type EsphomeFanRes struct {
-	traits.Base
+	traits.Base // add the base methods without re-implementation
 
+	// init is used by the engine to pass in the internal structure.
 	init *engine.Init
 
-	Endpoint  string `lang:"endpoint" yaml:"endpoint"`
-	State     string `lang:"state" yaml:"state"`
-	Speed     int32  `lang:"speed" yaml:"speed"`
-	Direction string `lang:"direction" yaml:"direction"`
-	Id        string `lang:"id" yaml:"id"`
-	Stop      uint32 `lang:"stop" yaml:"stop"`
+	// Endpoint is the name of the esphome:endpoint resource which knows how
+	// to connect to the device that this entity lives on.
+	Endpoint string `lang:"endpoint" yaml:"endpoint"`
 
-	session  *esphomeUtil.Session
+	// State is the desired state of the fan. It must be on or off.
+	State string `lang:"state" yaml:"state"`
+
+	// Speed is the desired discrete speed level. CheckApply validates it
+	// against the fan's advertised supported_speed_count.
+	Speed int32 `lang:"speed" yaml:"speed"`
+
+	// Direction is the desired fan direction. CheckApply errors clearly when
+	// the entity does not advertise direction support.
+	Direction string `lang:"direction" yaml:"direction"`
+
+	// Id is the exact entity name or legacy object_id of the fan on the
+	// device. It defaults to the name of this resource.
+	Id string `lang:"id" yaml:"id"`
+
+	// Stop enables the safety interlock when set to a positive number of
+	// seconds. If the device was disconnected from us for at least this long,
+	// then when the connection comes back, we first stop the fan and error
+	// instead of converging. With a retry metaparam the resource then recovers
+	// and re-applies the desired state on the next try; without one it stays
+	// safely stopped until a new graph runs. When this is set, we also stop the
+	// fan when this resource is removed. When using a polling endpoint, this
+	// must be comfortably larger than the polling interval, since we only ever
+	// control the device for a moment during each poll.
+	Stop uint32 `lang:"stop" yaml:"stop"`
+
+	// session is the shared connection to the endpoint.
+	session *esphomeUtil.Session
+
+	// outageID remembers the last outage that we already handled.
 	outageID uint64
 	// cleanupInfo keeps the last successfully used endpoint configuration so
 	// cleanup can reconnect long enough to stop the fan even when the endpoint
-	// resource is removed first during a graph shutdown.
+	// resource is removed first during a graph shutdown. The engine serializes
+	// CheckApply and Cleanup for one resource, which protects this field without
+	// a separate mutex. It can be stale after an unconfirmed endpoint change, so
+	// the ordered live session is always preferred.
 	cleanupInfo *esphomeUtil.ConnInfo
 }
 
+// getId returns the identifier of the entity we manage.
 func (obj *EsphomeFanRes) getId() string {
 	if obj.Id != "" {
 		return obj.Id
@@ -699,14 +745,21 @@ func (obj *EsphomeFanRes) getId() string {
 	return obj.Name()
 }
 
+// command returns the desired native fan command. Stop commands deliberately
+// omit optional capabilities so any managed fan can be stopped.
 func (obj *EsphomeFanRes) command(on bool) esphomeUtil.FanCommand {
-	return esphomeUtil.FanCommand{State: on, Speed: obj.Speed, Direction: obj.Direction}
+	return esphomeUtil.FanCommand{
+		State: on, Speed: obj.Speed, Direction: obj.Direction,
+		HasSpeed: on, HasDirection: on,
+	}
 }
 
+// Default returns some sensible defaults for this resource.
 func (obj *EsphomeFanRes) Default() engine.Res {
 	return &EsphomeFanRes{Speed: 100, Direction: esphomeUtil.FanDirectionForward}
 }
 
+// Validate if the params passed in are valid data.
 func (obj *EsphomeFanRes) Validate() error {
 	if obj.Endpoint == "" {
 		return fmt.Errorf("empty endpoint")
@@ -726,12 +779,15 @@ func (obj *EsphomeFanRes) Validate() error {
 	return nil
 }
 
+// Init runs some startup code for this resource.
 func (obj *EsphomeFanRes) Init(init *engine.Init) error {
 	obj.init = init
 	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
 	return nil
 }
 
+// Cleanup is run by the engine to clean up after the resource is done. If the
+// safety interlock is enabled, we make a best effort to leave the fan stopped.
 func (obj *EsphomeFanRes) Cleanup() error {
 	if obj.session == nil {
 		return nil
@@ -739,7 +795,7 @@ func (obj *EsphomeFanRes) Cleanup() error {
 	if obj.Stop > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
-		if err := obj.session.SetFanWithInfo(ctx, obj.cleanupInfo, obj.getId(), obj.command(false)); err != nil {
+		if err := obj.session.SetFanForCleanup(ctx, obj.cleanupInfo, obj.getId(), obj.command(false)); err != nil {
 			obj.init.Logf("could not stop the fan on cleanup: %v", err)
 		}
 	}
@@ -747,10 +803,13 @@ func (obj *EsphomeFanRes) Cleanup() error {
 	return nil
 }
 
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *EsphomeFanRes) Watch(ctx context.Context) error {
 	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
 }
 
+// CheckApply checks the cached entity state and commands the fan if needed.
+// If the safety interlock detects a long outage, it stops the fan and errors.
 func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	info, err := esphomeSessionReadyInfo(ctx, obj.init, obj.session, obj.Endpoint)
 	if err != nil {
@@ -774,6 +833,10 @@ func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, err
 	}
 
 	desired := obj.State == esphomeStateOn
+	command := obj.command(desired)
+	if err := obj.session.ValidateFanCommand(obj.getId(), command); err != nil {
+		return false, err
+	}
 	state := obj.session.State(obj.getId())
 	if state != nil && state.Domain == esphomeUtil.DomainFan && !state.Missing &&
 		state.Bool == desired && (!desired || (state.Speed == obj.Speed && state.Direction == obj.Direction)) {
@@ -784,12 +847,13 @@ func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, err
 	}
 
 	obj.init.Logf("turning fan %s at speed %d in the %s direction", obj.State, obj.Speed, obj.Direction)
-	if err := obj.session.SetFan(ctx, obj.getId(), obj.command(desired)); err != nil {
+	if err := obj.session.SetFan(ctx, obj.getId(), command); err != nil {
 		return false, err
 	}
 	return false, nil
 }
 
+// Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *EsphomeFanRes) Cmp(r engine.Res) error {
 	res, ok := r.(*EsphomeFanRes)
 	if !ok {
@@ -816,6 +880,8 @@ func (obj *EsphomeFanRes) Cmp(r engine.Res) error {
 	return nil
 }
 
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *EsphomeFanRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes EsphomeFanRes
 	res, ok := obj.Default().(*EsphomeFanRes)
@@ -830,23 +896,38 @@ func (obj *EsphomeFanRes) UnmarshalYAML(unmarshal func(interface{}) error) error
 	return nil
 }
 
-// EsphomeLightRes manages an RGB ESPHome light. Color accepts a small stable
+// EsphomeLightRes manages an RGB esphome light. Color accepts a small stable
 // vocabulary of names or an exact #RRGGBB value; parseEsphomeColor is kept
 // independent so this contract is straightforward to test.
 type EsphomeLightRes struct {
-	traits.Base
+	traits.Base // add the base methods without re-implementation
 
+	// init is used by the engine to pass in the internal structure.
 	init *engine.Init
 
-	Endpoint   string  `lang:"endpoint" yaml:"endpoint"`
-	State      string  `lang:"state" yaml:"state"`
-	Brightness float64 `lang:"brightness" yaml:"brightness"`
-	Color      string  `lang:"color" yaml:"color"`
-	Id         string  `lang:"id" yaml:"id"`
+	// Endpoint is the name of the esphome:endpoint resource which knows how
+	// to connect to the device that this entity lives on.
+	Endpoint string `lang:"endpoint" yaml:"endpoint"`
 
+	// State is the desired state of the light. It must be on or off.
+	State string `lang:"state" yaml:"state"`
+
+	// Brightness is the desired normalized brightness in the range 0..1.
+	Brightness float64 `lang:"brightness" yaml:"brightness"`
+
+	// Color is a supported name or an exact #RRGGBB value. The entity must
+	// advertise RGB color-mode support when the desired state is on.
+	Color string `lang:"color" yaml:"color"`
+
+	// Id is the exact entity name or legacy object_id of the light on the
+	// device. It defaults to the name of this resource.
+	Id string `lang:"id" yaml:"id"`
+
+	// session is the shared connection to the endpoint.
 	session *esphomeUtil.Session
 }
 
+// getId returns the identifier of the entity we manage.
 func (obj *EsphomeLightRes) getId() string {
 	if obj.Id != "" {
 		return obj.Id
@@ -854,15 +935,11 @@ func (obj *EsphomeLightRes) getId() string {
 	return obj.Name()
 }
 
+// parseEsphomeColor converts a stable color name or #RRGGBB value to native
+// normalized RGB channels.
 func parseEsphomeColor(value string) (float64, float64, float64, error) {
-	named := map[string]uint64{
-		"black": 0x000000, "white": 0xffffff, "red": 0xff0000,
-		"green": 0x00ff00, "blue": 0x0000ff, "yellow": 0xffff00,
-		"cyan": 0x00ffff, "magenta": 0xff00ff, "orange": 0xff8000,
-		"purple": 0x8000ff,
-	}
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	rgb, ok := named[normalized]
+	rgb, ok := esphomeNamedColors[normalized]
 	if !ok {
 		if len(normalized) != 7 || normalized[0] != '#' {
 			return 0, 0, 0, fmt.Errorf("color must be a supported name or #RRGGBB")
@@ -873,7 +950,7 @@ func parseEsphomeColor(value string) (float64, float64, float64, error) {
 			return 0, 0, 0, fmt.Errorf("invalid color %q: %v", value, err)
 		}
 	}
-	// Round through float32 because that is the Native API wire type. This
+	// Round through float32 because that is the native api wire type. This
 	// makes the desired value exactly comparable with the received state.
 	channel := func(shift uint) float64 {
 		return float64(float32(float64((rgb>>shift)&0xff) / 255))
@@ -881,6 +958,8 @@ func parseEsphomeColor(value string) (float64, float64, float64, error) {
 	return channel(16), channel(8), channel(0), nil
 }
 
+// command returns the desired native light command. Off commands deliberately
+// omit optional color capabilities so any managed light can be turned off.
 func (obj *EsphomeLightRes) command(on bool) (esphomeUtil.LightCommand, error) {
 	red, green, blue, err := parseEsphomeColor(obj.Color)
 	if err != nil {
@@ -889,13 +968,16 @@ func (obj *EsphomeLightRes) command(on bool) (esphomeUtil.LightCommand, error) {
 	return esphomeUtil.LightCommand{
 		State: on, Brightness: float64(float32(obj.Brightness)),
 		Red: red, Green: green, Blue: blue,
+		HasBrightness: on, HasRGB: on,
 	}, nil
 }
 
+// Default returns some sensible defaults for this resource.
 func (obj *EsphomeLightRes) Default() engine.Res {
 	return &EsphomeLightRes{Brightness: 1, Color: "white"}
 }
 
+// Validate if the params passed in are valid data.
 func (obj *EsphomeLightRes) Validate() error {
 	if obj.Endpoint == "" {
 		return fmt.Errorf("empty endpoint")
@@ -915,12 +997,14 @@ func (obj *EsphomeLightRes) Validate() error {
 	return nil
 }
 
+// Init runs some startup code for this resource.
 func (obj *EsphomeLightRes) Init(init *engine.Init) error {
 	obj.init = init
 	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
 	return nil
 }
 
+// Cleanup is run by the engine to clean up after the resource is done.
 func (obj *EsphomeLightRes) Cleanup() error {
 	if obj.session != nil {
 		obj.session.Release()
@@ -928,10 +1012,12 @@ func (obj *EsphomeLightRes) Cleanup() error {
 	return nil
 }
 
+// Watch is the primary listener for this resource and it outputs events.
 func (obj *EsphomeLightRes) Watch(ctx context.Context) error {
 	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
 }
 
+// CheckApply checks the cached entity state and commands the light if needed.
 func (obj *EsphomeLightRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
 		return false, err
@@ -939,6 +1025,9 @@ func (obj *EsphomeLightRes) CheckApply(ctx context.Context, apply bool) (bool, e
 	desired := obj.State == esphomeStateOn
 	command, err := obj.command(desired)
 	if err != nil {
+		return false, err
+	}
+	if err := obj.session.ValidateLightCommand(obj.getId(), command); err != nil {
 		return false, err
 	}
 	state := obj.session.State(obj.getId())
@@ -958,6 +1047,7 @@ func (obj *EsphomeLightRes) CheckApply(ctx context.Context, apply bool) (bool, e
 	return false, nil
 }
 
+// Cmp compares two resources and returns an error if they are not equivalent.
 func (obj *EsphomeLightRes) Cmp(r engine.Res) error {
 	res, ok := r.(*EsphomeLightRes)
 	if !ok {
@@ -981,6 +1071,8 @@ func (obj *EsphomeLightRes) Cmp(r engine.Res) error {
 	return nil
 }
 
+// UnmarshalYAML is the custom unmarshal handler for this struct. It is
+// primarily useful for setting the defaults.
 func (obj *EsphomeLightRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawRes EsphomeLightRes
 	res, ok := obj.Default().(*EsphomeLightRes)

@@ -71,7 +71,9 @@ type Session struct {
 	generation uint64    // bumped whenever info changes
 	states     map[string]*State
 	index      map[uint32][]string        // entity key -> addressable identifiers
+	entities   map[uint32]*EntityInfo     // entity key -> immutable capabilities
 	connected  bool                       // do we consider the device healthy?
+	lastErr    error                      // most recent connection failure
 	lastAlive  time.Time                  // last moment the device was under our control
 	lastOutage time.Duration              // duration of the most recent outage
 	outageID   uint64                     // increments whenever lastOutage is set
@@ -97,6 +99,7 @@ func newSession(uid string) *Session {
 		mutex:     &sync.Mutex{},
 		states:    make(map[string]*State),
 		index:     make(map[uint32][]string),
+		entities:  make(map[uint32]*EntityInfo),
 		notify:    make(map[chan struct{}]struct{}),
 		wake:      make(chan struct{}, 1),
 		newDriver: newDriverFunc,
@@ -121,6 +124,7 @@ func (obj *Session) Configure(info *ConnInfo) {
 		return
 	}
 	obj.info = info
+	obj.lastErr = nil
 	obj.generation++
 	obj.mutex.Unlock()
 	obj.wakeup()
@@ -187,6 +191,69 @@ func (obj *Session) State(identifier string) *State {
 	return obj.states[identifier] // nil if it doesn't exist
 }
 
+// Entity returns a snapshot of the metadata and capabilities for the entity
+// with the given exact name or legacy object_id, or nil when it is unknown.
+func (obj *Session) Entity(identifier string) *EntityInfo {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	for key, identifiers := range obj.index {
+		for _, id := range identifiers {
+			if id == identifier {
+				entity := obj.entities[key]
+				if entity == nil {
+					return nil
+				}
+				copy := *entity
+				copy.LightSupportedColorModes = append([]string(nil), entity.LightSupportedColorModes...)
+				return &copy
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateFanCommand checks a desired on-state against advertised fan
+// capabilities. Stop commands do not need speed or direction support.
+func (obj *Session) ValidateFanCommand(identifier string, command FanCommand) error {
+	if !command.State {
+		return nil
+	}
+	entity := obj.Entity(identifier)
+	if entity == nil || entity.Domain != DomainFan {
+		return fmt.Errorf("unknown fan: `%s`", identifier)
+	}
+	if command.HasSpeed {
+		if !entity.FanSupportsSpeed {
+			return fmt.Errorf("fan `%s` does not support speed commands", identifier)
+		}
+		if command.Speed < 1 || command.Speed > entity.FanSupportedSpeedCount {
+			return fmt.Errorf("fan `%s` supports %d speed levels, got %d", identifier, entity.FanSupportedSpeedCount, command.Speed)
+		}
+	}
+	if command.HasDirection && !entity.FanSupportsDirection {
+		return fmt.Errorf("fan `%s` does not support direction commands", identifier)
+	}
+	return nil
+}
+
+// ValidateLightCommand checks a desired on-state against advertised light
+// capabilities. Off commands do not need RGB support.
+func (obj *Session) ValidateLightCommand(identifier string, command LightCommand) error {
+	if !command.State || !command.HasRGB {
+		return nil
+	}
+	entity := obj.Entity(identifier)
+	if entity == nil || entity.Domain != DomainLight {
+		return fmt.Errorf("unknown light: `%s`", identifier)
+	}
+	for _, mode := range entity.LightSupportedColorModes {
+		if mode == LightColorModeRGB {
+			return nil
+		}
+	}
+	return fmt.Errorf("light `%s` does not support RGB color mode (supports: %v)", identifier, entity.LightSupportedColorModes)
+}
+
 // Connected reports whether we consider the device healthy. With a persistent
 // connection this means the connection is currently up. In polling mode it
 // means the most recent poll cycle succeeded.
@@ -194,6 +261,14 @@ func (obj *Session) Connected() bool {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 	return obj.connected
+}
+
+// LastError returns the most recent connection failure, or nil after a
+// successful connection or reconfiguration.
+func (obj *Session) LastError() error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	return obj.lastErr
 }
 
 // WaitConnected waits up to the given duration for the device to be healthy. It
@@ -219,7 +294,10 @@ func (obj *Session) WaitConnected(ctx context.Context, timeout time.Duration) er
 			if obj.Connected() { // last chance
 				return nil
 			}
-			return fmt.Errorf("timed out waiting for device: %v", wctx.Err())
+			if err := obj.LastError(); err != nil {
+				return fmt.Errorf("timed out waiting for device after connection failure: %w", err)
+			}
+			return fmt.Errorf("timed out waiting for device: %w", wctx.Err())
 		}
 	}
 }
@@ -266,6 +344,20 @@ func (obj *Session) SetNumberWithInfo(ctx context.Context, info *ConnInfo, ident
 	})
 }
 
+// SetNumberForCleanup uses the ordered shared session when it is healthy and
+// falls back to a one-shot connection only after the shared path is no longer
+// alive. The explicit info can be the last configuration observed before the
+// endpoint was unpublished.
+func (obj *Session) SetNumberForCleanup(ctx context.Context, info *ConnInfo, identifier string, value float64) error {
+	if obj.Connected() {
+		err := obj.SetNumber(ctx, identifier, value)
+		if err == nil || obj.Connected() {
+			return err
+		}
+	}
+	return obj.SetNumberWithInfo(ctx, info, identifier, value)
+}
+
 // PressButton presses a button entity by exact name or legacy object_id. With a
 // persistent connection it runs immediately. In polling mode it wakes the
 // poller to connect right away, and returns once the command has actually been
@@ -278,6 +370,9 @@ func (obj *Session) PressButton(ctx context.Context, identifier string) error {
 
 // SetFan commands a fan entity by exact name or legacy object_id.
 func (obj *Session) SetFan(ctx context.Context, identifier string, command FanCommand) error {
+	if err := obj.ValidateFanCommand(identifier, command); err != nil {
+		return err
+	}
 	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.setFan(key, command)
 	})
@@ -292,8 +387,24 @@ func (obj *Session) SetFanWithInfo(ctx context.Context, info *ConnInfo, identifi
 	})
 }
 
+// SetFanForCleanup uses the ordered shared session when it is healthy and
+// falls back to a one-shot connection only after the shared path is no longer
+// alive. A stop command intentionally omits optional speed and direction.
+func (obj *Session) SetFanForCleanup(ctx context.Context, info *ConnInfo, identifier string, command FanCommand) error {
+	if obj.Connected() {
+		err := obj.SetFan(ctx, identifier, command)
+		if err == nil || obj.Connected() {
+			return err
+		}
+	}
+	return obj.SetFanWithInfo(ctx, info, identifier, command)
+}
+
 // SetLight commands an RGB light entity by exact name or legacy object_id.
 func (obj *Session) SetLight(ctx context.Context, identifier string, command LightCommand) error {
+	if err := obj.ValidateLightCommand(identifier, command); err != nil {
+		return err
+	}
 	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.setLight(key, command)
 	})
@@ -463,9 +574,14 @@ func (obj *Session) markConnected(entities []*EntityInfo) {
 	}
 	obj.lastAlive = now
 	obj.failures = 0
+	obj.lastErr = nil
 
 	obj.index = make(map[uint32][]string)
+	obj.entities = make(map[uint32]*EntityInfo)
 	for _, e := range entities {
+		copy := *e
+		copy.LightSupportedColorModes = append([]string(nil), e.LightSupportedColorModes...)
+		obj.entities[e.Key] = &copy
 		identifiers := []string{}
 		if e.Name != "" {
 			identifiers = append(identifiers, e.Name)
@@ -507,6 +623,8 @@ func (obj *Session) clearStates() {
 	changed := len(obj.states) > 0 || obj.connected
 	obj.states = make(map[string]*State)
 	obj.index = make(map[uint32][]string)
+	obj.entities = make(map[uint32]*EntityInfo)
+	obj.lastErr = nil
 	if obj.connected {
 		obj.lastAlive = time.Now()
 		obj.connected = false
@@ -569,6 +687,21 @@ func (obj *Session) backoff() time.Duration {
 		d = maxBackoff
 	}
 	return d
+}
+
+// connectFailed records and reports one failed connection attempt. It keeps
+// the underlying error in the chain so WaitConnected callers can inspect it.
+func (obj *Session) connectFailed(info *ConnInfo, err error, retry time.Duration) {
+	wrapped := fmt.Errorf("connect to %s failed: %w", info.Addr(), err)
+	obj.mutex.Lock()
+	obj.lastErr = wrapped
+	obj.failPending(wrapped)
+	obj.notifySend()
+	obj.mutex.Unlock()
+
+	if info.ConnectLogf != nil {
+		info.ConnectLogf("connect to %s failed: %v; retrying in %s", info.Addr(), err, retry)
+	}
 }
 
 // mainloop is the single goroutine which owns the device connection for the
@@ -654,10 +787,9 @@ func (obj *Session) connect(info *ConnInfo) (driver, error) {
 func (obj *Session) persistent(info *ConnInfo, generation uint64) {
 	d, err := obj.connect(info)
 	if err != nil {
-		obj.mutex.Lock()
-		obj.failPending(err)
-		obj.mutex.Unlock()
-		obj.sleep(obj.backoff()) // returns early on wakeup/shutdown
+		retry := obj.backoff()
+		obj.connectFailed(info, err, retry)
+		obj.sleep(retry) // returns early on wakeup/shutdown
 		return
 	}
 	defer d.close()
@@ -691,10 +823,9 @@ func (obj *Session) pollCycle(info *ConnInfo, generation uint64) {
 	d, err := obj.connect(info)
 	if err != nil {
 		obj.markDisconnected()
-		obj.mutex.Lock()
-		obj.failPending(err)
-		obj.mutex.Unlock()
-		obj.sleep(obj.backoff())
+		retry := obj.backoff()
+		obj.connectFailed(info, err, retry)
+		obj.sleep(retry)
 		return
 	}
 

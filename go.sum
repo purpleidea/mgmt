@@ -121,6 +121,8 @@ github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717212537-73b5d58e5dd3 
 github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717212537-73b5d58e5dd3/go.mod h1:1BNtqnRk+BHZwjPN5dGSKmt5kP4RuxaYQ8DmwPVUb/U=
 github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717214702-0bacef0f0587 h1:IxB6JdubbfjUQsgmfAJsyxNC0LtRnyuuk8UOCww4304=
 github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717214702-0bacef0f0587/go.mod h1:1BNtqnRk+BHZwjPN5dGSKmt5kP4RuxaYQ8DmwPVUb/U=
+github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717221321-6f954bc92a84 h1:vN2rX2g+673Oe9lhOMBzhVJE0NnLupnWNdA/rJA/nmE=
+github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717221321-6f954bc92a84/go.mod h1:1BNtqnRk+BHZwjPN5dGSKmt5kP4RuxaYQ8DmwPVUb/U=
 github.com/flynn/noise v1.1.0 h1:KjPQoQCEFdZDiP03phOvGi11+SVVhBG2wOWAorLsstg=
 github.com/flynn/noise v1.1.0/go.mod h1:xbMo+0i6+IGbYdJhF31t2eR1BIU0CYc12+BNAKwUTag=
 github.com/fsnotify/fsnotify v1.6.0/go.mod h1:sl3t1tCWJFWoRz9R8WJCbQihKKwmorjAbSClcnxKAGw=

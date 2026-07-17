@@ -1,6 +1,6 @@
 module github.com/purpleidea/mgmt
 
-go 1.26.1
+go 1.25.10
 
 require (
 	github.com/alexflint/go-arg v1.5.1
@@ -15,7 +15,7 @@ require (
 	github.com/deniswernert/go-fstab v0.0.0-20141204152952-eb4090f26517
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717214702-0bacef0f0587
+	github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717221321-6f954bc92a84
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-git/v5 v5.13.2

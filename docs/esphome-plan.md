@@ -52,7 +52,7 @@ Consequences for our design:
 
 Three candidates were cloned and code-inspected.
 
-### 1. `github.com/richard87/esphome-apiclient` -- use this now
+### 1. `github.com/richard87/esphome-apiclient` -- original prototype choice (superseded)
 
 MIT. ~3.6k LOC handwritten + generated protobuf. Actively developed in 2026.
 
@@ -86,7 +86,7 @@ MIT. ~3.6k LOC handwritten + generated protobuf. Actively developed in 2026.
   or a trivial upstream/fork patch lowering the directive.
 - No `ByObjectID` lookup (we iterate or index ourselves in the util).
 
-**Fork/patch recommendation:** consume upstream as-is first. Candidate
+**Historical fork/patch recommendation:** consume upstream as-is first. Candidate
 upstream PRs (nice, not required): `ByObjectID()`, lower the `go` directive,
 optional `ConnectRequest` support. Fork only if the single maintainer is
 unresponsive and one of these becomes blocking.
@@ -102,15 +102,14 @@ whole MyController server module. We would rebuild everything the first
 candidate already has. Only relevant if legacy-password support becomes a
 hard requirement before upstream/fork patching is feasible.
 
-### 3. `github.com/flavio-fernandes/go-aioesphomeapi` -- the strategic destination, not usable today
+### 3. `github.com/flavio-fernandes/go-aioesphomeapi` -- current implementation
 
-Bootstrapped 2026-07-16, docs/governance only -- zero golang implementation
-yet (Gate 0 of its roadmap). Its ADRs align with this plan: MIT core,
-mgmt-first, Noise-by-default, *"generic device connection sharing within a
-process = go-aioesphomeapi plus an MGMT-local registry"*, and the mgmt
-adapter explicitly lives in the mgmt repo. Its `go.mod` already pins golang
-1.25.7 to match mgmt. Its Milestone 1 (binary_sensor, sensor, switch, fan)
-covers exactly our POC surface.
+The GPL-3.0-only Go client now implements the mgmt compatibility surface,
+Noise-by-default transport, generated ESPHome 2026.7.0 protocol, bounded
+sessions, Fan and RGB Light commands, dependency-free `.local` multicast DNS,
+diagnostic error chains, and deterministic simulators. The adapter remains in
+this repository behind the original driver seam. mgmt pins an exact commit on
+the library's merged `main`, never a development branch.
 
 ### Portability verdict
 
@@ -121,8 +120,31 @@ richard87 for go-aioesphomeapi later means writing one new adapter file and
 changing one constructor. This is also the seam our unit tests use (fake
 driver).
 
-**Decision: richard87/esphome-apiclient now, behind the driver seam; migrate
-to go-aioesphomeapi when its M1 client contract is real.**
+**Current decision: use go-aioesphomeapi behind the driver seam. Preserve the
+Richard87 implementation at `feat/esphome-richard87` as the behavioral review
+baseline, not as the active dependency.**
+
+## 2026-07-17 implementation addendum
+
+The driver was swapped because go-aioesphomeapi now provides the mgmt-required
+surface with a smaller dependency graph, explicit secure defaults, a simulator,
+and a mgmt-first compatibility contract. The exact module revision is pinned
+in `go.mod` and is reachable from the library's merged `main` branch.
+
+The first replacement candidate accidentally delegated `.local` names to the
+host resolver. That regressed the original client's built-in multicast DNS
+behavior on servers without avahi or nss-mdns. The library now performs a
+bounded standard-library mDNS query in its default dial path, joins the mDNS
+multicast group, preserves resolver and dial causes, and bypasses this behavior
+when a test injects its own dialer. Both reviewed baseline examples and the
+conveyor example run against multicast responders without `/etc/hosts`
+substitution; a real ESPHome 2026.7.0 blink device also passed.
+
+The active mgmt adapter additionally preserves connect errors through the
+session, reports retries through the endpoint logger, validates Fan and Light
+commands against advertised capabilities, and keeps the one intentional
+behavioral difference from the Richard87 branch: an empty key cannot silently
+downgrade to plaintext.
 
 ## Architecture
 
@@ -405,11 +427,11 @@ esphome:switch "led_1" {
 }
 ```
 
-## File map (implementation order)
+## Historical file map (original implementation order)
 
 1. `docs/esphome-plan.md` -- this design document.
-2. `go.mod`/`go.sum` -- add `github.com/richard87/esphome-apiclient`
-   (resolve the go-1.26.1 directive: toolchain bump or trivial fork).
+2. `go.mod`/`go.sum` -- add the selected native api client behind the driver
+   seam. The current implementation uses go-aioesphomeapi and Go 1.25.10.
 3. `util/esphome/{esphome,session,driver,apiclient}.go` + fake-driver tests.
 4. `engine/resources/esphome.go` -- endpoint resource.
 5. `lang/core/net/esphome/{esphome,binary_sensor,sensor,text_sensor,connected}.go`
@@ -437,14 +459,10 @@ esphome:switch "led_1" {
 
 ## Future work (post-POC)
 
-- `esphome:fan` for H-bridge motor control (direction + speed) -- the
-  conveyor demo target shared with go-aioesphomeapi's roadmap.
-- `esphome:light`, `esphome:cover`, `esphome:button` (refresh-triggered
-  press).
+- Additional entity families beyond the implemented Fan, RGB Light, Switch,
+  Number, Button driver seam, and read-only sensor families.
 - Optional `{value, ready}` struct variants of the read functions
   (`value.get` pattern) when "zero vs not-yet-connected" must be
   distinguishable in mcl.
-- Upstream patches to richard87 (ByObjectID, go directive, ConnectRequest)
-  as needed; migrate the driver adapter to `go-aioesphomeapi` at its M1.
-- mDNS discovery of devices; a `net.esphome.entities(endpoint)` list
-  function.
+- Optional mDNS service browsing and a `net.esphome.entities(endpoint)` list
+  function. Direct `.local` A-record resolution is already implemented.

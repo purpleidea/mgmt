@@ -33,7 +33,9 @@ package esphome
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -44,6 +46,7 @@ type fakeDriver struct {
 	mutex sync.Mutex
 
 	failConnect bool
+	connectErr  error
 	entityList  []*EntityInfo
 	initial     []*EntityState // states pushed right after subscribe
 	fn          func(*EntityState)
@@ -56,6 +59,9 @@ type fakeDriver struct {
 
 func (obj *fakeDriver) connect(ctx context.Context, info *ConnInfo) error {
 	if obj.failConnect {
+		if obj.connectErr != nil {
+			return obj.connectErr
+		}
 		return fmt.Errorf("fake connect error")
 	}
 	obj.doneCh = make(chan struct{})
@@ -166,8 +172,14 @@ func (obj *fakeFactory) newDriver() driver {
 			{Key: 1, ObjectID: "button_a", Name: "Button A", Domain: DomainBinarySensor},
 			{Key: 2, ObjectID: "led_1", Name: "LED 1", Domain: DomainSwitch},
 			{Key: 3, ObjectID: "motor_speed", Name: "Motor Speed", Domain: DomainNumber},
-			{Key: 4, ObjectID: "conveyor_motor", Name: "Conveyor Motor", Domain: DomainFan},
-			{Key: 5, ObjectID: "status_light", Name: "Status Light", Domain: DomainLight},
+			{
+				Key: 4, ObjectID: "conveyor_motor", Name: "Conveyor Motor", Domain: DomainFan,
+				FanSupportsSpeed: true, FanSupportedSpeedCount: 100, FanSupportsDirection: true,
+			},
+			{
+				Key: 5, ObjectID: "status_light", Name: "Status Light", Domain: DomainLight,
+				LightSupportedColorModes: []string{LightColorModeRGB},
+			},
 		},
 		initial: []*EntityState{
 			{Key: 1, State: State{Domain: DomainBinarySensor, Bool: false}},
@@ -293,6 +305,86 @@ func TestSessionUnconfigured(t *testing.T) {
 	}
 }
 
+func TestSessionConnectFailureIsLoggedAndExposed(t *testing.T) {
+	wantErr := errors.New("resolver unavailable")
+	factory := &fakeFactory{prepare: func(d *fakeDriver) {
+		d.failConnect = true
+		d.connectErr = wantErr
+	}}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	logs := make(chan string, 1)
+	info := &ConnInfo{
+		Host: "broken-device.local", Port: DefaultPort,
+		ConnectLogf: func(format string, v ...interface{}) {
+			select {
+			case logs <- fmt.Sprintf(format, v...):
+			default:
+			}
+		},
+	}
+	session.Configure(info)
+
+	select {
+	case got := <-logs:
+		if !strings.Contains(got, info.Addr()) || !strings.Contains(got, wantErr.Error()) || !strings.Contains(got, "retrying in") {
+			t.Fatalf("connect log lacks target, cause, or retry: %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for connect failure log")
+	}
+
+	waitFor(t, "last connection error", func() bool { return session.LastError() != nil })
+	if !errors.Is(session.LastError(), wantErr) {
+		t.Fatalf("LastError() = %v, want wrapped cause", session.LastError())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err := session.WaitConnected(ctx, time.Second)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("WaitConnected() = %v, want wrapped cause", err)
+	}
+	if !strings.Contains(err.Error(), info.Addr()) {
+		t.Fatalf("WaitConnected() error lacks target: %v", err)
+	}
+}
+
+func TestSessionCapabilitiesRejectUnsupportedCommands(t *testing.T) {
+	factory := &fakeFactory{prepare: func(d *fakeDriver) {
+		for _, entity := range d.entityList {
+			switch entity.Domain {
+			case DomainFan:
+				entity.FanSupportedSpeedCount = 3
+				entity.FanSupportsDirection = false
+			case DomainLight:
+				entity.LightSupportedColorModes = []string{"COLOR_MODE_BRIGHTNESS"}
+			}
+		}
+	}}
+	session := testSession(t, factory)
+	defer session.Release()
+	session.Configure(&ConnInfo{Host: "fake", Port: DefaultPort})
+	waitFor(t, "connect", session.Connected)
+
+	fan := FanCommand{State: true, Speed: 35, Direction: FanDirectionForward, HasSpeed: true, HasDirection: true}
+	if err := session.ValidateFanCommand("Conveyor Motor", fan); err == nil || !strings.Contains(err.Error(), "supports 3 speed levels, got 35") {
+		t.Fatalf("fan capability error = %v", err)
+	}
+	light := LightCommand{State: true, HasBrightness: true, HasRGB: true}
+	if err := session.ValidateLightCommand("Status Light", light); err == nil || !strings.Contains(err.Error(), "does not support RGB") {
+		t.Fatalf("light capability error = %v", err)
+	}
+
+	if err := session.ValidateFanCommand("Conveyor Motor", FanCommand{State: false}); err != nil {
+		t.Fatalf("fan stop should not require optional capabilities: %v", err)
+	}
+	if err := session.ValidateLightCommand("Status Light", LightCommand{State: false}); err != nil {
+		t.Fatalf("light off should not require RGB capability: %v", err)
+	}
+}
+
 func TestSessionOneShotCleanupCommandUsesExplicitInfo(t *testing.T) {
 	factory := &fakeFactory{}
 	session := testSession(t, factory)
@@ -327,6 +419,36 @@ func TestSessionOneShotCleanupCommandUsesExplicitInfo(t *testing.T) {
 		if fmt.Sprint(commands) != fmt.Sprintf("[%s]", want) {
 			t.Fatalf("driver %d commands = %v, want %s", i+1, commands, want)
 		}
+	}
+}
+
+func TestSessionCleanupCommandPrefersHealthySession(t *testing.T) {
+	factory := &fakeFactory{}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	info := &ConnInfo{Host: "fake", Port: DefaultPort}
+	session.Configure(info)
+	waitFor(t, "connect", session.Connected)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := session.SetFanForCleanup(ctx, info, "Conveyor Motor", FanCommand{State: false}); err != nil {
+		t.Fatalf("shared fan cleanup: %v", err)
+	}
+	if err := session.SetNumberForCleanup(ctx, info, "motor_speed", 0); err != nil {
+		t.Fatalf("shared number cleanup: %v", err)
+	}
+	if factory.count() != 1 {
+		t.Fatalf("healthy cleanup opened another connection: %d", factory.count())
+	}
+	d := factory.driver(0)
+	d.mutex.Lock()
+	commands := append([]string(nil), d.commands...)
+	d.mutex.Unlock()
+	want := []string{"fan/4/false/0/", "number/3/0"}
+	if fmt.Sprint(commands) != fmt.Sprint(want) {
+		t.Fatalf("healthy cleanup commands = %v, want %v", commands, want)
 	}
 }
 
@@ -369,10 +491,10 @@ func TestSessionPersistent(t *testing.T) {
 	if err := session.SetSwitch(cctx, "led_1", true); err != nil {
 		t.Fatalf("set switch error: %v", err)
 	}
-	if err := session.SetFan(cctx, "Conveyor Motor", FanCommand{State: true, Speed: 40, Direction: FanDirectionForward}); err != nil {
+	if err := session.SetFan(cctx, "Conveyor Motor", FanCommand{State: true, Speed: 40, Direction: FanDirectionForward, HasSpeed: true, HasDirection: true}); err != nil {
 		t.Fatalf("set fan error: %v", err)
 	}
-	if err := session.SetLight(cctx, "Status Light", LightCommand{State: true, Brightness: 0.5, Green: 1}); err != nil {
+	if err := session.SetLight(cctx, "Status Light", LightCommand{State: true, Brightness: 0.5, Green: 1, HasBrightness: true, HasRGB: true}); err != nil {
 		t.Fatalf("set light error: %v", err)
 	}
 	d0 := factory.driver(0)

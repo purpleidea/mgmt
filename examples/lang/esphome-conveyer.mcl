@@ -1,0 +1,327 @@
+# Run the MGMT + ESPHome conveyor demonstration with native, encrypted API
+# control. MGMT owns the desired conveyor and status-light state; ESPHome owns
+# GPIO/I2C details and the safety rules that must still work without MGMT.
+#
+# This is a development-bench example, not a machine-safety system. Before
+# energizing a motor, review the real board pinout and DRV8833 wiring, add a
+# current limit and guards, and wire a physical emergency stop in series with
+# the motor supply or driver enable. A software stop is not an emergency stop.
+# Keep hands, hair, clothing, and loose parts clear of the belt.
+#
+# Copy the commented firmware below into esphome-conveyer.yaml. The GPIO values
+# are compileable ESP32 development-board placeholders; they are NOT a verified
+# CrowPanel or final-hardware pin assignment. Replace them only after checking
+# the schematic and checking for boot-strap, display, PSRAM, and other conflicts.
+# Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
+# sample API key in both files, then validate before flashing:
+#
+#   esphome config esphome-conveyer.yaml
+#   esphome run esphome-conveyer.yaml
+#
+# Run MGMT after a human has inspected the bench and released the physical stop:
+#
+#   mgmt run --tmp-prefix lang examples/lang/esphome-conveyer.mcl
+#
+# Firmware validated against the ESPHome 2026.7.0 component schemas:
+#
+# esphome:
+#   name: esphome-conveyer
+#   friendly_name: MGMT ESPHome Conveyer
+#   on_boot:
+#     priority: -100
+#     then:
+#       - fan.turn_off: conveyor_motor
+#       - light.turn_off: status_light
+#
+# esp32:
+#   board: esp32dev
+#   framework:
+#     type: esp-idf
+#
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#
+# logger:
+#   level: DEBUG
+#
+# api:
+#   id: native_api
+#   encryption:
+#     # Public demo key. Generate a unique key for every real device.
+#     key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+#   reboot_timeout: 5min
+#
+# ota:
+#   - platform: esphome
+#
+# # The fault latch survives a reboot. Only the explicit reset button clears
+# # it; neither an API reconnect nor a repeated fan command auto-resumes motion.
+# globals:
+#   - id: motor_fault
+#     type: bool
+#     restore_value: yes
+#     initial_value: "false"
+#
+# # Placeholder pins: verify every one against the actual controller schematic.
+# i2c:
+#   - id: main_i2c
+#     sda: GPIO21
+#     scl: GPIO22
+#     scan: true
+#
+# tca9548a:
+#   - id: sensor_mux
+#     i2c_id: main_i2c
+#     address: 0x70
+#     channels:
+#       - bus_id: entry_i2c
+#         channel: 0
+#       - bus_id: exit_i2c
+#         channel: 1
+#
+# apds9960:
+#   - id: entry_apds
+#     i2c_id: entry_i2c
+#     address: 0x39
+#     update_interval: 100ms
+#   - id: exit_apds
+#     i2c_id: exit_i2c
+#     address: 0x39
+#     update_interval: 100ms
+#
+# sensor:
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: PROXIMITY
+#     id: entry_proximity
+#     name: Entry Proximity
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: RED
+#     id: entry_red
+#     name: Entry Red
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: GREEN
+#     id: entry_green
+#     name: Entry Green
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: BLUE
+#     id: entry_blue
+#     name: Entry Blue
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: PROXIMITY
+#     id: exit_proximity
+#     name: Exit Proximity
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: RED
+#     name: Exit Red
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: GREEN
+#     name: Exit Green
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: BLUE
+#     name: Exit Blue
+#
+# binary_sensor:
+#   - platform: template
+#     id: entry_object_present
+#     name: Entry Object Present
+#     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
+#   - platform: template
+#     id: exit_object_present
+#     name: Exit Object Present
+#     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 20.0;
+#   - platform: template
+#     id: conveyor_run_request
+#     name: Conveyor Run Request
+#     # Latch an entry detection until the object reaches the exit. Returning
+#     # an empty optional keeps the last published value between those events.
+#     lambda: |-
+#       if (id(exit_object_present).state) return false;
+#       if (id(entry_object_present).state) return true;
+#       return {};
+#
+# output:
+#   - platform: ledc
+#     id: motor_forward_pwm
+#     pin: GPIO18
+#     frequency: 20kHz
+#   - platform: ledc
+#     id: motor_reverse_pwm
+#     pin: GPIO19
+#     frequency: 20kHz
+#   - platform: ledc
+#     id: status_red_pwm
+#     pin: GPIO25
+#   - platform: ledc
+#     id: status_green_pwm
+#     pin: GPIO26
+#   - platform: ledc
+#     id: status_blue_pwm
+#     pin: GPIO27
+#
+# fan:
+#   - platform: hbridge
+#     id: conveyor_motor
+#     name: Conveyor Motor
+#     pin_a: motor_forward_pwm
+#     pin_b: motor_reverse_pwm
+#     decay_mode: slow
+#     speed_count: 100
+#     restore_mode: ALWAYS_OFF
+#     on_turn_on:
+#       - if:
+#           condition:
+#             lambda: return id(motor_fault);
+#           then:
+#             - logger.log: "Blocked motor start: safety fault is latched"
+#             - fan.turn_off: conveyor_motor
+#           else:
+#             - script.execute: motor_runtime_limit
+#     on_turn_off:
+#       - script.stop: motor_runtime_limit
+#
+# light:
+#   - platform: rgb
+#     id: status_light
+#     name: Status Light
+#     red: status_red_pwm
+#     green: status_green_pwm
+#     blue: status_blue_pwm
+#     restore_mode: ALWAYS_OFF
+#
+# button:
+#   - platform: template
+#     id: reset_motor_fault
+#     name: Reset Motor Fault
+#     on_press:
+#       - fan.turn_off: conveyor_motor
+#       - globals.set:
+#           id: motor_fault
+#           value: "false"
+#       - logger.log: "Motor fault reset while motor is stopped"
+#
+# script:
+#   - id: motor_runtime_limit
+#     mode: restart
+#     then:
+#       - delay: 30s
+#       - globals.set:
+#           id: motor_fault
+#           value: "true"
+#       - fan.turn_off: conveyor_motor
+#       - logger.log: "Motor stopped: 30 second runtime limit reached"
+#
+# # Stop and latch locally if the state-subscribed controller disappears while
+# # the motor is running. Logger-only API sessions do not satisfy this lease.
+# interval:
+#   - interval: 500ms
+#     then:
+#       - if:
+#           condition:
+#             and:
+#               - fan.is_on: conveyor_motor
+#               - not:
+#                   api.connected:
+#                     state_subscription_only: true
+#           then:
+#             - globals.set:
+#                 id: motor_fault
+#                 value: "true"
+#             - fan.turn_off: conveyor_motor
+#             - logger.log: "Motor stopped: native API control lease was lost"
+
+import "fmt"
+import "net/esphome"
+
+$endpoint = "esphome-conveyer"
+$motor = "Conveyor Motor"
+$light = "Status Light"
+
+$entry_present = esphome.binary_sensor($endpoint, "Entry Object Present")
+$exit_present = esphome.binary_sensor($endpoint, "Exit Object Present")
+$run_request = esphome.binary_sensor($endpoint, "Conveyor Run Request")
+$red = esphome.sensor($endpoint, "Entry Red")
+$green = esphome.sensor($endpoint, "Entry Green")
+$blue = esphome.sensor($endpoint, "Entry Blue")
+
+# Show the object's dominant measured color while it is at the entry sensor.
+# Named colors and an exact #RRGGBB value both exercise esphome:light's stable
+# color contract. Blue means idle, green means arrived, and orange means the
+# sensor sees an object without a clear red/green/blue winner.
+$status_color = if $exit_present {
+	"green"
+} else {
+	if $entry_present {
+		if $red > $green and $red > $blue {
+			"red"
+		} else {
+			if $green > $red and $green > $blue {
+				"#00ff00"
+			} else {
+				if $blue > $red and $blue > $green {
+					"blue"
+				} else {
+					"orange"
+				}
+			}
+		}
+	} else {
+		"blue"
+	}
+}
+
+esphome:endpoint $endpoint {
+	host => "esphome-conveyer.local",
+	# Public sample key: replace it here and in the firmware before real use.
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=",
+	interval => 0,
+	logs => "info",
+}
+
+esphome:fan $motor {
+	endpoint => $endpoint,
+	state => if $run_request {
+		"on"
+	} else {
+		"off"
+	},
+	speed => 35,
+	direction => "forward",
+	# On a long outage, stop before retrying the desired state. The firmware
+	# lease, persistent fault latch, runtime limit, and physical stop remain the
+	# authoritative safety layers.
+	stop => 5,
+	Meta:retry => -1,
+	Meta:delay => 5000,
+}
+
+esphome:light $light {
+	endpoint => $endpoint,
+	state => "on",
+	brightness => 0.35,
+	color => $status_color,
+}
+
+print "conveyor telemetry" {
+	msg => fmt.printf(
+		"entry=%v exit=%v run=%v rgb=(%f, %f, %f) status=%s",
+		$entry_present,
+		$exit_present,
+		$run_request,
+		$red,
+		$green,
+		$blue,
+		$status_color,
+	),
+}
+
+Esphome:Endpoint[$endpoint] -> Esphome:Fan[$motor]
+Esphome:Endpoint[$endpoint] -> Esphome:Light[$light]

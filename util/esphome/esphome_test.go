@@ -489,6 +489,34 @@ func TestSessionPoll(t *testing.T) {
 	}
 }
 
+func TestSessionQueuedWakeDistinguishesStaleConfiguration(t *testing.T) {
+	session := &Session{
+		mutex:      &sync.Mutex{},
+		generation: 1,
+		wake:       make(chan struct{}, 1),
+	}
+
+	// A wake for the configuration already observed by the mainloop is
+	// stale and must not truncate the polling snapshot-settle window.
+	session.wakeup()
+	if session.consumeQueuedWake(1) {
+		t.Fatal("unchanged configuration requested an unnecessary restart")
+	}
+	if len(session.wake) != 0 {
+		t.Fatal("stale configuration wake was not drained")
+	}
+
+	// A wake paired with a newer generation is a real reconfiguration and
+	// must restart before connecting with obsolete parameters.
+	session.mutex.Lock()
+	session.generation = 2
+	session.mutex.Unlock()
+	session.wakeup()
+	if !session.consumeQueuedWake(1) {
+		t.Fatal("new configuration did not request a restart")
+	}
+}
+
 func TestSessionConnectFailure(t *testing.T) {
 	factory := &fakeFactory{
 		prepare: func(d *fakeDriver) { d.failConnect = true },

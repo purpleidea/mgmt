@@ -483,6 +483,18 @@ func (obj *Session) stale(generation uint64) bool {
 	return obj.generation != generation
 }
 
+// consumeQueuedWake drains one wake queued before a connection cycle starts.
+// It returns true only when that wake represents a real configuration change.
+// Command wakes can be coalesced because the cycle flushes pending commands.
+func (obj *Session) consumeQueuedWake(generation uint64) bool {
+	select {
+	case <-obj.wake:
+		return obj.stale(generation)
+	default:
+		return false
+	}
+}
+
 // sleep waits for the given duration, but returns early on a wakeup or on
 // shutdown. It returns an error only on shutdown.
 func (obj *Session) sleep(d time.Duration) error {
@@ -541,6 +553,16 @@ func (obj *Session) mainloop() {
 			case <-obj.ctx.Done():
 				return
 			}
+		}
+
+		// Configure can race with mainloop startup: the loop can observe the
+		// new info before it consumes the corresponding wake signal. Do not
+		// let that stale signal cut a polling snapshot-settle window short.
+		// A real reconfiguration changes the generation and restarts now;
+		// command wakes are safe to coalesce because pending commands flush on
+		// the connection below.
+		if obj.consumeQueuedWake(generation) {
+			continue
 		}
 
 		if info.Interval > 0 {

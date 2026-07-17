@@ -231,11 +231,12 @@ type EntityInfo struct {
 	// Key is the numeric entity key used by the wire protocol.
 	Key uint32
 
-	// ObjectID is the stable object_id from the device yaml. This is how
-	// mcl users address entities.
+	// ObjectID is the legacy object_id. ESPHome 2026.7 and newer can leave
+	// this empty, so consumers should also support Name.
 	ObjectID string
 
-	// Name is the friendly name of the entity.
+	// Name is the entity name and the preferred identifier for current
+	// ESPHome versions.
 	Name string
 
 	// Domain is the entity domain, eg: "binary_sensor" or "switch".

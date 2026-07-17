@@ -1,6 +1,6 @@
-# Run the MGMT + ESPHome conveyor demonstration with native, encrypted API
-# control. MGMT owns the desired conveyor and status-light state; ESPHome owns
-# GPIO/I2C details and the safety rules that must still work without MGMT.
+# Run the mgmt + ESPHome conveyor demonstration with native, encrypted API
+# control. mgmt owns the desired conveyor and status-light state; ESPHome owns
+# GPIO/I2C details and the safety rules that must still work without mgmt.
 #
 # This is a development-bench example, not a machine-safety system. Before
 # energizing a motor, review the real board pinout and DRV8833 wiring, add a
@@ -8,25 +8,25 @@
 # the motor supply or driver enable. A software stop is not an emergency stop.
 # Keep hands, hair, clothing, and loose parts clear of the belt.
 #
-# Copy the commented firmware below into esphome-conveyer.yaml. The GPIO values
+# Copy the commented firmware below into esphome-conveyor.yaml. The GPIO values
 # are compileable ESP32 development-board placeholders; they are NOT a verified
 # CrowPanel or final-hardware pin assignment. Replace them only after checking
 # the schematic and checking for boot-strap, display, PSRAM, and other conflicts.
 # Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
 # sample API key in both files, then validate before flashing:
 #
-#   esphome config esphome-conveyer.yaml
-#   esphome run esphome-conveyer.yaml
+#   esphome config esphome-conveyor.yaml
+#   esphome run esphome-conveyor.yaml
 #
-# Run MGMT after a human has inspected the bench and released the physical stop:
+# Run mgmt after a human has inspected the bench and released the physical stop:
 #
-#   mgmt run --tmp-prefix lang examples/lang/esphome-conveyer.mcl
+#   mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
 #
 # Firmware validated against the ESPHome 2026.7.0 component schemas:
 #
 # esphome:
-#   name: esphome-conveyer
-#   friendly_name: MGMT ESPHome Conveyer
+#   name: esphome-conveyor
+#   friendly_name: mgmt ESPHome Conveyor
 #   on_boot:
 #     priority: -100
 #     then:
@@ -241,7 +241,7 @@
 import "fmt"
 import "net/esphome"
 
-$endpoint = "esphome-conveyer"
+$endpoint = "esphome-conveyor"
 $motor = "Conveyor Motor"
 $light = "Status Light"
 
@@ -279,7 +279,7 @@ $status_color = if $exit_present {
 }
 
 esphome:endpoint $endpoint {
-	host => "esphome-conveyer.local",
+	host => "esphome-conveyor.local",
 	# Public sample key: replace it here and in the firmware before real use.
 	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=",
 	interval => 0,

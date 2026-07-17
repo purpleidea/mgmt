@@ -101,6 +101,7 @@ func TestEsphomeLightValidateAndCommand(t *testing.T) {
 	want := esphomeUtil.LightCommand{
 		State: true, Brightness: 0.5, Red: 1,
 		Green: float64(float32(128.0 / 255)), Blue: 0,
+		HasBrightness: true, HasRGB: true,
 	}
 	if command != want {
 		t.Fatalf("light command = %+v, want %+v", command, want)

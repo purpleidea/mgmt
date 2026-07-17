@@ -59,13 +59,14 @@ func (obj *apiClientDriver) connect(ctx context.Context, info *ConnInfo) error {
 		// in 2026.1, and our driver doesn't implement it either.
 		return fmt.Errorf("legacy password auth is not supported, use the noise key")
 	}
+	if info.Key == "" {
+		return fmt.Errorf("empty noise encryption key")
+	}
 
 	opts := []apiclient.Option{
 		apiclient.WithClientInfo("mgmt"),
 	}
-	if info.Key != "" {
-		opts = append(opts, apiclient.WithEncryptionKey(info.Key))
-	}
+	opts = append(opts, apiclient.WithEncryptionKey(info.Key))
 
 	client, err := apiclient.DialWithContext(ctx, info.Addr(), dialTimeout, opts...)
 	if err != nil {
@@ -100,6 +101,12 @@ func (obj *apiClientDriver) entities() ([]*EntityInfo, error) {
 	}
 	for _, e := range registry.Buttons() {
 		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainButton})
+	}
+	for _, e := range registry.Fans() {
+		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainFan})
+	}
+	for _, e := range registry.Lights() {
+		result = append(result, &EntityInfo{Key: e.Key, ObjectID: e.ObjectID, Name: e.Name, Domain: DomainLight})
 	}
 	return result, nil
 }
@@ -143,6 +150,28 @@ func (obj *apiClientDriver) subscribe(fn func(*EntityState)) error {
 				Domain:  DomainNumber,
 				Float:   float64(m.State),
 				Missing: m.MissingState || math.IsNaN(float64(m.State)),
+			}})
+
+		case *pb.FanStateResponse:
+			direction := FanDirectionForward
+			if m.Direction == pb.FanDirection_FAN_DIRECTION_REVERSE {
+				direction = FanDirectionReverse
+			}
+			fn(&EntityState{Key: m.Key, State: State{
+				Domain:    DomainFan,
+				Bool:      m.State,
+				Speed:     m.SpeedLevel,
+				Direction: direction,
+			}})
+
+		case *pb.LightStateResponse:
+			fn(&EntityState{Key: m.Key, State: State{
+				Domain:     DomainLight,
+				Bool:       m.State,
+				Brightness: float64(m.Brightness),
+				Red:        float64(m.Red),
+				Green:      float64(m.Green),
+				Blue:       float64(m.Blue),
 			}})
 		}
 	})
@@ -198,4 +227,34 @@ func (obj *apiClientDriver) setNumber(key uint32, value float64) error {
 // pressButton presses a button entity by key.
 func (obj *apiClientDriver) pressButton(key uint32) error {
 	return obj.client.PressButton(key)
+}
+
+func (obj *apiClientDriver) setFan(key uint32, command FanCommand) error {
+	direction := pb.FanDirection_FAN_DIRECTION_FORWARD
+	if command.Direction == FanDirectionReverse {
+		direction = pb.FanDirection_FAN_DIRECTION_REVERSE
+	}
+	return obj.client.SetFan(key, apiclient.FanCommandOpts{
+		HasState:      true,
+		State:         command.State,
+		HasSpeedLevel: true,
+		SpeedLevel:    command.Speed,
+		HasDirection:  true,
+		Direction:     direction,
+	})
+}
+
+func (obj *apiClientDriver) setLight(key uint32, command LightCommand) error {
+	return obj.client.SetLight(key, apiclient.LightCommandOpts{
+		HasState:      true,
+		State:         command.State,
+		HasBrightness: true,
+		Brightness:    float32(command.Brightness),
+		HasColorMode:  true,
+		ColorMode:     pb.ColorMode_COLOR_MODE_RGB,
+		HasRGB:        true,
+		Red:           float32(command.Red),
+		Green:         float32(command.Green),
+		Blue:          float32(command.Blue),
+	})
 }

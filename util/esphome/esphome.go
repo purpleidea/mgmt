@@ -74,6 +74,17 @@ const (
 	// DomainButton is the entity domain for momentary press-only entities.
 	DomainButton = "button"
 
+	// DomainFan is the entity domain for fans, including H-bridge motor
+	// controllers exposed through ESPHome's fan abstraction.
+	DomainFan = "fan"
+
+	// DomainLight is the entity domain for lights.
+	DomainLight = "light"
+
+	// Fan directions used by the Native API.
+	FanDirectionForward = "forward"
+	FanDirectionReverse = "reverse"
+
 	// Log levels accepted by the esphome native api.
 	LogLevelError       = "error"
 	LogLevelWarn        = "warn"
@@ -115,8 +126,8 @@ type ConnInfo struct {
 	// Port is the port of the esphome native api. This is usually 6053.
 	Port int
 
-	// Key is the base64 encoded noise encryption key of the device. If it
-	// is empty, then a plaintext connection is attempted instead.
+	// Key is the base64 encoded noise encryption key of the device. It is
+	// required so callers cannot silently downgrade to plaintext.
 	Key string
 
 	// Password is the legacy api password. This auth mechanism was
@@ -156,6 +167,9 @@ func (obj *ConnInfo) Validate() error {
 	}
 	if obj.Port <= 0 || obj.Port > 65535 {
 		return fmt.Errorf("invalid port: %d", obj.Port)
+	}
+	if obj.Key == "" {
+		return fmt.Errorf("empty noise encryption key")
 	}
 	if obj.Key != "" && obj.Password != "" {
 		return fmt.Errorf("key and password are mutually exclusive")
@@ -222,8 +236,36 @@ type State struct {
 	// Str holds the value for the text_sensor domain.
 	Str string
 
+	// Speed is the discrete speed level of a fan.
+	Speed int32
+
+	// Direction is the forward/reverse direction of a fan.
+	Direction string
+
+	// Brightness and RGB hold normalized light values in the range 0..1.
+	Brightness float64
+	Red        float64
+	Green      float64
+	Blue       float64
+
 	// Missing is true if the device reported this state as unknown.
 	Missing bool
+}
+
+// FanCommand is the complete desired fan state sent by MGMT.
+type FanCommand struct {
+	State     bool
+	Speed     int32
+	Direction string
+}
+
+// LightCommand is the complete desired RGB light state sent by MGMT.
+type LightCommand struct {
+	State      bool
+	Brightness float64
+	Red        float64
+	Green      float64
+	Blue       float64
 }
 
 // EntityInfo describes one entity that a device advertises.

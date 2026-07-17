@@ -32,6 +32,8 @@ package resources
 import (
 	"context"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +69,8 @@ func init() {
 	engine.RegisterResource(esphomeUtil.BridgeNamespace, func() engine.Res { return &EsphomeEndpointRes{} })
 	engine.RegisterResource(esphomeKind+":switch", func() engine.Res { return &EsphomeSwitchRes{} })
 	engine.RegisterResource(esphomeKind+":number", func() engine.Res { return &EsphomeNumberRes{} })
+	engine.RegisterResource(esphomeKind+":fan", func() engine.Res { return &EsphomeFanRes{} })
+	engine.RegisterResource(esphomeKind+":light", func() engine.Res { return &EsphomeLightRes{} })
 }
 
 // EsphomeEndpointRes describes how to connect to one esphome device. It doesn't
@@ -87,8 +91,8 @@ type EsphomeEndpointRes struct {
 	Port int `lang:"port" yaml:"port"`
 
 	// Key is the base64 encoded noise encryption key of the device, from
-	// the `api: encryption: key:` field of the device yaml. If it is empty,
-	// then a plaintext connection is attempted instead.
+	// the `api: encryption: key:` field of the device yaml. It is required;
+	// MGMT never silently downgrades a device connection to plaintext.
 	Key string `lang:"key" yaml:"key"`
 
 	// Password is the legacy api password. This auth mechanism was
@@ -647,5 +651,329 @@ func (obj *EsphomeNumberRes) UnmarshalYAML(unmarshal func(interface{}) error) er
 	}
 
 	*obj = EsphomeNumberRes(raw) // restore from indirection with type conversion!
+	return nil
+}
+
+// EsphomeFanRes manages an ESPHome fan entity. ESPHome's hbridge fan platform
+// makes this a useful abstraction for a reversible DC motor such as the
+// conveyor demo. The name is the exact ESPHome entity name (or a legacy
+// object_id), unless id overrides it.
+//
+// Stop is an MGMT-side recovery and cleanup interlock. It is not a substitute
+// for a local firmware timeout, a current limit, guards, or a physical e-stop.
+type EsphomeFanRes struct {
+	traits.Base
+
+	init *engine.Init
+
+	Endpoint  string `lang:"endpoint" yaml:"endpoint"`
+	State     string `lang:"state" yaml:"state"`
+	Speed     int32  `lang:"speed" yaml:"speed"`
+	Direction string `lang:"direction" yaml:"direction"`
+	Id        string `lang:"id" yaml:"id"`
+	Stop      uint32 `lang:"stop" yaml:"stop"`
+
+	session  *esphomeUtil.Session
+	outageID uint64
+}
+
+func (obj *EsphomeFanRes) getId() string {
+	if obj.Id != "" {
+		return obj.Id
+	}
+	return obj.Name()
+}
+
+func (obj *EsphomeFanRes) command(on bool) esphomeUtil.FanCommand {
+	return esphomeUtil.FanCommand{State: on, Speed: obj.Speed, Direction: obj.Direction}
+}
+
+func (obj *EsphomeFanRes) Default() engine.Res {
+	return &EsphomeFanRes{Speed: 100, Direction: esphomeUtil.FanDirectionForward}
+}
+
+func (obj *EsphomeFanRes) Validate() error {
+	if obj.Endpoint == "" {
+		return fmt.Errorf("empty endpoint")
+	}
+	if obj.State != esphomeStateOn && obj.State != esphomeStateOff {
+		return fmt.Errorf("state must be `%s` or `%s`", esphomeStateOn, esphomeStateOff)
+	}
+	if obj.Speed < 1 || obj.Speed > 100 {
+		return fmt.Errorf("speed must be between 1 and 100")
+	}
+	if obj.Direction != esphomeUtil.FanDirectionForward && obj.Direction != esphomeUtil.FanDirectionReverse {
+		return fmt.Errorf("direction must be `%s` or `%s`", esphomeUtil.FanDirectionForward, esphomeUtil.FanDirectionReverse)
+	}
+	if obj.getId() == "" {
+		return fmt.Errorf("empty id")
+	}
+	return nil
+}
+
+func (obj *EsphomeFanRes) Init(init *engine.Init) error {
+	obj.init = init
+	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
+	return nil
+}
+
+func (obj *EsphomeFanRes) Cleanup() error {
+	if obj.session == nil {
+		return nil
+	}
+	if obj.Stop > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
+		defer cancel()
+		if err := obj.session.SetFan(ctx, obj.getId(), obj.command(false)); err != nil {
+			obj.init.Logf("could not stop the fan on cleanup: %v", err)
+		}
+	}
+	obj.session.Release()
+	return nil
+}
+
+func (obj *EsphomeFanRes) Watch(ctx context.Context) error {
+	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
+}
+
+func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+		return false, err
+	}
+
+	if obj.Stop > 0 {
+		outage, id := obj.session.LastOutage()
+		if id != obj.outageID && outage >= time.Duration(obj.Stop)*time.Second {
+			if !apply {
+				return false, nil
+			}
+			if err := obj.session.SetFan(ctx, obj.getId(), obj.command(false)); err != nil {
+				return false, errwrap.Wrapf(err, "could not stop the fan after an outage")
+			}
+			obj.outageID = id
+			return false, fmt.Errorf("device was disconnected for %.1fs (stop is %ds), stopped fan", outage.Seconds(), obj.Stop)
+		}
+		obj.outageID = id
+	}
+
+	desired := obj.State == esphomeStateOn
+	state := obj.session.State(obj.getId())
+	if state != nil && state.Domain == esphomeUtil.DomainFan && !state.Missing &&
+		state.Bool == desired && (!desired || (state.Speed == obj.Speed && state.Direction == obj.Direction)) {
+		return true, nil
+	}
+	if !apply {
+		return false, nil
+	}
+
+	obj.init.Logf("turning fan %s at speed %d in the %s direction", obj.State, obj.Speed, obj.Direction)
+	if err := obj.session.SetFan(ctx, obj.getId(), obj.command(desired)); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (obj *EsphomeFanRes) Cmp(r engine.Res) error {
+	res, ok := r.(*EsphomeFanRes)
+	if !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+	if obj.Endpoint != res.Endpoint {
+		return fmt.Errorf("the Endpoint differs")
+	}
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
+	}
+	if obj.Speed != res.Speed {
+		return fmt.Errorf("the Speed differs")
+	}
+	if obj.Direction != res.Direction {
+		return fmt.Errorf("the Direction differs")
+	}
+	if obj.Id != res.Id {
+		return fmt.Errorf("the Id differs")
+	}
+	if obj.Stop != res.Stop {
+		return fmt.Errorf("the Stop differs")
+	}
+	return nil
+}
+
+func (obj *EsphomeFanRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes EsphomeFanRes
+	res, ok := obj.Default().(*EsphomeFanRes)
+	if !ok {
+		return fmt.Errorf("could not convert to EsphomeFanRes")
+	}
+	raw := rawRes(*res)
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+	*obj = EsphomeFanRes(raw)
+	return nil
+}
+
+// EsphomeLightRes manages an RGB ESPHome light. Color accepts a small stable
+// vocabulary of names or an exact #RRGGBB value; parseEsphomeColor is kept
+// independent so this contract is straightforward to test.
+type EsphomeLightRes struct {
+	traits.Base
+
+	init *engine.Init
+
+	Endpoint   string  `lang:"endpoint" yaml:"endpoint"`
+	State      string  `lang:"state" yaml:"state"`
+	Brightness float64 `lang:"brightness" yaml:"brightness"`
+	Color      string  `lang:"color" yaml:"color"`
+	Id         string  `lang:"id" yaml:"id"`
+
+	session *esphomeUtil.Session
+}
+
+func (obj *EsphomeLightRes) getId() string {
+	if obj.Id != "" {
+		return obj.Id
+	}
+	return obj.Name()
+}
+
+func parseEsphomeColor(value string) (float64, float64, float64, error) {
+	named := map[string]uint64{
+		"black": 0x000000, "white": 0xffffff, "red": 0xff0000,
+		"green": 0x00ff00, "blue": 0x0000ff, "yellow": 0xffff00,
+		"cyan": 0x00ffff, "magenta": 0xff00ff, "orange": 0xff8000,
+		"purple": 0x8000ff,
+	}
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	rgb, ok := named[normalized]
+	if !ok {
+		if len(normalized) != 7 || normalized[0] != '#' {
+			return 0, 0, 0, fmt.Errorf("color must be a supported name or #RRGGBB")
+		}
+		var err error
+		rgb, err = strconv.ParseUint(normalized[1:], 16, 24)
+		if err != nil {
+			return 0, 0, 0, fmt.Errorf("invalid color %q: %v", value, err)
+		}
+	}
+	// Round through float32 because that is the Native API wire type. This
+	// makes the desired value exactly comparable with the received state.
+	channel := func(shift uint) float64 {
+		return float64(float32(float64((rgb>>shift)&0xff) / 255))
+	}
+	return channel(16), channel(8), channel(0), nil
+}
+
+func (obj *EsphomeLightRes) command(on bool) (esphomeUtil.LightCommand, error) {
+	red, green, blue, err := parseEsphomeColor(obj.Color)
+	if err != nil {
+		return esphomeUtil.LightCommand{}, err
+	}
+	return esphomeUtil.LightCommand{
+		State: on, Brightness: float64(float32(obj.Brightness)),
+		Red: red, Green: green, Blue: blue,
+	}, nil
+}
+
+func (obj *EsphomeLightRes) Default() engine.Res {
+	return &EsphomeLightRes{Brightness: 1, Color: "white"}
+}
+
+func (obj *EsphomeLightRes) Validate() error {
+	if obj.Endpoint == "" {
+		return fmt.Errorf("empty endpoint")
+	}
+	if obj.State != esphomeStateOn && obj.State != esphomeStateOff {
+		return fmt.Errorf("state must be `%s` or `%s`", esphomeStateOn, esphomeStateOff)
+	}
+	if math.IsNaN(obj.Brightness) || math.IsInf(obj.Brightness, 0) || obj.Brightness < 0 || obj.Brightness > 1 {
+		return fmt.Errorf("brightness must be between 0 and 1")
+	}
+	if _, _, _, err := parseEsphomeColor(obj.Color); err != nil {
+		return err
+	}
+	if obj.getId() == "" {
+		return fmt.Errorf("empty id")
+	}
+	return nil
+}
+
+func (obj *EsphomeLightRes) Init(init *engine.Init) error {
+	obj.init = init
+	obj.session = esphomeUtil.SessionReserve(obj.Endpoint)
+	return nil
+}
+
+func (obj *EsphomeLightRes) Cleanup() error {
+	if obj.session != nil {
+		obj.session.Release()
+	}
+	return nil
+}
+
+func (obj *EsphomeLightRes) Watch(ctx context.Context) error {
+	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
+}
+
+func (obj *EsphomeLightRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+		return false, err
+	}
+	desired := obj.State == esphomeStateOn
+	command, err := obj.command(desired)
+	if err != nil {
+		return false, err
+	}
+	state := obj.session.State(obj.getId())
+	if state != nil && state.Domain == esphomeUtil.DomainLight && !state.Missing && state.Bool == desired &&
+		(!desired || (state.Brightness == command.Brightness && state.Red == command.Red &&
+			state.Green == command.Green && state.Blue == command.Blue)) {
+		return true, nil
+	}
+	if !apply {
+		return false, nil
+	}
+
+	obj.init.Logf("turning light %s at brightness %v with color %s", obj.State, obj.Brightness, obj.Color)
+	if err := obj.session.SetLight(ctx, obj.getId(), command); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (obj *EsphomeLightRes) Cmp(r engine.Res) error {
+	res, ok := r.(*EsphomeLightRes)
+	if !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+	if obj.Endpoint != res.Endpoint {
+		return fmt.Errorf("the Endpoint differs")
+	}
+	if obj.State != res.State {
+		return fmt.Errorf("the State differs")
+	}
+	if obj.Brightness != res.Brightness {
+		return fmt.Errorf("the Brightness differs")
+	}
+	if obj.Color != res.Color {
+		return fmt.Errorf("the Color differs")
+	}
+	if obj.Id != res.Id {
+		return fmt.Errorf("the Id differs")
+	}
+	return nil
+}
+
+func (obj *EsphomeLightRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawRes EsphomeLightRes
+	res, ok := obj.Default().(*EsphomeLightRes)
+	if !ok {
+		return fmt.Errorf("could not convert to EsphomeLightRes")
+	}
+	raw := rawRes(*res)
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+	*obj = EsphomeLightRes(raw)
 	return nil
 }

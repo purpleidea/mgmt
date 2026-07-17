@@ -75,4 +75,10 @@ type driver interface {
 
 	// pressButton presses a button entity by key.
 	pressButton(key uint32) error
+
+	// setFan sets the complete desired fan state by key.
+	setFan(key uint32, command FanCommand) error
+
+	// setLight sets the complete desired RGB light state by key.
+	setLight(key uint32, command LightCommand) error
 }

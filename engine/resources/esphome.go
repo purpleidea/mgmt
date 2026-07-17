@@ -319,8 +319,8 @@ func esphomeSessionReady(ctx context.Context, init *engine.Init, session *esphom
 }
 
 // EsphomeSwitchRes manages a switch entity on an esphome device, such as a gpio
-// output pin, a relay, or an led. The name is the object_id of the entity from
-// the device yaml, unless the id field overrides it. Because we subscribe to
+// output pin, a relay, or an led. The name is the exact ESPHome entity name (or
+// a legacy object_id), unless the id field overrides it. Because we subscribe to
 // the device state, an out-of-band change (eg: someone toggling the switch from
 // home assistant or the device web ui) generates an event, and mgmt repairs it.
 type EsphomeSwitchRes struct {
@@ -336,14 +336,14 @@ type EsphomeSwitchRes struct {
 	// `off`.
 	State string `lang:"state" yaml:"state"`
 
-	// Id is the object_id of the switch entity on the device. It defaults
-	// to the name of this resource.
+	// Id is the exact entity name or legacy object_id of the switch on the
+	// device. It defaults to the name of this resource.
 	Id string `lang:"id" yaml:"id"`
 
 	session *esphomeUtil.Session
 }
 
-// getId returns the object_id of the entity we manage.
+// getId returns the identifier of the entity we manage.
 func (obj *EsphomeSwitchRes) getId() string {
 	if obj.Id != "" {
 		return obj.Id
@@ -459,8 +459,8 @@ func (obj *EsphomeSwitchRes) UnmarshalYAML(unmarshal func(interface{}) error) er
 }
 
 // EsphomeNumberRes manages a number entity on an esphome device, such as a
-// setpoint or a motor speed. The name is the object_id of the entity from the
-// device yaml, unless the id field overrides it.
+// setpoint or a motor speed. The name is the exact ESPHome entity name (or a
+// legacy object_id), unless the id field overrides it.
 //
 // Because a number often drives something physical, this resource has an
 // optional safety interlock for when the device becomes disconnected from us:
@@ -482,8 +482,8 @@ type EsphomeNumberRes struct {
 	// Value is the desired value of the number entity.
 	Value float64 `lang:"value" yaml:"value"`
 
-	// Id is the object_id of the number entity on the device. It defaults
-	// to the name of this resource.
+	// Id is the exact entity name or legacy object_id of the number entity on
+	// the device. It defaults to the name of this resource.
 	Id string `lang:"id" yaml:"id"`
 
 	// Stop enables the safety interlock when set to a positive number of
@@ -509,7 +509,7 @@ type EsphomeNumberRes struct {
 	outageID uint64
 }
 
-// getId returns the object_id of the entity we manage.
+// getId returns the identifier of the entity we manage.
 func (obj *EsphomeNumberRes) getId() string {
 	if obj.Id != "" {
 		return obj.Id

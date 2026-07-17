@@ -35,8 +35,8 @@ import (
 	"math"
 	"strings"
 
-	apiclient "github.com/richard87/esphome-apiclient"
-	"github.com/richard87/esphome-apiclient/pb"
+	apiclient "github.com/flavio-fernandes/go-aioesphomeapi"
+	"github.com/flavio-fernandes/go-aioesphomeapi/pb"
 	"google.golang.org/protobuf/proto"
 )
 

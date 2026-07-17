@@ -257,6 +257,15 @@ func (obj *Session) SetNumber(ctx context.Context, identifier string, value floa
 	})
 }
 
+// SetNumberWithInfo commands a number entity through a one-shot connection
+// using the supplied connection info. It is intended for shutdown safety
+// cleanup, where the shared endpoint may already be unpublished.
+func (obj *Session) SetNumberWithInfo(ctx context.Context, info *ConnInfo, identifier string, value float64) error {
+	return obj.runOnce(ctx, info, identifier, func(d driver, key uint32) error {
+		return d.setNumber(key, value)
+	})
+}
+
 // PressButton presses a button entity by exact name or legacy object_id. With a
 // persistent connection it runs immediately. In polling mode it wakes the
 // poller to connect right away, and returns once the command has actually been
@@ -274,11 +283,40 @@ func (obj *Session) SetFan(ctx context.Context, identifier string, command FanCo
 	})
 }
 
+// SetFanWithInfo commands a fan entity through a one-shot connection using the
+// supplied connection info. It is intended for shutdown safety cleanup, where
+// the shared endpoint may already be unpublished.
+func (obj *Session) SetFanWithInfo(ctx context.Context, info *ConnInfo, identifier string, command FanCommand) error {
+	return obj.runOnce(ctx, info, identifier, func(d driver, key uint32) error {
+		return d.setFan(key, command)
+	})
+}
+
 // SetLight commands an RGB light entity by exact name or legacy object_id.
 func (obj *Session) SetLight(ctx context.Context, identifier string, command LightCommand) error {
 	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.setLight(key, command)
 	})
+}
+
+func (obj *Session) runOnce(ctx context.Context, info *ConnInfo, identifier string, fn func(driver, uint32) error) error {
+	if info == nil {
+		return fmt.Errorf("endpoint `%s` is not configured", obj.uid)
+	}
+	d := obj.newDriver()
+	if err := d.connect(ctx, info); err != nil {
+		return err
+	}
+	defer d.close()
+	entities, err := d.entities()
+	if err != nil {
+		return err
+	}
+	key, err := lookupEntityKey(entities, identifier)
+	if err != nil {
+		return err
+	}
+	return fn(d, key)
 }
 
 // run queues one command for the mainloop to execute against a live driver,
@@ -325,6 +363,15 @@ func (obj *Session) lookup(identifier string) (uint32, error) {
 			if id == identifier {
 				return key, nil
 			}
+		}
+	}
+	return 0, fmt.Errorf("unknown entity: `%s`", identifier)
+}
+
+func lookupEntityKey(entities []*EntityInfo, identifier string) (uint32, error) {
+	for _, entity := range entities {
+		if entity.Name == identifier || entity.ObjectID == identifier {
+			return entity.Key, nil
 		}
 	}
 	return 0, fmt.Errorf("unknown entity: `%s`", identifier)

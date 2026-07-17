@@ -293,6 +293,43 @@ func TestSessionUnconfigured(t *testing.T) {
 	}
 }
 
+func TestSessionOneShotCleanupCommandUsesExplicitInfo(t *testing.T) {
+	factory := &fakeFactory{}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	info := &ConnInfo{Host: "fake", Port: DefaultPort}
+	session.Configure(info)
+	waitFor(t, "connect", session.Connected)
+	session.Configure(nil)
+	waitFor(t, "unconfigure", func() bool { return !session.Connected() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := session.SetFanWithInfo(ctx, info, "Conveyor Motor", FanCommand{State: false, Speed: 35, Direction: FanDirectionForward}); err != nil {
+		t.Fatalf("one-shot fan cleanup: %v", err)
+	}
+	if err := session.SetNumberWithInfo(ctx, info, "motor_speed", 0); err != nil {
+		t.Fatalf("one-shot number cleanup: %v", err)
+	}
+
+	if factory.count() < 3 {
+		t.Fatalf("expected persistent plus two one-shot connections, got: %d", factory.count())
+	}
+	for i, want := range []string{"fan/4/false/35/forward", "number/3/0"} {
+		d := factory.driver(i + 1)
+		if d == nil {
+			t.Fatalf("missing one-shot driver %d", i+1)
+		}
+		d.mutex.Lock()
+		commands := append([]string(nil), d.commands...)
+		d.mutex.Unlock()
+		if fmt.Sprint(commands) != fmt.Sprintf("[%s]", want) {
+			t.Fatalf("driver %d commands = %v, want %s", i+1, commands, want)
+		}
+	}
+}
+
 func TestSessionPersistent(t *testing.T) {
 	factory := &fakeFactory{}
 	session := testSession(t, factory)

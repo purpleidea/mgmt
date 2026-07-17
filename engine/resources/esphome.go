@@ -563,12 +563,9 @@ func (obj *EsphomeNumberRes) Cleanup() error {
 		return nil
 	}
 	if obj.Stop > 0 {
-		if obj.cleanupInfo != nil {
-			obj.session.Configure(obj.cleanupInfo)
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
-		if err := obj.session.SetNumber(ctx, obj.getId(), obj.Safe); err != nil {
+		if err := obj.session.SetNumberWithInfo(ctx, obj.cleanupInfo, obj.getId(), obj.Safe); err != nil {
 			obj.init.Logf("could not apply the safe value on cleanup: %v", err)
 		}
 	}
@@ -740,12 +737,9 @@ func (obj *EsphomeFanRes) Cleanup() error {
 		return nil
 	}
 	if obj.Stop > 0 {
-		if obj.cleanupInfo != nil {
-			obj.session.Configure(obj.cleanupInfo)
-		}
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
-		if err := obj.session.SetFan(ctx, obj.getId(), obj.command(false)); err != nil {
+		if err := obj.session.SetFanWithInfo(ctx, obj.cleanupInfo, obj.getId(), obj.command(false)); err != nil {
 			obj.init.Logf("could not stop the fan on cleanup: %v", err)
 		}
 	}

@@ -267,6 +267,20 @@ func (obj *Session) PressButton(ctx context.Context, identifier string) error {
 	})
 }
 
+// SetFan commands a fan entity by exact name or legacy object_id.
+func (obj *Session) SetFan(ctx context.Context, identifier string, command FanCommand) error {
+	return obj.run(ctx, identifier, func(d driver, key uint32) error {
+		return d.setFan(key, command)
+	})
+}
+
+// SetLight commands an RGB light entity by exact name or legacy object_id.
+func (obj *Session) SetLight(ctx context.Context, identifier string, command LightCommand) error {
+	return obj.run(ctx, identifier, func(d driver, key uint32) error {
+		return d.setLight(key, command)
+	})
+}
+
 // run queues one command for the mainloop to execute against a live driver,
 // wakes the mainloop, and waits for the result. Queueing even when we hold a
 // persistent connection keeps a single code path, and means commands never race

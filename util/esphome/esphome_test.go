@@ -137,6 +137,20 @@ func (obj *fakeDriver) pressButton(key uint32) error {
 	return nil
 }
 
+func (obj *fakeDriver) setFan(key uint32, command FanCommand) error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	obj.commands = append(obj.commands, fmt.Sprintf("fan/%d/%t/%d/%s", key, command.State, command.Speed, command.Direction))
+	return nil
+}
+
+func (obj *fakeDriver) setLight(key uint32, command LightCommand) error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	obj.commands = append(obj.commands, fmt.Sprintf("light/%d/%t/%g/%g/%g/%g", key, command.State, command.Brightness, command.Red, command.Green, command.Blue))
+	return nil
+}
+
 // fakeFactory hands out fake drivers and remembers them in order.
 type fakeFactory struct {
 	mutex   sync.Mutex
@@ -152,10 +166,14 @@ func (obj *fakeFactory) newDriver() driver {
 			{Key: 1, ObjectID: "button_a", Name: "Button A", Domain: DomainBinarySensor},
 			{Key: 2, ObjectID: "led_1", Name: "LED 1", Domain: DomainSwitch},
 			{Key: 3, ObjectID: "motor_speed", Name: "Motor Speed", Domain: DomainNumber},
+			{Key: 4, ObjectID: "conveyor_motor", Name: "Conveyor Motor", Domain: DomainFan},
+			{Key: 5, ObjectID: "status_light", Name: "Status Light", Domain: DomainLight},
 		},
 		initial: []*EntityState{
 			{Key: 1, State: State{Domain: DomainBinarySensor, Bool: false}},
 			{Key: 2, State: State{Domain: DomainSwitch, Bool: false}},
+			{Key: 4, State: State{Domain: DomainFan, Bool: false, Speed: 40, Direction: FanDirectionForward}},
+			{Key: 5, State: State{Domain: DomainLight, Bool: true, Brightness: 0.5, Red: 0, Green: 1, Blue: 0}},
 		},
 	}
 	if obj.prepare != nil {
@@ -219,6 +237,17 @@ func TestNormalizeLogLevel(t *testing.T) {
 	}
 	if _, err := NormalizeLogLevel("trace"); err == nil {
 		t.Fatalf("expected invalid level error")
+	}
+}
+
+func TestConnInfoValidateRequiresNoise(t *testing.T) {
+	info := &ConnInfo{Host: "device.example", Port: DefaultPort}
+	if err := info.Validate(); err == nil {
+		t.Fatalf("plaintext connection info unexpectedly validated")
+	}
+	info.Key = "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+	if err := info.Validate(); err != nil {
+		t.Fatalf("valid encrypted connection info: %v", err)
 	}
 }
 
@@ -303,12 +332,23 @@ func TestSessionPersistent(t *testing.T) {
 	if err := session.SetSwitch(cctx, "led_1", true); err != nil {
 		t.Fatalf("set switch error: %v", err)
 	}
+	if err := session.SetFan(cctx, "Conveyor Motor", FanCommand{State: true, Speed: 40, Direction: FanDirectionForward}); err != nil {
+		t.Fatalf("set fan error: %v", err)
+	}
+	if err := session.SetLight(cctx, "Status Light", LightCommand{State: true, Brightness: 0.5, Green: 1}); err != nil {
+		t.Fatalf("set light error: %v", err)
+	}
 	d0 := factory.driver(0)
 	d0.mutex.Lock()
-	commands := len(d0.commands)
+	commands := append([]string(nil), d0.commands...)
 	d0.mutex.Unlock()
-	if commands != 1 {
-		t.Fatalf("expected 1 command, got: %d", commands)
+	wantCommands := []string{
+		"switch/2/true",
+		"fan/4/true/40/forward",
+		"light/5/true/0.5/0/1/0",
+	}
+	if fmt.Sprint(commands) != fmt.Sprint(wantCommands) {
+		t.Fatalf("unexpected commands: got %v, want %v", commands, wantCommands)
 	}
 
 	// An unknown entity must error.

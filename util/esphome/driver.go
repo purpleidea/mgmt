@@ -56,6 +56,10 @@ type driver interface {
 	// only be called after connect succeeds.
 	subscribe(fn func(*EntityState)) error
 
+	// subscribeLogs asks the device to push logger messages at or above the
+	// requested level. It must only be called after connect succeeds.
+	subscribeLogs(level string, fn func(*LogEntry)) error
+
 	// done returns a channel which closes when the connection dies for any
 	// reason.
 	done() <-chan struct{}

@@ -32,6 +32,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -101,16 +102,31 @@ type EsphomeEndpointRes struct {
 	// we poll instead: every interval seconds we connect, read a full
 	// state snapshot, send any pending commands, and then disconnect.
 	Interval uint32 `lang:"interval" yaml:"interval"`
+
+	// Logs enables streaming the device logger into mgmt's logs. It is empty
+	// by default. Valid levels are error, warn, info, config, debug, verbose,
+	// and very_verbose.
+	Logs string `lang:"logs" yaml:"logs"`
 }
 
 // connInfo builds the value that we publish over the bridge.
 func (obj *EsphomeEndpointRes) connInfo() *esphomeUtil.ConnInfo {
+	level, _ := esphomeUtil.NormalizeLogLevel(obj.Logs) // Validate reports errors
 	return &esphomeUtil.ConnInfo{
 		Host:     obj.Host,
 		Port:     obj.Port,
 		Key:      obj.Key,
 		Password: obj.Password,
 		Interval: obj.Interval,
+		LogLevel: level,
+		Logf: func(entry *esphomeUtil.LogEntry) {
+			if entry == nil || obj.init == nil {
+				return
+			}
+			for _, line := range strings.Split(entry.Message, "\n") {
+				obj.init.Logf("device log [%s]: %s", entry.Level, line)
+			}
+		},
 	}
 }
 
@@ -128,6 +144,9 @@ func (obj *EsphomeEndpointRes) Validate() error {
 	}
 	if obj.Password != "" {
 		return fmt.Errorf("legacy password auth is not supported, use the noise key")
+	}
+	if _, err := esphomeUtil.NormalizeLogLevel(obj.Logs); err != nil {
+		return err
 	}
 	return obj.connInfo().Validate()
 }

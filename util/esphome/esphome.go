@@ -39,6 +39,7 @@ package esphome
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -72,7 +73,37 @@ const (
 
 	// DomainButton is the entity domain for momentary press-only entities.
 	DomainButton = "button"
+
+	// Log levels accepted by the esphome native api.
+	LogLevelError       = "error"
+	LogLevelWarn        = "warn"
+	LogLevelInfo        = "info"
+	LogLevelConfig      = "config"
+	LogLevelDebug       = "debug"
+	LogLevelVerbose     = "verbose"
+	LogLevelVeryVerbose = "very_verbose"
 )
+
+// NormalizeLogLevel returns the canonical form of an esphome log level. An
+// empty string disables device log streaming.
+func NormalizeLogLevel(level string) (string, error) {
+	level = strings.ToLower(strings.TrimSpace(level))
+	switch level {
+	case "", LogLevelError, LogLevelWarn, LogLevelInfo, LogLevelConfig,
+		LogLevelDebug, LogLevelVerbose, LogLevelVeryVerbose:
+		return level, nil
+	case "warning":
+		return LogLevelWarn, nil
+	default:
+		return "", fmt.Errorf("invalid log level: %s", level)
+	}
+}
+
+// LogEntry is one message streamed from the device logger.
+type LogEntry struct {
+	Level   string
+	Message string
+}
 
 // ConnInfo is the connection information that the esphome:endpoint resource
 // publishes over the local Bridge API for the functions and other resources to
@@ -99,6 +130,15 @@ type ConnInfo struct {
 	// seconds we connect, read a full state snapshot, send any pending
 	// commands, and then disconnect.
 	Interval uint32
+
+	// LogLevel enables native device log streaming at this level. Empty
+	// disables it.
+	LogLevel string
+
+	// Logf receives device log entries. It is supplied by the endpoint
+	// resource and deliberately excluded from Cmp: it doesn't affect the
+	// wire connection identity.
+	Logf func(*LogEntry)
 }
 
 // Addr returns the host:port pair to dial.
@@ -129,6 +169,11 @@ func (obj *ConnInfo) Validate() error {
 			return fmt.Errorf("key must decode to 32 bytes, got: %d", len(b))
 		}
 	}
+	if level, err := NormalizeLogLevel(obj.LogLevel); err != nil {
+		return err
+	} else if level != obj.LogLevel {
+		return fmt.Errorf("log level must use canonical form: %s", level)
+	}
 	return nil
 }
 
@@ -155,6 +200,9 @@ func (obj *ConnInfo) Cmp(info *ConnInfo) error {
 	}
 	if obj.Interval != info.Interval {
 		return fmt.Errorf("the Interval differs")
+	}
+	if obj.LogLevel != info.LogLevel {
+		return fmt.Errorf("the LogLevel differs")
 	}
 	return nil
 }

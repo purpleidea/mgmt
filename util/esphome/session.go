@@ -531,6 +531,13 @@ func (obj *Session) connect(info *ConnInfo) (driver, error) {
 		obj.markDisconnected()
 		return nil, err
 	}
+	if info.LogLevel != "" && info.Logf != nil {
+		if err := d.subscribeLogs(info.LogLevel, info.Logf); err != nil {
+			d.close()
+			obj.markDisconnected()
+			return nil, err
+		}
+	}
 	return d, nil
 }
 

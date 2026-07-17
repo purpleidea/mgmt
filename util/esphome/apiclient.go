@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	apiclient "github.com/richard87/esphome-apiclient"
 	"github.com/richard87/esphome-apiclient/pb"
@@ -144,6 +145,32 @@ func (obj *apiClientDriver) subscribe(fn func(*EntityState)) error {
 				Missing: m.MissingState || math.IsNaN(float64(m.State)),
 			}})
 		}
+	})
+	return err
+}
+
+// subscribeLogs asks the device to stream its native logger output.
+func (obj *apiClientDriver) subscribeLogs(level string, fn func(*LogEntry)) error {
+	levels := map[string]pb.LogLevel{
+		LogLevelError:       pb.LogLevel_LOG_LEVEL_ERROR,
+		LogLevelWarn:        pb.LogLevel_LOG_LEVEL_WARN,
+		LogLevelInfo:        pb.LogLevel_LOG_LEVEL_INFO,
+		LogLevelConfig:      pb.LogLevel_LOG_LEVEL_CONFIG,
+		LogLevelDebug:       pb.LogLevel_LOG_LEVEL_DEBUG,
+		LogLevelVerbose:     pb.LogLevel_LOG_LEVEL_VERBOSE,
+		LogLevelVeryVerbose: pb.LogLevel_LOG_LEVEL_VERY_VERBOSE,
+	}
+	pbLevel, exists := levels[level]
+	if !exists {
+		return fmt.Errorf("invalid log level: %s", level)
+	}
+
+	_, err := obj.client.SubscribeLogs(pbLevel, func(msg *pb.SubscribeLogsResponse) {
+		name := strings.TrimPrefix(strings.ToLower(msg.Level.String()), "log_level_")
+		fn(&LogEntry{
+			Level:   name,
+			Message: strings.TrimRight(string(msg.Message), "\r\n"),
+		})
 	})
 	return err
 }

@@ -47,6 +47,8 @@ type fakeDriver struct {
 	entityList  []*EntityInfo
 	initial     []*EntityState // states pushed right after subscribe
 	fn          func(*EntityState)
+	logFn       func(*LogEntry)
+	logLevel    string
 	doneCh      chan struct{}
 	closed      bool
 	commands    []string
@@ -74,6 +76,14 @@ func (obj *fakeDriver) subscribe(fn func(*EntityState)) error {
 	return nil
 }
 
+func (obj *fakeDriver) subscribeLogs(level string, fn func(*LogEntry)) error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	obj.logLevel = level
+	obj.logFn = fn
+	return nil
+}
+
 func (obj *fakeDriver) done() <-chan struct{} {
 	return obj.doneCh
 }
@@ -94,6 +104,15 @@ func (obj *fakeDriver) push(es *EntityState) {
 	obj.mutex.Unlock()
 	if fn != nil {
 		fn(es)
+	}
+}
+
+func (obj *fakeDriver) pushLog(entry *LogEntry) {
+	obj.mutex.Lock()
+	fn := obj.logFn
+	obj.mutex.Unlock()
+	if fn != nil {
+		fn(entry)
 	}
 }
 
@@ -180,6 +199,27 @@ func waitFor(t *testing.T, msg string, fn func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for: %s", msg)
+}
+
+func TestNormalizeLogLevel(t *testing.T) {
+	tests := map[string]string{
+		"":             "",
+		"DEBUG":        LogLevelDebug,
+		" warning ":    LogLevelWarn,
+		"very_verbose": LogLevelVeryVerbose,
+	}
+	for input, want := range tests {
+		got, err := NormalizeLogLevel(input)
+		if err != nil {
+			t.Fatalf("NormalizeLogLevel(%q): %v", input, err)
+		}
+		if got != want {
+			t.Fatalf("NormalizeLogLevel(%q) = %q, want %q", input, got, want)
+		}
+	}
+	if _, err := NormalizeLogLevel("trace"); err == nil {
+		t.Fatalf("expected invalid level error")
+	}
 }
 
 func TestSessionReserveRelease(t *testing.T) {
@@ -292,6 +332,40 @@ func TestSessionPersistent(t *testing.T) {
 	waitFor(t, "unconfigure", func() bool {
 		return !session.Connected() && session.State("button_a") == nil
 	})
+}
+
+func TestSessionDeviceLogs(t *testing.T) {
+	factory := &fakeFactory{}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	logs := make(chan *LogEntry, 1)
+	session.Configure(&ConnInfo{
+		Host:     "fake",
+		Port:     DefaultPort,
+		LogLevel: LogLevelDebug,
+		Logf:     func(entry *LogEntry) { logs <- entry },
+	})
+	waitFor(t, "connect", session.Connected)
+
+	d := factory.driver(0)
+	d.mutex.Lock()
+	level := d.logLevel
+	d.mutex.Unlock()
+	if level != LogLevelDebug {
+		t.Fatalf("expected debug log subscription, got: %q", level)
+	}
+
+	want := &LogEntry{Level: LogLevelInfo, Message: "hello from device"}
+	d.pushLog(want)
+	select {
+	case got := <-logs:
+		if *got != *want {
+			t.Fatalf("unexpected log entry: %+v", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for device log")
+	}
 }
 
 func TestSessionPoll(t *testing.T) {

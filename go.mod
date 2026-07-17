@@ -15,7 +15,7 @@ require (
 	github.com/deniswernert/go-fstab v0.0.0-20141204152952-eb4090f26517
 	github.com/docker/docker v27.5.1+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717212537-73b5d58e5dd3
+	github.com/flavio-fernandes/go-aioesphomeapi v0.0.0-20260717214702-0bacef0f0587
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-git/v5 v5.13.2

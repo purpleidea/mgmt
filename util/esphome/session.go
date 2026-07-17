@@ -70,7 +70,7 @@ type Session struct {
 	info       *ConnInfo // desired config, nil means unconfigured
 	generation uint64    // bumped whenever info changes
 	states     map[string]*State
-	index      map[uint32]string          // entity key -> object_id
+	index      map[uint32][]string        // entity key -> addressable identifiers
 	connected  bool                       // do we consider the device healthy?
 	lastAlive  time.Time                  // last moment the device was under our control
 	lastOutage time.Duration              // duration of the most recent outage
@@ -96,7 +96,7 @@ func newSession(uid string) *Session {
 		uid:       uid,
 		mutex:     &sync.Mutex{},
 		states:    make(map[string]*State),
-		index:     make(map[uint32]string),
+		index:     make(map[uint32][]string),
 		notify:    make(map[chan struct{}]struct{}),
 		wake:      make(chan struct{}, 1),
 		newDriver: newDriverFunc,
@@ -177,13 +177,14 @@ func (obj *Session) Watch(ctx context.Context) (chan struct{}, error) {
 	return ch, nil
 }
 
-// State returns the last-known state of the entity with the given object_id, or
-// nil if we don't know anything about it (yet). Callers must treat the returned
-// value as read-only.
-func (obj *Session) State(objectID string) *State {
+// State returns the last-known state of the entity with the given identifier,
+// or nil if we don't know anything about it (yet). An identifier can be the
+// entity's exact name, or its legacy object_id when the device provides one.
+// Callers must treat the returned value as read-only.
+func (obj *Session) State(identifier string) *State {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
-	return obj.states[objectID] // nil if it doesn't exist
+	return obj.states[identifier] // nil if it doesn't exist
 }
 
 // Connected reports whether we consider the device healthy. With a persistent
@@ -236,29 +237,32 @@ func (obj *Session) LastOutage() (time.Duration, uint64) {
 	return obj.lastOutage, obj.outageID
 }
 
-// SetSwitch commands a switch entity by object_id. With a persistent connection
-// it runs immediately. In polling mode it wakes the poller to connect right
-// away, and returns once the command has actually been sent.
-func (obj *Session) SetSwitch(ctx context.Context, objectID string, on bool) error {
-	return obj.run(ctx, objectID, func(d driver, key uint32) error {
+// SetSwitch commands a switch entity by exact name or legacy object_id. With a
+// persistent connection it runs immediately. In polling mode it wakes the
+// poller to connect right away, and returns once the command has actually been
+// sent.
+func (obj *Session) SetSwitch(ctx context.Context, identifier string, on bool) error {
+	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.setSwitch(key, on)
 	})
 }
 
-// SetNumber commands a number entity by object_id. With a persistent connection
-// it runs immediately. In polling mode it wakes the poller to connect right
-// away, and returns once the command has actually been sent.
-func (obj *Session) SetNumber(ctx context.Context, objectID string, value float64) error {
-	return obj.run(ctx, objectID, func(d driver, key uint32) error {
+// SetNumber commands a number entity by exact name or legacy object_id. With a
+// persistent connection it runs immediately. In polling mode it wakes the
+// poller to connect right away, and returns once the command has actually been
+// sent.
+func (obj *Session) SetNumber(ctx context.Context, identifier string, value float64) error {
+	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.setNumber(key, value)
 	})
 }
 
-// PressButton presses a button entity by object_id. With a persistent
-// connection it runs immediately. In polling mode it wakes the poller to
-// connect right away, and returns once the command has actually been sent.
-func (obj *Session) PressButton(ctx context.Context, objectID string) error {
-	return obj.run(ctx, objectID, func(d driver, key uint32) error {
+// PressButton presses a button entity by exact name or legacy object_id. With a
+// persistent connection it runs immediately. In polling mode it wakes the
+// poller to connect right away, and returns once the command has actually been
+// sent.
+func (obj *Session) PressButton(ctx context.Context, identifier string) error {
+	return obj.run(ctx, identifier, func(d driver, key uint32) error {
 		return d.pressButton(key)
 	})
 }
@@ -267,7 +271,7 @@ func (obj *Session) PressButton(ctx context.Context, objectID string) error {
 // wakes the mainloop, and waits for the result. Queueing even when we hold a
 // persistent connection keeps a single code path, and means commands never race
 // with a teardown.
-func (obj *Session) run(ctx context.Context, objectID string, fn func(driver, uint32) error) error {
+func (obj *Session) run(ctx context.Context, identifier string, fn func(driver, uint32) error) error {
 	obj.mutex.Lock()
 	if obj.info == nil {
 		obj.mutex.Unlock()
@@ -275,7 +279,7 @@ func (obj *Session) run(ctx context.Context, objectID string, fn func(driver, ui
 	}
 	p := &pendingCmd{
 		fn: func(d driver) error {
-			key, err := obj.lookup(objectID)
+			key, err := obj.lookup(identifier)
 			if err != nil {
 				return err
 			}
@@ -297,17 +301,19 @@ func (obj *Session) run(ctx context.Context, objectID string, fn func(driver, ui
 	}
 }
 
-// lookup resolves an object_id to the numeric entity key of the current
-// connection.
-func (obj *Session) lookup(objectID string) (uint32, error) {
+// lookup resolves an entity name or legacy object_id to the numeric entity key
+// of the current connection.
+func (obj *Session) lookup(identifier string) (uint32, error) {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
-	for key, id := range obj.index {
-		if id == objectID {
-			return key, nil
+	for key, identifiers := range obj.index {
+		for _, id := range identifiers {
+			if id == identifier {
+				return key, nil
+			}
 		}
 	}
-	return 0, fmt.Errorf("unknown entity: `%s`", objectID)
+	return 0, fmt.Errorf("unknown entity: `%s`", identifier)
 }
 
 // wakeup pokes the mainloop. The wake chan is buffered (1) so if it's full then
@@ -362,15 +368,24 @@ func (obj *Session) handleState(es *EntityState) {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	objectID, exists := obj.index[es.Key]
+	identifiers, exists := obj.index[es.Key]
 	if !exists {
 		return // unknown entity, ignore
 	}
 	s := es.State // copy
-	if old, exists := obj.states[objectID]; exists && *old == s {
+	changed := false
+	for _, identifier := range identifiers {
+		if old, exists := obj.states[identifier]; !exists || *old != s {
+			changed = true
+			break
+		}
+	}
+	if !changed {
 		return // no change
 	}
-	obj.states[objectID] = &s
+	for _, identifier := range identifiers {
+		obj.states[identifier] = &s
+	}
 	obj.notifySend()
 }
 
@@ -388,9 +403,18 @@ func (obj *Session) markConnected(entities []*EntityInfo) {
 	obj.lastAlive = now
 	obj.failures = 0
 
-	obj.index = make(map[uint32]string)
+	obj.index = make(map[uint32][]string)
 	for _, e := range entities {
-		obj.index[e.Key] = e.ObjectID
+		identifiers := []string{}
+		if e.Name != "" {
+			identifiers = append(identifiers, e.Name)
+		}
+		if e.ObjectID != "" && e.ObjectID != e.Name {
+			identifiers = append(identifiers, e.ObjectID)
+		}
+		if len(identifiers) > 0 {
+			obj.index[e.Key] = identifiers
+		}
 	}
 
 	if !obj.connected {
@@ -421,7 +445,7 @@ func (obj *Session) clearStates() {
 
 	changed := len(obj.states) > 0 || obj.connected
 	obj.states = make(map[string]*State)
-	obj.index = make(map[uint32]string)
+	obj.index = make(map[uint32][]string)
 	if obj.connected {
 		obj.lastAlive = time.Now()
 		obj.connected = false

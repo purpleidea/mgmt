@@ -368,6 +368,40 @@ func TestSessionDeviceLogs(t *testing.T) {
 	}
 }
 
+func TestSessionEntityNamesWithoutObjectIDs(t *testing.T) {
+	factory := &fakeFactory{
+		prepare: func(d *fakeDriver) {
+			for _, entity := range d.entityList {
+				entity.ObjectID = ""
+			}
+		},
+	}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	session.Configure(&ConnInfo{Host: "fake", Port: DefaultPort})
+	waitFor(t, "connect", session.Connected)
+	waitFor(t, "state addressed by name", func() bool {
+		state := session.State("Button A")
+		return state != nil && state.Domain == DomainBinarySensor && !state.Bool
+	})
+	if state := session.State("button_a"); state != nil {
+		t.Fatalf("empty object_id must not create a legacy alias")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := session.SetSwitch(ctx, "LED 1", true); err != nil {
+		t.Fatalf("set switch by name: %v", err)
+	}
+	d := factory.driver(0)
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	if len(d.commands) != 1 || d.commands[0] != "switch/2/true" {
+		t.Fatalf("unexpected commands: %v", d.commands)
+	}
+}
+
 func TestSessionPoll(t *testing.T) {
 	factory := &fakeFactory{}
 	session := testSession(t, factory)

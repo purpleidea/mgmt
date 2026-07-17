@@ -71,14 +71,14 @@ type stateArgs struct {
 
 // StateFunc is a function that streams the live state of one entity of an
 // esphome device. It takes the endpoint (the name of the esphome:endpoint
-// resource that describes the device) and the object_id of the entity. The
-// registered variant selects the entity domain and the return type: a
-// binary_sensor returns bool, a sensor returns float, and a text_sensor returns
-// str. A gpio input pin shows up as a binary_sensor entity, so that variant is
-// how you read gpio inputs with events. Until the endpoint resource has
-// published its connection info, and until the device has reported the entity,
-// this returns the zero value of the type, and it also does so if the device
-// reports the state as missing.
+// resource that describes the device) and the exact entity name or legacy
+// object_id. The registered variant selects the entity domain and the return
+// type: a binary_sensor returns bool, a sensor returns float, and a text_sensor
+// returns str. A gpio input pin shows up as a binary_sensor entity, so that
+// variant is how you read gpio inputs with events. Until the endpoint resource
+// has published its connection info, and until the device has reported the
+// entity, this returns the zero value of the type, and it also does so if the
+// device reports the state as missing.
 type StateFunc struct {
 	interfaces.Textarea
 

@@ -308,18 +308,23 @@ func esphomeWatch(ctx context.Context, init *engine.Init, session *esphomeUtil.S
 // device to be healthy. It errors if the endpoint isn't published or the device
 // can't be reached, which makes the engine retry as per the resource retry
 // metaparams.
-func esphomeSessionReady(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) error {
+func esphomeSessionReadyInfo(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) (*esphomeUtil.ConnInfo, error) {
 	info, err := esphomeBridgeConfigure(ctx, init, session, endpoint)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if info == nil {
-		return fmt.Errorf("endpoint `%s` is not available yet", endpoint)
+		return nil, fmt.Errorf("endpoint `%s` is not available yet", endpoint)
 	}
 	if err := session.WaitConnected(ctx, esphomeConnectWait); err != nil {
-		return errwrap.Wrapf(err, "device `%s` is not connected", endpoint)
+		return nil, errwrap.Wrapf(err, "device `%s` is not connected", endpoint)
 	}
-	return nil
+	return info, nil
+}
+
+func esphomeSessionReady(ctx context.Context, init *engine.Init, session *esphomeUtil.Session, endpoint string) error {
+	_, err := esphomeSessionReadyInfo(ctx, init, session, endpoint)
+	return err
 }
 
 // EsphomeSwitchRes manages a switch entity on an esphome device, such as a gpio
@@ -507,6 +512,10 @@ type EsphomeNumberRes struct {
 	Safe float64 `lang:"safe" yaml:"safe"`
 
 	session *esphomeUtil.Session
+	// cleanupInfo keeps the last successfully used endpoint configuration so
+	// cleanup can reconnect long enough to apply the safe value even when the
+	// endpoint resource is removed first during a graph shutdown.
+	cleanupInfo *esphomeUtil.ConnInfo
 
 	// outageID remembers the last outage that we already handled, so that
 	// each outage triggers the interlock at most once.
@@ -554,6 +563,9 @@ func (obj *EsphomeNumberRes) Cleanup() error {
 		return nil
 	}
 	if obj.Stop > 0 {
+		if obj.cleanupInfo != nil {
+			obj.session.Configure(obj.cleanupInfo)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
 		if err := obj.session.SetNumber(ctx, obj.getId(), obj.Safe); err != nil {
@@ -573,9 +585,11 @@ func (obj *EsphomeNumberRes) Watch(ctx context.Context) error {
 // If the safety interlock is enabled and the device just came back from an
 // outage which lasted too long, it commands the safe value and errors instead.
 func (obj *EsphomeNumberRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+	info, err := esphomeSessionReadyInfo(ctx, obj.init, obj.session, obj.Endpoint)
+	if err != nil {
 		return false, err
 	}
+	obj.cleanupInfo = info
 
 	if obj.Stop > 0 {
 		outage, id := obj.session.LastOutage()
@@ -675,6 +689,10 @@ type EsphomeFanRes struct {
 
 	session  *esphomeUtil.Session
 	outageID uint64
+	// cleanupInfo keeps the last successfully used endpoint configuration so
+	// cleanup can reconnect long enough to stop the fan even when the endpoint
+	// resource is removed first during a graph shutdown.
+	cleanupInfo *esphomeUtil.ConnInfo
 }
 
 func (obj *EsphomeFanRes) getId() string {
@@ -722,6 +740,9 @@ func (obj *EsphomeFanRes) Cleanup() error {
 		return nil
 	}
 	if obj.Stop > 0 {
+		if obj.cleanupInfo != nil {
+			obj.session.Configure(obj.cleanupInfo)
+		}
 		ctx, cancel := context.WithTimeout(context.Background(), esphomeCleanupTimeout)
 		defer cancel()
 		if err := obj.session.SetFan(ctx, obj.getId(), obj.command(false)); err != nil {
@@ -737,9 +758,11 @@ func (obj *EsphomeFanRes) Watch(ctx context.Context) error {
 }
 
 func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	if err := esphomeSessionReady(ctx, obj.init, obj.session, obj.Endpoint); err != nil {
+	info, err := esphomeSessionReadyInfo(ctx, obj.init, obj.session, obj.Endpoint)
+	if err != nil {
 		return false, err
 	}
+	obj.cleanupInfo = info
 
 	if obj.Stop > 0 {
 		outage, id := obj.session.LastOutage()

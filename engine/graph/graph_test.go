@@ -38,6 +38,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -78,5 +79,18 @@ func TestSafeCheckApplyTimeout(t *testing.T) {
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("timeout took too long: %s", elapsed)
+	}
+}
+
+func TestStatePauseClosed(t *testing.T) {
+	doneCtx, doneCtxCancel := context.WithCancel(context.Background())
+	doneCtxCancel()
+
+	state := &State{
+		doneCtx: doneCtx,
+		paused:  true,
+	}
+	if err := state.Pause(); err != engine.ErrClosed {
+		t.Fatalf("expected closed error, got: %v", err)
 	}
 }

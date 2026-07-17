@@ -345,15 +345,21 @@ func (obj *State) Poke() {
 	}
 }
 
-// Pause pauses this resource. It must not be called on any already paused
+// Pause pauses this resource. It must not be called on any already paused live
 // resource. It will block until the resource pauses with an acknowledgment, or
-// until an exit for that resource is seen. If the latter happens it will error.
-// It must not be called concurrently with either the Resume() method or itself,
-// so only call these one at a time and alternate between the two.
+// until an exit for that resource is seen. If the latter happens it will error,
+// regardless of the last pause state. It must not be called concurrently with
+// either the Resume() method or itself, so only call these one at a time and
+// alternate between the two.
 func (obj *State) Pause() error {
 	if obj.paused {
-		// programming error
-		panic("already paused")
+		select {
+		case <-obj.doneCtx.Done():
+			return engine.ErrClosed
+		default:
+			// programming error
+			panic("already paused")
+		}
 	}
 
 	// Pause runs here, but if this resource has already errored (eg:

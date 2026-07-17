@@ -38,6 +38,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,6 +76,11 @@ type API struct {
 	// that lets http client resources publish their response status and
 	// output file location for http.response functions to consume.
 	*HTTPPool
+
+	// BridgeImpl is the implementation for the Bridge API's. It is a
+	// generic, in-memory, watchable registry that lets resources publish
+	// runtime data for functions to consume.
+	*BridgeImpl
 }
 
 // Init initializes the API before first use. It returns itself so it can be
@@ -111,6 +117,12 @@ func (obj *API) Init() *API {
 
 	obj.HTTPPool = &HTTPPool{}
 	obj.HTTPPool.Init(&HTTPPoolInit{
+		Debug: obj.Debug,
+		Logf:  obj.Logf,
+	})
+
+	obj.BridgeImpl = &BridgeImpl{}
+	obj.BridgeImpl.Init(&BridgeInit{
 		Debug: obj.Debug,
 		Logf:  obj.Logf,
 	})
@@ -806,4 +818,173 @@ func (obj *HTTPPool) HTTPWatch(ctx context.Context, uid string) (chan struct{}, 
 	}()
 
 	return ch, nil
+}
+
+// BridgeInit are the init values that the Bridge API needs to work correctly.
+type BridgeInit struct {
+	Debug bool
+	Logf  func(format string, v ...interface{})
+}
+
+// BridgeImpl is the implementation for the Bridge API's. The API's are the
+// collection of public methods that exist on this struct. It is a generic,
+// in-memory, watchable registry that bridges resources (which publish runtime
+// data such as credentials or connection parameters) and functions (which read
+// and watch that data). It is intentionally not backed by disk, both because
+// the data is only meaningful while the publishing resource is running, and
+// because it may contain secrets which should never be persisted. The function
+// engine starts before resources do, so an unknown entry simply reads back as
+// nil, which is the "nothing has been published yet" state that consumers
+// should turn into their zero value.
+//
+// Since the uid within a namespace is commonly the user-controlled name of the
+// publishing resource, every consumer of this API must pass in its own unique
+// namespace to avoid collisions between different users of this bridge. The
+// namespace is typically the resource kind that publishes into it, for example:
+// "foo:endpoint". The namespace and uid are combined internally, and are never
+// mixed up between different namespaces.
+type BridgeImpl struct {
+	init   *BridgeInit
+	mutex  *sync.Mutex
+	values map[string]interface{}
+	notify map[chan struct{}]string // one chan (unique ptr) for each watch
+}
+
+// Init runs some initialization code for the Bridge API.
+func (obj *BridgeImpl) Init(init *BridgeInit) {
+	obj.init = init
+	obj.mutex = &sync.Mutex{}
+	obj.values = make(map[string]interface{})
+	obj.notify = make(map[chan struct{}]string)
+}
+
+// BridgeSet publishes a value under a namespace and uid, and notifies any
+// watchers if it changed. Passing a nil value unpublishes the entry, which also
+// notifies. Setting the same value as already stored (as compared with
+// reflect.DeepEqual) is a no-op that does not notify. Callers must treat a
+// published value as immutable, and set a new one instead of modifying it.
+func (obj *BridgeImpl) BridgeSet(ctx context.Context, namespace, uid string, value interface{}) error {
+	key, err := bridgeKey(namespace, uid)
+	if err != nil {
+		return err
+	}
+
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	// If we're already in the correct state, then return early and *don't*
+	// send any events at the very end...
+	v, exists := obj.values[key]
+	if !exists && value == nil {
+		return nil // already in the correct state
+	}
+	if exists && reflect.DeepEqual(v, value) {
+		return nil // already in the correct state
+	}
+
+	if value == nil { // remove/delete
+		delete(obj.values, key)
+	} else {
+		obj.values[key] = value // store to in-memory map
+	}
+
+	// We still notify on remove/delete!
+	for ch, k := range obj.notify { // send notifications to any watchers...
+		if k != key { // there might be more than one watcher per key
+			continue
+		}
+		select {
+		case ch <- struct{}{}: // must be async and not block forever
+			// send
+
+		default:
+			// The notify chan is buffered (1) so if it's full then
+			// a notification is already pending and dropping this
+			// one coalesces them, which is exactly what we want.
+		}
+	}
+
+	return nil
+}
+
+// BridgeGet reads the value stored under a namespace and uid. If nothing has
+// been published yet, it returns nil and no error, since that is exactly the
+// "nothing has happened yet" state that consumers want to see. The caller must
+// treat the returned value as read-only, since it is shared with the publisher
+// and any other readers.
+func (obj *BridgeImpl) BridgeGet(ctx context.Context, namespace, uid string) (interface{}, error) {
+	key, err := bridgeKey(namespace, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	return obj.values[key], nil // nil if it doesn't exist
+}
+
+// BridgeWatch watches the value stored under a namespace and uid. Like
+// ValueWatch, it sends a single startup event, and then one event for each
+// subsequent change, including unpublishing.
+func (obj *BridgeImpl) BridgeWatch(ctx context.Context, namespace, uid string) (chan struct{}, error) {
+	key, err := bridgeKey(namespace, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	notifyCh := make(chan struct{}, 1) // so we can async send
+	obj.notify[notifyCh] = key         // add (while within the mutex)
+	notifyCh <- struct{}{}             // startup signal, send one!
+	ch := make(chan struct{})
+	go func() {
+		defer func() { // cleanup
+			obj.mutex.Lock()
+			defer obj.mutex.Unlock()
+			delete(obj.notify, notifyCh) // free memory (in mutex)
+		}()
+		for {
+			select {
+			case _, ok := <-notifyCh:
+				if !ok {
+					// programming error
+					panic("unexpected channel closure")
+				}
+				// recv
+
+			case <-ctx.Done():
+				return // we exit
+			}
+
+			select {
+			case ch <- struct{}{}:
+				// send
+
+			case <-ctx.Done():
+				return // we exit
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+// bridgeKey builds the internal key from a namespace and uid, and validates
+// both. The separator can't appear in the namespace, so two different
+// namespaces can never collide, even with malicious uid values.
+func bridgeKey(namespace, uid string) (string, error) {
+	if namespace == "" {
+		return "", fmt.Errorf("namespace is empty")
+	}
+	if strings.Contains(namespace, "/") {
+		return "", fmt.Errorf("namespace contains slash")
+	}
+	if uid == "" {
+		return "", fmt.Errorf("uid is empty")
+	}
+
+	return namespace + "/" + uid, nil
 }

@@ -138,3 +138,106 @@ func TestHTTPPool(t *testing.T) {
 	}
 	recv(false) // no event expected
 }
+
+func TestBridge(t *testing.T) {
+	ctx := context.Background()
+	bridge := &BridgeImpl{}
+	bridge.Init(&BridgeInit{
+		Logf: func(format string, v ...interface{}) { t.Logf("bridge: "+format, v...) },
+	})
+
+	// An unpublished entry reads back as nil, which is the "nothing has
+	// been published yet" state that consumers turn into a zero value.
+	if val, err := bridge.BridgeGet(ctx, "ns", "foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if val != nil {
+		t.Errorf("expected nil for unknown entry, got: %+v", val)
+		return
+	}
+
+	// An empty namespace or uid must error.
+	if err := bridge.BridgeSet(ctx, "", "foo", 42); err == nil {
+		t.Errorf("expected error for empty namespace")
+		return
+	}
+	if err := bridge.BridgeSet(ctx, "ns", "", 42); err == nil {
+		t.Errorf("expected error for empty uid")
+		return
+	}
+	if err := bridge.BridgeSet(ctx, "n/s", "foo", 42); err == nil {
+		t.Errorf("expected error for namespace with slash")
+		return
+	}
+
+	// Watch before anything is published. We should get one startup event,
+	// and then one event for each subsequent change.
+	ch, err := bridge.BridgeWatch(ctx, "ns", "foo")
+	if err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv := func(want bool) {
+		t.Helper()
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				t.Errorf("watch channel closed unexpectedly")
+				return
+			}
+			if !want {
+				t.Errorf("got an unexpected watch event")
+			}
+		case <-time.After(time.Second):
+			if want {
+				t.Errorf("timeout waiting for watch event")
+			}
+		}
+	}
+
+	recv(true) // startup event
+
+	if err := bridge.BridgeSet(ctx, "ns", "foo", 42); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv(true) // change event
+	if val, err := bridge.BridgeGet(ctx, "ns", "foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if !reflect.DeepEqual(val, 42) {
+		t.Errorf("unexpected value: %+v", val)
+		return
+	}
+
+	// The same uid in a different namespace must not collide. This matters
+	// because the uid is commonly a user-controlled resource name.
+	if val, err := bridge.BridgeGet(ctx, "other", "foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if val != nil {
+		t.Errorf("namespaces leaked, got: %+v", val)
+		return
+	}
+
+	// Setting the same value again is a no-op that must not notify.
+	if err := bridge.BridgeSet(ctx, "ns", "foo", 42); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv(false) // no event expected
+
+	// Unpublishing notifies, and reads back as nil again.
+	if err := bridge.BridgeSet(ctx, "ns", "foo", nil); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	}
+	recv(true) // change event
+	if val, err := bridge.BridgeGet(ctx, "ns", "foo"); err != nil {
+		t.Errorf("error: %+v", err)
+		return
+	} else if val != nil {
+		t.Errorf("expected nil after unpublish, got: %+v", val)
+		return
+	}
+}

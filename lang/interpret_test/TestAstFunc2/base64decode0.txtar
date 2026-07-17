@@ -1,0 +1,6 @@
+-- main.mcl --
+import "encoding"
+
+test [encoding.base64_decode("aGVsbG8=")] {}
+-- OUTPUT --
+Vertex: test[hello]

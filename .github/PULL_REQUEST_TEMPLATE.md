@@ -1,7 +1,9 @@
-## Tips:
+# Contributing:
 
-* please read the style guide before submitting your patch:
-[docs/style-guide.md](../docs/style-guide.md)
+Please read [contributing.md](../docs/contributing.md) and the
+[style-guide.md](../docs/style-guide.md) before submitting your patch:
+
+## Tips:
 
 * commit message titles must be in the form:
 
@@ -11,14 +13,16 @@ or:
 
 ```topic, topic2: Capitalized message with no trailing period```
 
-* use of AI/LLM tools *must* be disclosed or we reserve the right to ban you!
+* The use of LLMs/AI tooling *must* be disclosed or we may ban and report you!
 
-please add `Co-authored-by:` tags to describe what models/tools you used if any
+* Please add `Co-authored-by:` tags to specify the models/tools you used if any.
 
-* golang code must be formatted according to the standard, please run:
+* First time contributors must not use any LLMs/AI tooling.
+
+* Golang code must be formatted according to the standard, please run:
 
 ```
-make gofmt		# formats the entire project correctly
+make gofmt	# formats the entire project correctly
 ```
 
 or format a single golang file correctly:
@@ -27,7 +31,7 @@ or format a single golang file correctly:
 gofmt -w yourcode.go
 ```
 
-* please rebase your patch against current git master:
+* Please rebase your patch against current git master:
 
 ```
 git checkout master
@@ -38,7 +42,7 @@ git push your-remote your-feature
 hub pull-request	# or submit with the github web ui
 ```
 
-* after a patch review, please ping @purpleidea so we know to re-review:
+* After a patch review, please ping @purpleidea so we know to re-review:
 
 ```
 # make changes based on reviews...

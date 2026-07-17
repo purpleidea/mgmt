@@ -73,7 +73,7 @@ attention.
 
 ## LLM's and AI
 
-If you use LLM's and/or other AI related tooling to help you with programming,
+If you use LLMs and/or other AI related tooling to help you with programming,
 this does not absolve you of the responsibility for the code submitted. It is
 not our job to review your machine generated code. If you send in something that
 surreptitiously adds bugs, security holes, or otherwise is sloppy code, we will
@@ -81,7 +81,21 @@ hold you responsible, and ultimately this will probably lead to you being banned
 from contributing. If you are not confident enough to thoroughly understand and
 review the generated code you are submitting, then please do not submit it! If
 you do use any such tools, then you must disclose their use in each
-contribution.
+contribution. If this is your first contribution to the project, and you don't
+have clear, well-demonstrated golang coding experience elsewhere, then you must
+not use LLMs and/or AI tooling in writing the patch unless previously approved
+by the projects original author, and until we're comfortable that your patches
+do not exceed your skill level.
+
+## Affiliations
+
+You must disclose whether your contributions are made independently as a
+personal hobby or on behalf of an organization or company. This requirement also
+applies to work performed in your personal time when it relates to planned,
+proposed, or potential future work for an organization or company. This
+disclosure helps maintain transparency about contributors interests and allows
+maintainers and other contributors to assess potential conflicts of interest or
+organizational influence.
 
 ## Copyright
 

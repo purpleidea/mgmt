@@ -130,59 +130,61 @@ func (obj *apiClientDriver) subscribe(fn func(*EntityState)) error {
 	_, err := obj.client.SubscribeStates(func(msg proto.Message) {
 		switch m := msg.(type) {
 		case *pb.BinarySensorStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:  DomainBinarySensor,
-				Bool:    m.State,
-				Missing: m.MissingState,
+				Bool:    m.GetState(),
+				Missing: m.GetMissingState(),
 			}})
 
 		case *pb.SensorStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			state := m.GetState()
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:  DomainSensor,
-				Float:   float64(m.State),
-				Missing: m.MissingState || math.IsNaN(float64(m.State)),
+				Float:   float64(state),
+				Missing: m.GetMissingState() || math.IsNaN(float64(state)),
 			}})
 
 		case *pb.TextSensorStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:  DomainTextSensor,
-				Str:     m.State,
-				Missing: m.MissingState,
+				Str:     m.GetState(),
+				Missing: m.GetMissingState(),
 			}})
 
 		case *pb.SwitchStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain: DomainSwitch,
-				Bool:   m.State,
+				Bool:   m.GetState(),
 			}})
 
 		case *pb.NumberStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			state := m.GetState()
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:  DomainNumber,
-				Float:   float64(m.State),
-				Missing: m.MissingState || math.IsNaN(float64(m.State)),
+				Float:   float64(state),
+				Missing: m.GetMissingState() || math.IsNaN(float64(state)),
 			}})
 
 		case *pb.FanStateResponse:
 			direction := FanDirectionForward
-			if m.Direction == pb.FanDirection_FAN_DIRECTION_REVERSE {
+			if m.GetDirection() == pb.FanDirection_FAN_DIRECTION_REVERSE {
 				direction = FanDirectionReverse
 			}
-			fn(&EntityState{Key: m.Key, State: State{
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:    DomainFan,
-				Bool:      m.State,
-				Speed:     m.SpeedLevel,
+				Bool:      m.GetState(),
+				Speed:     m.GetSpeedLevel(),
 				Direction: direction,
 			}})
 
 		case *pb.LightStateResponse:
-			fn(&EntityState{Key: m.Key, State: State{
+			fn(&EntityState{Key: m.GetKey(), State: State{
 				Domain:     DomainLight,
-				Bool:       m.State,
-				Brightness: float64(m.Brightness),
-				Red:        float64(m.Red),
-				Green:      float64(m.Green),
-				Blue:       float64(m.Blue),
+				Bool:       m.GetState(),
+				Brightness: float64(m.GetBrightness()),
+				Red:        float64(m.GetRed()),
+				Green:      float64(m.GetGreen()),
+				Blue:       float64(m.GetBlue()),
 			}})
 		}
 	})
@@ -206,10 +208,10 @@ func (obj *apiClientDriver) subscribeLogs(level string, fn func(*LogEntry)) erro
 	}
 
 	_, err := obj.client.SubscribeLogs(pbLevel, func(msg *pb.SubscribeLogsResponse) {
-		name := strings.TrimPrefix(strings.ToLower(msg.Level.String()), "log_level_")
+		name := strings.TrimPrefix(strings.ToLower(msg.GetLevel().String()), "log_level_")
 		fn(&LogEntry{
 			Level:   name,
-			Message: strings.TrimRight(string(msg.Message), "\r\n"),
+			Message: strings.TrimRight(string(msg.GetMessage()), "\r\n"),
 		})
 	})
 	return err

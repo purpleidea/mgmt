@@ -571,8 +571,9 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	limiter := rate.NewLimiter(res.MetaParams().Limit, res.MetaParams().Burst)
 	var reserv *rate.Reservation
 	var reterr error
-	var failed bool // has Process permanently failed?
-	var closed bool // has the resumeSignal channel closed?
+	var failed bool  // has Process permanently failed?
+	var closed bool  // has the resumeSignal channel closed?
+	var started bool // has Watch sent the initial startup event?
 
 	// Worker starts paused, so wait for resume signal before we CheckApply.
 	// (it's okay to let Watch run immediately)
@@ -611,6 +612,7 @@ Loop:
 			if obj.Debug {
 				obj.Logf("event received")
 			}
+			started = true                           // the resource is now running
 			reserv = limiter.ReserveN(time.Now(), 1) // one event
 			// reserv.OK() seems to always be true here!
 
@@ -662,6 +664,16 @@ Loop:
 
 		// don't Process anymore if we've already failed or shutdown...
 		if failed || closed {
+			continue Loop
+		}
+
+		// We must never Process (and CheckApply) before the initial
+		// event from Watch tells us that the resource is started and
+		// ready. A poke from a neighbouring resource can arrive before
+		// that, and the resume signal passthrough can also get us here
+		// early. It's safe to skip both, since the guaranteed initial
+		// event always runs Process, which subsumes them.
+		if !started {
 			continue Loop
 		}
 

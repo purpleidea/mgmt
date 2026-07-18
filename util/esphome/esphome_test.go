@@ -39,6 +39,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	apiclient "github.com/flavio-fernandes/go-aioesphomeapi"
 )
 
 // fakeDriver is a scriptable in-memory driver for testing the session logic.
@@ -47,6 +49,7 @@ type fakeDriver struct {
 
 	failConnect bool
 	connectErr  error
+	connectGate chan struct{} // when set, connect blocks until closed
 	entityList  []*EntityInfo
 	initial     []*EntityState // states pushed right after subscribe
 	fn          func(*EntityState)
@@ -54,6 +57,7 @@ type fakeDriver struct {
 	logLevel    string
 	doneCh      chan struct{}
 	closed      bool
+	closeErr    error // reported by closeReason after fail
 	commands    []string
 }
 
@@ -63,6 +67,13 @@ func (obj *fakeDriver) connect(ctx context.Context, info *ConnInfo) error {
 			return obj.connectErr
 		}
 		return fmt.Errorf("fake connect error")
+	}
+	if obj.connectGate != nil {
+		select {
+		case <-obj.connectGate:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 	obj.doneCh = make(chan struct{})
 	return nil
@@ -94,6 +105,12 @@ func (obj *fakeDriver) done() <-chan struct{} {
 	return obj.doneCh
 }
 
+func (obj *fakeDriver) closeReason() error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	return obj.closeErr
+}
+
 func (obj *fakeDriver) close() error {
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
@@ -102,6 +119,18 @@ func (obj *fakeDriver) close() error {
 		close(obj.doneCh)
 	}
 	return nil
+}
+
+// fail simulates the connection dying on its own with the given cause. A
+// deliberate close keeps the reason nil, exactly like the real driver.
+func (obj *fakeDriver) fail(err error) {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	if !obj.closed {
+		obj.closed = true
+		obj.closeErr = err
+		close(obj.doneCh)
+	}
 }
 
 func (obj *fakeDriver) push(es *EntityState) {
@@ -673,6 +702,263 @@ func TestSessionQueuedWakeDistinguishesStaleConfiguration(t *testing.T) {
 	session.wakeup()
 	if !session.consumeQueuedWake(1) {
 		t.Fatal("new configuration did not request a restart")
+	}
+}
+
+// testCauseError is a typed cause used to prove that errors.As can reach the
+// underlying failure through the session's wrapping.
+type testCauseError struct {
+	stage string
+}
+
+func (obj *testCauseError) Error() string {
+	return "test cause at stage " + obj.stage
+}
+
+// asyncDisconnectSession connects a persistent session, kills its connection
+// with the given cause, and waits for the disconnect. Every later driver
+// blocks in connect until the returned gate closes, so the recorded cause can
+// be asserted without racing a reconnect.
+func asyncDisconnectSession(t *testing.T, cause error) (*Session, *ConnInfo, chan string, chan struct{}) {
+	gate := make(chan struct{})
+	count := 0
+	factory := &fakeFactory{}
+	factory.prepare = func(d *fakeDriver) {
+		count++ // safe: prepare runs under the factory mutex
+		if count > 1 {
+			d.connectGate = gate
+		}
+	}
+	session := testSession(t, factory)
+	t.Cleanup(session.Release)
+
+	logs := make(chan string, 10)
+	info := &ConnInfo{
+		Host: "fake-device.local", Port: DefaultPort,
+		ConnectLogf: func(format string, v ...interface{}) {
+			select {
+			case logs <- fmt.Sprintf(format, v...):
+			default:
+			}
+		},
+	}
+	session.Configure(info)
+	waitFor(t, "connect", session.Connected)
+
+	factory.driver(0).fail(cause)
+	waitFor(t, "async disconnect", func() bool { return !session.Connected() })
+	return session, info, logs, gate
+}
+
+func TestSessionPersistentAsyncDisconnectRecordsCause(t *testing.T) {
+	cause := &testCauseError{stage: "read"}
+	session, info, logs, _ := asyncDisconnectSession(t, cause)
+
+	err := session.LastError()
+	if err == nil {
+		t.Fatalf("asynchronous disconnect did not record a cause")
+	}
+	if !errors.Is(err, cause) {
+		t.Fatalf("errors.Is cannot reach the cause: %v", err)
+	}
+	target := &testCauseError{}
+	if !errors.As(err, &target) || target.stage != "read" {
+		t.Fatalf("errors.As cannot reach the typed cause: %v", err)
+	}
+	if !strings.Contains(err.Error(), info.Addr()) {
+		t.Fatalf("recorded cause lacks the target address: %v", err)
+	}
+
+	select {
+	case line := <-logs:
+		if !strings.Contains(line, info.Addr()) || !strings.Contains(line, cause.Error()) {
+			t.Fatalf("disconnect log lacks target or cause: %q", line)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for the disconnect log")
+	}
+}
+
+func TestSessionPersistentAsyncDisconnectMarksDisconnectedBeforeLogging(t *testing.T) {
+	factory := &fakeFactory{}
+	session := testSession(t, factory)
+	t.Cleanup(session.Release)
+
+	logStarted := make(chan struct{}, 1)
+	releaseLog := make(chan struct{})
+	var releaseOnce sync.Once
+	unblockLog := func() {
+		releaseOnce.Do(func() { close(releaseLog) })
+	}
+	defer unblockLog()
+
+	info := &ConnInfo{
+		Host: "fake-device.local", Port: DefaultPort,
+		ConnectLogf: func(format string, v ...interface{}) {
+			select {
+			case logStarted <- struct{}{}:
+			default:
+			}
+			<-releaseLog
+		},
+	}
+	session.Configure(info)
+	waitFor(t, "connect", session.Connected)
+
+	factory.driver(0).fail(&testCauseError{stage: "blocked-log"})
+	select {
+	case <-logStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the disconnect logger")
+	}
+
+	// A caller-supplied logger may block. Health and the typed cause must be
+	// published before invoking it so reconnection state never depends on
+	// logging progress.
+	if session.Connected() {
+		t.Fatal("dead connection remained healthy while ConnectLogf was blocked")
+	}
+	var target *testCauseError
+	if err := session.LastError(); !errors.As(err, &target) || target.stage != "blocked-log" {
+		t.Fatalf("close reason was not recorded before logging: %v", err)
+	}
+
+	unblockLog()
+}
+
+func TestSessionQueueOverflowCauseIsRecognizable(t *testing.T) {
+	// A slow mgmt consumer ends the connection with ErrEventQueueFull. That
+	// is actionable configuration feedback, so the sentinel must stay
+	// recognizable through the session's wrapping.
+	session, _, _, _ := asyncDisconnectSession(t, apiclient.ErrEventQueueFull)
+
+	if err := session.LastError(); !errors.Is(err, apiclient.ErrEventQueueFull) {
+		t.Fatalf("queue overflow is not recognizable: %v", err)
+	}
+}
+
+func TestSessionAsyncCloseReasonSuppressedOnShutdown(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	session := &Session{ctx: ctx}
+	d := &fakeDriver{doneCh: make(chan struct{})}
+	d.fail(context.Canceled)
+
+	// A live session must surface the driver's cause.
+	if got := session.asyncCloseReason(d); !errors.Is(got, context.Canceled) {
+		t.Fatalf("live session hid the driver cause: %v", got)
+	}
+
+	// After shutdown the same cause is our own teardown, not a failure,
+	// even when the done and ctx channels race in the mainloop select.
+	cancel()
+	if got := session.asyncCloseReason(d); got != nil {
+		t.Fatalf("shut down session reported a failure: %v", got)
+	}
+}
+
+func TestSessionDeliberateTeardownRecordsNoFailure(t *testing.T) {
+	factory := &fakeFactory{}
+	session := testSession(t, factory)
+	logs := make(chan string, 10)
+	info := &ConnInfo{
+		Host: "fake", Port: DefaultPort,
+		ConnectLogf: func(format string, v ...interface{}) {
+			select {
+			case logs <- fmt.Sprintf(format, v...):
+			default:
+			}
+		},
+	}
+	session.Configure(info)
+	waitFor(t, "connect", session.Connected)
+
+	// Reconfiguration tears the connection down deliberately.
+	session.Configure(nil)
+	waitFor(t, "unconfigure", func() bool { return !session.Connected() })
+	if err := session.LastError(); err != nil {
+		t.Fatalf("reconfiguration recorded a failure: %v", err)
+	}
+
+	// Shutting down while connected is deliberate too.
+	session.Configure(info)
+	waitFor(t, "reconnect", session.Connected)
+	session.Release()
+	if err := session.LastError(); err != nil {
+		t.Fatalf("session shutdown recorded a failure: %v", err)
+	}
+	select {
+	case line := <-logs:
+		t.Fatalf("deliberate teardown logged a failure: %q", line)
+	default:
+	}
+}
+
+func TestSessionPollAsyncDeathDuringWindow(t *testing.T) {
+	cause := &testCauseError{stage: "poll-window"}
+	gate := make(chan struct{})
+	count := 0
+	factory := &fakeFactory{}
+	factory.prepare = func(d *fakeDriver) {
+		count++ // safe: prepare runs under the factory mutex
+		if count > 1 {
+			d.connectGate = gate
+		}
+	}
+	session := testSession(t, factory)
+	defer session.Release()
+
+	logs := make(chan string, 10)
+	info := &ConnInfo{
+		Host: "fake", Port: DefaultPort, Interval: 3600,
+		ConnectLogf: func(format string, v ...interface{}) {
+			select {
+			case logs <- fmt.Sprintf(format, v...):
+			default:
+			}
+		},
+	}
+	session.Configure(info)
+	waitFor(t, "first poll connect", session.Connected)
+
+	// Kill the connection inside the snapshot-settle window, before the
+	// cycle's own deliberate cleanup close.
+	factory.driver(0).fail(cause)
+
+	waitFor(t, "poll cycle failure", func() bool { return !session.Connected() })
+	if err := session.LastError(); !errors.Is(err, cause) || !strings.Contains(err.Error(), info.Addr()) {
+		t.Fatalf("poll window death not recorded with target and cause: %v", err)
+	}
+	select {
+	case line := <-logs:
+		if !strings.Contains(line, info.Addr()) || !strings.Contains(line, cause.Error()) {
+			t.Fatalf("poll disconnect log lacks target or cause: %q", line)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for the poll disconnect log")
+	}
+
+	// The next cycle owns the recovery. Its clean end-of-cycle close is
+	// deliberate and must not record a new failure.
+	close(gate)
+	waitFor(t, "poll recovery", func() bool {
+		return session.Connected() && session.LastError() == nil
+	})
+	waitFor(t, "clean cycle close", func() bool {
+		d := factory.driver(1)
+		if d == nil {
+			return false
+		}
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
+		return d.closed
+	})
+	if err := session.LastError(); err != nil {
+		t.Fatalf("clean poll cycle recorded a failure: %v", err)
+	}
+	select {
+	case line := <-logs:
+		t.Fatalf("clean poll cycle logged a failure: %q", line)
+	default:
 	}
 }
 

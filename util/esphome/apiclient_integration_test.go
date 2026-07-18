@@ -33,8 +33,10 @@ package esphome
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,7 +85,15 @@ func TestAPIClientSessionReconnectAndOutageRealWire(t *testing.T) {
 	first := startRealWireSimulator(t, "127.0.0.1:0")
 	session := realWireSession(t)
 	defer session.Release()
-	session.Configure(first.info(0))
+	logs := make(chan string, 10)
+	info := first.info(0)
+	info.ConnectLogf = func(format string, v ...interface{}) {
+		select {
+		case logs <- fmt.Sprintf(format, v...):
+		default:
+		}
+	}
+	session.Configure(info)
 
 	waitFor(t, "first encrypted persistent session", func() bool {
 		return session.Connected() && session.State("button_a") != nil
@@ -92,6 +102,22 @@ func TestAPIClientSessionReconnectAndOutageRealWire(t *testing.T) {
 	address := first.address
 	first.close(t)
 	waitFor(t, "persistent disconnect", func() bool { return !session.Connected() })
+
+	// The encrypted connection died under the client, so the asynchronous
+	// close reason must be attributed with its target through the
+	// connection log rather than thrown away.
+	waitFor(t, "asynchronous close reason", func() bool {
+		for {
+			select {
+			case line := <-logs:
+				if strings.Contains(line, "lost") && strings.Contains(line, address) {
+					return true
+				}
+			default:
+				return false
+			}
+		}
+	})
 
 	second := startRealWireSimulator(t, address)
 	defer second.close(t)

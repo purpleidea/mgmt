@@ -12,14 +12,14 @@ changes.
 The architecture:
 
 - An `esphome:endpoint` resource whose **name is a uid**; fields carry the
-  connection params plus an `interval` field (0 = native events, >0 = poll
-  every N seconds, reconnecting each time).
+	connection params plus an `interval` field (0 = native events, >0 = poll
+	every N seconds, reconnecting each time).
 - Functions in a new `lang/core/net/esphome` package take an `endpoint` param
-  (the uid) and return **zero values until the endpoint resource has
-  published its connection info** (brokered by the generic Bridge API in
-  `engine/local/local.go`).
+	(the uid) and return **zero values until the endpoint resource has
+	published its connection info** (brokered by the generic Bridge API in
+	`engine/local/local.go`).
 - A shared util library connection-pools so that any number of
-  functions/resources talking to one device share **one real connection**.
+	functions/resources talking to one device share **one real connection**.
 - Everything pure golang.
 
 ## Protocol background
@@ -39,14 +39,14 @@ numeric `key` (hash), and a friendly name; commands (`SwitchCommandRequest`,
 Consequences for our design:
 
 - `interval == 0` (native events) is the natural, efficient mode: one
-  persistent connection with pushed updates.
+	persistent connection with pushed updates.
 - `interval > 0` (polling): **reconnect every cycle** -- connect, handshake,
-  subscribe, capture the initial snapshot burst, send any pending commands,
-  disconnect, sleep `interval` seconds.
+	subscribe, capture the initial snapshot burst, send any pending commands,
+	disconnect, sleep `interval` seconds.
 - Auth: the legacy `password`/`ConnectRequest` flow is deprecated and removed
-  in ESPHome 2026.1; the Noise PSK (`api: encryption: key:`) is the current
-  mechanism. There is no username in the protocol. We still model a
-  `password` field for older firmware, but `key` is the primary credential.
+	in ESPHome 2026.1; the Noise PSK (`api: encryption: key:`) is the current
+	mechanism. There is no username in the protocol. We still model a
+	`password` field for older firmware, but `key` is the primary credential.
 
 ## Library analysis
 
@@ -59,31 +59,31 @@ MIT. ~3.6k LOC handwritten + generated protobuf. Actively developed in 2026.
 **Quality: sufficient as-is for our POC.** Verified in source:
 
 - Clean layering: `transport/` (plain + Noise via `flynn/noise`, 600-line
-  Noise test), `framer`, message-type `router`, `client`, typed `commands`.
+	Noise test), `framer`, message-type `router`, `client`, typed `commands`.
 - Real test suite: client, keepalive, readloop, commands, entities, noise.
 - `EntityRegistry` is `sync.RWMutex`-guarded, typed per domain
-  (`SwitchEntity`, `BinarySensorEntity`, ..., each with `ObjectID`, `Key`,
-  cached `State` + `MissingState`), with `ByKey`/`ByName` lookups.
+	(`SwitchEntity`, `BinarySensorEntity`, ..., each with `ObjectID`, `Key`,
+	cached `State` + `MissingState`), with `ByKey`/`ByName` lookups.
 - `SubscribeStates` re-registers automatically after reconnect; keepalive
-  closes dead connections; reconnect uses exponential backoff.
+	closes dead connections; reconnect uses exponential backoff.
 - Typed command helpers we need day one: `SetSwitch`, `SetNumber`,
-  `PressButton`, `SetLight`, `SetFan` (H-bridge motors), `SetCover`, etc.
+	`PressButton`, `SetLight`, `SetFan` (H-bridge motors), `SetCover`, etc.
 - Protocol currency: proto includes 2025/2026-era families (Update, Valve,
-  WaterHeater, Infrared, VoiceAssistant).
+	WaterHeater, Infrared, VoiceAssistant).
 - Library deps are minimal (`flynn/noise`, `google.golang.org/protobuf`;
-  `urfave/cli`/`miekg/dns` are only for its CLI).
+	`urfave/cli`/`miekg/dns` are only for its CLI).
 
 **Known warts (all tolerable, none blocking):**
 
 - **No `ConnectRequest`/password support** -- Noise-key and open plaintext
-  only. Legacy password-auth firmware won't work until patched (~30 lines).
-  Acceptable: passwords are removed upstream in ESPHome 2026.1 anyway.
+	only. Legacy password-auth firmware won't work until patched (~30 lines).
+	Acceptable: passwords are removed upstream in ESPHome 2026.1 anyway.
 - **Races in its built-in reconnect path** (`c.done` channel is replaced
-  unsynchronized; registry `Clear()` mid-use). Mitigation: we disable its
-  reconnect (`WithReconnect(0)`) and own the reconnect/poll loop in our util,
-  which we need anyway for the interval semantics.
+	unsynchronized; registry `Clear()` mid-use). Mitigation: we disable its
+	reconnect (`WithReconnect(0)`) and own the reconnect/poll loop in our util,
+	which we need anyway for the interval semantics.
 - `go 1.26.1` directive vs mgmt's `go 1.25.7` -- needs a toolchain >= 1.26.1
-  or a trivial upstream/fork patch lowering the directive.
+	or a trivial upstream/fork patch lowering the directive.
 - No `ByObjectID` lookup (we iterate or index ourselves in the util).
 
 **Historical fork/patch recommendation:** consume upstream as-is first. Candidate
@@ -150,30 +150,30 @@ downgrade to plaintext.
 
 ```
 mcl: esphome:endpoint "garage" { host => "...", key => "...", interval => 0 }
-          |  CheckApply publishes *ConnInfo
-          v
-  local.BridgeSet("esphome:endpoint", "garage", connInfo)   [engine/local]
-          |                                    ^
-          |  BridgeWatch/BridgeGet             |  (nil until resource runs
-          v                                    |   -> functions return zero)
-  functions net.esphome.*("garage", ...)       |
-          |                                    |
-          v                                    |
-  util/esphome pool -- one Session per endpoint uid -- one TCP conn per device
-          ^                                    (persistent OR poll-reconnect)
-          |
-  resources esphome:switch, esphome:number, ... (commands + repair watch)
+	        |  CheckApply publishes *ConnInfo
+	        v
+	local.BridgeSet("esphome:endpoint", "garage", connInfo)   [engine/local]
+	        |                                    ^
+	        |  BridgeWatch/BridgeGet             |  (nil until resource runs
+	        v                                    |   -> functions return zero)
+	functions net.esphome.*("garage", ...)       |
+	        |                                    |
+	        v                                    |
+	util/esphome pool -- one Session per endpoint uid -- one TCP conn per device
+	        ^                                    (persistent OR poll-reconnect)
+	        |
+	resources esphome:switch, esphome:number, ... (commands + repair watch)
 ```
 
 - The **endpoint resource** never holds the device connection itself; it
-  validates params, publishes `*ConnInfo` on the bridge (namespace
-  `esphome:endpoint`, uid = resource name), and unpublishes on `Cleanup()`.
+	validates params, publishes `*ConnInfo` on the bridge (namespace
+	`esphome:endpoint`, uid = resource name), and unpublishes on `Cleanup()`.
 - The **pool** (package-level, refcounted, keyed by endpoint uid -- modeled
-  on `bmcStateReserve` in `engine/resources/bmc.go`) owns one `Session` per
-  uid. All functions and entity resources naming that uid share it, so
-  exactly one real device connection exists per endpoint.
+	on `bmcStateReserve` in `engine/resources/bmc.go`) owns one `Session` per
+	uid. All functions and entity resources naming that uid share it, so
+	exactly one real device connection exists per endpoint.
 - Two `esphome:endpoint` resources pointing at the same physical device get
-  two connections -- documented, acceptable (ESP devices allow ~3 clients).
+	two connections -- documented, acceptable (ESP devices allow ~3 clients).
 
 ## New package: `util/esphome` (package `esphomeutil`)
 
@@ -240,15 +240,15 @@ type driver interface {
 **Session internals:** a mainloop goroutine started on first `Configure`.
 
 - `interval == 0`: connect (Noise if `Key != ""`), `ListEntities`,
-  `SubscribeStates`; on push -> update `map[objectID]State` cache + notify
-  watchers; on error/disconnect -> mark disconnected, notify, retry with
-  backoff. The library's own reconnect stays disabled (`WithReconnect(0)`) --
-  we own the loop (avoids its racy path).
+	`SubscribeStates`; on push -> update `map[objectID]State` cache + notify
+	watchers; on error/disconnect -> mark disconnected, notify, retry with
+	backoff. The library's own reconnect stays disabled (`WithReconnect(0)`) --
+	we own the loop (avoids its racy path).
 - `interval > 0`: each cycle: connect, list, subscribe, wait for the initial
-  snapshot burst (short settle timeout), update cache, flush pending
-  commands, disconnect, sleep interval (or until a command wakes it).
+	snapshot burst (short settle timeout), update cache, flush pending
+	commands, disconnect, sleep interval (or until a command wakes it).
 - Notify mechanism: `mutex` + `notify map[chan struct{}]struct{}` with
-  buffered-chan coalescing, copied from `HTTPPool` in `engine/local/local.go`.
+	buffered-chan coalescing, copied from `HTTPPool` in `engine/local/local.go`.
 
 Files: `util/esphome/esphome.go` (ConnInfo, State, pool),
 `util/esphome/session.go` (mainloop, cache, watch), `util/esphome/driver.go`
@@ -284,16 +284,16 @@ type EsphomeEndpointRes struct {
 ```
 
 - `Default()`: `Port: 6053`. `Validate()`: host non-empty, port range,
-  interval sanity, key base64/32-byte check, error if both Key and Password.
+	interval sanity, key base64/32-byte check, error if both Key and Password.
 - `Watch()`: minimal `value.go` shape (startup event + ctx.Done) for the
-  POC. (Later: reserve the session and forward its Watch events so device
-  connectivity shows as resource events.)
+	POC. (Later: reserve the session and forward its Watch events so device
+	connectivity shows as resource events.)
 - `CheckApply()`: the `http_client.go` defer-publish pattern -- named
-  returns, `defer` a `publishConnInfo(ctx)` helper that guards
-  `ctx.Err() != nil`, `BridgeGet`-compares, then
-  `obj.init.Local.BridgeSet(ctx, "esphome:endpoint", obj.Name(), connInfo)`.
-  State check = "is the published value current?" (checkOK true if
-  unchanged; publish only when `apply` -- Init stays read-only).
+	returns, `defer` a `publishConnInfo(ctx)` helper that guards
+	`ctx.Err() != nil`, `BridgeGet`-compares, then
+	`obj.init.Local.BridgeSet(ctx, "esphome:endpoint", obj.Name(), connInfo)`.
+	State check = "is the published value current?" (checkOK true if
+	unchanged; publish only when `apply` -- Init stays read-only).
 - `Cleanup()`: `BridgeSet(ctx, ns, obj.Name(), nil)` to unpublish.
 - `Cmp()`, `UnmarshalYAML` boilerplate per `value.go`.
 
@@ -302,11 +302,11 @@ type EsphomeEndpointRes struct {
 POC set (entity-domain names):
 
 - **`esphome:switch`** -- GPIO outputs / relays / LEDs. Name = ESPHome
-  `object_id` (overridable via an `id` field). Fields: `endpoint str` (uid
-  of the esphome:endpoint), `state str` ("on"/"off", svc.go-style).
+	`object_id` (overridable via an `id` field). Fields: `endpoint str` (uid
+	of the esphome:endpoint), `state str` ("on"/"off", svc.go-style).
 - **`esphome:number`** -- setpoints/speeds (eg: motor speed). Fields:
-  `endpoint str`, `value float`, plus the safety interlock params `stop`
-  and `safe` described below.
+	`endpoint str`, `value float`, plus the safety interlock params `stop`
+	and `safe` described below.
 
 ### Motor runaway safety (`stop` + `safe`)
 
@@ -315,17 +315,17 @@ optional deadman interlock for when the device is disconnected from the
 master controller:
 
 - `stop uint32` (seconds, 0 disables): if the device was disconnected from
-  us for at least this long, then when the connection comes back, the
-  resource first commands the `safe` value and errors instead of
-  converging. With a `Meta:retry` metaparam it then recovers and re-applies
-  the desired value on the next try; without one it stays safely stopped
-  until a new graph runs (a true interlock requiring intervention). The
-  session tracks each completed outage with an id, so one outage triggers
-  the interlock at most once. With a polling endpoint, `stop` must be
-  comfortably larger than the polling interval.
+	us for at least this long, then when the connection comes back, the
+	resource first commands the `safe` value and errors instead of
+	converging. With a `Meta:retry` metaparam it then recovers and re-applies
+	the desired value on the next try; without one it stays safely stopped
+	until a new graph runs (a true interlock requiring intervention). The
+	session tracks each completed outage with an id, so one outage triggers
+	the interlock at most once. With a polling endpoint, `stop` must be
+	comfortably larger than the polling interval.
 - `safe float`: the value the interlock commands (usually 0). It is also
-  commanded (best effort) when the resource is removed (Cleanup), since
-  nobody will be managing the entity from then on.
+	commanded (best effort) when the resource is removed (Cleanup), since
+	nobody will be managing the entity from then on.
 
 mgmt can only act while it is running and connected, so this is necessarily
 only half of the story: for full protection against a runaway load, the
@@ -339,20 +339,20 @@ Shared lifecycle (both):
 
 - `Init()`: read-only setup only (no state changes in Init).
 - `Watch()`: `BridgeWatch(ctx, "esphome:endpoint", obj.Endpoint)` + reserve
-  session + `session.Watch(ctx)`; forward events via `obj.init.Event(ctx)`
-  -- this is what makes mgmt *repair* out-of-band flips (someone toggles the
-  switch in Home Assistant -> state event -> CheckApply flips it back).
+	session + `session.Watch(ctx)`; forward events via `obj.init.Event(ctx)`
+	-- this is what makes mgmt *repair* out-of-band flips (someone toggles the
+	switch in Home Assistant -> state event -> CheckApply flips it back).
 - `CheckApply()`: `BridgeGet` conn info; if nil -> error ("endpoint x not
-  available") so the engine retries per retry metaparams. Else
-  `Configure(info)` and wait briefly (`WaitConnected`, ~15s) for the
-  asynchronous connection startup; compare `session.State(objectID)` to
-  desired; if different and `apply`, send `SetSwitch`/`SetNumber`.
+	available") so the engine retries per retry metaparams. Else
+	`Configure(info)` and wait briefly (`WaitConnected`, ~15s) for the
+	asynchronous connection startup; compare `session.State(objectID)` to
+	desired; if different and `apply`, send `SetSwitch`/`SetNumber`.
 - `Cleanup()`: `session.Release()` (the number resource first makes a best
-  effort to command its safe value when the interlock is enabled).
+	effort to command its safe value when the interlock is enabled).
 - **Edges**: for now, declare explicit edges in mcl
-  (`Esphome:Endpoint["garage"] -> Esphome:Switch["led_1"]`) so endpoints
-  apply first. AutoEdges (standard UIDs/AutoEdges pattern) can be added
-  later.
+	(`Esphome:Endpoint["garage"] -> Esphome:Switch["led_1"]`) so endpoints
+	apply first. AutoEdges (standard UIDs/AutoEdges pattern) can be added
+	later.
 
 Future resources (same skeleton): `esphome:light`, `esphome:fan` (H-bridge
 motor direction/speed -- the conveyor use case), `esphome:cover`,
@@ -386,19 +386,19 @@ Anatomy is a direct clone of `ResponseFunc`
 Differences:
 
 - `Stream()` selects on **three** sources: the args-input chan (endpoint+id,
-  fixed after first receipt, like response.go's uid); the
-  `obj.init.Local.BridgeWatch(ctx, "esphome:endpoint", endpoint)` chan; and
-  the session watch chan. On bridge event -> `BridgeGet` ->
-  `session.Configure(info)` (nil unpublish included) -> `init.Event`. On
-  session event -> `init.Event`.
+	fixed after first receipt, like response.go's uid); the
+	`obj.init.Local.BridgeWatch(ctx, "esphome:endpoint", endpoint)` chan; and
+	the session watch chan. On bridge event -> `BridgeGet` ->
+	`session.Configure(info)` (nil unpublish included) -> `init.Event`. On
+	session event -> `init.Event`.
 - `Call()` reads `BridgeGet`; nil -> return the zero value (bare zeros --
-  same convention as http.response's "status is zero until something
-  happens"). Else `session.State(id)`; nil/missing/wrong-domain -> zero
-  value; else the typed value.
+	same convention as http.response's "status is zero until something
+	happens"). Else `session.State(id)`; nil/missing/wrong-domain -> zero
+	value; else the typed value.
 - Sessions are refcounted: `SessionReserve` in Stream after the endpoint arg
-  arrives, `Release` on Stream exit (deferred).
+	arrives, `Release` on Stream exit (deferred).
 - Wrong-domain reads (e.g. `binary_sensor()` on a switch id) return zero,
-  log under Debug. (Deliberately forgiving for the POC.)
+	log under Debug. (Deliberately forgiving for the POC.)
 
 GPIO reads: an ESPHome GPIO input pin is a `binary_sensor` entity in the
 device YAML, so `net.esphome.binary_sensor("garage", "button_a")` *is* the
@@ -431,38 +431,38 @@ esphome:switch "led_1" {
 
 1. `docs/esphome-plan.md` -- this design document.
 2. `go.mod`/`go.sum` -- add the selected native api client behind the driver
-   seam. The current implementation uses go-aioesphomeapi and Go 1.25.10.
+	seam. The current implementation uses go-aioesphomeapi and Go 1.25.10.
 3. `util/esphome/{esphome,session,driver,apiclient}.go` + fake-driver tests.
 4. `engine/resources/esphome.go` -- endpoint resource.
 5. `lang/core/net/esphome/{esphome,binary_sensor,sensor,text_sensor,connected}.go`
-   + blank import in `lang/core/core.go`.
+	and a blank import in `lang/core/core.go`.
 6. `engine/resources/esphome_entities.go` -- `esphome:switch`,
-   `esphome:number`, autoedges.
+	`esphome:number`, autoedges.
 7. `examples/lang/esphome0.mcl`.
 
 ## Verification
 
 - `make build`, `make gofmt`, `./test/test-govet.sh`.
 - `go test github.com/purpleidea/mgmt/util/esphome` -- fake-driver unit
-  tests: pooling refcounts, Configure idempotency/change, zero-value before
-  publish, poll vs push mode, command wake in poll mode.
+	tests: pooling refcounts, Configure idempotency/change, zero-value before
+	publish, poll vs push mode, command wake in poll mode.
 - Function wiring smoke: `go test -count=1 github.com/purpleidea/mgmt/lang
-  -run 'TestAstFunc2/' -short` still passes (no regressions; live-device
-  functions can't be exercised there).
+	-run 'TestAstFunc2/' -short` still passes (no regressions; live-device
+	functions can't be exercised there).
 - End-to-end against real hardware:
-  `./mgmt run --tmp-prefix lang examples/lang/esphome0.mcl` pointed at a
-  real ESPHome device (or an `esphome run` firmware in a container/VM with a
-  trivial YAML: one `gpio` binary_sensor + one `gpio` switch). Verify: zero
-  values before endpoint applies; live updates on button press with
-  `interval => 0`; polling cadence with `interval => 5`; out-of-band flips
-  (toggle via Home Assistant/web UI) repaired by `esphome:switch`.
+	`./mgmt run --tmp-prefix lang examples/lang/esphome0.mcl` pointed at a
+	real ESPHome device (or an `esphome run` firmware in a container/VM with a
+	trivial YAML: one `gpio` binary_sensor + one `gpio` switch). Verify: zero
+	values before endpoint applies; live updates on button press with
+	`interval => 0`; polling cadence with `interval => 5`; out-of-band flips
+	(toggle via Home Assistant/web UI) repaired by `esphome:switch`.
 
 ## Future work (post-POC)
 
 - Additional entity families beyond the implemented Fan, RGB Light, Switch,
-  Number, Button driver seam, and read-only sensor families.
+	Number, Button driver seam, and read-only sensor families.
 - Optional `{value, ready}` struct variants of the read functions
-  (`value.get` pattern) when "zero vs not-yet-connected" must be
-  distinguishable in mcl.
+	(`value.get` pattern) when "zero vs not-yet-connected" must be
+	distinguishable in mcl.
 - Optional mDNS service browsing and a `net.esphome.entities(endpoint)` list
-  function. Direct `.local` A-record resolution is already implemented.
+	function. Direct `.local` A-record resolution is already implemented.

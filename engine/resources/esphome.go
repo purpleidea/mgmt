@@ -341,9 +341,10 @@ func esphomeSessionReady(ctx context.Context, init *engine.Init, session *esphom
 
 // EsphomeSwitchRes manages a switch entity on an esphome device, such as a gpio
 // output pin, a relay, or an led. The name is the exact ESPHome entity name (or
-// a legacy object_id), unless the id field overrides it. Because we subscribe to
-// the device state, an out-of-band change (eg: someone toggling the switch from
-// home assistant or the device web ui) generates an event, and mgmt repairs it.
+// a legacy object_id), unless the id field overrides it. Because we subscribe
+// to the device state, an out-of-band change (eg: someone toggling the switch
+// from home assistant or the device web ui) generates an event, and mgmt
+// repairs it.
 type EsphomeSwitchRes struct {
 	traits.Base // add the base methods without re-implementation
 
@@ -680,10 +681,10 @@ func (obj *EsphomeNumberRes) UnmarshalYAML(unmarshal func(interface{}) error) er
 	return nil
 }
 
-// EsphomeFanRes manages an esphome fan entity. The hbridge fan platform
-// makes this a useful abstraction for a reversible DC motor such as the
-// conveyor demo. The name is the exact esphome entity name (or a legacy
-// object_id), unless id overrides it.
+// EsphomeFanRes manages an esphome fan entity. The hbridge fan platform makes
+// this a useful abstraction for a reversible DC motor such as the conveyor
+// demo. The name is the exact esphome entity name (or a legacy object_id),
+// unless id overrides it.
 //
 // Stop is an mgmt-side recovery and cleanup interlock. It is not a substitute
 // for a local firmware timeout, a current limit, guards, or a physical e-stop.
@@ -808,8 +809,8 @@ func (obj *EsphomeFanRes) Watch(ctx context.Context) error {
 	return esphomeWatch(ctx, obj.init, obj.session, obj.Endpoint)
 }
 
-// CheckApply checks the cached entity state and commands the fan if needed.
-// If the safety interlock detects a long outage, it stops the fan and errors.
+// CheckApply checks the cached entity state and commands the fan if needed. If
+// the safety interlock detects a long outage, it stops the fan and errors.
 func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	info, err := esphomeSessionReadyInfo(ctx, obj.init, obj.session, obj.Endpoint)
 	if err != nil {

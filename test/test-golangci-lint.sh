@@ -67,6 +67,7 @@ linters:
 				- behavior
 				- capitalize
 				- capitalized
+				- color
 				- customize
 				- finalizes
 				- fulfill
@@ -93,7 +94,9 @@ linters:
 				- recognized
 				- recognize
 				- recognizes
+				- recognizable
 				- sanitize
+				- sanitized
 				- serialization
 				- serialize
 				- serializes

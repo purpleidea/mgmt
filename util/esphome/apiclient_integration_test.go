@@ -66,7 +66,7 @@ func TestAPIClientSessionPollRealWire(t *testing.T) {
 	select {
 	case message := <-peer.device.Commands():
 		command, ok := message.(*pb.NumberCommandRequest)
-		if !ok || command.Key != simulator.BasicNumberKey || command.State != 0.5 {
+		if !ok || command.GetKey() != simulator.BasicNumberKey || command.GetState() != 0.5 {
 			t.Fatalf("unexpected polling command: %#v", message)
 		}
 	case <-time.After(time.Second):
@@ -156,7 +156,7 @@ func TestAPIClientSessionReconnectKeepsLatestDeviceStateRealWire(t *testing.T) {
 	select {
 	case message := <-peer.device.Commands():
 		command, ok := message.(*pb.SwitchCommandRequest)
-		if !ok || command.Key != simulator.BasicSwitchKey || command.State {
+		if !ok || command.GetKey() != simulator.BasicSwitchKey || command.GetState() {
 			t.Fatalf("unexpected pre-reconnect command: %#v", message)
 		}
 	case <-time.After(time.Second):
@@ -168,7 +168,7 @@ func TestAPIClientSessionReconnectKeepsLatestDeviceStateRealWire(t *testing.T) {
 	})
 
 	if dropped := peer.device.DropConnections(); dropped != 1 {
-		t.Fatalf("DropConnections = %d, want 1", dropped)
+		t.Fatalf("dropConnections = %d, want 1", dropped)
 	}
 	waitFor(t, "same-device reconnect with retained state", func() bool {
 		outage, outageID := session.LastOutage()
@@ -202,19 +202,19 @@ func startRealWireSimulator(t *testing.T, address string) *realWirePeer {
 	return &realWirePeer{device: device, address: listener.Addr().String(), done: done}
 }
 
-func (p *realWirePeer) info(interval uint32) *ConnInfo {
-	host, portString, _ := net.SplitHostPort(p.address)
+func (obj *realWirePeer) info(interval uint32) *ConnInfo {
+	host, portString, _ := net.SplitHostPort(obj.address)
 	port, _ := strconv.Atoi(portString)
 	return &ConnInfo{Host: host, Port: port, Key: simulator.DefaultTestEncryptionKey, Interval: interval}
 }
 
-func (p *realWirePeer) close(t *testing.T) {
+func (obj *realWirePeer) close(t *testing.T) {
 	t.Helper()
-	if err := p.device.Close(); err != nil {
+	if err := obj.device.Close(); err != nil {
 		t.Fatalf("close encrypted simulator: %v", err)
 	}
 	select {
-	case err := <-p.done:
+	case err := <-obj.done:
 		if err != nil {
 			t.Fatalf("serve encrypted simulator: %v", err)
 		}

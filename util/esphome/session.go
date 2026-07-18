@@ -387,9 +387,9 @@ func (obj *Session) SetFanWithInfo(ctx context.Context, info *ConnInfo, identifi
 	})
 }
 
-// SetFanForCleanup uses the ordered shared session when it is healthy and
-// falls back to a one-shot connection only after the shared path is no longer
-// alive. A stop command intentionally omits optional speed and direction.
+// SetFanForCleanup uses the ordered shared session when it is healthy and falls
+// back to a one-shot connection only after the shared path is no longer alive.
+// A stop command intentionally omits optional speed and direction.
 func (obj *Session) SetFanForCleanup(ctx context.Context, info *ConnInfo, identifier string, command FanCommand) error {
 	if obj.Connected() {
 		err := obj.SetFan(ctx, identifier, command)
@@ -648,8 +648,8 @@ func (obj *Session) stale(generation uint64) bool {
 	return obj.generation != generation
 }
 
-// consumeQueuedWake drains one wake queued before a connection cycle starts.
-// It returns true only when that wake represents a real configuration change.
+// consumeQueuedWake drains one wake queued before a connection cycle starts. It
+// returns true only when that wake represents a real configuration change.
 // Command wakes can be coalesced because the cycle flushes pending commands.
 func (obj *Session) consumeQueuedWake(generation uint64) bool {
 	select {
@@ -689,8 +689,8 @@ func (obj *Session) backoff() time.Duration {
 	return d
 }
 
-// connectFailed records and reports one failed connection attempt. It keeps
-// the underlying error in the chain so WaitConnected callers can inspect it.
+// connectFailed records and reports one failed connection attempt. It keeps the
+// underlying error in the chain so WaitConnected callers can inspect it.
 func (obj *Session) connectFailed(info *ConnInfo, err error, retry time.Duration) {
 	wrapped := fmt.Errorf("connect to %s failed: %w", info.Addr(), err)
 	obj.mutex.Lock()
@@ -704,11 +704,11 @@ func (obj *Session) connectFailed(info *ConnInfo, err error, retry time.Duration
 	}
 }
 
-// asyncCloseReason returns the sanitized reason a driver connection died on
-// its own, or nil when nothing should be reported. A deliberate teardown must
-// never look like a device failure: session shutdown cancels the ctx that the
-// connection is bound to, so once the ctx is done any recorded cause is our
-// own doing, and an intentional driver close records no reason at all.
+// asyncCloseReason returns the sanitized reason a driver connection died on its
+// own, or nil when nothing should be reported. A deliberate teardown must never
+// look like a device failure: session shutdown cancels the ctx that the
+// connection is bound to, so once the ctx is done any recorded cause is our own
+// doing, and an intentional driver close records no reason at all.
 func (obj *Session) asyncCloseReason(d driver) error {
 	if obj.ctx.Err() != nil {
 		return nil // session shutdown tears the connection down
@@ -717,10 +717,10 @@ func (obj *Session) asyncCloseReason(d driver) error {
 }
 
 // connectionLost atomically records one connection that died on its own and
-// marks it disconnected before invoking the external logging callback. It
-// keeps the typed cause in the chain so LastError and WaitConnected callers can
-// reach it with errors.Is/errors.As. The message names the target address but
-// never the noise key.
+// marks it disconnected before invoking the external logging callback. It keeps
+// the typed cause in the chain so LastError and WaitConnected callers can reach
+// it with errors.Is/errors.As. The message names the target address but never
+// the noise key.
 func (obj *Session) connectionLost(info *ConnInfo, reason error) {
 	wrapped := fmt.Errorf("connection to %s lost: %w", info.Addr(), reason)
 	obj.mutex.Lock()
@@ -795,18 +795,18 @@ func (obj *Session) connect(info *ConnInfo) (driver, error) {
 	}
 	entities, err := d.entities()
 	if err != nil {
-		d.close()
+		_ = d.close()
 		return nil, err
 	}
 	obj.markConnected(entities) // index must exist before states arrive
 	if err := d.subscribe(obj.handleState); err != nil {
-		d.close()
+		_ = d.close()
 		obj.markDisconnected()
 		return nil, err
 	}
 	if info.LogLevel != "" && info.Logf != nil {
 		if err := d.subscribeLogs(info.LogLevel, info.Logf); err != nil {
-			d.close()
+			_ = d.close()
 			obj.markDisconnected()
 			return nil, err
 		}
@@ -822,7 +822,7 @@ func (obj *Session) persistent(info *ConnInfo, generation uint64) {
 	if err != nil {
 		retry := obj.backoff()
 		obj.connectFailed(info, err, retry)
-		obj.sleep(retry) // returns early on wakeup/shutdown
+		_ = obj.sleep(retry) // returns early on wakeup/shutdown
 		return
 	}
 	defer d.close()
@@ -862,12 +862,12 @@ func (obj *Session) pollCycle(info *ConnInfo, generation uint64) {
 		obj.markDisconnected()
 		retry := obj.backoff()
 		obj.connectFailed(info, err, retry)
-		obj.sleep(retry)
+		_ = obj.sleep(retry)
 		return
 	}
 
 	// Wait briefly for the initial snapshot burst to land in the cache.
-	obj.sleep(pollSettle)
+	_ = obj.sleep(pollSettle)
 
 	// The settle window can also end with the connection already dead. In
 	// that case report the cause and treat the cycle as failed, instead of
@@ -877,13 +877,13 @@ func (obj *Session) pollCycle(info *ConnInfo, generation uint64) {
 	// deliberate close below records no reason, so a clean cycle can never
 	// look like a failure.
 	if reason := obj.asyncCloseReason(d); reason != nil {
-		d.close()
+		_ = d.close()
 		obj.connectionLost(info, reason)
 		return
 	}
 
 	obj.flushPending(d)
-	d.close()
+	_ = d.close()
 
 	if obj.stale(generation) {
 		return // reconfigure right away
@@ -892,5 +892,5 @@ func (obj *Session) pollCycle(info *ConnInfo, generation uint64) {
 	// Note that we stay "connected" (healthy) between successful polls.
 	// Sleep until the next poll. A queued command or a config change wakes
 	// us early, and the next mainloop cycle handles it right away.
-	obj.sleep(time.Duration(info.Interval) * time.Second)
+	_ = obj.sleep(time.Duration(info.Interval) * time.Second)
 }

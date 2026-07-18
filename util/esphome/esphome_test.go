@@ -270,10 +270,10 @@ func TestNormalizeLogLevel(t *testing.T) {
 	for input, want := range tests {
 		got, err := NormalizeLogLevel(input)
 		if err != nil {
-			t.Fatalf("NormalizeLogLevel(%q): %v", input, err)
+			t.Fatalf("normalizeLogLevel(%q): %v", input, err)
 		}
 		if got != want {
-			t.Fatalf("NormalizeLogLevel(%q) = %q, want %q", input, got, want)
+			t.Fatalf("normalizeLogLevel(%q) = %q, want %q", input, got, want)
 		}
 	}
 	if _, err := NormalizeLogLevel("trace"); err == nil {
@@ -366,17 +366,17 @@ func TestSessionConnectFailureIsLoggedAndExposed(t *testing.T) {
 
 	waitFor(t, "last connection error", func() bool { return session.LastError() != nil })
 	if !errors.Is(session.LastError(), wantErr) {
-		t.Fatalf("LastError() = %v, want wrapped cause", session.LastError())
+		t.Fatalf("lastError() = %v, want wrapped cause", session.LastError())
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	err := session.WaitConnected(ctx, time.Second)
 	if !errors.Is(err, wantErr) {
-		t.Fatalf("WaitConnected() = %v, want wrapped cause", err)
+		t.Fatalf("waitConnected() = %v, want wrapped cause", err)
 	}
 	if !strings.Contains(err.Error(), info.Addr()) {
-		t.Fatalf("WaitConnected() error lacks target: %v", err)
+		t.Fatalf("waitConnected() error lacks target: %v", err)
 	}
 }
 
@@ -546,7 +546,9 @@ func TestSessionPersistent(t *testing.T) {
 
 	// Killing the connection must reconnect and record an outage.
 	_, id0 := session.LastOutage()
-	factory.driver(0).close()
+	if err := factory.driver(0).close(); err != nil {
+		t.Fatalf("close first driver: %v", err)
+	}
 	waitFor(t, "reconnect", func() bool {
 		_, id := session.LastOutage()
 		return id != id0 && session.Connected()
@@ -716,9 +718,9 @@ func (obj *testCauseError) Error() string {
 }
 
 // asyncDisconnectSession connects a persistent session, kills its connection
-// with the given cause, and waits for the disconnect. Every later driver
-// blocks in connect until the returned gate closes, so the recorded cause can
-// be asserted without racing a reconnect.
+// with the given cause, and waits for the disconnect. Every later driver blocks
+// in connect until the returned gate closes, so the recorded cause can be
+// asserted without racing a reconnect.
 func asyncDisconnectSession(t *testing.T, cause error) (*Session, *ConnInfo, chan string, chan struct{}) {
 	gate := make(chan struct{})
 	count := 0
@@ -830,7 +832,8 @@ func TestSessionQueueOverflowCauseIsRecognizable(t *testing.T) {
 	// A slow mgmt consumer ends the connection with ErrEventQueueFull. That
 	// is actionable configuration feedback, so the sentinel must stay
 	// recognizable through the session's wrapping.
-	session, _, _, _ := asyncDisconnectSession(t, apiclient.ErrEventQueueFull)
+	session, _, _, gate := asyncDisconnectSession(t, apiclient.ErrEventQueueFull)
+	defer close(gate)
 
 	if err := session.LastError(); !errors.Is(err, apiclient.ErrEventQueueFull) {
 		t.Fatalf("queue overflow is not recognizable: %v", err)

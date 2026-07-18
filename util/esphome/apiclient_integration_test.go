@@ -110,6 +110,54 @@ func TestAPIClientSessionReconnectAndOutageRealWire(t *testing.T) {
 	}
 }
 
+func TestAPIClientSessionReconnectKeepsLatestDeviceStateRealWire(t *testing.T) {
+	peer := startRealWireSimulator(t, "127.0.0.1:0")
+	defer peer.close(t)
+	session := realWireSession(t)
+	defer session.Release()
+	session.Configure(peer.info(0))
+
+	waitFor(t, "initial switch snapshot", func() bool {
+		state := session.State("led_1")
+		return session.Connected() && state != nil && state.Domain == DomainSwitch && state.Bool
+	})
+	_, initialOutageID := session.LastOutage()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := session.SetSwitch(ctx, "led_1", false); err != nil {
+		t.Fatalf("send pre-reconnect switch command: %v", err)
+	}
+	select {
+	case message := <-peer.device.Commands():
+		command, ok := message.(*pb.SwitchCommandRequest)
+		if !ok || command.Key != simulator.BasicSwitchKey || command.State {
+			t.Fatalf("unexpected pre-reconnect command: %#v", message)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("pre-reconnect command did not reach the encrypted simulator")
+	}
+	waitFor(t, "command state response", func() bool {
+		state := session.State("led_1")
+		return state != nil && state.Domain == DomainSwitch && !state.Bool
+	})
+
+	if dropped := peer.device.DropConnections(); dropped != 1 {
+		t.Fatalf("DropConnections = %d, want 1", dropped)
+	}
+	waitFor(t, "same-device reconnect with retained state", func() bool {
+		outage, outageID := session.LastOutage()
+		state := session.State("led_1")
+		return session.Connected() && peer.device.Stats().AcceptedConnections == 2 &&
+			outageID > initialOutageID && outage > 0 && state != nil &&
+			state.Domain == DomainSwitch && !state.Bool
+	})
+	select {
+	case command := <-peer.device.Commands():
+		t.Fatalf("reconnect replayed an unrequested command: %#v", command)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
 type realWirePeer struct {
 	device  *simulator.Device
 	address string

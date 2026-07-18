@@ -62,8 +62,9 @@ func init() {
 }
 
 const (
-	// AwsPrefix is a const which gets prepended onto object names. We can only use
-	// alphanumeric chars, underscores and hyphens for sns topics and cloud watch rules.
+	// AwsPrefix is a const which gets prepended onto object names. We can
+	// only use alphanumeric chars, underscores and hyphens for sns topics
+	// and cloud watch rules.
 	AwsPrefix = "_mgmt-"
 	// Ec2Prefix is added to the names of sns and cloudwatch objects.
 	Ec2Prefix = AwsPrefix + "ec2-"
@@ -71,20 +72,25 @@ const (
 	SnsPrefix = Ec2Prefix + "sns-"
 	// SnsTopicName is the name of the sns topic created by snsMakeTopic.
 	SnsTopicName = SnsPrefix + "events"
-	// SnsSubscriptionProto is used to tell sns that the subscriber uses the http protocol.
+	// SnsSubscriptionProto is used to tell sns that the subscriber uses the
+	// http protocol.
 	// TODO: add https support
 	SnsSubscriptionProto = "http"
-	// SnsServerShutdownTimeout is the maximum number of seconds to wait for the http server to shutdown gracefully.
+	// SnsServerShutdownTimeout is the maximum number of seconds to wait for
+	// the http server to shutdown gracefully.
 	SnsServerShutdownTimeout = 30
-	// SnsPolicy is the topic attribute that defines the security policy for the topic.
+	// SnsPolicy is the topic attribute that defines the security policy for
+	// the topic.
 	SnsPolicy = "Policy"
 	// SnsPolicySid is the friendly name of the policy statement.
 	SnsPolicySid = CwePrefix + "publish"
 	// SnsPolicyEffect allows the action(s) defined in the policy statement.
 	SnsPolicyEffect = "Allow"
-	// SnsPolicyService is the cloudwatch events security principal that we are granting the permission to.
+	// SnsPolicyService is the cloudwatch events security principal that we
+	// are granting the permission to.
 	SnsPolicyService = "events.amazonaws.com"
-	// SnsPolicyAction is the specific permission we are granting in the policy.
+	// SnsPolicyAction is the specific permission we are granting in the
+	// policy.
 	SnsPolicyAction = "SNS:Publish"
 	// SnsCertURLRegex is used to make sure we only download certificates
 	// from amazon. This regex will match "https://sns.***.amazonaws.com/"
@@ -95,24 +101,30 @@ const (
 	CwePrefix = Ec2Prefix + "cw-"
 	// CweRuleName is the name of the rule created by makeCloudWatchRule.
 	CweRuleName = CwePrefix + "state"
-	// CweRuleSource describes the resource type to monitor for cloudwatch events.
+	// CweRuleSource describes the resource type to monitor for cloudwatch
+	// events.
 	CweRuleSource = "aws.ec2"
-	// CweRuleDetailType describes the specific type of events to trigger cloudwatch.
+	// CweRuleDetailType describes the specific type of events to trigger
+	// cloudwatch.
 	CweRuleDetailType = "EC2 Instance State-change Notification"
-	// CweTargetID is used to tell cloudwatch events to target the sns service.
+	// CweTargetID is used to tell cloudwatch events to target the sns
+	// service.
 	CweTargetID = "sns"
-	// CweTargetJSON is the json field that cloudwatch will send to our endpoint so we don't get more than we need.
+	// CweTargetJSON is the json field that cloudwatch will send to our
+	// endpoint so we don't get more than we need.
 	CweTargetJSON = "$.detail"
-	// AwsErrExceededWaitAttempts is the awserr.Message() that gets sent with
-	// the ResourceStateNotReady awserr.Code() when the waiters time out.
+	// AwsErrExceededWaitAttempts is the awserr.Message() that gets sent
+	// with the ResourceStateNotReady awserr.Code() when the waiters time
+	// out.
 	AwsErrExceededWaitAttempts = "exceeded wait attempts"
 	// AwsErrIncorrectInstanceState is the error returned when an action
 	// cannot be completed due to the current instance state.
 	AwsErrIncorrectInstanceState = "IncorrectInstanceState"
-	// waitTimeout is the duration in seconds of the timeout context in CheckApply.
+	// waitTimeout is the duration in seconds of the timeout context in
+	// CheckApply.
 	waitTimeout = 400
-	// nameKey is the name of the tag key that stores the instance name in ec2.Instance.
-	// in ec2.Instance
+	// nameKey is the name of the tag key that stores the instance name in
+	// ec2.Instance. in ec2.Instance
 	nameKey = "Name"
 	// nameTag is used to define the name tag.
 	nameTag = "tag:" + nameKey
@@ -198,8 +210,8 @@ type AwsEc2Res struct {
 	client *ec2.EC2 // client session for AWS API calls
 
 	snsClient *sns.SNS // client for AWS SNS API calls
-	// snsTopicArn requires looping through every topic to get,
-	// so we save it here when we create the topic instead.
+	// snsTopicArn requires looping through every topic to get, so we save
+	// it here when we create the topic instead.
 	snsTopicArn string
 
 	cweClient *cwe.CloudWatchEvents // client for AWS CloudWatchEvents API calls

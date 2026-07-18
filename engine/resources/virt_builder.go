@@ -135,7 +135,7 @@ type VirtBuilderRes struct {
 	SSHKeys []*SSHKeyInfo `lang:"ssh_keys" yaml:"ssh_keys"`
 
 	// RootSSHInject disables installing the root ssh key into the new vm.
-	// If one is not present, then nothing is done.	This defaults to true.
+	// If one is not present, then nothing is done. This defaults to true.
 	RootSSHInject bool `lang:"root_ssh_inject" yaml:"root_ssh_inject"`
 
 	// RootPasswordSelector is a string in the virt-builder format. See the

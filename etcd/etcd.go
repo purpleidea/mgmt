@@ -142,14 +142,14 @@ const (
 	// we typically tack on a "/_mgmt/" prefix.
 	Root = "/"
 
-	// ConvergedPath is the unprefixed path under which the converger
-	// may store data. This is public so that other consumers can know to
-	// avoid this key prefix.
+	// ConvergedPath is the unprefixed path under which the converger may
+	// store data. This is public so that other consumers can know to avoid
+	// this key prefix.
 	ConvergedPath = Root + "converged/"
 
-	// SchedulerPath is the unprefixed path under which the scheduler
-	// may store data. This is public so that other consumers can know to
-	// avoid this key prefix.
+	// SchedulerPath is the unprefixed path under which the scheduler may
+	// store data. This is public so that other consumers can know to avoid
+	// this key prefix.
 	SchedulerPath = Root + "scheduler/"
 
 	// DefaultClientURL is the default value that is used for client URLs.
@@ -218,8 +218,8 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	// connections.
 	NoNetwork bool
 
-	// Converger is a converged coordinator object that can be used to
-	// track the converged state.
+	// Converger is a converged coordinator object that can be used to track
+	// the converged state.
 	Converger *converger.Coordinator
 
 	// NS is a string namespace that we prefix to every key operation.

@@ -119,12 +119,12 @@ type Fs struct {
 	Debug bool
 	Logf  func(format string, v ...interface{})
 
-	// DeferMetadata, when true, makes sync() of the superblock a no-op
-	// that simply marks the metadata as dirty. Callers who perform many
+	// DeferMetadata, when true, makes sync() of the superblock a no-op that
+	// simply marks the metadata as dirty. Callers who perform many
 	// sequential mutations (e.g. a deploy that copyies a tree of files) can
 	// set this and call Flush() once at the end to collapse what would
-	// otherwise be one full superblock upload per operation into a
-	// single etcd round-trip.
+	// otherwise be one full superblock upload per operation into a single
+	// etcd round-trip.
 	DeferMetadata bool
 
 	sb        *superBlock

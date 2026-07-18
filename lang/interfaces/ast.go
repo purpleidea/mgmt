@@ -423,8 +423,8 @@ func (obj *Scope) IsEmpty() bool {
 // Env is an environment which contains the relevant mappings. This is used at
 // the Graph(...) stage of the compiler. It does not contain classes.
 type Env struct {
-	// Variables map and Expr to a *FuncSingleton which deduplicates the
-	// use of a function.
+	// Variables map and Expr to a *FuncSingleton which deduplicates the use
+	// of a function.
 	Variables map[Expr]*FuncSingleton
 
 	// Functions contains the captured environment, because when we're

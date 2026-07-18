@@ -42,42 +42,45 @@ import (
 )
 
 const (
-	// HetznerStateUndefined leaves the state undefined by default. This state
-	// is always treated as converged. Changes to other params are only applied
-	// when the server is in a state that is compatible with the operations
-	// needed to make that change.
+	// HetznerStateUndefined leaves the state undefined by default. This
+	// state is always treated as converged. Changes to other params are
+	// only applied when the server is in a state that is compatible with
+	// the operations needed to make that change.
 	HetznerStateUndefined = ""
 	// HetznerStateExists indicates that the server must exist, without
-	// differentiation between "off", "running" or any transient states.
-	// If the server was absent, a new server is created in "off" state, with
-	// one exception: if the last observed state before a rebuild was "running"
-	// or "starting", rebuildServer will set the new server to "running".
+	// differentiation between "off", "running" or any transient states. If
+	// the server was absent, a new server is created in "off" state, with
+	// one exception: if the last observed state before a rebuild was
+	// "running" or "starting", rebuildServer will set the new server to
+	// "running".
 	HetznerStateExists = "exists"
-	// HetznerStateRunning indicates that the server must be powered on. If the
-	// server was absent, a new server is created in "running" state.
+	// HetznerStateRunning indicates that the server must be powered on. If
+	// the server was absent, a new server is created in "running" state.
 	HetznerStateRunning = "running"
 	// HetznerStateOff indicates that the server must be powered off. If the
 	// server was absent, a new server is created in "off" state.
 	HetznerStateOff = "off"
-	// HetznerStateAbsent indicates that the server must be deleted/absent. If
-	// the server already existed, it is deleted. Note that this deletion is
-	// always executed if the "absent" state is explicitly specified!
+	// HetznerStateAbsent indicates that the server must be deleted/absent.
+	// If the server already existed, it is deleted. Note that this deletion
+	// is always executed if the "absent" state is explicitly specified!
 	HetznerStateAbsent = "absent"
 
-	// HetznerAllowRebuildError blocks any server rebuild requests in CheckApply
-	// and exits with an error. These rebuild requests occur when other resource
-	// params require a destructive rebuild to reach resource convergence. The
-	// error option is used by default to prevent unexpected server deletions.
+	// HetznerAllowRebuildError blocks any server rebuild requests in
+	// CheckApply and exits with an error. These rebuild requests occur when
+	// other resource params require a destructive rebuild to reach resource
+	// convergence. The error option is used by default to prevent
+	// unexpected server deletions.
 	HetznerAllowRebuildError = ""
 	// HetznerAllowRebuildIgnore blocks any server rebuild requests in
-	// CheckApply, but does not throw any errors. Instead, CheckApply must skip
-	// this rebuild, and continue further steps if possible. Use this option to
-	// prevent unexpected server deletions, without disrupting the mcl script.
+	// CheckApply, but does not throw any errors. Instead, CheckApply must
+	// skip this rebuild, and continue further steps if possible. Use this
+	// option to prevent unexpected server deletions, without disrupting the
+	// mcl script.
 	HetznerAllowRebuildIgnore = "ignore"
 	// HetznerAllowRebuildIfNeeded allows server rebuilds within CheckApply.
-	// This is needed when the specified serverspecs are not (yet) aligned with
-	// the active instance. Use this option only if you are sure that you are
-	// not destroying any critical data or services!
+	// This is needed when the specified serverspecs are not (yet) aligned
+	// with the active instance. Use this option only if you are sure that
+	// you are not destroying any critical data or services!
 	HetznerAllowRebuildIfNeeded = "ifneeded"
 
 	// HetznerServerRescueDisabled disables rescue mode by default.
@@ -93,26 +96,29 @@ const (
 	HetznerServerRescueTypeFreeBSD64 = "freebsd64"
 
 	// HetznerPollLimit sets a lower limit on polling interval in seconds.
-	// Since the Hetzner API supports requests at up to 3600 requests per hour,
-	// this limit is set to prevent rate limit errors in long term operation.
-	// NOTE: polling the same Hetzner project from multiple clients will require
-	// a larger polling interval to prevent the same rate limit error, since
-	// these requests all add to the query count of their shared project. It is
-	// recommended to use a polling interval of at least N seconds, with N the
-	// number of active hetzner:vm instances of the same project.
-	// NOTE: high rates of change to other params will require additional API
-	// queries at CheckApply. Increase the polling interval again to prevent
-	// rate limit errors if frequent updates are expected.
+	// Since the Hetzner API supports requests at up to 3600 requests per
+	// hour, this limit is set to prevent rate limit errors in long term
+	// operation.
+	// NOTE: polling the same Hetzner project from multiple clients will
+	// require a larger polling interval to prevent the same rate limit
+	// error, since these requests all add to the query count of their
+	// shared project. It is recommended to use a polling interval of at
+	// least N seconds, with N the number of active hetzner:vm instances of
+	// the same project.
+	// NOTE: high rates of change to other params will require additional
+	// API queries at CheckApply. Increase the polling interval again to
+	// prevent rate limit errors if frequent updates are expected.
 	HetznerPollLimit = 1
 
-	// HetznerWaitIntervalLimit sets a lower limit on wait intervals in seconds.
-	// High request rates are allowed, but risk causing rate limit errors.
+	// HetznerWaitIntervalLimit sets a lower limit on wait intervals in
+	// seconds. High request rates are allowed, but risk causing rate limit
+	// errors.
 	HetznerWaitIntervalLimit = 0
 
 	// HetznerWaitIntervalDefault sets a default wait interval in seconds.
 	// NOTE: use larger intervals when using many resources under the same
-	// Hetzner project, or when expecting consistently high rates of change to
-	// other resource parameters.
+	// Hetzner project, or when expecting consistently high rates of change
+	// to other resource parameters.
 	HetznerWaitIntervalDefault = 5
 
 	// HetznerWaitTimeoutDefault sets a default timeout limit in seconds.
@@ -162,87 +168,96 @@ type HetznerVMRes struct {
 	// NOTE: This token is usually a 64 character alphanumeric string.
 	APIToken string `lang:"apitoken"`
 
-	// State specifies the desired state of the server instance. The supported
-	// options are "" (undefined), "absent", "exists", "off" and "running".
-	// HetznerStateUndefined ("") leaves the state undefined by default.
-	// HetznerStateExists ("exists") indicates that the server must exist.
-	// HetznerStateAbsent ("absent") indicates that the server must not exist.
-	// HetznerStateRunning ("running") tells the server it must be powered on.
-	// HetznerStateOff ("off") tells the server it must be powered off.
+	// State specifies the desired state of the server instance. The
+	// supported options are "" (undefined), "absent", "exists", "off" and
+	// "running". HetznerStateUndefined ("") leaves the state undefined by
+	// default. HetznerStateExists ("exists") indicates that the server must
+	// exist. HetznerStateAbsent ("absent") indicates that the server must
+	// not exist. HetznerStateRunning ("running") tells the server it must
+	// be powered on. HetznerStateOff ("off") tells the server it must be
+	// powered off.
 	// NOTE: any other inputs will not pass Validate and result in an error.
-	// NOTE: setting the state of a live server to "absent" will delete all data
-	// and services that are located on that instance! Use with caution.
+	// NOTE: setting the state of a live server to "absent" will delete all
+	// data and services that are located on that instance! Use with
+	// caution.
 	State string `lang:"state"`
 
 	// AllowRebuild provides flexible protection against unexpected server
-	// rebuilds. Any changes to the "servertype", "datacenter" or "image" params
-	// require a destructive rebuild, which deletes all data on that server.
-	// The user must explicitly allow these operations with AllowRebuild.
-	// Choose from three options: "ifneeded" allows all rebuilds that are needed
-	// by CheckApply to meet the specified params. "ignore" disables these
-	// rebuilds, but continues without error. The default option ("") disables
-	// always returns an error when CheckApply requests a rebuild.
-	// NOTE: Soft updates related to power and rescue mode are always allowed,
-	// because they are only required for explicit changes to resource fields.
+	// rebuilds. Any changes to the "servertype", "datacenter" or "image"
+	// params require a destructive rebuild, which deletes all data on that
+	// server. The user must explicitly allow these operations with
+	// AllowRebuild. Choose from three options: "ifneeded" allows all
+	// rebuilds that are needed by CheckApply to meet the specified params.
+	// "ignore" disables these rebuilds, but continues without error. The
+	// default option ("") disables always returns an error when CheckApply
+	// requests a rebuild.
+	// NOTE: Soft updates related to power and rescue mode are always
+	// allowed, because they are only required for explicit changes to
+	// resource fields.
 	// TODO: add AllowReboot if any indirect poweroffs are ever implemented.
 	AllowRebuild string `lang:"allowrebuild"`
 
-	// ServerType determines the machine type as defined by Hetzner. A complete
-	// and up-to-date list of options must be requested from the Hetzner API,
-	// but hcloud-go-getopts (url) provides a static reference. Basic servertype
-	// options include "cx23", "cx33", "cx43" etc.
-	// NOTE: make sure to check the price of the selected servertype! The listed
-	// examples are usually very cheap, but never free. Price and availability
-	// can also be dependent on the selected datacenter.
+	// ServerType determines the machine type as defined by Hetzner. A
+	// complete and up-to-date list of options must be requested from the
+	// Hetzner API, but hcloud-go-getopts (url) provides a static reference.
+	// Basic servertype options include "cx23", "cx33", "cx43" etc.
+	// NOTE: make sure to check the price of the selected servertype! The
+	// listed examples are usually very cheap, but never free. Price and
+	// availability can also be dependent on the selected datacenter.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	// TODO: set some kind of cost-based protection policy?
 	ServerType string `lang:"servertype"`
 
-	// Datacenter determines where the resource is hosted.  A complete and
-	// up-to-date list of options must be requested from the Hetzner API, but
-	// hcloud-go-getopts (url) provides a static reference. The datacenter
-	// options include "nbg1-dc3", "fsn1-dc14", "hel1-dc2" etc.
+	// Datacenter determines where the resource is hosted. A complete and
+	// up-to-date list of options must be requested from the Hetzner API,
+	// but hcloud-go-getopts (url) provides a static reference. The
+	// datacenter options include "nbg1-dc3", "fsn1-dc14", "hel1-dc2" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	Datacenter string `lang:"datacenter"`
 
 	// Image determines the operating system to be installed. A complete and
-	// up-to-date list of options must be requested from the Hetzner API, but
-	// hcloud-go-getopts (url) provides a static reference. The image type
-	// options include "rocky-10", "ubuntu-24.04", "debian-13" etc.
+	// up-to-date list of options must be requested from the Hetzner API,
+	// but hcloud-go-getopts (url) provides a static reference. The image
+	// type options include "rocky-10", "ubuntu-24.04", "debian-13" etc.
 	// https://github.com/JefMasereel/hcloud-go-getopts/
 	Image string `lang:"image"`
 
-	// UserData can be used to run commands on the server instance at creation.
+	// UserData can be used to run commands on the server instance at
+	// creation.
 	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html.
 	UserData string `lang:"userdata"`
 
-	// ServerRescueMode specifies the image type used when enabling rescue mode.
-	// The supported image types are "linux32", "linux64" and "freebsd64".
-	// Alternatively, leave this string empty to disable rescue mode (default).
-	// Other input values will not pass Validate and result in an error.
+	// ServerRescueMode specifies the image type used when enabling rescue
+	// mode. The supported image types are "linux32", "linux64" and
+	// "freebsd64". Alternatively, leave this string empty to disable rescue
+	// mode (default). Other input values will not pass Validate and result
+	// in an error.
 	// NOTE: rescue mode can not be enabled if the server is absent.
-	// NOTE: Rescue mode can be used to log into the server over SSH and access
-	// the disks when the normal OS has trouble booting on its own.
+	// NOTE: Rescue mode can be used to log into the server over SSH and
+	// access the disks when the normal OS has trouble booting on its own.
 	ServerRescueMode string `lang:"serverrescuemode"`
 
-	// ServerRescueSSHKeys can be used to select a subset of keys that should be
-	// enabled for rescue mode operations over SSH. From all SSH keys known to
-	// the project client, choose a subset of keys by name, as an array of
-	// strings. New keys must first be added manually via the cloud console.
-	// An error is thrown if a given keyname is not recognized by the client.
-	// NOTE: live changes to this keylist while rescue mode is already enabled
-	// are not (yet) detected or applied by CheckApply.
-	// TODO: improve ssh key handling at checkApplyRescueMode and serverRebuild.
+	// ServerRescueSSHKeys can be used to select a subset of keys that
+	// should be enabled for rescue mode operations over SSH. From all SSH
+	// keys known to the project client, choose a subset of keys by name, as
+	// an array of strings. New keys must first be added manually via the
+	// cloud console. An error is thrown if a given keyname is not
+	// recognized by the client.
+	// NOTE: live changes to this keylist while rescue mode is already
+	// enabled are not (yet) detected or applied by CheckApply.
+	// TODO: improve ssh key handling at checkApplyRescueMode and
+	// serverRebuild.
 	ServerRescueSSHKeys []string `lang:"serverrescuekeys"`
 
 	// WaitInterval is the interval in seconds that is used when waiting for
 	// transient states to converge between intermediate operations. A zero
-	// value causes the waiter to run without delays (burst requests). Although
-	// such burst requests are allowed, it is recommended to use a wait interval
-	// that keeps the total request rate under 3600 requests per hour. Take
-	// these factors into account: polling rate "Meta:poll", number of active
-	// resources under the same Hetzner project, and the expected rate of param
-	// updates. This will help to prevent rate limit errors.
+	// value causes the waiter to run without delays (burst requests).
+	// Although such burst requests are allowed, it is recommended to use a
+	// wait interval that keeps the total request rate under 3600 requests
+	// per hour. Take these factors into account: polling rate "Meta:poll",
+	// number of active resources under the same Hetzner project, and the
+	// expected rate of param updates. This will help to prevent rate limit
+	// errors.
 	WaitInterval uint32 `lang:"waitinterval"`
 
 	// WaitTimeout will cancel wait loops if they do not exit cleanly before
@@ -255,27 +270,29 @@ type HetznerVMRes struct {
 
 	// server is a local copy of the server object returned by hcloud-go. If
 	// this is nil, the server is considered to be absent. Otherwise, this
-	// struct describes the properties of the server instance as registered with
-	// Hetzner at the time of the update request.
+	// struct describes the properties of the server instance as registered
+	// with Hetzner at the time of the update request.
 	server *hcloud.Server
 
 	// serverconfig is a local copy of the serverCreateOpts struct generated
-	// with hcloud-go. This struct is dependent on the ServerType, Datacenter,
-	// Image and State params. These must be chosen from the valid options
-	// provided by Hetzner, see details on https://docs.hetzner.cloud/.
+	// with hcloud-go. This struct is dependent on the ServerType,
+	// Datacenter, Image and State params. These must be chosen from the
+	// valid options provided by Hetzner, see details on https://docs.hetzner.cloud/.
 	serverconfig hcloud.ServerCreateOpts
 
 	// lastObservedState is a local copy of the last observed state of the
-	// resource. This is used to determine the startAfterCreate option during
-	// server rebuilds when the state is "" (undefined).
+	// resource. This is used to determine the startAfterCreate option
+	// during server rebuilds when the state is "" (undefined).
 	lastObservedState hcloud.ServerStatus
 
-	// rescueKeys is a local copy of the array of SSH key values to be enabled
-	// in rescue mode, after formatting for direct use with hcloud-go.
+	// rescueKeys is a local copy of the array of SSH key values to be
+	// enabled in rescue mode, after formatting for direct use with
+	// hcloud-go.
 	rescueKeys []*hcloud.SSHKey
 
-	// rescueImage is a local copy of the image type used when rescue mode was
-	// enabled the last time, to give checkapplyrescuemode a static reference.
+	// rescueImage is a local copy of the image type used when rescue mode
+	// was enabled the last time, to give checkapplyrescuemode a static
+	// reference.
 	rescueImage hcloud.ServerRescueType
 }
 

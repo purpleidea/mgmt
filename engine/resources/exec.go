@@ -106,9 +106,9 @@ type ExecRes struct {
 	Cwd string `lang:"cwd" yaml:"cwd"`
 
 	// Shell is the (optional) shell to use to run the cmd. If you specify
-	// this, then you can't use the Args parameter. Note that unless you
-	// use absolute paths, or set the PATH variable, the shell might not be
-	// able to find the program you're trying to run.
+	// this, then you can't use the Args parameter. Note that unless you use
+	// absolute paths, or set the PATH variable, the shell might not be able
+	// to find the program you're trying to run.
 	Shell string `lang:"shell" yaml:"shell"`
 
 	// Env allows the user to specify environment variables for script

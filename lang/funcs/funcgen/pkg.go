@@ -51,8 +51,8 @@ type golangPackages []*golangPackage
 type golangPackage struct {
 	// Name is the name of the golang package.
 	Name string `yaml:"name"`
-	// Alias is the alias of the package when imported in golang.
-	// e.g. import rand "os.rand"
+	// Alias is the alias of the package when imported in golang. e.g.
+	// `import rand "os.rand"`.
 	Alias string `yaml:"alias,omitempty"`
 	// MgmtAlias is the name of the package inside mcl.
 	MgmtAlias string `yaml:"mgmtAlias,omitempty"`

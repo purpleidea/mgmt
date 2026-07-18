@@ -47,8 +47,8 @@ type arg struct {
 	Name string `yaml:"name,omitempty"`
 	// Value is the value of the argument.
 	Value string `yaml:"value,omitempty"`
-	// Type is the type of the argument.
-	// Supported: bool, string, int, int64, float64, []byte.
+	// Type is the type of the argument. Supported: bool, string, int,
+	// int64, float64, []byte.
 	Type string `yaml:"type"`
 }
 

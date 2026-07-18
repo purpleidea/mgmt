@@ -289,8 +289,8 @@ type fwupdRelease struct {
 	// Locations are the uris the firmware archive can be fetched from.
 	Locations []string
 
-	// Checksums are the known checksums (sha1 or sha256 hex strings) of
-	// the firmware archive. These come from the gpg/jcat signed metadata.
+	// Checksums are the known checksums (sha1 or sha256 hex strings) of the
+	// firmware archive. These come from the gpg/jcat signed metadata.
 	Checksums []string
 
 	// Flags is the FwupdReleaseFlags bit field.
@@ -354,8 +354,8 @@ type fwupdRemote struct {
 	// redirects the download to the mirror instead.
 	FirmwareBaseURI string
 
-	// ModificationTime is when the local metadata copy was last updated,
-	// in seconds since the epoch. Zero if it was never downloaded.
+	// ModificationTime is when the local metadata copy was last updated, in
+	// seconds since the epoch. Zero if it was never downloaded.
 	ModificationTime int64
 }
 

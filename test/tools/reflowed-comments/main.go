@@ -122,16 +122,21 @@ func Check(filename string) error {
 		log.Printf("filename: %s", filename)
 	}
 
+	src, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
 	fset := token.NewFileSet()
 
 	// f is a: https://golang.org/pkg/go/ast/#File
-	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
+	f, err := parser.ParseFile(fset, filename, src, parser.ParseComments)
 	if err != nil {
 		return err
 	}
 
 	for _, doc := range docCommentGroups(f) {
-		if err := checkCommentGroup(filename, fset, doc); err != nil {
+		if err := checkCommentGroup(filename, src, fset, doc.group, doc.allowNonDoc); err != nil {
 			return err
 		}
 	}
@@ -139,39 +144,62 @@ func Check(filename string) error {
 	return nil
 }
 
+type docCommentGroup struct {
+	group       *ast.CommentGroup
+	allowNonDoc bool
+}
+
 // docCommentGroups returns the comment groups checked by this tool.
-func docCommentGroups(f *ast.File) []*ast.CommentGroup {
-	groups := []*ast.CommentGroup{}
-	if f.Doc != nil {
-		groups = append(groups, f.Doc)
+func docCommentGroups(f *ast.File) []docCommentGroup {
+	groups := []docCommentGroup{}
+	appendGroup := func(group *ast.CommentGroup, allowNonDoc bool) {
+		if group != nil {
+			groups = append(groups, docCommentGroup{
+				group:       group,
+				allowNonDoc: allowNonDoc,
+			})
+		}
 	}
+	appendGroup(f.Doc, false)
 
 	for _, node := range f.Decls {
-		var doc *ast.CommentGroup
-
 		// TODO: move to type switch ?
 		if x, ok := node.(*ast.FuncDecl); ok {
-			doc = x.Doc
+			appendGroup(x.Doc, false)
 		} else if x, ok := node.(*ast.GenDecl); ok {
 			switch x.Tok {
 			case token.IMPORT: // i don't think this is needed, aiui
 			case token.VAR:
 				// TODO: recurse into https://golang.org/pkg/go/ast/#ValueSpec
-				doc = x.Doc
+				appendGroup(x.Doc, false)
 			case token.CONST:
-				// TODO: recurse into https://golang.org/pkg/go/ast/#ValueSpec
-				doc = x.Doc
+				appendGroup(x.Doc, false)
+				for _, spec := range x.Specs {
+					valueSpec, ok := spec.(*ast.ValueSpec)
+					if !ok {
+						continue
+					}
+					appendGroup(valueSpec.Doc, true)
+				}
 			case token.TYPE: // struct, usually
-				// TODO: recurse into x.Tok (eg: TypeSpec.Doc and so on)
-				doc = x.Doc
+				appendGroup(x.Doc, false)
+				for _, spec := range x.Specs {
+					typeSpec, ok := spec.(*ast.TypeSpec)
+					if !ok {
+						continue
+					}
+					appendGroup(typeSpec.Doc, false)
+					structType, ok := typeSpec.Type.(*ast.StructType)
+					if !ok {
+						continue
+					}
+					for _, field := range structType.Fields.List {
+						appendGroup(field.Doc, true)
+					}
+				}
 			default:
 			}
 		}
-
-		if doc == nil { // we got nothing
-			continue
-		}
-		groups = append(groups, doc)
 	}
 
 	return groups
@@ -210,7 +238,7 @@ func Reflow(filename string) error {
 	}
 	replacements := []replacement{}
 	for _, doc := range docCommentGroups(f) {
-		start, end, text, ok := reflowCommentGroup(src, fset, doc, newline)
+		start, end, text, ok := reflowCommentGroup(src, fset, doc.group, newline, doc.allowNonDoc)
 		if !ok || bytes.Equal(src[start:end], text) {
 			continue
 		}
@@ -244,7 +272,7 @@ func Reflow(filename string) error {
 // reflowCommentGroup returns a replacement for the checkable prefix of a
 // comment group. Multiline and directive comments, and everything after them,
 // are left untouched in the source file.
-func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, newline string) (int, int, []byte, bool) {
+func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, newline string, allowNonDoc bool) (int, int, []byte, bool) {
 	comments := []*ast.Comment{}
 	for _, comment := range doc.List {
 		if comment == nil {
@@ -254,6 +282,14 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 			strings.HasPrefix(comment.Text, CommentGolangPrefix) ||
 			commentDirectivePattern.MatchString(comment.Text) {
 			break
+		}
+		if comment.Text != commentPrefixTrimmed &&
+			!strings.HasPrefix(comment.Text, CommentPrefix) &&
+			!strings.HasPrefix(comment.Text, CommentPrefixTab) {
+			if allowNonDoc {
+				break
+			}
+			return 0, 0, nil, false
 		}
 		comments = append(comments, comment)
 	}
@@ -267,6 +303,7 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 	lineStart := bytes.LastIndexByte(src[:start], '\n') + 1
 	indent := src[lineStart:start]
 	separator := newline + string(indent)
+	length := commentLineLength(indent)
 
 	lines := []string{}
 	for _, comment := range comments {
@@ -279,7 +316,7 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 	}
 
 	formatted := []string{}
-	for _, line := range reflowLines(lines, maxLength) {
+	for _, line := range reflowLines(lines, length) {
 		switch {
 		case line == "":
 			formatted = append(formatted, commentPrefixTrimmed)
@@ -291,6 +328,25 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 	}
 
 	return start, end, []byte(strings.Join(formatted, separator)), true
+}
+
+// commentLineLength returns the available comment text width after accounting
+// for its indentation and comment prefix.
+func commentLineLength(indent []byte) int {
+	width := 0
+	for _, c := range indent {
+		if c == '\t' {
+			width += 8 - (width % 8)
+			continue
+		}
+		width++
+	}
+
+	length := maxLength - width
+	if length < 1 {
+		return 1
+	}
+	return length
 }
 
 // reflowLines greedily wraps prose while preserving paragraph starts,
@@ -318,7 +374,7 @@ func reflowLines(lines []string, length int) []string {
 	}
 
 	for i, line := range lines {
-		fields := strings.Fields(line)
+		fields := commentWords(line)
 		if len(fields) == 0 {
 			flush()
 			if len(result) > 0 && result[len(result)-1] != "" {
@@ -347,20 +403,48 @@ func reflowLines(lines []string, length int) []string {
 	return result
 }
 
+// commentWords splits prose on whitespace while preserving inline code spans.
+func commentWords(line string) []string {
+	words := []string{}
+	start := -1
+	inCode := false
+	for i, r := range line {
+		if unicode.IsSpace(r) && !inCode {
+			if start >= 0 {
+				words = append(words, line[start:i])
+				start = -1
+			}
+			continue
+		}
+		if start < 0 {
+			start = i
+		}
+		if r == '`' {
+			inCode = !inCode
+		}
+	}
+	if start >= 0 {
+		words = append(words, line[start:])
+	}
+
+	return words
+}
+
 // checkCommentGroup checks that an individual comment group is wrapped.
-func checkCommentGroup(filename string, fset *token.FileSet, doc *ast.CommentGroup) error {
+func checkCommentGroup(filename string, src []byte, fset *token.FileSet, doc *ast.CommentGroup, allowNonDoc bool) error {
 	if doc == nil { // we got nothing
 		return nil
 	}
 
 	pos := doc.Pos()
 	ff := fset.File(pos)
-	items := strings.Split(ff.Name(), "/")
-	if len(items) == 0 {
+	if ff.Name() == "" {
 		return fmt.Errorf("file name is empty")
 	}
-	name := items[len(items)-1]
-	ident := fmt.Sprintf("%s:%d", name, ff.Line(pos))
+	ident := fmt.Sprintf("%s:%d", ff.Name(), ff.Line(pos))
+	start := ff.Offset(pos)
+	lineStart := bytes.LastIndexByte(src[:start], '\n') + 1
+	length := commentLineLength(src[lineStart:start])
 
 	block := []string{}
 	for _, comment := range doc.List {
@@ -387,6 +471,9 @@ func checkCommentGroup(filename string, fset *token.FileSet, doc *ast.CommentGro
 		// Allow a comment prefix that starts with a space or
 		// one that starts with a tab. (Common for code blocks!)
 		if s != commentPrefixTrimmed && !strings.HasPrefix(s, CommentPrefix) && !strings.HasPrefix(s, CommentPrefixTab) {
+			if allowNonDoc {
+				break
+			}
 			return fmt.Errorf("location (%s) missing comment prefix, has: %s", ident, s)
 		}
 		if s == commentPrefixTrimmed { // blank lines
@@ -402,7 +489,7 @@ func checkCommentGroup(filename string, fset *token.FileSet, doc *ast.CommentGro
 		block = append(block, s)
 	}
 
-	if err := IsWrappedProperly(block, maxLength); err != nil {
+	if err := IsWrappedProperly(block, length); err != nil {
 		m := strings.Join(block, "\n")
 		msg := filename + " " + strings.Repeat(".", maxLength-len(filename+" "+"V")) + fmt.Sprintf("V\n%+v\n", m)
 		fmt.Fprintf(os.Stderr, "%s", msg)
@@ -447,7 +534,7 @@ func IsWrappedProperly(lines []string, length int) error {
 			return fmt.Errorf("line %d contained multiple spaces", lineno)
 		}
 
-		fields := strings.Fields(line)
+		fields := commentWords(line)
 		if len(fields) == 0 {
 			//continue // should not happen with above check
 			return fmt.Errorf("line %d had an unexpected empty list of fields", lineno)
@@ -492,6 +579,9 @@ func IsNewStart(word string) bool {
 		return true
 	}
 
+	if word == "BUG:" {
+		return true
+	}
 	if word == "NOTE:" {
 		return true
 	}

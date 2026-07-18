@@ -80,9 +80,8 @@ const (
 	// lexer.
 	LookupDefaultFuncName = "_lookup_default"
 
-	// LookupFuncName is the name this function is registered as.
-	// This starts with an underscore so that it cannot be used from the
-	// lexer.
+	// LookupFuncName is the name this function is registered as. This
+	// starts with an underscore so that it cannot be used from the lexer.
 	LookupFuncName = "_lookup"
 
 	// StructLookupFuncName is the name this function is registered as. This

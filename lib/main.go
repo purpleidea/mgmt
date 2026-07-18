@@ -168,8 +168,8 @@ type Config struct {
 	// is specified, then it overrides looking for it in the URL.
 	SSHHostKey string `arg:"--ssh-hostkey" help:"use this ssh known hosts key when connecting over SSH"`
 
-	// SSHID is the private key path for SSH client auth with --ssh-url. If empty,
-	// mgmt scans the default SSH directory for id_* private keys.
+	// SSHID is the private key path for SSH client auth with --ssh-url. If
+	// empty, mgmt scans the default SSH directory for id_* private keys.
 	SSHID string `arg:"--ssh-id" help:"private key for SSH client auth"`
 
 	// Seeds are the list of default etcd client endpoints. If empty, it

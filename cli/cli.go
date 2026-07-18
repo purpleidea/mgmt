@@ -139,7 +139,8 @@ type Args struct {
 	ToolsCmd *ToolsArgs `arg:"subcommand:tools" help:"collection of useful tools"`
 
 	// This never runs, it gets preempted in the real main() function.
-	// XXX: Can we do it nicely with the new arg parser? can it ignore all args?
+	// XXX: Can we do it nicely with the new arg parser? can it ignore all
+	// args?
 	EtcdCmd *EtcdArgs `arg:"subcommand:etcd" help:"run standalone etcd"`
 
 	// This never runs, it gets preempted in the real main() function.

@@ -69,7 +69,8 @@ func NewElem[T any]() *Elem[T] {
 // Elem is the "node" or "element" type for objects contained in the set. It has
 // a single Data field which can be used to store some user data.
 type Elem[T any] struct {
-	// Data is some data that the user might want to store with this element.
+	// Data is some data that the user might want to store with this
+	// element.
 	Data T
 
 	// parent is the parent element that we link to. This points to ourself

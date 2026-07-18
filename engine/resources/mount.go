@@ -61,7 +61,8 @@ func init() {
 const (
 	// procFilesystems is a file that lists all the valid filesystem types.
 	procFilesystems = "/proc/filesystems"
-	// procPath is the path to /proc/mounts which contains all active mounts.
+	// procPath is the path to /proc/mounts which contains all active
+	// mounts.
 	procPath = "/proc/mounts"
 	// fstabPath is the path to the fstab file which defines mounts.
 	fstabPath = "/etc/fstab"
@@ -74,8 +75,8 @@ const (
 	// loopFileUmask is the umask (permissions) used to read the loop file.
 	loopFileUmask = 0660
 
-	// devDisk is the path where disks and partitions can be found, organized
-	// by uuid/label/path.
+	// devDisk is the path where disks and partitions can be found,
+	// organized by uuid/label/path.
 	devDisk = "/dev/disk/"
 	// diskByUUID is the location of symlinks for devices by UUID.
 	diskByUUID = devDisk + "by-uuid/"

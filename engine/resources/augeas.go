@@ -64,8 +64,8 @@ type AugeasRes struct {
 	// File is the path to the file targeted by this resource.
 	File string `lang:"file" yaml:"file"`
 
-	// Lens is the lens used by this resource. If specified, mgmt
-	// will lower the augeas overhead by only loading that lens.
+	// Lens is the lens used by this resource. If specified, mgmt will lower
+	// the augeas overhead by only loading that lens.
 	Lens string `lang:"lens" yaml:"lens"`
 
 	// Sets is a list of changes that will be applied to the file, in the

@@ -75,11 +75,10 @@ type HTTPServerUIInputRes struct {
 	init *engine.Init
 
 	// Path is the name of the http ui resource to group this into. If it is
-	// omitted, and there is only a single http ui resource, then it will
-	// be grouped into it automatically. If there is more than one main http
-	// ui resource being used, then the grouping behaviour is *undefined*
-	// when this is not specified, and it is not recommended to leave this
-	// blank!
+	// omitted, and there is only a single http ui resource, then it will be
+	// grouped into it automatically. If there is more than one main http ui
+	// resource being used, then the grouping behaviour is *undefined* when
+	// this is not specified, and it is not recommended to leave this blank!
 	Path string `lang:"path" yaml:"path"`
 
 	// ID is the unique id for this element. It is used in form fields and

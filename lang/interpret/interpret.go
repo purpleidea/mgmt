@@ -56,8 +56,8 @@ type Interpreter struct {
 	lookup map[engine.ResPtrUID]engine.Res
 
 	// lookupHidden stores the hidden resources found by kind and name. It
-	// doesn't store any normal resources which are not hidden.
-	// format formerly: map[kind]map[name]Res
+	// doesn't store any normal resources which are not hidden. format
+	// formerly: map[kind]map[name]Res
 	lookupHidden map[engine.ResPtrUID][]engine.Res
 
 	// receive doesn't need a special extension for hidden resources since

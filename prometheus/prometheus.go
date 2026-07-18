@@ -55,7 +55,8 @@ const (
 	ResStateOK ResState = iota
 	// ResStateSoftFail represents a resource in soft fail (will be retried)
 	ResStateSoftFail
-	// ResStateHardFail represents a resource in hard fail (will NOT be retried)
+	// ResStateHardFail represents a resource in hard fail (will NOT be
+	// retried)
 	ResStateHardFail
 )
 

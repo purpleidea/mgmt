@@ -178,7 +178,8 @@ func NE(s string) pgraph.Edge {
 }
 
 type testGrouper struct {
-	// TODO: this algorithm may not be correct in all cases. replace if needed!
+	// TODO: this algorithm may not be correct in all cases. replace if
+	// needed!
 	CachedNonReachabilityGrouper // "inherit" what we want, and reimplement the rest
 }
 

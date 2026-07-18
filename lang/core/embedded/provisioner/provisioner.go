@@ -161,8 +161,8 @@ type localArgs struct {
 	Password *string `arg:"--password" help:"the 'openssl passwd -6' salted password" func:"-"` // skip auto func gen
 
 	// Part is the magic partitioning scheme to use. At the moment you can
-	// either specify `plain` or `btrfs`. The default empty string will
-	// use the `plain` scheme.
+	// either specify `plain` or `btrfs`. The default empty string will use
+	// the `plain` scheme.
 	Part string `arg:"--part" help:"partitioning scheme, read manual for details" func:"cli_part"` // eg: empty string for plain
 
 	// LUKS specifies that we're encrypting the volumes, and using an empty
@@ -206,9 +206,9 @@ type provisioner struct {
 	init *entry.Init
 
 	// localArgs is a stored reference to the localArgs config struct that
-	// is used in the API of the command line parsing library. After it
-	// adds our flags and executes it, the resultant parsed values will be
-	// made available here where we've stored a copy.
+	// is used in the API of the command line parsing library. After it adds
+	// our flags and executes it, the resultant parsed values will be made
+	// available here where we've stored a copy.
 	localArgs *localArgs
 
 	// salted password

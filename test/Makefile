@@ -39,6 +39,6 @@ build: $(TEST_TOOLS)
 clean:
 	@rm -f $(TEST_TOOLS) || true
 
-$(TEST_TOOLS):
+$(TEST_TOOLS): %: tools/%/main.go
 	@echo "Generating: $@..."
 	go build -o $@ ./tools/$@

@@ -43,25 +43,25 @@ type function struct {
 	MgmtPackage string `yaml:"mgmtPackage"`
 	// MclName is the name of the function in mcl.
 	MclName string `yaml:"mclName"`
-	// InternalName is the name used inside the templated file.
-	// Used to avoid clash between same functions from different packages.
+	// InternalName is the name used inside the templated file. Used to
+	// avoid clash between same functions from different packages.
 	InternalName string `yaml:"internalName"`
-	// Help is the docstring of the function, including // and
-	// new lines.
+	// Help is the docstring of the function, including // and new lines.
 	Help string `yaml:"help"`
 	// GolangPackage is the representation of the package.
 	GolangPackage *golangPackage `yaml:"golangPackage"`
 	// GolangFunc is the name of the function in golang.
 	GolangFunc string `yaml:"golangFunc"`
-	// Errorful indicates whether the golang function can return an error
-	// as second argument.
+	// Errorful indicates whether the golang function can return an error as
+	// second argument.
 	Errorful bool `yaml:"errorful"`
 	// Args is the list of the arguments of the function.
 	Args []arg `yaml:"args"`
-	// Variadic is true if the last function parameter is variadic (e.g. param ...string)
+	// Variadic is true if the last function parameter is variadic (e.g.
+	// param ...string)
 	Variadic bool
-	// ExtraGolangArgs are arguments that are added at the end of the go call.
-	// e.g. strconv.ParseFloat("3.1415", 64) could require add 64.
+	// ExtraGolangArgs are arguments that are added at the end of the go
+	// call. e.g. strconv.ParseFloat("3.1415", 64) could require add 64.
 	ExtraGolangArgs []arg `yaml:"extraGolangArgs"`
 	// Return is the list of arguments returned by the function.
 	Return []arg `yaml:"return"`

@@ -63,17 +63,17 @@ const (
 	// 'man systemd-timer', and whose format is a time span as defined in
 	// 'man systemd-time'.
 	OnBootSec = "OnBootSec"
-	// OnStartupSec is a systemd-timer trigger, whose behaviour is defined in
-	// 'man systemd-timer', and whose format is a time span as defined in
+	// OnStartupSec is a systemd-timer trigger, whose behaviour is defined
+	// in 'man systemd-timer', and whose format is a time span as defined in
 	// 'man systemd-time'.
 	OnStartupSec = "OnStartupSec"
-	// OnUnitActiveSec is a systemd-timer trigger, whose behaviour is defined
-	// in 'man systemd-timer', and whose format is a time span as defined in
-	// 'man systemd-time'.
+	// OnUnitActiveSec is a systemd-timer trigger, whose behaviour is
+	// defined in 'man systemd-timer', and whose format is a time span as
+	// defined in 'man systemd-time'.
 	OnUnitActiveSec = "OnUnitActiveSec"
-	// OnUnitInactiveSec is a systemd-timer trigger, whose behaviour is defined
-	// in 'man systemd-timer', and whose format is a time span as defined in
-	// 'man systemd-time'.
+	// OnUnitInactiveSec is a systemd-timer trigger, whose behaviour is
+	// defined in 'man systemd-timer', and whose format is a time span as
+	// defined in 'man systemd-time'.
 	OnUnitInactiveSec = "OnUnitInactiveSec"
 )
 

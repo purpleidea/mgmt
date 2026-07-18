@@ -43,7 +43,8 @@ const (
 	// GetFuncName is the name this function is registered as. This variant
 	// is the fanciest version, although type unification is much more
 	// difficult when using this.
-	// XXX: type unification doesn't work perfectly here yet... maybe a bug with returned structs?
+	// XXX: type unification doesn't work perfectly here yet... maybe a bug
+	// with returned structs?
 	GetFuncName = "get"
 
 	// GetBoolFuncName is the name this function is registered as. This

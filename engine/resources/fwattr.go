@@ -106,8 +106,8 @@ type FWAttrRes struct {
 	//
 	// TODO: When resources eventually support proper type unification, let
 	// this also be an int or a bool, and for booleans, map them using our
-	// json file to the correct string value of "Enabled" (for those keys
-	// of the boolean variety).
+	// json file to the correct string value of "Enabled" (for those keys of
+	// the boolean variety).
 	Value string `lang:"value" yaml:"value"`
 
 	// Check (which defaults to true) turns off the validation that runs

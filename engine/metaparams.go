@@ -122,9 +122,9 @@ type MetaParams struct {
 	// also has a count equal to 1, but is a different semaphore.
 	Sema []string `yaml:"sema"`
 
-	// Rewatch specifies whether we re-run the Watch worker during a swap
-	// if it has errored. When doing a GraphCmp to swap the graphs, if this
-	// is true, and this particular worker has errored, then we'll remove it
+	// Rewatch specifies whether we re-run the Watch worker during a swap if
+	// it has errored. When doing a GraphCmp to swap the graphs, if this is
+	// true, and this particular worker has errored, then we'll remove it
 	// and add it back as a new vertex, thus causing it to run again. This
 	// is different from the Retry metaparam which applies during the normal
 	// execution. It is only when this is exhausted that we're in permanent

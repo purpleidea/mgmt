@@ -162,7 +162,8 @@ type NetRes struct {
 	// IPForward is a boolean that sets whether we should forward incoming
 	// packets onward when this is set. It default to unspecified, which
 	// downstream (in the systemd-networkd configuration) defaults to false.
-	// XXX: this could also be "ipv4" or "ipv6", add those as a second option?
+	// XXX: this could also be "ipv4" or "ipv6", add those as a second
+	// option?
 	IPForward *bool `lang:"ip_forward" yaml:"ip_forward"`
 
 	iface        *iface // a struct containing the net.Interface and netlink.Link

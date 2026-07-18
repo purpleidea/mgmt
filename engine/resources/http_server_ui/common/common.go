@@ -32,8 +32,8 @@
 package common
 
 const (
-	// HTTPServerUIInputType represents the field in the "Type" map that specifies
-	// which input type we're using.
+	// HTTPServerUIInputType represents the field in the "Type" map that
+	// specifies which input type we're using.
 	HTTPServerUIInputType = "type"
 
 	// HTTPServerUIInputTypeText is the representation of the html "text"

@@ -136,10 +136,10 @@ type FileRes struct {
 
 	// State specifies the desired state of the file. It can be either
 	// `exists` or `absent`. If you do not specify this, we will not be able
-	// to create or remove a file if it might be logical for another
-	// param to require that. Instead it will error. This means that this
-	// field is not implied by specifying some content or a mode. This is
-	// also used when determining how we manage a symlink.
+	// to create or remove a file if it might be logical for another param
+	// to require that. Instead it will error. This means that this field is
+	// not implied by specifying some content or a mode. This is also used
+	// when determining how we manage a symlink.
 	State string `lang:"state" yaml:"state"`
 
 	// Content specifies the file contents to use. If this is nil, they are

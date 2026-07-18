@@ -63,9 +63,9 @@ type FwupdRemoteRes struct {
 
 	init *engine.Init
 
-	// Enabled specifies whether the daemon should use this remote. If it
-	// is unspecified, then the enabled state is left as-is, which is
-	// useful if you only want metadata refreshing.
+	// Enabled specifies whether the daemon should use this remote. If it is
+	// unspecified, then the enabled state is left as-is, which is useful if
+	// you only want metadata refreshing.
 	Enabled *bool `lang:"enabled" yaml:"enabled"`
 
 	// RefreshAge is how stale we let this remote's metadata get before we

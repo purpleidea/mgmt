@@ -46,10 +46,10 @@ import (
 )
 
 const (
-	// MaxServerStartTimeout is the amount of time to wait for the server
-	// to start before considering it a failure. If you hit this timeout,
-	// let us know so that we can analyze the situation, and increase this
-	// if necessary.
+	// MaxServerStartTimeout is the amount of time to wait for the server to
+	// start before considering it a failure. If you hit this timeout, let
+	// us know so that we can analyze the situation, and increase this if
+	// necessary.
 	MaxServerStartTimeout = 60 * time.Second
 
 	// MaxServerCloseTimeout is the maximum amount of time we'll wait for

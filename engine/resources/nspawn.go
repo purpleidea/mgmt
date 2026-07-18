@@ -75,8 +75,8 @@ type NspawnRes struct {
 	State string `lang:"state" yaml:"state"`
 
 	// We're using the svc resource to start and stop the machine because
-	// that's what machinectl does. We're not using svc.Watch because then we
-	// would have two watches potentially racing each other and producing
+	// that's what machinectl does. We're not using svc.Watch because then
+	// we would have two watches potentially racing each other and producing
 	// potentially unexpected results. We get everything we need to monitor
 	// the machine state changes from the org.freedesktop.machine1 object.
 	svc *SvcRes

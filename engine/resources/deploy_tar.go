@@ -74,10 +74,10 @@ type DeployTar struct {
 	// file, it must not end with a slash.
 	Path string `lang:"path" yaml:"path"`
 
-	// Format is the header format to use. If you change this, then the
-	// file will get rearchived. The strange thing is that it seems the
-	// header format is stored for each individual file. The available
-	// values are: const.res.tar.format.unknown, const.res.tar.format.ustar,
+	// Format is the header format to use. If you change this, then the file
+	// will get rearchived. The strange thing is that it seems the header
+	// format is stored for each individual file. The available values are:
+	// const.res.tar.format.unknown, const.res.tar.format.ustar,
 	// const.res.tar.format.pax, and const.res.tar.format.gnu which have
 	// values of 0, 2, 4, and 8 respectively.
 	Format int `lang:"format" yaml:"format"`

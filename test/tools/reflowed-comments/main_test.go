@@ -32,6 +32,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -196,6 +197,284 @@ package doc
 
 	if err := Check(filename); err == nil {
 		t.Fatalf("expected package doc reflow error")
+	}
+}
+
+func TestCheckStructFieldDoc(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+type T struct {
+	// InstallDeps specifies whether we should run a generated script on
+	// the remote host which installs the runtime dependencies of this
+	// binary (such as the augeas and libvirt libraries) before we start
+	// the remote process. This usually requires root permissions there.
+	InstallDeps bool
+}
+`)
+	want := `package doc
+
+type T struct {
+	// InstallDeps specifies whether we should run a generated script on the
+	// remote host which installs the runtime dependencies of this binary
+	// (such as the augeas and libvirt libraries) before we start the remote
+	// process. This usually requires root permissions there.
+	InstallDeps bool
+}
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	err := Check(filename)
+	if err == nil {
+		t.Fatalf("expected struct field doc reflow error")
+	}
+	if !strings.Contains(err.Error(), filename+":4") {
+		t.Fatalf("expected full path in reflow error: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestStructFieldDocAccountsForIndent(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+type T struct {
+	// Disabled specifies that automatic grouping should be disabled for this
+	// resource.
+	Disabled bool
+}
+`)
+	want := `package doc
+
+type T struct {
+	// Disabled specifies that automatic grouping should be disabled for
+	// this resource.
+	Disabled bool
+}
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err == nil {
+		t.Fatalf("expected indented struct field doc reflow error")
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestConstSpecDoc(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+const (
+	// InstallDeps specifies whether we should run a generated script on
+	// the remote host which installs the runtime dependencies of this
+	// binary (such as the augeas and libvirt libraries) before we start
+	// the remote process. This usually requires root permissions there.
+	InstallDeps = true
+)
+`)
+	want := `package doc
+
+const (
+	// InstallDeps specifies whether we should run a generated script on the
+	// remote host which installs the runtime dependencies of this binary
+	// (such as the augeas and libvirt libraries) before we start the remote
+	// process. This usually requires root permissions there.
+	InstallDeps = true
+)
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err == nil {
+		t.Fatalf("expected const spec doc reflow error")
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestReflowPreservesCommentedOutConstSpec(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+const (
+	// Current is enabled.
+	//disabled = false
+	Current = true
+)
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected commented-out const spec to pass: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != string(data) {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestCheckIgnoresLocalConstSpecDoc(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+func F() {
+	const (
+		// Local is a constant with a comment that is deliberately split
+		// too early.
+		Local = true
+	)
+}
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected local const spec doc to be ignored: %+v", err)
+	}
+}
+
+func TestReflowPreservesCommentedOutStructField(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+type T struct {
+	// Current is enabled.
+	//disabled bool
+	Current bool
+}
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected commented-out struct field to pass: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != string(data) {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestReflowPreservesBUGParagraph(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+type T struct {
+	// Interface is the interface to bind to.
+	// XXX: An interface must currently be specified.
+	// BUG: https://github.com/example/project/issues/example
+	Interface string
+}
+`)
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected BUG paragraph to pass: %+v", err)
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != string(data) {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
+func TestReflowPreservesInlineCodeSpan(t *testing.T) {
+	lines := []string{
+		"Run this command after the previous operation succeeds: `$cmd && echo done > /tmp/donefile`. Then continue.",
+	}
+	want := []string{
+		"Run this command after the previous operation succeeds:",
+		"`$cmd && echo done > /tmp/donefile`. Then continue.",
+	}
+
+	result := reflowLines(lines, maxLength)
+	if len(result) != len(want) {
+		t.Fatalf("unexpected reflow result: %#v", result)
+	}
+	for i := range result {
+		if result[i] != want[i] {
+			t.Fatalf("unexpected reflow result: %#v", result)
+		}
 	}
 }
 

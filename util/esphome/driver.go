@@ -64,6 +64,11 @@ type driver interface {
 	// reason.
 	done() <-chan struct{}
 
+	// closeReason reports why the connection ended after done closes. It
+	// returns nil while the connection is up and after a deliberate close,
+	// so a non-nil value always identifies an asynchronous failure.
+	closeReason() error
+
 	// close tears the connection down.
 	close() error
 

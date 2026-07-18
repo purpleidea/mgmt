@@ -220,6 +220,13 @@ func (obj *apiClientDriver) done() <-chan struct{} {
 	return obj.client.Done()
 }
 
+// closeReason reports why the connection ended, or nil after a deliberate
+// close. The library records the first sanitized, typed cause, so wrapping it
+// keeps errors.Is and errors.As working and never exposes the noise key.
+func (obj *apiClientDriver) closeReason() error {
+	return obj.client.CloseReason()
+}
+
 // close tears the connection down.
 func (obj *apiClientDriver) close() error {
 	return obj.client.Close()

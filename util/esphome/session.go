@@ -704,6 +704,39 @@ func (obj *Session) connectFailed(info *ConnInfo, err error, retry time.Duration
 	}
 }
 
+// asyncCloseReason returns the sanitized reason a driver connection died on
+// its own, or nil when nothing should be reported. A deliberate teardown must
+// never look like a device failure: session shutdown cancels the ctx that the
+// connection is bound to, so once the ctx is done any recorded cause is our
+// own doing, and an intentional driver close records no reason at all.
+func (obj *Session) asyncCloseReason(d driver) error {
+	if obj.ctx.Err() != nil {
+		return nil // session shutdown tears the connection down
+	}
+	return d.closeReason()
+}
+
+// connectionLost atomically records one connection that died on its own and
+// marks it disconnected before invoking the external logging callback. It
+// keeps the typed cause in the chain so LastError and WaitConnected callers can
+// reach it with errors.Is/errors.As. The message names the target address but
+// never the noise key.
+func (obj *Session) connectionLost(info *ConnInfo, reason error) {
+	wrapped := fmt.Errorf("connection to %s lost: %w", info.Addr(), reason)
+	obj.mutex.Lock()
+	obj.lastErr = wrapped
+	if obj.connected {
+		obj.lastAlive = time.Now()
+		obj.connected = false
+	}
+	obj.notifySend()
+	obj.mutex.Unlock()
+
+	if info.ConnectLogf != nil {
+		info.ConnectLogf("connection to %s lost: %v", info.Addr(), reason)
+	}
+}
+
 // mainloop is the single goroutine which owns the device connection for the
 // whole life of the session.
 func (obj *Session) mainloop() {
@@ -799,6 +832,10 @@ func (obj *Session) persistent(info *ConnInfo, generation uint64) {
 	for {
 		select {
 		case <-d.done(): // connection dropped
+			if reason := obj.asyncCloseReason(d); reason != nil {
+				obj.connectionLost(info, reason)
+				return
+			}
 			obj.markDisconnected()
 			return
 
@@ -831,6 +868,19 @@ func (obj *Session) pollCycle(info *ConnInfo, generation uint64) {
 
 	// Wait briefly for the initial snapshot burst to land in the cache.
 	obj.sleep(pollSettle)
+
+	// The settle window can also end with the connection already dead. In
+	// that case report the cause and treat the cycle as failed, instead of
+	// flushing the queued commands into a dead driver: they stay pending
+	// for the next cycle's live connection, which the mainloop starts right
+	// away, exactly like the persistent reconnect after a drop. The
+	// deliberate close below records no reason, so a clean cycle can never
+	// look like a failure.
+	if reason := obj.asyncCloseReason(d); reason != nil {
+		d.close()
+		obj.connectionLost(info, reason)
+		return
+	}
 
 	obj.flushPending(d)
 	d.close()

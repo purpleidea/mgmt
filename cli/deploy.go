@@ -81,11 +81,9 @@ type DeployArgs struct {
 	NoAutoEdges bool `arg:"--no-autoedges" help:"skip the autoedges stage"`
 	NoAutoGroup bool `arg:"--no-autogroup" help:"skip the autogroup stage"`
 
-	DeployEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"deploy empty payload"`
-	DeployLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
-	DeployYaml       *cliUtil.YamlArgs       `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
-	DeployPuppet     *cliUtil.PuppetArgs     `arg:"subcommand:puppet" help:"deploy puppet graph payload"`
-	DeployLangPuppet *cliUtil.LangPuppetArgs `arg:"subcommand:langpuppet" help:"deploy langpuppet graph payload"`
+	DeployEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"deploy empty payload"`
+	DeployLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"deploy lang (mcl) payload"`
+	DeployYaml  *cliUtil.YamlArgs  `arg:"subcommand:yaml" help:"deploy yaml graph payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It
@@ -112,15 +110,6 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 		name = cliUtil.LookupSubcommand(obj, cmd) // "yaml"
 		args = cmd
 	}
-	if cmd := obj.DeployPuppet; cmd != nil {
-		name = cliUtil.LookupSubcommand(obj, cmd) // "puppet"
-		args = cmd
-	}
-	if cmd := obj.DeployLangPuppet; cmd != nil {
-		name = cliUtil.LookupSubcommand(obj, cmd) // "langpuppet"
-		args = cmd
-	}
-
 	// XXX: workaround https://github.com/alexflint/go-arg/issues/239
 	gapiNames := gapi.Names() // list of registered names
 	if l := len(obj.Seeds); name == "" && l > 1 {

@@ -53,11 +53,9 @@ import (
 type RunArgs struct {
 	lib.Config // embedded config (can't be a pointer) https://github.com/alexflint/go-arg/issues/240
 
-	RunEmpty      *cliUtil.EmptyArgs      `arg:"subcommand:empty" help:"run empty payload"`
-	RunLang       *cliUtil.LangArgs       `arg:"subcommand:lang" help:"run lang (mcl) payload"`
-	RunYaml       *cliUtil.YamlArgs       `arg:"subcommand:yaml" help:"run yaml graph payload"`
-	RunPuppet     *cliUtil.PuppetArgs     `arg:"subcommand:puppet" help:"run puppet graph payload"`
-	RunLangPuppet *cliUtil.LangPuppetArgs `arg:"subcommand:langpuppet" help:"run a combined lang/puppet graph payload"`
+	RunEmpty *cliUtil.EmptyArgs `arg:"subcommand:empty" help:"run empty payload"`
+	RunLang  *cliUtil.LangArgs  `arg:"subcommand:lang" help:"run lang (mcl) payload"`
+	RunYaml  *cliUtil.YamlArgs  `arg:"subcommand:yaml" help:"run yaml graph payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It
@@ -84,15 +82,6 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "yaml"
 		args = cmd
 	}
-	if cmd := obj.RunPuppet; cmd != nil {
-		name = cliUtil.LookupSubcommand(obj, cmd) // "puppet"
-		args = cmd
-	}
-	if cmd := obj.RunLangPuppet; cmd != nil {
-		name = cliUtil.LookupSubcommand(obj, cmd) // "langpuppet"
-		args = cmd
-	}
-
 	// XXX: workaround https://github.com/alexflint/go-arg/issues/239
 	lists := [][]string{
 		obj.Seeds,

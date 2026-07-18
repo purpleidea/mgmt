@@ -983,7 +983,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			}
 			var timing time.Time
 
-			// make the graph from yaml, lib, puppet->yaml, or mcl!
+			// make the graph from yaml, lib, or mcl!
 			timing = time.Now()
 			newGraph := next.Graph // get graph!
 			Logf("new graph took: %s", time.Since(timing))

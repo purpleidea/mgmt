@@ -642,6 +642,11 @@ Loop:
 			if obj.Debug {
 				obj.Logf("event received")
 			}
+			// We mark the state dirty on receive, not on send,
+			// since no Process can be running right now, so this
+			// mark can't get clobbered by the completion of an
+			// earlier Process.
+			state.setDirty()
 			started = true                           // the resource is now running
 			reserv = limiter.ReserveN(time.Now(), 1) // one event
 			// reserv.OK() seems to always be true here!
@@ -742,6 +747,7 @@ Loop:
 					if obj.Debug {
 						obj.Logf("event received in limit")
 					}
+					state.setDirty() // on receive, see the main select
 					// TODO: does this get added in properly?
 					limiter.ReserveN(time.Now(), 1) // one event
 
@@ -808,6 +814,7 @@ Loop:
 						if obj.Debug {
 							obj.Logf("event received in retry")
 						}
+						state.setDirty() // on receive, see the main select
 						// TODO: does this get added in properly?
 						limiter.ReserveN(time.Now(), 1) // one event
 

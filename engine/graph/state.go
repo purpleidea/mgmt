@@ -429,8 +429,10 @@ func (obj *State) Resume() error {
 // one might be needed. This method will block until we're unpaused and ready to
 // receive on the events channel.
 func (obj *State) event(ctx context.Context) error {
-	obj.setDirty() // assume we're initially dirty
-
+	// NOTE: The receiver runs setDirty for us. If we ran it here, and a
+	// Process was running while we blocked on this send, then that Process
+	// could complete afterwards and mark the state clean again, and this
+	// event would then wrongly skip its CheckApply, swallowing our change.
 	select {
 	case obj.eventsChan <- nil: // blocks! (this is unbuffered)
 		return nil

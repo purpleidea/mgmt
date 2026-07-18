@@ -415,6 +415,162 @@ func TestWatchRestartSerializesCheckApply(t *testing.T) {
 	}
 }
 
+// swallowedEventRes is a noop-like resource whose Watch sends a change event
+// while its first CheckApply is still running. If the dirty mark of that event
+// gets clobbered when the first CheckApply completes successfully, then the
+// event never causes a second CheckApply, and the change is swallowed.
+type swallowedEventRes struct {
+	resources.NoopRes
+
+	init *engine.Init
+
+	checkApplyCount atomic.Int32
+
+	checkApplyStarted chan struct{} // closed when the first CheckApply runs
+	eventSending      chan struct{} // closed just before the change event
+
+	checkApplyOnce sync.Once
+	checkApplyDone chan struct{} // closed on the second CheckApply
+}
+
+// Init runs some startup code for this resource.
+func (obj *swallowedEventRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+	return obj.NoopRes.Init(init)
+}
+
+// Watch is the primary listener for this resource and it outputs events. It
+// sends one change event while the first CheckApply is still running.
+func (obj *swallowedEventRes) Watch(ctx context.Context) error {
+	if err := obj.init.Event(ctx); err != nil { // initial event
+		return err
+	}
+
+	select {
+	case <-obj.checkApplyStarted:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	close(obj.eventSending)
+	if err := obj.init.Event(ctx); err != nil { // the change notification
+		return err
+	}
+
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+	}
+	return ctx.Err()
+}
+
+// CheckApply checks the state and applies it. The first invocation returns
+// successfully only after Watch is inside its blocking change event send.
+func (obj *swallowedEventRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	if obj.checkApplyCount.Add(1) == 1 {
+		close(obj.checkApplyStarted)
+		select {
+		case <-obj.eventSending:
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
+		// Wait for the Watch goroutine to make it into the blocking
+		// event send, so that our success below is what runs last.
+		time.Sleep(200 * time.Millisecond)
+		return true, nil
+	}
+
+	obj.checkApplyOnce.Do(func() {
+		close(obj.checkApplyDone)
+	})
+	return true, nil
+}
+
+// TestEventDuringCheckApplyNotSwallowed checks that an event which Watch sends
+// while a CheckApply is still running is not swallowed when that CheckApply
+// completes successfully, and that it causes another CheckApply to run.
+func TestEventDuringCheckApplyNotSwallowed(t *testing.T) {
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+
+	conv := &converger.Coordinator{
+		Timeout: -1, // disabled
+		Logf: func(format string, v ...interface{}) {
+			logf("converger: "+format, v...)
+		},
+	}
+	if err := conv.Init(); err != nil {
+		t.Fatalf("converger Init: %v", err)
+	}
+	convCtx, convCancel := context.WithCancel(context.Background())
+	convWg := &sync.WaitGroup{}
+	defer convWg.Wait()
+	defer convCancel()
+	convWg.Add(1)
+	go func() {
+		defer convWg.Done()
+		_ = conv.Run(convCtx, false) // errors on context cancel
+	}()
+
+	ge := &Engine{
+		Program:   "mgmt",
+		Version:   "0.0.1",
+		Hostname:  "localhost",
+		Converger: conv,
+		Prefix:    t.TempDir(),
+		Logf:      logf,
+	}
+	if err := ge.Init(); err != nil {
+		t.Fatalf("engine Init: %v", err)
+	}
+
+	res := &swallowedEventRes{
+		checkApplyStarted: make(chan struct{}),
+		eventSending:      make(chan struct{}),
+		checkApplyDone:    make(chan struct{}),
+	}
+	res.SetKind("noop")
+	res.SetName("swallower")
+
+	g, err := pgraph.NewGraph("test")
+	if err != nil {
+		t.Fatalf("pgraph NewGraph: %v", err)
+	}
+	g.AddVertex(res)
+
+	if err := ge.Load(g); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+	if err := ge.Validate(); err != nil {
+		t.Fatalf("engine Validate: %v", err)
+	}
+	if err := ge.Pause(false); err != nil { // see the main loop in lib
+		t.Fatalf("engine Pause: %v", err)
+	}
+	if err := ge.Commit(context.Background()); err != nil {
+		t.Fatalf("engine Commit: %v", err)
+	}
+	if err := ge.Resume(); err != nil {
+		t.Fatalf("engine Resume: %v", err)
+	}
+	defer func() {
+		if err := ge.Shutdown(); err != nil {
+			t.Errorf("engine Shutdown: %v", err)
+		}
+	}()
+	defer func() {
+		if err := ge.Pause(false); err != nil {
+			t.Errorf("engine Pause: %v", err)
+		}
+	}()
+
+	select {
+	case <-res.checkApplyDone:
+	case <-time.After(5 * time.Second):
+		t.Errorf("the change event was swallowed, CheckApply never re-ran")
+	}
+}
+
 func TestStatePauseClosed(t *testing.T) {
 	doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 	doneCtxCancel()

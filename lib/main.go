@@ -51,6 +51,7 @@ import (
 	_ "github.com/purpleidea/mgmt/engine/resources" // let register's run
 	"github.com/purpleidea/mgmt/etcd"
 	etcdClient "github.com/purpleidea/mgmt/etcd/client"
+	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	etcdSSH "github.com/purpleidea/mgmt/etcd/ssh"
 	etcdUtil "github.com/purpleidea/mgmt/etcd/util"
 	"github.com/purpleidea/mgmt/gapi"
@@ -1218,6 +1219,33 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				obj.Deploy = nil // erase the empty deploy
 			}
 		}
+		// If our deploy uses the cluster fs, then it's a true deploy:
+		// we copy in the files, and publish it exactly as the `deploy`
+		// command would, so that every other cluster member can find it
+		// and run it too. The watch below then picks it up like it does
+		// with any other normal deploy. This is the symmetry between
+		// the `run` and `deploy` commands.
+		uri := ""
+		if obj.Deploy != nil && obj.Deploy.GAPI != nil {
+			if gapiInfo := obj.Deploy.GAPI.Info(); gapiInfo != nil {
+				uri = gapiInfo.URI
+			}
+		}
+		if obj.DeployFs != nil && strings.HasPrefix(uri, etcdfs.Scheme+"://") {
+			deploy := obj.Deploy
+			obj.Deploy = nil // erase it, the watch below runs it
+			// redundant
+			deploy.Noop = obj.Noop
+			deploy.Sema = obj.Sema
+
+			id, err := obj.publishDeploy(ctx, world, deploy, uri, max)
+			if err != nil {
+				cancelCause(errwrap.Wrapf(err, "error publishing deploy"))
+				return
+			}
+			Logf("deploy: success, id: %d", id)
+		}
+
 		// we've been asked to deploy, so do that first...
 		if obj.Deploy != nil {
 			deploy := obj.Deploy
@@ -1377,6 +1405,68 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	// NOTE: This reterr variable may be modified via defer.
 	return reterr
+}
+
+// publishDeploy copies our staged deploy filesystem into the shared cluster fs,
+// and then it atomically publishes the deploy, so that the entire cluster,
+// including this host, can find it and run it. The deploy fs URI must refer to
+// a location inside of the cluster fs. If we lose a deploy id race against
+// another host, then we try again with a fresh id. On success it returns the id
+// that we deployed with.
+func (obj *Main) publishDeploy(ctx context.Context, world engine.World, deploy *gapi.Deploy, uri string, max uint64) (uint64, error) {
+	deployFs, err := world.Fs(ctx, uri)
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "could not create deploy filesystem")
+	}
+
+	etcdFs, ok := deployFs.(*etcdfs.Fs)
+	if ok {
+		// Defer the superblock write so the copy phase doesn't
+		// re-upload the entire metadata tree once per file. We Flush()
+		// it ourselves once below, before the deploy is published.
+		etcdFs.DeferMetadata = true
+	}
+
+	// copy the staged standalone filesystem into the cluster fs
+	if err := util.CopyFs(obj.DeployFs, deployFs, "/", "/", false, true); err != nil {
+		return 0, errwrap.Wrapf(err, "could not copy deploy filesystem")
+	}
+
+	if ok {
+		// Flush the deferred superblock so readers see the new tree
+		// before the deploy record addition below tries to look for it.
+		if err := etcdFs.Flush(); err != nil {
+			return 0, errwrap.Wrapf(err, "could not flush etcd fs metadata")
+		}
+	}
+
+	str, err := deploy.ToB64()
+	if err != nil {
+		return 0, errwrap.Wrapf(err, "encoding error")
+	}
+
+	for {
+		id := max + 1 // next id
+		// TODO: Should `run` support the deploy hash chain as well?
+		err := world.AddDeploy(ctx, id, "", "", &str)
+		if err == nil {
+			return id, nil // success!
+		}
+		if ctx.Err() != nil {
+			return 0, errwrap.Wrapf(err, "could not create deploy id `%d`", id)
+		}
+
+		// We might have lost a deploy id race against another host. If
+		// the max deploy id moved, then that's the case, so try again.
+		newMax, e := world.GetMaxDeployID(ctx)
+		if e != nil {
+			return 0, errwrap.Wrapf(e, "error getting max deploy id")
+		}
+		if newMax == max { // no progress was made, it's a real error
+			return 0, errwrap.Wrapf(err, "could not create deploy id `%d`", id)
+		}
+		max = newMax
+	}
 }
 
 // Cleanup contains a number of methods which must be run after the Run method.

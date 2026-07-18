@@ -38,12 +38,14 @@ import (
 	"syscall"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
+	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
 	"github.com/purpleidea/mgmt/gapi"
 	"github.com/purpleidea/mgmt/lib"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	. "github.com/purpleidea/mgmt/util/gettext"
 
+	"github.com/google/uuid"
 	"github.com/spf13/afero"
 )
 
@@ -118,10 +120,22 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	cliUtil.Hello(main.Program, main.Version, data.Flags) // say hello!
 	defer Logf(G("goodbye!"))
 
-	// create a memory backed temporary filesystem for storing runtime data
+	// TODO: using a uuid is meant as a temporary measure, i hate them
+	uniqueid := uuid.New() // panic's if it can't generate one :P
+	metadata := lib.MetadataPrefix + fmt.Sprintf("/deploy/%s", uniqueid)
+
+	// Create a memory backed temporary filesystem for storing runtime data.
+	// The files are staged here, and the URI points to where they will get
+	// copied to in the cluster fs, so that our initial deploy is a true
+	// deploy, which is identical to what the `deploy` command produces, and
+	// which any other cluster member can therefore find and run as well.
 	mmFs := afero.NewMemMapFs()
 	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	standaloneFs := &util.AferoFs{Afero: afs}
+	standaloneFs := &util.AferoFs{
+		Afero:  afs,
+		Scheme: etcdfs.Scheme,
+		Path:   metadata,
+	}
 	main.DeployFs = standaloneFs
 
 	info := &gapi.Info{

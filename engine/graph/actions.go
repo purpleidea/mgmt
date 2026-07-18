@@ -84,6 +84,12 @@ func (obj *Engine) BadTimestamps(vertex pgraph.Vertex) []pgraph.Vertex {
 	return vs // formerly "true" if empty
 }
 
+// errWatchRestart is the sentinel which the Watch retry loop hands to the
+// process loop when Watch failed and is about to restart. Receiving it (which
+// can only happen when no Process is running) withdraws the started state until
+// the replacement Watch sends its initial startup event.
+var errWatchRestart = engine.Error("watch restart")
+
 // Process is the primary function to execute a particular vertex in the graph.
 func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	res, isRes := vertex.(engine.Res)
@@ -542,6 +548,21 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			// we've got an error...
 			delay = res.MetaParams().Delay
 
+			// A failed Watch must never overlap with a running
+			// Process, and no new Process may run until our
+			// replacement Watch sends its initial startup event.
+			// Interrupt any running Process, and then synchronize
+			// with the process loop through this sentinel, which it
+			// can only consume when no Process is running.
+			state.interruptProcess() // cancel any running Process
+			if retry != 0 {          // we're going to retry Watch
+				select {
+				case state.eventsChan <- errWatchRestart:
+				case <-state.doneCtx.Done():
+					// we're shutting down instead
+				}
+			}
+
 			if retry < 0 { // infinite retries
 				continue
 			}
@@ -599,6 +620,15 @@ Loop:
 		case err, ok := <-state.eventsChan: // read from watch channel
 			if !ok {
 				return reterr // we only return when chan closes
+			}
+			if err == errWatchRestart {
+				// Watch failed and is restarting. It already
+				// interrupted any running Process, and since we
+				// only receive between Process invocations, it
+				// now knows that none is running. Require a new
+				// initial event before we run any new Process.
+				started = false
+				continue
 			}
 			// If the Watch method exits with an error, then this
 			// channel will get that error propagated to it, which
@@ -699,6 +729,10 @@ Loop:
 					if !ok {
 						return reterr // we only return when chan closes
 					}
+					if e == errWatchRestart {
+						started = false // wait for the new initial event
+						continue
+					}
 					if e != nil {
 						failed = true
 						close(state.limitDone)             // causes doneCtx to cancel
@@ -733,6 +767,9 @@ Loop:
 		if failed || closed {
 			continue Loop
 		}
+		if !started { // a restarting Watch withdrew our readiness...
+			continue Loop
+		}
 		// end of limit delay
 
 		// retry...
@@ -757,6 +794,10 @@ Loop:
 					case e, ok := <-state.eventsChan: // read from watch channel
 						if !ok {
 							return reterr // we only return when chan closes
+						}
+						if e == errWatchRestart {
+							started = false // wait for the new initial event
+							continue
 						}
 						if e != nil {
 							failed = true
@@ -793,12 +834,22 @@ Loop:
 			if failed || closed {
 				continue Loop
 			}
+			if !started { // a restarting Watch withdrew our readiness...
+				continue Loop
+			}
 
 			if obj.Debug {
 				obj.Logf("Process(%s)", vertex)
 			}
 			backPoke := false
-			err = obj.Process(state.doneCtx, vertex)
+			// Run with a cancellable context, and register it, so
+			// that a failing Watch can interrupt us to restart.
+			processCtx, pCancel := context.WithCancel(state.doneCtx)
+			state.registerProcessCancel(pCancel)
+			err = obj.Process(processCtx, vertex)
+			state.registerProcessCancel(nil)
+			interrupted := processCtx.Err() != nil && state.doneCtx.Err() == nil
+			pCancel() // cleanup the context
 			if err == engine.ErrBackPoke {
 				backPoke = true
 				err = nil // for future code safety
@@ -813,6 +864,14 @@ Loop:
 				metas.CheckApplyRetry = res.MetaParams().Retry // lookup the retry value
 			}
 			if err == nil || backPoke {
+				break RetryLoop
+			}
+			if interrupted {
+				// A restarting Watch interrupted this Process.
+				// That is not a CheckApply failure, so it must
+				// not count against the retry limit. The first
+				// event from the replacement Watch re-runs it.
+				state.init.Logf("process interrupted for watch restart")
 				break RetryLoop
 			}
 			// we've got an error...

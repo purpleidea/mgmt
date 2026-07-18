@@ -79,6 +79,13 @@ type State struct {
 
 	mutex *sync.RWMutex // used for editing state properties
 
+	// pMutex guards pCancel below.
+	pMutex *sync.Mutex
+
+	// pCancel cancels the context of the currently running Process so that
+	// Watch can interrupt it. It is nil when no Process runs.
+	pCancel context.CancelFunc
+
 	// doneCtx is cancelled when Watch should shut down. When any of the
 	// following channels close, it causes this to close.
 	doneCtx context.Context
@@ -161,6 +168,7 @@ func (obj *State) Init() error {
 	obj.isStateOK = &atomic.Bool{}
 
 	obj.mutex = &sync.RWMutex{}
+	obj.pMutex = &sync.Mutex{}
 	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
 
 	obj.processDone = make(chan struct{})
@@ -487,5 +495,25 @@ func (obj *State) hidden(ctx context.Context) error {
 	select {
 	case <-ctx.Done(): // signal for shutdown request
 		return nil
+	}
+}
+
+// registerProcessCancel saves the cancel function which can interrupt the
+// currently running Process. Pass nil to clear it. This is called by the
+// process loop around each Process invocation.
+func (obj *State) registerProcessCancel(cancel context.CancelFunc) {
+	obj.pMutex.Lock()
+	defer obj.pMutex.Unlock()
+	obj.pCancel = cancel
+}
+
+// interruptProcess cancels the currently running Process if there is one. It is
+// used when Watch fails, because a restarting Watch must never overlap with a
+// running Process.
+func (obj *State) interruptProcess() {
+	obj.pMutex.Lock()
+	defer obj.pMutex.Unlock()
+	if obj.pCancel != nil {
+		obj.pCancel()
 	}
 }

@@ -238,6 +238,183 @@ func TestNoCheckApplyBeforeWatchStartup(t *testing.T) {
 	}
 }
 
+// restartWatchRes is a noop-like resource whose first Watch fails on purpose
+// while its first CheckApply is still running. It records whether a restarted
+// Watch ever overlapped with that running CheckApply, and whether the engine
+// interrupted that CheckApply for the restart.
+type restartWatchRes struct {
+	resources.NoopRes
+
+	init *engine.Init
+
+	watchCount      atomic.Int32
+	checkApplyCount atomic.Int32
+
+	checkApplyRunning atomic.Bool // is a CheckApply currently running?
+	overlap           atomic.Bool // did a restarted Watch overlap with it?
+	interrupted       atomic.Bool // was the first CheckApply interrupted?
+
+	firstCheckApplyStarted chan struct{} // closed when CheckApply first runs
+
+	checkApplyOnce sync.Once
+	checkApplyDone chan struct{} // closed on the second CheckApply
+}
+
+// Init runs some startup code for this resource.
+func (obj *restartWatchRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+	return obj.NoopRes.Init(init)
+}
+
+// Watch is the primary listener for this resource and it outputs events. The
+// first invocation fails once the first CheckApply is running, so that the
+// engine retries it.
+func (obj *restartWatchRes) Watch(ctx context.Context) error {
+	count := obj.watchCount.Add(1)
+	if count > 1 && obj.checkApplyRunning.Load() {
+		obj.overlap.Store(true) // a restarted Watch must not see this
+	}
+
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	if count == 1 {
+		select {
+		case <-obj.firstCheckApplyStarted:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return fmt.Errorf("watch failed on purpose")
+	}
+
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+	}
+	return ctx.Err()
+}
+
+// CheckApply checks the state and applies it. The first invocation blocks until
+// its context is interrupted, or until a timeout which simulates slow work and
+// keeps an engine without the interrupt from hanging this test.
+func (obj *restartWatchRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	obj.checkApplyRunning.Store(true)
+	defer obj.checkApplyRunning.Store(false)
+
+	if obj.checkApplyCount.Add(1) == 1 {
+		close(obj.firstCheckApplyStarted)
+		select {
+		case <-ctx.Done():
+			obj.interrupted.Store(true)
+			return false, ctx.Err()
+		case <-time.After(3 * time.Second):
+			return true, nil // the engine never interrupted us
+		}
+	}
+
+	obj.checkApplyOnce.Do(func() {
+		close(obj.checkApplyDone)
+	})
+	return true, nil
+}
+
+// TestWatchRestartSerializesCheckApply checks the engine invariant that when
+// Watch fails and gets retried, any running CheckApply is interrupted and has
+// finished before the replacement Watch starts, and that no new CheckApply runs
+// until that replacement Watch sends its initial startup event.
+func TestWatchRestartSerializesCheckApply(t *testing.T) {
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+
+	conv := &converger.Coordinator{
+		Timeout: -1, // disabled
+		Logf: func(format string, v ...interface{}) {
+			logf("converger: "+format, v...)
+		},
+	}
+	if err := conv.Init(); err != nil {
+		t.Fatalf("converger Init: %v", err)
+	}
+	convCtx, convCancel := context.WithCancel(context.Background())
+	convWg := &sync.WaitGroup{}
+	defer convWg.Wait()
+	defer convCancel()
+	convWg.Add(1)
+	go func() {
+		defer convWg.Done()
+		_ = conv.Run(convCtx, false) // errors on context cancel
+	}()
+
+	ge := &Engine{
+		Program:   "mgmt",
+		Version:   "0.0.1",
+		Hostname:  "localhost",
+		Converger: conv,
+		Prefix:    t.TempDir(),
+		Logf:      logf,
+	}
+	if err := ge.Init(); err != nil {
+		t.Fatalf("engine Init: %v", err)
+	}
+
+	res := &restartWatchRes{
+		firstCheckApplyStarted: make(chan struct{}),
+		checkApplyDone:         make(chan struct{}),
+	}
+	res.SetKind("noop")
+	res.SetName("restarter")
+	res.MetaParams().Retry = 1 // allow one Watch retry
+
+	g, err := pgraph.NewGraph("test")
+	if err != nil {
+		t.Fatalf("pgraph NewGraph: %v", err)
+	}
+	g.AddVertex(res)
+
+	if err := ge.Load(g); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+	if err := ge.Validate(); err != nil {
+		t.Fatalf("engine Validate: %v", err)
+	}
+	if err := ge.Pause(false); err != nil { // see the main loop in lib
+		t.Fatalf("engine Pause: %v", err)
+	}
+	if err := ge.Commit(context.Background()); err != nil {
+		t.Fatalf("engine Commit: %v", err)
+	}
+	if err := ge.Resume(); err != nil {
+		t.Fatalf("engine Resume: %v", err)
+	}
+	defer func() {
+		if err := ge.Shutdown(); err != nil {
+			t.Errorf("engine Shutdown: %v", err)
+		}
+	}()
+	defer func() {
+		if err := ge.Pause(false); err != nil {
+			t.Errorf("engine Pause: %v", err)
+		}
+	}()
+
+	select {
+	case <-res.checkApplyDone:
+	case <-time.After(10 * time.Second):
+		t.Errorf("second CheckApply never ran")
+	}
+
+	if c := res.watchCount.Load(); c < 2 {
+		t.Errorf("watch never restarted, ran %d time(s)", c)
+	}
+	if res.overlap.Load() {
+		t.Errorf("a restarted Watch overlapped with a running CheckApply")
+	}
+	if !res.interrupted.Load() {
+		t.Errorf("the first CheckApply was not interrupted for the restart")
+	}
+}
+
 func TestStatePauseClosed(t *testing.T) {
 	doneCtx, doneCtxCancel := context.WithCancel(context.Background())
 	doneCtxCancel()

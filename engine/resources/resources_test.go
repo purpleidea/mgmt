@@ -37,6 +37,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -282,7 +283,7 @@ func TestResources1(t *testing.T) {
 	{
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/whatever"
+		p := filepath.Join(t.TempDir(), "whatever")
 		s := "hello, world\n"
 		res.Path = p
 		res.State = FileStateExists
@@ -314,10 +315,10 @@ func TestResources1(t *testing.T) {
 		r := makeRes("exec", "x1")
 		res := r.(*ExecRes) // if this panics, the test will panic
 		s := "hello, world"
-		f := "/tmp/whatever"
+		f := filepath.Join(t.TempDir(), "whatever")
 		res.Cmd = fmt.Sprintf("echo '%s' > '%s'", s, f)
 		res.Shell = "/bin/bash"
-		res.IfCmd = "! diff <(cat /tmp/whatever) <(echo hello, world)"
+		res.IfCmd = fmt.Sprintf("! diff <(cat %q) <(echo hello, world)", f)
 		res.IfShell = "/bin/bash"
 		res.WatchCmd = fmt.Sprintf("/usr/bin/inotifywait -e modify -m %s", f)
 		//res.WatchShell = "/bin/bash"
@@ -350,10 +351,10 @@ func TestResources1(t *testing.T) {
 		res.Env = map[string]string{
 			"boiling": "one hundred",
 		}
-		f := "/tmp/whatever"
-		res.Cmd = fmt.Sprintf("env | grep boiling > %s", f)
+		f := filepath.Join(t.TempDir(), "whatever")
+		res.Cmd = fmt.Sprintf("env | grep boiling > %q", f)
 		res.Shell = "/bin/bash"
-		res.IfCmd = "! diff <(cat /tmp/whatever) <(echo boiling=one hundred)"
+		res.IfCmd = fmt.Sprintf("! diff <(cat %q) <(echo boiling=one hundred)", f)
 		res.IfShell = "/bin/bash"
 		res.WatchCmd = fmt.Sprintf("/usr/bin/inotifywait -e modify -m %s", f)
 		res.WatchShell = "/bin/bash"
@@ -383,7 +384,7 @@ func TestResources1(t *testing.T) {
 	{
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/emptyfile"
+		p := filepath.Join(t.TempDir(), "emptyfile")
 		res.Path = p
 		res.State = FileStateExists
 
@@ -407,7 +408,7 @@ func TestResources1(t *testing.T) {
 	{
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/existingfile"
+		p := filepath.Join(t.TempDir(), "existingfile")
 		res.Path = p
 		res.State = FileStateExists
 		content := "some existing text\n"
@@ -431,7 +432,7 @@ func TestResources1(t *testing.T) {
 	{
 		r := makeRes("file", "r1")
 		res := r.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/ownerfile"
+		p := filepath.Join(t.TempDir(), "ownerfile")
 		uid, err := GetUID()
 		if err != nil {
 			t.Fatalf("func GetUID: %v", err)
@@ -950,6 +951,7 @@ func TestResources2(t *testing.T) {
 		}
 	}
 
+	tmpdir := t.TempDir()
 	testCases := []test{}
 	{
 		//file "/tmp/somefile" {
@@ -958,7 +960,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateExists
 		content := "some new text\n"
@@ -990,7 +992,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		//res.State = FileStateExists // not specified!
 		content := "some new text\n"
@@ -1023,7 +1025,7 @@ func TestResources2(t *testing.T) {
 		// and no existing file exists! (therefore we want an error!)
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		//res.State = FileStateExists // not specified!
 		content := "some new text\n"
@@ -1054,7 +1056,7 @@ func TestResources2(t *testing.T) {
 		// and no existing file exists!
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateAbsent
 
@@ -1083,7 +1085,7 @@ func TestResources2(t *testing.T) {
 		// and a file already exists!
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateAbsent
 
@@ -1114,7 +1116,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateExists
 		content := "some new text\n"
@@ -1175,7 +1177,7 @@ func TestResources2(t *testing.T) {
 		//# and there's an existing file at this path...
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		//res.State = FileStateExists // unspecified
 		content := "some new text\n"
@@ -1240,7 +1242,7 @@ func TestResources2(t *testing.T) {
 		//# Now that we error in this scenario before reversal, it's ok!
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		//res.State = FileStateExists // unspecified
 		content := "some new text\n"
@@ -1297,7 +1299,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateAbsent
 		original := "this is the original state\n" // original state
@@ -1360,15 +1362,20 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
+		p := filepath.Join(tmpdir, "somefile")
 		res.Path = p
 		res.State = FileStateExists
+		frag1Path := filepath.Join(tmpdir, "frag1")
+		fragDir1 := filepath.Join(tmpdir, "fragdir1")
+		frag2Path := filepath.Join(tmpdir, "frag2")
+		fragDir2 := filepath.Join(tmpdir, "fragdir2")
+		frag3Path := filepath.Join(tmpdir, "frag3")
 		res.Fragments = []string{
-			"/tmp/frag1",
-			"/tmp/fragdir1/",
-			"/tmp/frag2",
-			"/tmp/fragdir2/",
-			"/tmp/frag3",
+			frag1Path,
+			fragDir1 + "/",
+			frag2Path,
+			fragDir2 + "/",
+			frag3Path,
 		}
 
 		frag1 := "frag1\n"
@@ -1383,17 +1390,17 @@ func TestResources2(t *testing.T) {
 		content := frag1 + f1 + f2 + f3 + frag2 + f1d2 + f2d2 + f3d2 + frag3
 
 		timeline := []func() error{
-			fileWrite("/tmp/frag1", frag1),
-			fileWrite("/tmp/frag2", frag2),
-			fileWrite("/tmp/frag3", frag3),
-			fileMkdir("/tmp/fragdir1/", true),
-			fileWrite("/tmp/fragdir1/f1", f1),
-			fileWrite("/tmp/fragdir1/f2", f2),
-			fileWrite("/tmp/fragdir1/f3", f3),
-			fileMkdir("/tmp/fragdir2/", true),
-			fileWrite("/tmp/fragdir2/f1", f1d2),
-			fileWrite("/tmp/fragdir2/f2", f2d2),
-			fileWrite("/tmp/fragdir2/f3", f3d2),
+			fileWrite(frag1Path, frag1),
+			fileWrite(frag2Path, frag2),
+			fileWrite(frag3Path, frag3),
+			fileMkdir(fragDir1, true),
+			fileWrite(filepath.Join(fragDir1, "f1"), f1),
+			fileWrite(filepath.Join(fragDir1, "f2"), f2),
+			fileWrite(filepath.Join(fragDir1, "f3"), f3),
+			fileMkdir(fragDir2, true),
+			fileWrite(filepath.Join(fragDir2, "f1"), f1d2),
+			fileWrite(filepath.Join(fragDir2, "f2"), f2d2),
+			fileWrite(filepath.Join(fragDir2, "f3"), f3d2),
 			fileWrite(p, "whatever"),
 			resValidate(r1),
 			resInit(r1),
@@ -1419,8 +1426,8 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somefile"
-		p2 := "/tmp/somefiletocopy"
+		p := filepath.Join(tmpdir, "somefile")
+		p2 := filepath.Join(tmpdir, "somefiletocopy")
 		content := "hello this is some file to copy\n"
 		res.Path = p
 		res.State = FileStateExists
@@ -1454,7 +1461,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somedir/"
+		p := filepath.Join(tmpdir, "somedir") + "/"
 		res.Path = p
 		res.State = FileStateExists
 
@@ -1485,8 +1492,8 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somedir/"
-		p2 := "/tmp/somedirtocopy/"
+		p := filepath.Join(tmpdir, "somedir") + "/"
+		p2 := filepath.Join(tmpdir, "somedirtocopy") + "/"
 		res.Path = p
 		res.State = FileStateExists
 		res.Source = p2
@@ -1556,7 +1563,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somedir/"
+		p := filepath.Join(tmpdir, "somedir") + "/"
 		res.Path = p
 		res.State = FileStateExists
 		res.Recurse = true
@@ -1629,7 +1636,7 @@ func TestResources2(t *testing.T) {
 		//}
 		r1 := makeRes("file", "r1")
 		res := r1.(*FileRes) // if this panics, the test will panic
-		p := "/tmp/somedir/"
+		p := filepath.Join(tmpdir, "somedir") + "/"
 		res.Path = p
 		res.State = FileStateExists
 		res.Recurse = true

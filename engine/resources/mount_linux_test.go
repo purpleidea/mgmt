@@ -33,13 +33,15 @@ package resources
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	fstab "github.com/deniswernert/go-fstab"
 )
 
 func TestMountExists(t *testing.T) {
-	const procMock1 = `/tmp/mount0 /mnt/proctest ext4 rw,seclabel,relatime,data=ordered 0 0` + "\n"
+	mountPath := filepath.Join(t.TempDir(), "mount0")
+	procMock1 := mountPath + " /mnt/proctest ext4 rw,seclabel,relatime,data=ordered 0 0\n"
 
 	var mountExistsTests = []struct {
 		procMock []byte
@@ -49,7 +51,7 @@ func TestMountExists(t *testing.T) {
 		{
 			[]byte(procMock1),
 			&fstab.Mount{
-				Spec:    "/tmp/mount0",
+				Spec:    mountPath,
 				File:    "/mnt/proctest",
 				VfsType: "ext4",
 				MntOps:  map[string]string{"defaults": ""},

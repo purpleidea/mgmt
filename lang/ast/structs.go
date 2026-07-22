@@ -11503,31 +11503,35 @@ func (obj *ExprVar) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph
 
 // SetScope stores the scope for use in this resource.
 func (obj *ExprVar) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	// We don't copy the scope here, since we only read from it below. This
+	// node is the most common one in the AST, and copying the whole scope
+	// for every variable reference was a big chunk of all the compiler
+	// allocations. Everyone who mutates a scope copies it first, so it's
+	// safe to share. (Sam was right, we didn't need to copy this.)
 	obj.scope = interfaces.EmptyScope()
 	if scope != nil {
-		obj.scope = scope.Copy() // XXX: Sam says we probably don't need to copy this.
+		obj.scope = scope
 	}
 
 	if monomorphicTarget, exists := sctx[obj.Name]; exists {
 		// This ExprVar refers to a parameter bound by an enclosing
-		// lambda definition.
+		// lambda definition. We need to mutate the scope to store it,
+		// so *now* we copy, since the original is shared with others.
+		obj.scope = obj.scope.Copy()
 		obj.scope.Variables[obj.Name] = monomorphicTarget
 
-		// There is no need to scope-check the target, it's just a
-		// an ExprParam with no internal references.
+		// There is no need to scope-check the target, it's just an
+		// ExprParam with no internal references.
 		return nil
 	}
 
-	target, exists := obj.scope.Variables[obj.Name]
-	if !exists {
+	if _, exists := obj.scope.Variables[obj.Name]; !exists {
 		if obj.data.Debug || true { // TODO: leave this on permanently?
 			variableScopeFeedback(obj.scope, obj.data.Logf)
 		}
 		err := fmt.Errorf("var `$%s` does not exist in this scope", obj.Name)
 		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
-
-	obj.scope.Variables[obj.Name] = target
 
 	// This ExprVar refers to a top-level definition which has already been
 	// scope-checked, so we don't need to scope-check it again.

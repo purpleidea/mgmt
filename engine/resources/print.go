@@ -64,7 +64,7 @@ type PrintRes struct {
 	// cannot be autogrouped.
 	RefreshOnly bool `lang:"refresh_only" yaml:"refresh_only"`
 
-	last string        // last printed value
+	last *string       // last printed value
 	evch chan struct{} // a message got printed (changed) event
 }
 
@@ -127,8 +127,9 @@ func (obj *PrintRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.init.Logf("received refresh notification!")
 	}
 
-	changed := obj.Msg != obj.last // did the message change since last run?
-	obj.last = obj.Msg             // store the current message
+	changed := obj.last == nil || obj.Msg != *obj.last // did the message change since last run?
+	last := obj.Msg                                    // make a copy of the current message
+	obj.last = &last                                   // store the current message
 
 	// We output a message if it changed and we're not in RefreshOnly mode,
 	// or if we are in RefreshOnly mode and we received a refresh.
@@ -151,8 +152,9 @@ func (obj *PrintRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			panic(fmt.Sprintf("grouped member %v has nested autogrouping", x))
 		}
 
-		changed := print.Msg != print.last // did the message change since last run?
-		print.last = print.Msg             // store the current message
+		changed := print.last == nil || print.Msg != *print.last // did the message change since last run?
+		last := print.Msg                                        // make a copy of the current message
+		print.last = &last                                       // store the current message
 		if changed {
 			// arbitrary: if anything changes, display them all...
 			display = true
@@ -169,10 +171,18 @@ func (obj *PrintRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	// TODO: Our logf system should have a mechanism to lock/unlock so that
 	// we could group all of this printing together with the same indent.
-	obj.init.Logf("Msg: %s", obj.Msg)
+	if obj.Msg == "" {
+		obj.init.Logf("<empty>")
+	} else {
+		obj.init.Logf("Msg: %s", obj.Msg)
+	}
 	for _, x := range g {
 		print := x.(*PrintRes) // already safe
-		obj.init.Logf("%s: Msg: %s", print, print.Msg)
+		if print.Msg == "" {
+			obj.init.Logf("%s: <empty>", print)
+		} else {
+			obj.init.Logf("%s: Msg: %s", print, print.Msg)
+		}
 	}
 
 	// What a peculiar resource after all! It turns out if we always return

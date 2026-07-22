@@ -10453,6 +10453,9 @@ func (obj *ExprCall) Init(data *interfaces.Data) error {
 	if obj.Name == "" && obj.Anon == nil {
 		return fmt.Errorf("missing call name")
 	}
+	if obj.Anon != nil && (obj.Name != "" || obj.Var) {
+		return fmt.Errorf("anon call is invalid")
+	}
 
 	for _, x := range obj.Args {
 		if err := x.Init(data); err != nil {

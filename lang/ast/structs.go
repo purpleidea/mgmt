@@ -7372,7 +7372,8 @@ func (obj *StmtComment) Init(data *interfaces.Data) error {
 // Here it simply returns itself, as no interpolation is possible.
 func (obj *StmtComment) Interpolate() (interfaces.Stmt, error) {
 	return &StmtComment{
-		Value: obj.Value,
+		Textarea: obj.Textarea,
+		Value:    obj.Value,
 	}, nil
 }
 

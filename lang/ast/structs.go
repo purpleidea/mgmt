@@ -12841,41 +12841,32 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 		return obj.typ, nil
 	}
 
-	var typ *types.Type
-	testAndSet := func(t *types.Type) error {
-		if t == nil {
-			return nil // skip
-		}
-		if typ == nil {
-			return nil // it's ok
-		}
-
-		if typ.Cmp(t) != nil {
-			return fmt.Errorf("inconsistent branch")
-		}
-		typ = t // save
-
-		return nil
-	}
-
+	var t1 *types.Type
 	if obj.ThenBranch != nil {
-		if t, err := obj.ThenBranch.Type(); err != nil {
-			if err := testAndSet(t); err != nil {
-				return nil, err
-			}
+		if t, err := obj.ThenBranch.Type(); err == nil {
+			t1 = t
 		}
 	}
+	var t2 *types.Type
 	if obj.ElseBranch != nil {
-		if t, err := obj.ElseBranch.Type(); err != nil {
-			if err := testAndSet(t); err != nil {
-				return nil, err
-			}
+		if t, err := obj.ElseBranch.Type(); err == nil {
+			t2 = t
 		}
 	}
 
-	if typ != nil {
-		return typ, nil
+	// If only one branch is known, return that.
+	if t1 == nil && t2 != nil {
+		return t2, nil
 	}
+	if t1 != nil && t2 == nil {
+		return t1, nil
+	}
+
+	// If both branches have the same type, we can assume it's that type.
+	if t1 != nil && t2 != nil {
+		return t1, errwrap.Wrapf(t1.Cmp(t2), "inconsistent branch")
+	}
+
 	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 

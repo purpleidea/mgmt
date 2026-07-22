@@ -1,0 +1,10 @@
+-- main.mcl --
+$c = if true {
+	"a"
+} else {
+	"b"
+}
+
+print $c {} # should unify and not need wrapping in a list because exprif static
+-- OUTPUT --
+Vertex: print[a]

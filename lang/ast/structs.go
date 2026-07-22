@@ -9565,6 +9565,9 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 			return fmt.Errorf("func is being re-built")
 		}
 		obj.function = obj.Function() // build it
+		if obj.function == nil {
+			return fmt.Errorf("function constructor returned nil")
+		}
 		if tf, ok := obj.function.(interfaces.TextareaSettable); ok {
 			tf.SetTextarea(obj.Textarea)
 		}
@@ -9582,6 +9585,9 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 	if len(obj.Values) > 0 {
 		typs := []*types.Type{}
 		for _, f := range obj.Values {
+			if f == nil {
+				return fmt.Errorf("func contains a nil value")
+			}
 			if f.T == nil {
 				return fmt.Errorf("func contains a nil type signature")
 			}

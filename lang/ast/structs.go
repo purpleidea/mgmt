@@ -9532,7 +9532,7 @@ func (obj *ExprFunc) Init(data *interfaces.Data) error {
 	a := obj.Body != nil
 	b := obj.Function != nil
 	c := len(obj.Values) > 0
-	if (a && b || b && c) || !a && !b && !c {
+	if (a && b) || (b && c) || (c && a) || (!a && !b && !c) {
 		return fmt.Errorf("function expression was not built correctly")
 	}
 

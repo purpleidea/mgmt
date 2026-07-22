@@ -370,8 +370,10 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	} else if err != nil {
 		return errwrap.Wrapf(err, "can't get default hostname")
 	}
-	if hostname == "" { // safety check
-		return fmt.Errorf("hostname cannot be empty")
+	// The hostname is used as a component in many etcd key prefixes, so it
+	// must not be able to escape its prefix or collide with reserved names.
+	if err := util.ValidHostname(hostname); err != nil {
+		return errwrap.Wrapf(err, "invalid hostname: %s", hostname)
 	}
 
 	user, err := user.Current()

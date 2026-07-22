@@ -3711,8 +3711,16 @@ func (obj *StmtFor) Init(data *interfaces.Data) error {
 			return err
 		}
 	}
-	// XXX: remove this check if we can!
-	for _, stmt := range obj.Body.(*StmtProg).Body {
+	if obj.Body == nil {
+		return nil
+	}
+
+	prog, ok := obj.Body.(*StmtProg)
+	if !ok {
+		return fmt.Errorf("the StmtFor body is not a program")
+	}
+	for _, stmt := range prog.Body {
+		// XXX: remove this check if we can!
 		if _, ok := stmt.(*StmtImport); !ok {
 			continue
 		}
@@ -3893,10 +3901,6 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 		return err
 	}
 
-	if obj.Body == nil { // no loop body, we're done early
-		return nil
-	}
-
 	// We need to build the two ExprParam's here, and those will contain the
 	// type unification variables, so we might as well populate those parts
 	// now, rather than waiting for the subsequent TypeCheck step.
@@ -3934,6 +3938,10 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 	newScope.Iterated = true // important!
 	newScope.Variables[obj.Index] = obj.indexParam
 	newScope.Variables[obj.Value] = obj.valueParam
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
 
 	return obj.Body.SetScope(newScope)
 }
@@ -4229,8 +4237,16 @@ func (obj *StmtForKV) Init(data *interfaces.Data) error {
 			return err
 		}
 	}
-	// XXX: remove this check if we can!
-	for _, stmt := range obj.Body.(*StmtProg).Body {
+	if obj.Body == nil {
+		return nil
+	}
+
+	prog, ok := obj.Body.(*StmtProg)
+	if !ok {
+		return fmt.Errorf("the StmtForKV body is not a program")
+	}
+	for _, stmt := range prog.Body {
+		// XXX: remove this check if we can!
 		if _, ok := stmt.(*StmtImport); !ok {
 			continue
 		}
@@ -4411,10 +4427,6 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 		return err
 	}
 
-	if obj.Body == nil { // no loop body, we're done early
-		return nil
-	}
-
 	// We need to build the two ExprParam's here, and those will contain the
 	// type unification variables, so we might as well populate those parts
 	// now, rather than waiting for the subsequent TypeCheck step.
@@ -4449,6 +4461,10 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 	newScope.Iterated = true // important!
 	newScope.Variables[obj.Key] = obj.keyParam
 	newScope.Variables[obj.Val] = obj.valParam
+
+	if obj.Body == nil { // no loop body, we're done early
+		return nil
+	}
 
 	return obj.Body.SetScope(newScope)
 }

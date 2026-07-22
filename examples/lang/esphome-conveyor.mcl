@@ -107,15 +107,19 @@
 #       - bus_id: exit_i2c
 #         channel: 1
 #
+# # Keep the 100ms hub interval for responsive proximity detection. Color
+# # publications are independently presence-gated and throttled below.
 # apds9960:
 #   - id: entry_apds
 #     i2c_id: entry_i2c
 #     address: 0x39
 #     update_interval: 100ms
+#     ambient_light_gain: 4x
 #   - id: exit_apds
 #     i2c_id: exit_i2c
 #     address: 0x39
 #     update_interval: 100ms
+#     ambient_light_gain: 4x
 #
 # sensor:
 #   - platform: apds9960
@@ -123,38 +127,98 @@
 #     type: PROXIMITY
 #     id: entry_proximity
 #     name: Entry Proximity
+#
+#   # RGB/C values are useful only while an object is in the sensing window.
+#   # Returning an empty optional suppresses publication while no entry object
+#   # is present. Throttling limits active color telemetry to 4Hz per channel.
 #   - platform: apds9960
 #     apds9960_id: entry_apds
 #     type: RED
 #     id: entry_red
 #     name: Entry Red
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
 #   - platform: apds9960
 #     apds9960_id: entry_apds
 #     type: GREEN
 #     id: entry_green
 #     name: Entry Green
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
 #   - platform: apds9960
 #     apds9960_id: entry_apds
 #     type: BLUE
 #     id: entry_blue
 #     name: Entry Blue
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: CLEAR
+#     id: entry_clear
+#     name: Entry Clear
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#
 #   - platform: apds9960
 #     apds9960_id: exit_apds
 #     type: PROXIMITY
 #     id: exit_proximity
 #     name: Exit Proximity
+#
+#   # Apply the same publication policy to the exit color channels.
 #   - platform: apds9960
 #     apds9960_id: exit_apds
 #     type: RED
+#     id: exit_red
 #     name: Exit Red
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
 #   - platform: apds9960
 #     apds9960_id: exit_apds
 #     type: GREEN
+#     id: exit_green
 #     name: Exit Green
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
 #   - platform: apds9960
 #     apds9960_id: exit_apds
 #     type: BLUE
+#     id: exit_blue
 #     name: Exit Blue
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: CLEAR
+#     id: exit_clear
+#     name: Exit Clear
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
 #
 # binary_sensor:
 #   - platform: template
@@ -289,11 +353,14 @@ $run_request = esphome.binary_sensor($endpoint, "Conveyor Run Request")
 $red = esphome.sensor($endpoint, "Entry Red")
 $green = esphome.sensor($endpoint, "Entry Green")
 $blue = esphome.sensor($endpoint, "Entry Blue")
+$clear = esphome.sensor($endpoint, "Entry Clear")
 
 # Show the object's dominant measured color while it is at the entry sensor.
 # Named colors and an exact #RRGGBB value both exercise esphome:light's stable
 # color contract. Blue means idle, green means arrived, and orange means the
-# sensor sees an object without a clear red/green/blue winner.
+# sensor sees an object without a clear red/green/blue winner. The clear channel
+# is logged for calibration; choosing the dominant channel remains deliberately
+# simple until readings from the assembled conveyor are available.
 $status_color = if $exit_present {
 	"green"
 } else {
@@ -350,13 +417,14 @@ esphome:light $light {
 
 print "conveyor telemetry" {
 	msg => fmt.printf(
-		"entry=%v exit=%v run=%v rgb=(%f, %f, %f) status=%s",
+		"entry=%v exit=%v run=%v rgbc=(%f, %f, %f, %f) status=%s",
 		$entry_present,
 		$exit_present,
 		$run_request,
 		$red,
 		$green,
 		$blue,
+		$clear,
 		$status_color,
 	),
 }

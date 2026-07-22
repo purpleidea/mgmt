@@ -8,10 +8,27 @@
 # the motor supply or driver enable. A software stop is not an emergency stop.
 # Keep hands, hair, clothing, and loose parts clear of the belt.
 #
-# Copy the commented firmware below into esphome-conveyor.yaml. The GPIO values
-# are compileable ESP32 development-board placeholders; they are NOT a verified
-# CrowPanel or final-hardware pin assignment. Replace them only after checking
-# the schematic and checking for boot-strap, display, PSRAM, and other conflicts.
+# Copy the commented firmware below into esphome-conveyor.yaml. It targets the
+# actual bench hardware tested by the accompanying CircuitPython programs:
+#
+#   Unexpected Maker FeatherS2:
+#     ESPHome board: um_feathers2
+#     MCU: ESP32-S2
+#   DRV8833:
+#     AIN1: CircuitPython board.D21 -> FeatherS2 GPIO38
+#     AIN2: CircuitPython board.D20 -> FeatherS2 GPIO33
+#     SLP:  CircuitPython board.D5  -> FeatherS2 GPIO1
+#   TCA9548A:
+#     SDA: CircuitPython board.SDA -> FeatherS2 GPIO8
+#     SCL: CircuitPython board.SCL -> FeatherS2 GPIO9
+#     address: 0x70
+#   APDS9960 sensors:
+#     entry sensor: TCA9548A channel 0, address 0x39
+#     exit sensor:  TCA9548A channel 1, address 0x39
+#   FeatherS2 onboard APA102:
+#     data:  GPIO40
+#     clock: GPIO45
+#
 # Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
 # sample API key in both files, then validate before flashing:
 #
@@ -22,7 +39,7 @@
 #
 #   mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
 #
-# Firmware validated against the ESPHome 2026.7.0 component schemas:
+# Firmware targets the ESPHome 2026.7.0 component schemas:
 #
 # esphome:
 #   name: esphome-conveyor
@@ -30,17 +47,27 @@
 #   on_boot:
 #     priority: -100
 #     then:
+#       # Keep DRV8833 asleep before touching the H-bridge state.
+#       - output.turn_off: motor_sleep
 #       - fan.turn_off: conveyor_motor
 #       - light.turn_off: status_light
 #
 # esp32:
-#   board: esp32dev
+#   board: um_feathers2
+#   variant: esp32s2
+#   flash_size: 16MB
 #   framework:
 #     type: esp-idf
 #
 # wifi:
 #   ssid: !secret wifi_ssid
 #   password: !secret wifi_password
+#   ap:
+#     ssid: "esphome-conveyor-fallback"
+#     password: "purpleIdea"
+#     ap_timeout: 5min
+#
+# captive_portal:
 #
 # logger:
 #   level: DEBUG
@@ -63,11 +90,11 @@
 #     restore_value: yes
 #     initial_value: "false"
 #
-# # Placeholder pins: verify every one against the actual controller schematic.
+# # FeatherS2 STEMMA/Qwiic I2C pins used by CircuitPython board.SDA/board.SCL.
 # i2c:
 #   - id: main_i2c
-#     sda: GPIO21
-#     scl: GPIO22
+#     sda: GPIO8
+#     scl: GPIO9
 #     scan: true
 #
 # tca9548a:
@@ -148,31 +175,38 @@
 #       if (id(entry_object_present).state) return true;
 #       return {};
 #
+# # The FeatherS2 onboard APA102 uses a dedicated write-only SPI bus.
+# spi:
+#   - id: status_spi
+#     clk_pin: GPIO45
+#     mosi_pin: GPIO40
+#
 # output:
+#   # CircuitPython board.D21 -> FeatherS2 GPIO38 -> DRV8833 AIN1.
 #   - platform: ledc
-#     id: motor_forward_pwm
-#     pin: GPIO18
+#     id: motor_ain1_pwm
+#     pin: GPIO38
 #     frequency: 20kHz
+#   # CircuitPython board.D20 -> FeatherS2 GPIO33 -> DRV8833 AIN2.
 #   - platform: ledc
-#     id: motor_reverse_pwm
-#     pin: GPIO19
+#     id: motor_ain2_pwm
+#     pin: GPIO33
 #     frequency: 20kHz
-#   - platform: ledc
-#     id: status_red_pwm
-#     pin: GPIO25
-#   - platform: ledc
-#     id: status_green_pwm
-#     pin: GPIO26
-#   - platform: ledc
-#     id: status_blue_pwm
-#     pin: GPIO27
+#   # CircuitPython board.D5 -> FeatherS2 GPIO1 -> DRV8833 SLP.
+#   # Keeping this separate from the H-bridge outputs prevents a latched-fault
+#   # start request from briefly waking the driver before the fault check.
+#   - platform: gpio
+#     id: motor_sleep
+#     pin: GPIO1
 #
 # fan:
 #   - platform: hbridge
 #     id: conveyor_motor
 #     name: Conveyor Motor
-#     pin_a: motor_forward_pwm
-#     pin_b: motor_reverse_pwm
+#     # Forward matches the tested CircuitPython state:
+#     # AIN1/GPIO38 high and AIN2/GPIO33 low.
+#     pin_a: motor_ain1_pwm
+#     pin_b: motor_ain2_pwm
 #     decay_mode: slow
 #     speed_count: 100
 #     restore_mode: ALWAYS_OFF
@@ -181,20 +215,23 @@
 #           condition:
 #             lambda: return id(motor_fault);
 #           then:
+#             - output.turn_off: motor_sleep
 #             - logger.log: "Blocked motor start: safety fault is latched"
 #             - fan.turn_off: conveyor_motor
 #           else:
+#             - output.turn_on: motor_sleep
 #             - script.execute: motor_runtime_limit
 #     on_turn_off:
+#       - output.turn_off: motor_sleep
 #       - script.stop: motor_runtime_limit
 #
 # light:
-#   - platform: rgb
+#   - platform: spi_led_strip
+#     spi_id: status_spi
 #     id: status_light
 #     name: Status Light
-#     red: status_red_pwm
-#     green: status_green_pwm
-#     blue: status_blue_pwm
+#     num_leds: 1
+#     data_rate: 1MHz
 #     restore_mode: ALWAYS_OFF
 #
 # button:
@@ -203,6 +240,7 @@
 #     name: Reset Motor Fault
 #     on_press:
 #       - fan.turn_off: conveyor_motor
+#       - output.turn_off: motor_sleep
 #       - globals.set:
 #           id: motor_fault
 #           value: "false"

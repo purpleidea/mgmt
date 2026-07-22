@@ -216,8 +216,16 @@ func ValueToExpr(val types.Value) (interfaces.Expr, error) {
 
 	case *types.StructValue:
 		fields := []*ExprStructField{}
-
-		for k, v := range x.Struct() {
+		typ := x.Type()
+		if typ == nil {
+			return nil, fmt.Errorf("struct contains a nil type")
+		}
+		st := x.Struct()
+		for _, k := range typ.Ord {
+			v, exists := st[k]
+			if !exists {
+				return nil, fmt.Errorf("struct field %s is missing", k)
+			}
 			fx, err := ValueToExpr(v)
 			if err != nil {
 				return nil, err

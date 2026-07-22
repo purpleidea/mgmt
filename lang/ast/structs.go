@@ -11100,6 +11100,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 
 		// TODO: Do we need to link obj.expr to exprFunc, eg:
 		//invar2 := &interfaces.UnificationInvariant{
+		//	Node:   obj,
 		//	Expr:   exprFunc, // trueCallee variant
 		//	Expect: typFunc,
 		//	Actual: typFn,
@@ -12043,6 +12044,7 @@ func (obj *ExprIterated) Infer() (*types.Type, []*interfaces.UnificationInvarian
 
 	// This adds the obj ptr, so it's seen as an expr that we need to solve.
 	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
 		Expr:   obj,
 		Expect: typ,
 		Actual: typ,

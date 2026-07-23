@@ -1,0 +1,33 @@
+# This defines a new libvirt network managed by mgmt.
+virt:network "mgmtnet" {
+	# uuid omitted: libvirt will generate one when the network is defined
+	state => "up", # "up" | "down" | ""
+	transient => false,
+
+	device => "mgmtbr0",
+	mode => "nat",
+	mac => "52:54:00:bd:00:01",
+	ip => "192.168.42.1/24", # network is 192.168.42.0/24
+
+	purge_hosts => true,
+	purge_ranges => true,
+}
+
+virt:network:host "james" {
+	network => "mgmtnet", # group into the network above
+	hostname => "james.mgmt.internal",
+	mac => "52:54:00:00:00:69",
+	ip => "192.168.42.7/24", # cidr must match the parent network
+}
+
+virt:network:host "vm1" {
+	#network => "mgmtnet", # optional when there's only one network
+	mac => "52:54:00:00:00:13",
+	ip => "192.168.42.13/24",
+}
+
+virt:network:range "main" {
+	network => "mgmtnet",
+	start => "192.168.42.100",
+	end => "192.168.42.200",
+}

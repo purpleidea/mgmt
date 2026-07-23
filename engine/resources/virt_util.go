@@ -32,16 +32,19 @@
 package resources
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	libvirt "libvirt.org/go/libvirt" // gitlab.com/libvirt/libvirt-go-module
+	libvirt "libvirt.org/go/libvirt"       // gitlab.com/libvirt/libvirt-go-module
+	libvirtxml "libvirt.org/go/libvirtxml" // gitlab.com/libvirt/libvirt-go-xml-module
 )
 
 var (
@@ -250,4 +253,65 @@ func (obj *VirtAuth) Connect(uri string) (conn *libvirt.Connect, version uint32,
 		}
 	}
 	return
+}
+
+// networkIPIsIPv4 reports whether a libvirt network IP entry looks like IPv4.
+func networkIPIsIPv4(ip libvirtxml.NetworkIP) bool {
+	switch ip.Family {
+	case "ipv6":
+		return false
+	case "ipv4":
+		return true
+	}
+	parsed := net.ParseIP(ip.Address)
+	return parsed != nil && parsed.To4() != nil
+}
+
+// validateUsableIPv4 checks that addr belongs to ipNet and is not the network
+// or broadcast address for ordinary IPv4 subnets.
+func validateUsableIPv4(label string, addr net.IP, ipNet *net.IPNet) error {
+	if !ipNet.Contains(addr) {
+		return fmt.Errorf("%s %s is not within network %s", label, addr, ipNet)
+	}
+	network, broadcast, ok := ipv4NetworkBounds(ipNet)
+	if !ok {
+		return nil
+	}
+	if addr.Equal(network) || addr.Equal(broadcast) {
+		return fmt.Errorf("%s %s cannot be the network or broadcast address of %s", label, addr, ipNet)
+	}
+	return nil
+}
+
+// ipv4NetworkBounds returns the network and broadcast addresses for IPv4
+// subnets that have distinct host addresses.
+func ipv4NetworkBounds(ipNet *net.IPNet) (net.IP, net.IP, bool) {
+	ones, bits := ipNet.Mask.Size()
+	if bits != 32 || ones > 30 {
+		return nil, nil, false
+	}
+	network := ipNet.IP.To4()
+	if network == nil {
+		return nil, nil, false
+	}
+	broadcast := make(net.IP, net.IPv4len)
+	for i := range broadcast {
+		broadcast[i] = network[i] | ^ipNet.Mask[i]
+	}
+	return network, broadcast, true
+}
+
+// ipv4Between reports whether ip is within the inclusive start/end range.
+func ipv4Between(ip, start, end net.IP) bool {
+	return bytes.Compare(start, ip) <= 0 && bytes.Compare(ip, end) <= 0
+}
+
+// ipv4RangesOverlap reports whether two inclusive IPv4 ranges overlap.
+func ipv4RangesOverlap(aStart, aEnd, bStart, bEnd net.IP) bool {
+	return ipv4Between(aStart, bStart, bEnd) || ipv4Between(bStart, aStart, aEnd)
+}
+
+// hostsEqual compares two DHCP host entries on the fields we actually set.
+func hostsEqual(a, b libvirtxml.NetworkDHCPHost) bool {
+	return a.MAC == b.MAC && a.Name == b.Name && a.IP == b.IP
 }

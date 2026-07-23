@@ -1,0 +1,433 @@
+# Run the mgmt + ESPHome conveyor demonstration with native, encrypted API
+# control. mgmt owns the desired conveyor and status-light state; ESPHome owns
+# GPIO/I2C details and the safety rules that must still work without mgmt.
+#
+# This is a development-bench example, not a machine-safety system. Before
+# energizing a motor, review the real board pinout and DRV8833 wiring, add a
+# current limit and guards, and wire a physical emergency stop in series with
+# the motor supply or driver enable. A software stop is not an emergency stop.
+# Keep hands, hair, clothing, and loose parts clear of the belt.
+#
+# Copy the commented firmware below into esphome-conveyor.yaml. It targets the
+# actual bench hardware tested by the accompanying CircuitPython programs:
+#
+#   Unexpected Maker FeatherS2:
+#     ESPHome board: um_feathers2
+#     MCU: ESP32-S2
+#   DRV8833:
+#     AIN1: CircuitPython board.D21 -> FeatherS2 GPIO38
+#     AIN2: CircuitPython board.D20 -> FeatherS2 GPIO33
+#     SLP:  CircuitPython board.D5  -> FeatherS2 GPIO1
+#   TCA9548A:
+#     SDA: CircuitPython board.SDA -> FeatherS2 GPIO8
+#     SCL: CircuitPython board.SCL -> FeatherS2 GPIO9
+#     address: 0x70
+#   APDS9960 sensors:
+#     entry sensor: TCA9548A channel 0, address 0x39
+#     exit sensor:  TCA9548A channel 1, address 0x39
+#   FeatherS2 onboard APA102:
+#     data:  GPIO40
+#     clock: GPIO45
+#
+# Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
+# sample API key in both files, then validate before flashing:
+#
+#   esphome config esphome-conveyor.yaml
+#   esphome run esphome-conveyor.yaml
+#
+# Run mgmt after a human has inspected the bench and released the physical stop:
+#
+#   mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
+#
+# Firmware targets the ESPHome 2026.7.0 component schemas:
+#
+# esphome:
+#   name: esphome-conveyor
+#   friendly_name: mgmt ESPHome Conveyor
+#   on_boot:
+#     priority: -100
+#     then:
+#       # Keep DRV8833 asleep before touching the H-bridge state.
+#       - output.turn_off: motor_sleep
+#       - fan.turn_off: conveyor_motor
+#       - light.turn_off: status_light
+#
+# esp32:
+#   board: um_feathers2
+#   variant: esp32s2
+#   flash_size: 16MB
+#   framework:
+#     type: esp-idf
+#
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#   ap:
+#     ssid: "esphome-conveyor-fallback"
+#     password: "purpleIdea"
+#     ap_timeout: 5min
+#
+# captive_portal:
+#
+# logger:
+#   level: DEBUG
+#
+# api:
+#   id: native_api
+#   encryption:
+#     # Public demo key. Generate a unique key for every real device.
+#     key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+#   reboot_timeout: 5min
+#
+# ota:
+#   - platform: esphome
+#
+# # The fault latch survives a reboot. Only the explicit reset button clears
+# # it; neither an API reconnect nor a repeated fan command auto-resumes motion.
+# globals:
+#   - id: motor_fault
+#     type: bool
+#     restore_value: yes
+#     initial_value: "false"
+#
+# # FeatherS2 STEMMA/Qwiic I2C pins used by CircuitPython board.SDA/board.SCL.
+# i2c:
+#   - id: main_i2c
+#     sda: GPIO8
+#     scl: GPIO9
+#     scan: true
+#
+# tca9548a:
+#   - id: sensor_mux
+#     i2c_id: main_i2c
+#     address: 0x70
+#     channels:
+#       - bus_id: entry_i2c
+#         channel: 0
+#       - bus_id: exit_i2c
+#         channel: 1
+#
+# # Keep the 100ms hub interval for responsive proximity detection. Color
+# # publications are independently presence-gated and throttled below.
+# apds9960:
+#   - id: entry_apds
+#     i2c_id: entry_i2c
+#     address: 0x39
+#     update_interval: 100ms
+#     ambient_light_gain: 4x
+#   - id: exit_apds
+#     i2c_id: exit_i2c
+#     address: 0x39
+#     update_interval: 100ms
+#     ambient_light_gain: 4x
+#
+# sensor:
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: PROXIMITY
+#     id: entry_proximity
+#     name: Entry Proximity
+#
+#   # RGB/C values are useful only while an object is in the sensing window.
+#   # Returning an empty optional suppresses publication while no entry object
+#   # is present. Throttling limits active color telemetry to 4Hz per channel.
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: RED
+#     id: entry_red
+#     name: Entry Red
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: GREEN
+#     id: entry_green
+#     name: Entry Green
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: BLUE
+#     id: entry_blue
+#     name: Entry Blue
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: entry_apds
+#     type: CLEAR
+#     id: entry_clear
+#     name: Entry Clear
+#     filters:
+#       - lambda: |-
+#           if (!id(entry_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: PROXIMITY
+#     id: exit_proximity
+#     name: Exit Proximity
+#
+#   # Apply the same publication policy to the exit color channels.
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: RED
+#     id: exit_red
+#     name: Exit Red
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: GREEN
+#     id: exit_green
+#     name: Exit Green
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: BLUE
+#     id: exit_blue
+#     name: Exit Blue
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#   - platform: apds9960
+#     apds9960_id: exit_apds
+#     type: CLEAR
+#     id: exit_clear
+#     name: Exit Clear
+#     filters:
+#       - lambda: |-
+#           if (!id(exit_object_present).state) return {};
+#           return x;
+#       - throttle: 250ms
+#
+# binary_sensor:
+#   - platform: template
+#     id: entry_object_present
+#     name: Entry Object Present
+#     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
+#   - platform: template
+#     id: exit_object_present
+#     name: Exit Object Present
+#     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 20.0;
+#   - platform: template
+#     id: conveyor_run_request
+#     name: Conveyor Run Request
+#     # Latch an entry detection until the object reaches the exit. Returning
+#     # an empty optional keeps the last published value between those events.
+#     lambda: |-
+#       if (id(exit_object_present).state) return false;
+#       if (id(entry_object_present).state) return true;
+#       return {};
+#
+# # The FeatherS2 onboard APA102 uses a dedicated write-only SPI bus.
+# spi:
+#   - id: status_spi
+#     clk_pin: GPIO45
+#     mosi_pin: GPIO40
+#
+# output:
+#   # CircuitPython board.D21 -> FeatherS2 GPIO38 -> DRV8833 AIN1.
+#   - platform: ledc
+#     id: motor_ain1_pwm
+#     pin: GPIO38
+#     frequency: 20kHz
+#   # CircuitPython board.D20 -> FeatherS2 GPIO33 -> DRV8833 AIN2.
+#   - platform: ledc
+#     id: motor_ain2_pwm
+#     pin: GPIO33
+#     frequency: 20kHz
+#   # CircuitPython board.D5 -> FeatherS2 GPIO1 -> DRV8833 SLP.
+#   # Keeping this separate from the H-bridge outputs prevents a latched-fault
+#   # start request from briefly waking the driver before the fault check.
+#   - platform: gpio
+#     id: motor_sleep
+#     pin: GPIO1
+#
+# fan:
+#   - platform: hbridge
+#     id: conveyor_motor
+#     name: Conveyor Motor
+#     # Forward matches the tested CircuitPython state:
+#     # AIN1/GPIO38 high and AIN2/GPIO33 low.
+#     pin_a: motor_ain1_pwm
+#     pin_b: motor_ain2_pwm
+#     decay_mode: slow
+#     speed_count: 100
+#     restore_mode: ALWAYS_OFF
+#     on_turn_on:
+#       - if:
+#           condition:
+#             lambda: return id(motor_fault);
+#           then:
+#             - output.turn_off: motor_sleep
+#             - logger.log: "Blocked motor start: safety fault is latched"
+#             - fan.turn_off: conveyor_motor
+#           else:
+#             - output.turn_on: motor_sleep
+#             - script.execute: motor_runtime_limit
+#     on_turn_off:
+#       - output.turn_off: motor_sleep
+#       - script.stop: motor_runtime_limit
+#
+# light:
+#   - platform: spi_led_strip
+#     spi_id: status_spi
+#     id: status_light
+#     name: Status Light
+#     num_leds: 1
+#     data_rate: 1MHz
+#     restore_mode: ALWAYS_OFF
+#
+# button:
+#   - platform: template
+#     id: reset_motor_fault
+#     name: Reset Motor Fault
+#     on_press:
+#       - fan.turn_off: conveyor_motor
+#       - output.turn_off: motor_sleep
+#       - globals.set:
+#           id: motor_fault
+#           value: "false"
+#       - logger.log: "Motor fault reset while motor is stopped"
+#
+# script:
+#   - id: motor_runtime_limit
+#     mode: restart
+#     then:
+#       - delay: 30s
+#       - globals.set:
+#           id: motor_fault
+#           value: "true"
+#       - fan.turn_off: conveyor_motor
+#       - logger.log: "Motor stopped: 30 second runtime limit reached"
+#
+# # Stop and latch locally if the state-subscribed controller disappears while
+# # the motor is running. Logger-only API sessions do not satisfy this lease.
+# interval:
+#   - interval: 500ms
+#     then:
+#       - if:
+#           condition:
+#             and:
+#               - fan.is_on: conveyor_motor
+#               - not:
+#                   api.connected:
+#                     state_subscription_only: true
+#           then:
+#             - globals.set:
+#                 id: motor_fault
+#                 value: "true"
+#             - fan.turn_off: conveyor_motor
+#             - logger.log: "Motor stopped: native API control lease was lost"
+
+import "fmt"
+import "net/esphome"
+
+$endpoint = "esphome-conveyor"
+$motor = "Conveyor Motor"
+$light = "Status Light"
+
+$entry_present = esphome.binary_sensor($endpoint, "Entry Object Present")
+$exit_present = esphome.binary_sensor($endpoint, "Exit Object Present")
+$run_request = esphome.binary_sensor($endpoint, "Conveyor Run Request")
+$red = esphome.sensor($endpoint, "Entry Red")
+$green = esphome.sensor($endpoint, "Entry Green")
+$blue = esphome.sensor($endpoint, "Entry Blue")
+$clear = esphome.sensor($endpoint, "Entry Clear")
+
+# Show the object's dominant measured color while it is at the entry sensor.
+# Named colors and an exact #RRGGBB value both exercise esphome:light's stable
+# color contract. Blue means idle, green means arrived, and orange means the
+# sensor sees an object without a clear red/green/blue winner. The clear channel
+# is logged for calibration; choosing the dominant channel remains deliberately
+# simple until readings from the assembled conveyor are available.
+$status_color = if $exit_present {
+	"green"
+} else {
+	if $entry_present {
+		if $red > $green and $red > $blue {
+			"red"
+		} else {
+			if $green > $red and $green > $blue {
+				"#00ff00"
+			} else {
+				if $blue > $red and $blue > $green {
+					"blue"
+				} else {
+					"orange"
+				}
+			}
+		}
+	} else {
+		"blue"
+	}
+}
+
+esphome:endpoint $endpoint {
+	host => "esphome-conveyor.local",
+	# Public sample key: replace it here and in the firmware before real use.
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=",
+	interval => 0,
+	logs => "info",
+}
+
+esphome:fan $motor {
+	endpoint => $endpoint,
+	state => if $run_request {
+		"on"
+	} else {
+		"off"
+	},
+	speed => 35,
+	direction => "forward",
+	# On a long outage, stop before retrying the desired state. The firmware
+	# lease, persistent fault latch, runtime limit, and physical stop remain the
+	# authoritative safety layers.
+	stop => 5,
+	Meta:retry => -1,
+	Meta:delay => 5000,
+}
+
+esphome:light $light {
+	endpoint => $endpoint,
+	state => "on",
+	brightness => 0.35,
+	color => $status_color,
+}
+
+print "conveyor telemetry" {
+	msg => fmt.printf(
+		"entry=%v exit=%v run=%v rgbc=(%f, %f, %f, %f) status=%s",
+		$entry_present,
+		$exit_present,
+		$run_request,
+		$red,
+		$green,
+		$blue,
+		$clear,
+		$status_color,
+	),
+}
+
+Esphome:Endpoint[$endpoint] -> Esphome:Fan[$motor]
+Esphome:Endpoint[$endpoint] -> Esphome:Light[$light]

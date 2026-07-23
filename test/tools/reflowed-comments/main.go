@@ -360,8 +360,9 @@ func reflowLines(lines []string, length int) []string {
 			return
 		}
 
-		line := words[0]
-		for _, word := range words[1:] {
+		merged := mergeMarkdownLinkWords(words)
+		line := merged[0]
+		for _, word := range merged[1:] {
 			if len(line)+len(" ")+len(word) <= length || (len(line) <= length && IsSpecialLine(word)) {
 				line += " " + word
 				continue
@@ -427,7 +428,77 @@ func commentWords(line string) []string {
 		words = append(words, line[start:])
 	}
 
-	return words
+	return mergeMarkdownLinkWords(words)
+}
+
+// mergeMarkdownLinkWords preserves spaces in inline Markdown link labels.
+func mergeMarkdownLinkWords(words []string) []string {
+	result := []string{}
+	for i := 0; i < len(words); i++ {
+		start := strings.LastIndex(words[i], "[")
+		if start < 0 {
+			result = append(result, words[i])
+			continue
+		}
+
+		link := words[i]
+		end := markdownLinkEnd(link, start)
+		j := i
+		for end < 0 && j+1 < len(words) {
+			j++
+			link += " " + words[j]
+			end = markdownLinkEnd(link, start)
+		}
+		if end < 0 {
+			result = append(result, words[i])
+			continue
+		}
+
+		result = append(result, link)
+		i = j
+	}
+
+	return result
+}
+
+// markdownLinkEnd returns the end of a complete inline Markdown link.
+func markdownLinkEnd(s string, start int) int {
+	if start < 0 || start >= len(s) || s[start] != '[' {
+		return -1
+	}
+
+	closeLabel := strings.Index(s[start+1:], "](")
+	if closeLabel < 0 {
+		return -1
+	}
+	closeLabel += start + 1
+	if strings.Contains(s[start+1:closeLabel], "[") {
+		return -1
+	}
+
+	depth := 1
+	escaped := false
+	for i := closeLabel + len("]("); i < len(s); i++ {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if s[i] == '\\' {
+			escaped = true
+			continue
+		}
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return i + 1
+			}
+		}
+	}
+
+	return -1
 }
 
 // checkCommentGroup checks that an individual comment group is wrapped.
@@ -548,8 +619,9 @@ func IsWrappedProperly(lines []string, length int) error {
 		// Either of these conditions is a reason we can skip this test.
 		skip1 := IsSpecialLine(line)
 		skip2 := (len(beginning) <= length && IsSpecialLine(lastChunk))
+		skip3 := len(fields) == 1 // a single unbreakable token
 
-		if len(line) > length && (!skip1) && (!skip2) {
+		if len(line) > length && (!skip1) && (!skip2) && (!skip3) {
 			return fmt.Errorf("line %d is too long", lineno)
 		}
 

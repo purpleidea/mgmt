@@ -183,6 +183,49 @@ type T struct{}
 	}
 }
 
+func TestReflowRepairsSplitMarkdownLink(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+// Run reads the [mgmt configuration
+// language guide](https://example.com/mgmt/configuration-language/reference.html)
+// before starting.
+func Run() {}
+`)
+	want := `package doc
+
+// Run reads the
+// [mgmt configuration language guide](https://example.com/mgmt/configuration-language/reference.html)
+// before starting.
+func Run() {}
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err == nil {
+		t.Fatalf("expected split Markdown link reflow error")
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+
+	if err := Check(filename); err != nil {
+		t.Fatalf("expected repaired Markdown link to pass: %+v", err)
+	}
+}
+
 func TestCheckPackageDoc(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "doc.go")

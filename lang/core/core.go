@@ -54,6 +54,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/net/http"
 	_ "github.com/purpleidea/mgmt/lang/core/os"
 	_ "github.com/purpleidea/mgmt/lang/core/regexp"
+	_ "github.com/purpleidea/mgmt/lang/core/res"
 	_ "github.com/purpleidea/mgmt/lang/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/core/sys"
 	_ "github.com/purpleidea/mgmt/lang/core/sys/fwupd"

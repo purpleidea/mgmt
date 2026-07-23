@@ -14,9 +14,8 @@ cd "${ROOT}" || exit 1
 FORBIDDEN='[‘’“”←→–—…±]'
 
 # exclude files that are expected to contain non-ASCII
-# we use git ls-files to avoid searching .git and other ignored files
 find_files() {
-	git ls-files | grep -vE '^(lang/core/generated_funcs.go|AUTHORS|THANKS|go.sum|data/locales/.*\.po)$'
+	repo_files | grep -vE '^(lang/core/generated_funcs.go|AUTHORS|THANKS|go.sum|data/locales/.*\.po)$'
 }
 
 bad_files=$(

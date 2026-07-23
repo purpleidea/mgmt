@@ -14,7 +14,7 @@ failures=''
 # Test modules/ directory to see if the .mcl files compile correctly.
 
 find_mcl_modules() {
-	git ls-files | grep '\.mcl$' | grep '^modules/' | grep -v 'examples/lang/'
+	repo_files | grep '\.mcl$' | grep '^modules/' | grep -v 'examples/lang/'
 }
 
 # TODO: It might be better to only test from the root module entrypoint.

@@ -320,14 +320,14 @@ $(addprefix test-shell-,${test_shell}): test-shell-%: build
 
 gofmt:
 	# TODO: remove gofmt once goimports has a -s option
-	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec gofmt -s -w {} +
-	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec goimports -w {} +
+	find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec gofmt -s -w {} +
+	find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -exec goimports -w {} +
 
 godocfmt: ## reflow golang doc comments
-	find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -exec git check-ignore --no-index -q -- {} \; -exec go run ./test/tools/reflowed-comments/ -w {} +
+	find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' \( -type l -o -not -exec git check-ignore --no-index -q -- {} \; \) -exec go run ./test/tools/reflowed-comments/ -w {} +
 
 yamlfmt:
-	find . -maxdepth 3 -type f -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
+	find . -maxdepth 3 \( -type f -o -type l \) -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
 format: gofmt yamlfmt ## format yaml and golang code
 

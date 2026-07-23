@@ -12,7 +12,7 @@ cd "${ROOT}"
 . test/util.sh
 
 find_files() {
-	git ls-files | grep '\.go$'
+	repo_files | grep '\.go$'
 }
 
 # gofmt -s -l

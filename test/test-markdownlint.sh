@@ -68,7 +68,7 @@ if [ "$1" = "--check-links" ]; then
 fi
 
 find_files() {
-	git ls-files | grep '\.md$'
+	repo_files | grep '\.md$'
 }
 
 F=${1:-}	# only check this file from $1 if specified

@@ -48,7 +48,7 @@ if [ "$major" -eq 2 ] && [ "$minor" -lt 1 ] ; then
 fi
 
 find_files() {
-	git ls-files | grep '\.yaml$'
+	repo_files | grep '\.yaml$'
 }
 
 bad_files=$(

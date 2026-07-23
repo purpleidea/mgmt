@@ -43,6 +43,14 @@ in_env() {
 	return 1
 }
 
+# repo_files lists tracked files and working tree symlinks.
+repo_files() {
+	{
+		git ls-files
+		find . -path './.git' -prune -o -type l -print | sed 's|^\./||'
+	} | sort -u
+}
+
 fail_test() {
 	if in_env github; then
 		echo "::error::$@" >&2

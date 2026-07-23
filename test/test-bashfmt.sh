@@ -14,7 +14,7 @@ cd "${ROOT}"
 
 M="Makefile"
 find_files() {
-	git ls-files | grep -e '\.sh$' -e '\.bash$' | grep -v 'misc/delta-cpu.sh'
+	repo_files | grep -e '\.sh$' -e '\.bash$' | grep -v 'misc/delta-cpu.sh'
 }
 
 bad_files=$(

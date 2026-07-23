@@ -16,7 +16,7 @@ while IFS='' read -r line; do	# find what header should look like
 done < "$FILE"
 
 find_files() {
-	git ls-files | grep -E '\.go$|\.rl$' | grep -v '^examples/' | grep -v '^test/shell/'
+	repo_files | grep -E '\.go$|\.rl$' | grep -v '^examples/' | grep -v '^test/shell/'
 }
 
 bad_files=$(

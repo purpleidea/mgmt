@@ -15,7 +15,7 @@ cd "${ROOT}"
 #F="misc/TODO.mcl"	# TODO: you can add single files like this...
 find_files() {
 	# TODO: improve this match if we use txtar for non-mcl things eventually
-	git ls-files | grep -e '\.mcl$' -e '\.txtar$' | grep -v 'misc/TODO.mcl'
+	repo_files | grep -e '\.mcl$' -e '\.txtar$' | grep -v 'misc/TODO.mcl'
 }
 
 bad_files=$(

@@ -178,7 +178,7 @@ if [ "${#packages[@]}" -gt 0 ]; then
 fi
 
 # loop through individual *.go files
-for file in `find . -maxdepth 9 -type f -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -path './sites/*'`; do
+for file in `find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -path './sites/*'`; do
 	#if [[ $file == "./vendor/"* ]]; then # skip files that start with...
 	#	continue
 	#fi

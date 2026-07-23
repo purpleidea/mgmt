@@ -131,7 +131,7 @@ if in_env; then
 	cd "$RAGEL_DIR"
 	./configure --prefix=/usr/local --disable-manual
 	make
-	sudo make install
+	$sudo_command make install
 	cd -
 	fold_end "Build ragel"
 fi

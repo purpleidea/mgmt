@@ -1,0 +1,9 @@
+import "fmt"
+import "net"
+
+$iface = net.wired_interface()
+$cidr = net.interface_cidr($iface)
+
+print "net" {
+	msg => fmt.printf("wired: %s, cidr: %s", $iface, $cidr),
+}

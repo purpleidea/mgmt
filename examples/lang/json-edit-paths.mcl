@@ -1,0 +1,26 @@
+# Bracket keys can contain characters which dot identifiers cannot. Missing
+# intermediate objects are created, and one batch can atomically edit different
+# values in the same local document.
+
+$path = "/tmp/mgmt-json-edit-paths.json"
+$original = "/tmp/mgmt-json-edit-paths.original.json"
+$store = "file://${path}"
+
+exec "initialize-json-edit-paths" {
+	cmd => "/usr/bin/printf '{}\\n' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "document" {
+	store => $store,
+	edits => [
+		".[\"customer records\"][\"acct/2026\"].contacts = [{\"name\":\"james\",\"primary\":true},{\"name\":\"purple\",\"primary\":false}]",
+		".feature_flags.release_2026 = {\"enabled\":true,\"percentage\":25.5,\"owners\":[\"ops\",\"qa\"]}",
+	],
+
+	Depend => Exec["initialize-json-edit-paths"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-paths.original.json) <(jq -S . /tmp/mgmt-json-edit-paths.json)

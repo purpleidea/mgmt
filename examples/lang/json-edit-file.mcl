@@ -1,0 +1,25 @@
+# This example starts with an existing, non-trivial document and changes one
+# deeply nested value without disturbing the surrounding data.
+
+$path = "/tmp/mgmt-json-edit-file.json"
+$original = "/tmp/mgmt-json-edit-file.original.json"
+$initial = "{\"service.example.com\":{\"settings\":{\"enabled\":true,\"ports\":[80,443],\"labels\":{\"tier\":\"edge\",\"region\":\"us\"}},\"owners\":[\"platform\",\"network\"]},\"database.example.com\":{\"settings\":{\"enabled\":true,\"ports\":[5432]},\"replicas\":3},\"generation\":7}"
+
+exec "initialize-json-edit-file" {
+	cmd => "/usr/bin/printf '%s\\n' '${initial}' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "service-region" {
+	# Store overrides the resource name; an absolute path implies a file.
+	store => $path,
+	edits => [
+		".[\"service.example.com\"].settings.labels.region = \"ca\"",
+	],
+
+	Depend => Exec["initialize-json-edit-file"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-file.original.json) <(jq -S . /tmp/mgmt-json-edit-file.json)

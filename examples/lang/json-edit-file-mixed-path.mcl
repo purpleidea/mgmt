@@ -1,0 +1,25 @@
+# This example alternates bracket keys and dot identifiers while changing one
+# deeply nested value without disturbing the surrounding data.
+
+$path = "/tmp/mgmt-json-edit-file-mixed-path.json"
+$original = "/tmp/mgmt-json-edit-file-mixed-path.original.json"
+$store = "file://${path}"
+$initial = "{\"service.example.com\":{\"environments\":{\"production/blue\":{\"deployment\":{\"region\":\"ca-central-1\",\"replicas\":3},\"owners\":[\"platform\",\"network\"]},\"staging\":{\"deployment\":{\"region\":\"ca-central-2\",\"replicas\":1}}},\"enabled\":true},\"generation\":7}"
+
+exec "initialize-json-edit-file-mixed-path" {
+	cmd => "/usr/bin/printf '%s\\n' '${initial}' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "production-region" {
+	store => $store,
+	edits => [
+		".[\"service.example.com\"].environments.[\"production/blue\"].deployment.region = \"ca-central-3\"",
+	],
+
+	Depend => Exec["initialize-json-edit-file-mixed-path"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-file-mixed-path.original.json) <(jq -S . /tmp/mgmt-json-edit-file-mixed-path.json)

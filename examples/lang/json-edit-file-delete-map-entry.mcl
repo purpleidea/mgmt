@@ -1,0 +1,30 @@
+# The original labels object contains an unwanted legacy entry:
+#
+#	"labels": {"tier":"edge","region":"ca","legacy":"remove"}
+#
+# The del edit removes only that entry:
+#
+#	"labels": {"tier":"edge","region":"ca"}
+
+$path = "/tmp/mgmt-json-edit-file-delete-map-entry.json"
+$original = "/tmp/mgmt-json-edit-file-delete-map-entry.original.json"
+$store = "file://${path}"
+$initial = "{\"labels\":{\"tier\":\"edge\",\"region\":\"ca\",\"legacy\":\"remove\"},\"generation\":7}"
+
+exec "initialize-json-edit-file-delete-map-entry" {
+	cmd => "/usr/bin/printf '%s\\n' '${initial}' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "legacy-label" {
+	store => $store,
+	edits => [
+		"del(.labels.legacy)",
+	],
+
+	Depend => Exec["initialize-json-edit-file-delete-map-entry"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-file-delete-map-entry.original.json) <(jq -S . /tmp/mgmt-json-edit-file-delete-map-entry.json)

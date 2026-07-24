@@ -1,0 +1,30 @@
+# The original labels object already contains two entries:
+#
+#	"labels": {"tier":"edge","region":"ca"}
+#
+# The edit adds a third entry without replacing the existing entries:
+#
+#	"labels": {"tier":"edge","region":"ca","owner":"purple"}
+
+$path = "/tmp/mgmt-json-edit-file-add-map-entry.json"
+$original = "/tmp/mgmt-json-edit-file-add-map-entry.original.json"
+$store = "file://${path}"
+$initial = "{\"labels\":{\"tier\":\"edge\",\"region\":\"ca\"},\"generation\":7}"
+
+exec "initialize-json-edit-file-add-map-entry" {
+	cmd => "/usr/bin/printf '%s\\n' '${initial}' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "owner-label" {
+	store => $store,
+	edits => [
+		".labels.owner = \"purple\"",
+	],
+
+	Depend => Exec["initialize-json-edit-file-add-map-entry"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-file-add-map-entry.original.json) <(jq -S . /tmp/mgmt-json-edit-file-add-map-entry.json)

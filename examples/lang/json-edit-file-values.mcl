@@ -1,0 +1,28 @@
+# Bracket keys use JSON string escaping, and the assigned value can be any
+# single JSON value. This example uses an embedded quote, explicit null, and an
+# integer larger than the IEEE-754 exact-integer limit.
+
+$path = "/tmp/mgmt-json-edit-file-values.json"
+$original = "/tmp/mgmt-json-edit-file-values.original.json"
+$store = "file://${path}"
+$initial = "{\"team \\\"blue\\\"\":{\"status\":\"pending\",\"members\":[\"james\",\"purple\"]},\"release\":{\"build_id\":1,\"optional\":\"legacy\"},\"generation\":7}"
+
+exec "initialize-json-edit-file-values" {
+	cmd => "/usr/bin/printf '%s\\n' '${initial}' > ${original}; /usr/bin/cp ${original} ${path}",
+	shell => "/bin/bash",
+	creates => $path,
+}
+
+json:edit "values" {
+	store => $store,
+	edits => [
+		".[\"team \\\"blue\\\"\"].status = \"ready\"",
+		".release.build_id = 9007199254740993",
+		".release.optional = null",
+	],
+
+	Depend => Exec["initialize-json-edit-file-values"],
+}
+
+# Compare the formatted documents after convergence:
+# diff -u <(jq -S . /tmp/mgmt-json-edit-file-values.original.json) <(jq -S . /tmp/mgmt-json-edit-file-values.json)

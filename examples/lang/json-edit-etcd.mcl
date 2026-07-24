@@ -1,0 +1,13 @@
+# An etcd store contains the complete JSON document at one World string key.
+# These edits are serialized within this mgmt process; separate processes should
+# not concurrently edit the same document.
+
+$store = "etcd:///examples/json-edit"
+
+json:edit "host" {
+	store => $store,
+	edits => [
+		".[\"host-01.example.com\"].values = {\"roles\":[\"api\",\"worker\"],\"capacity\":{\"cpu\":16,\"memory_gib\":64}}",
+		".[\"host-01.example.com\"].state = \"ready\"",
+	],
+}

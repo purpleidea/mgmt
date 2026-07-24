@@ -59,12 +59,11 @@ class base($config) {
 	#
 	$interface_env = sys.getenv("MGMT_PROVISIONER_INTERFACE")
 	$interface_def = if $interface_env == "" {
-		"eth0"
+		net.wired_interface() # XXX: add <|> "" when it exists!
 	} else {
 		$interface_env
 	}
-	$interface = $config->interface || "${interface_def}" # XXX: what if no interface exists?
-	#$interface = _struct_lookup_optional($config, "interface", "eth0")
+	$interface = $config->interface || "${interface_def}" # if no interface exists, we error
 
 	$http_port = $config->http_port || 4280 # using :4280 avoids needing root and isn't in /etc/services
 	$http_port_str = convert.int_to_str($http_port)
@@ -81,7 +80,11 @@ class base($config) {
 	$router_def = if sys.hasenv("MGMT_PROVISIONER_ROUTER") {
 		sys.getenv("MGMT_PROVISIONER_ROUTER")
 	} else {
-		"192.168.42.1/24"
+		if $network == "" {
+			net.interface_cidr($interface)
+		} else {
+			"192.168.42.1/24"
+		}
 	}
 	$router = $config->router || "${router_def}"
 	$router_ip = net.cidr_to_ip($router) # removes cidr suffix

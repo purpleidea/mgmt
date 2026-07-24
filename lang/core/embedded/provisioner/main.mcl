@@ -49,6 +49,8 @@ $http_suffix = "http/"
 $tftp_suffix = "tftp/"
 $uefi_suffix = "uefi/"
 $kickstart_suffix = "kickstart/"
+$ipxe_iso_filename = "ipxe.iso"
+$ipxe_iso_default = "https://boot.ipxe.org/${ipxe_iso_filename}" # default download source
 
 # The base class is the core provisioner which can also spawn child classes.
 class base($config) {
@@ -107,6 +109,17 @@ class base($config) {
 
 	$nbp_bios = "tftp://${router_ip}/pxelinux.0" # for bios clients
 	$nbp_uefi = "tftp://${router_ip}/uefi/shim.efi" # for uefi clients
+
+	# Fetch an iPXE ISO once and serve the cached copy from the provisioner.
+	# An explicit empty source disables it. The exported $ipxe_iso is then
+	# empty too.
+	$ipxe_iso_source = $config->ipxe_iso || $ipxe_iso_default
+	$ipxe_iso_file = "${http_prefix}${ipxe_iso_filename}"
+	$ipxe_iso = if $ipxe_iso_source == "" {
+		""
+	} else {
+		"${server_base}${ipxe_iso_filename}"
+	}
 
 	#
 	#	network
@@ -222,6 +235,28 @@ class base($config) {
 	http:server ":${http_port_str}" {
 		#address => ":${http_port_str}", # you can override the name like this
 		#timeout => 60, # add a timeout (seconds)
+	}
+
+	if $ipxe_iso_source != "" { # download it once so we have a copy
+		exec "provisioner-ipxe-iso" {
+			cmd => "/usr/bin/wget",
+			args => [
+				"--no-verbose",
+				$ipxe_iso_source,
+				"-O",
+				$ipxe_iso_file,
+			],
+			creates => $ipxe_iso_file,
+
+			Depend => File["${http_prefix}"],
+		}
+
+		http:server:file "/${ipxe_iso_filename}" {
+			path => $ipxe_iso_file,
+
+			Depend => Exec["provisioner-ipxe-iso"],
+			Before => Print["ready"],
+		}
 	}
 
 	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"

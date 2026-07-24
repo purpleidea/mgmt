@@ -96,6 +96,7 @@ linters:
 				- sanitize
 				- serialization
 				- serialize
+				- serialized
 				- serializes
 				- specialized
 				- standardized
@@ -182,6 +183,8 @@ linters:
 				  correction: serialization
 				- typo: serialise
 				  correction: serialize
+				- typo: serialisd
+				  correction: serialized
 				- typo: serialises
 				  correction: serializes
 				- typo: specialised

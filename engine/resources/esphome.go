@@ -923,6 +923,12 @@ type EsphomeLightRes struct {
 	// advertise RGB color-mode support when the desired state is on.
 	Color string `lang:"color" yaml:"color"`
 
+	// Effect is the name of an effect that the device declares, eg:
+	// "Rainbow". The device owns the animation, we only select it by name.
+	// It is empty, or the device's own "None", to clear any running effect
+	// and show the plain Color instead.
+	Effect string `lang:"effect" yaml:"effect"`
+
 	// Id is the exact entity name or legacy object_id of the light on the
 	// device. It defaults to the name of this resource.
 	Id string `lang:"id" yaml:"id"`
@@ -940,7 +946,21 @@ func (obj *EsphomeLightRes) getId() string {
 }
 
 // parseEsphomeColor converts a stable color name or #RRGGBB value to native
-// normalized RGB channels.
+// normalized RGB channels. esphomeEffectName canonicalizes a light effect name
+// for the native api. The api names the absence of an effect rather than
+// leaving it empty, so an empty value from mcl, and the empty value a light
+// that advertises no effects at all reports, both mean the same thing and both
+// map onto that name. Sending the empty string instead would log a "no such
+// effect" warning on the device, leave any running effect alone, and never
+// compare equal to what the device reports back, so we would re-send it
+// forever.
+func esphomeEffectName(effect string) string {
+	if effect == "" {
+		return esphomeUtil.LightEffectNone
+	}
+	return effect
+}
+
 func parseEsphomeColor(value string) (float64, float64, float64, error) {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	rgb, ok := esphomeNamedColors[normalized]
@@ -972,7 +992,11 @@ func (obj *EsphomeLightRes) command(on bool) (esphomeUtil.LightCommand, error) {
 	return esphomeUtil.LightCommand{
 		State: on, Brightness: float64(float32(obj.Brightness)),
 		Red: red, Green: green, Blue: blue,
+		Effect:        esphomeEffectName(obj.Effect),
 		HasBrightness: on, HasRGB: on,
+		// Always send the effect when on, so that an empty value
+		// clears whichever effect the device is currently running.
+		HasEffect: on,
 	}, nil
 }
 
@@ -1037,14 +1061,15 @@ func (obj *EsphomeLightRes) CheckApply(ctx context.Context, apply bool) (bool, e
 	state := obj.session.State(obj.getId())
 	if state != nil && state.Domain == esphomeUtil.DomainLight && !state.Missing && state.Bool == desired &&
 		(!desired || (state.Brightness == command.Brightness && state.Red == command.Red &&
-			state.Green == command.Green && state.Blue == command.Blue)) {
+			state.Green == command.Green && state.Blue == command.Blue &&
+			esphomeEffectName(state.Effect) == command.Effect)) {
 		return true, nil
 	}
 	if !apply {
 		return false, nil
 	}
 
-	obj.init.Logf("turning light %s at brightness %v with color %s", obj.State, obj.Brightness, obj.Color)
+	obj.init.Logf("turning light %s at brightness %v with color %s and effect %s", obj.State, obj.Brightness, obj.Color, obj.Effect)
 	if err := obj.session.SetLight(ctx, obj.getId(), command); err != nil {
 		return false, err
 	}
@@ -1068,6 +1093,9 @@ func (obj *EsphomeLightRes) Cmp(r engine.Res) error {
 	}
 	if obj.Color != res.Color {
 		return fmt.Errorf("the Color differs")
+	}
+	if obj.Effect != res.Effect {
+		return fmt.Errorf("the Effect differs")
 	}
 	if obj.Id != res.Id {
 		return fmt.Errorf("the Id differs")

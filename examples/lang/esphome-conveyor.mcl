@@ -619,8 +619,6 @@ $green = esphome.sensor($endpoint, "Exit Green")
 $blue = esphome.sensor($endpoint, "Exit Blue")
 $clear = esphome.sensor($endpoint, "Exit Clear")
 $confidence = esphome.sensor($endpoint, "Exit Color Confidence")
-$candidate = esphome.text_sensor($endpoint, "Exit Color Candidate")
-$detected_color = esphome.text_sensor($endpoint, "Exit Detected Color")
 
 esphome:endpoint $endpoint {
 	host => "esphome-conveyor.local",
@@ -649,7 +647,7 @@ esphome:fan $motor {
 
 print "conveyor telemetry" {
 	msg => fmt.printf(
-		"entry=%v exit=%v color-ready=%v run=%v exit-rgbc=(%f, %f, %f, %f) candidate=%s confidence=%f detected=%s",
+		"entry=%v exit=%v color-ready=%v run=%v exit-rgbc=(%f, %f, %f, %f) confidence=%f",
 		$entry_present,
 		$exit_present,
 		$color_ready,
@@ -658,9 +656,7 @@ print "conveyor telemetry" {
 		$green,
 		$blue,
 		$clear,
-		$candidate,
 		$confidence,
-		$detected_color,
 	),
 }
 

@@ -1,7 +1,9 @@
-# Run the mgmt + ESPHome conveyor demonstration with native, encrypted API
-# control. mgmt owns the desired conveyor state. ESPHome owns GPIO/I2C details,
-# local status-light effects, color capture/classification, and the safety rules
-# that must still work without mgmt.
+# Sort LEGO bricks by color with mgmt and an ESPHome conveyor belt.
+#
+# The firmware lives in esphome-conveyor.yaml, next to this file. Flash it
+# first, then run:
+#
+#	mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
 #
 # This is a development-bench example, not a machine-safety system. Before
 # energizing a motor, review the real board pinout and DRV8833 wiring, add a
@@ -9,616 +11,92 @@
 # the motor supply or driver enable. A software stop is not an emergency stop.
 # Keep hands, hair, clothing, and loose parts clear of the belt.
 #
-# Copy the commented firmware below into esphome-conveyor.yaml. It targets the
-# actual bench hardware tested by the accompanying CircuitPython programs:
+# The flow, once a brick is dropped on the belt:
 #
-#   Unexpected Maker FeatherS2:
-#     ESPHome board: um_feathers2
-#     MCU: ESP32-S2
-#   DRV8833:
-#     AIN1: CircuitPython board.D21 -> FeatherS2 GPIO38
-#     AIN2: CircuitPython board.D20 -> FeatherS2 GPIO33
-#     SLP:  CircuitPython board.D5  -> FeatherS2 GPIO1
-#   TCA9548A:
-#     SDA: CircuitPython board.SDA -> FeatherS2 GPIO8
-#     SCL: CircuitPython board.SCL -> FeatherS2 GPIO9
-#     address: 0x70
-#   APDS9960 sensors:
-#     entry sensor: TCA9548A channel 0, address 0x39, proximity only
-#     exit sensor:  TCA9548A channel 1, address 0x39, proximity and RGBC
-#   FeatherS2 onboard APA102:
-#     data:  GPIO40
-#     clock: GPIO45
+#	1. The entry sensor sees it. The belt is still stopped, and the status
+#	   light blinks yellow to say that we noticed and are about to move.
+#	2. mgmt starts the belt.
+#	3. The brick reaches the exit sensor. The firmware stops the belt
+#	   there on its own, and captures one averaged color reading.
+#	4. mgmt classifies that reading and sets the light: solid red or solid
+#	   blue for a brick it recognizes, rainbow for anything else.
+#	5. Take the brick off and the light goes back to idle white.
 #
-# Color calibration notes:
-#   The exact FeatherS2 and exit APDS9960 were bench-tested with proximity and
-#   color enabled together, gesture disabled, 4x color gain, and 72 integration
-#   cycles (about 200ms). The firmware averages five stationary samples, then
-#   compares the normalized RGB mix with prototypes measured for red, blue,
-#   green, white, and yellow LEGO bricks.
+# If a brick never reaches the exit, because it jammed or fell off, the
+# firmware gives up 20 seconds into the run and stops the belt. Dropping the
+# next brick on the entry sensor re-arms it; no reset button is involved.
 #
-#   "Exit Color Confidence" is a conservative 0-100 heuristic, not a calibrated
-#   probability. It combines visible-light signal strength, distance from the
-#   nearest prototype, and separation from the second-nearest prototype. The
-#   60% acceptance threshold is deliberately above the strongest false match
-#   observed in the labeled white-brick captures. Yellow produced several
-#   high-confidence clusters above that threshold. Green and white overlap blue
-#   and yellow under the current illumination and will often remain unknown.
+# Who does what:
 #
-#   ESPHome's APDS9960 component reports each channel as ADC/65535*100, not as
-#   an RGB mixture, and currently initializes ATIME to 0xDB (about 103ms). The
-#   boot lambda below overrides only the exit sensor ATIME to 0xB8, matching the
-#   successful 72-cycle CircuitPython test.
+#	The firmware owns the hardware truth. Sensors, the H-bridge, the color
+#	average, and stopping the belt if a brick is at the exit, if a run
+#	overruns, or if mgmt goes away. It never touches the status light.
 #
-# Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
-# sample API key in both files, then validate before flashing:
+#	mgmt owns the policy, and it is all right here: when the belt runs,
+#	what color a brick is, and what the light shows. Edit a threshold
+#	below and save; the belt changes behavior immediately, with no
+#	reflash and no restart. That is the point of the demo.
 #
-#   esphome config esphome-conveyor.yaml
-#   esphome run esphome-conveyor.yaml
+# Why only red and blue:
 #
-# Run mgmt after a human has inspected the bench and released the physical stop:
+#	Bench captures of red, green, blue, yellow, and white bricks gave the
+#	average normalized mixes below, sampled at close range with the exit
+#	APDS9960 running proximity and color together at 4x gain and ~200ms
+#	integration.
 #
-#   mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
+#	red     48 / 22 / 30   strongly dominant, unmistakable
+#	blue    29 / 31 / 40   clearly dominant
+#	green   26 / 37 / 37   green and blue effectively tie
+#	yellow  35 / 31 / 35   does not read as red plus green at all
+#	white   overlaps both blue and yellow
 #
-# Firmware targets the ESPHome 2026.7.x component schemas:
-#
-# esphome:
-#   name: esphome-conveyor
-#   friendly_name: mgmt ESPHome Conveyor
-#   on_boot:
-#     priority: -100
-#     then:
-#       # Keep DRV8833 asleep before touching the H-bridge state.
-#       - output.turn_off: motor_sleep
-#       - fan.turn_off: conveyor_motor
-#       - light.turn_off: status_light
-#       # ESPHome currently sets APDS9960 ATIME=0xDB (~103ms). The bench test
-#       # used 72 x 2.78ms ~= 200ms, or ATIME=256-72=184=0xB8.
-#       - lambda: |-
-#           if (!id(exit_apds).write_byte(0x81, 0xB8)) {
-#             ESP_LOGW("conveyor", "Failed to set exit APDS9960 color integration to 200ms");
-#           } else {
-#             ESP_LOGI("conveyor", "Exit APDS9960 color integration set to 200ms");
-#           }
-#
-# esp32:
-#   board: um_feathers2
-#   variant: esp32s2
-#   flash_size: 16MB
-#   framework:
-#     type: esp-idf
-#
-# wifi:
-#   ssid: !secret wifi_ssid
-#   password: !secret wifi_password
-#   ap:
-#     ssid: "esphome-conveyor-fallback"
-#     password: "purpleIdea"
-#     ap_timeout: 5min
-#
-# captive_portal:
-#
-# logger:
-#   level: DEBUG
-#
-# api:
-#   id: native_api
-#   encryption:
-#     # Public demo key. Generate a unique key for every real device.
-#     key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
-#   reboot_timeout: 5min
-#
-# ota:
-#   - platform: esphome
-#
-# # The fault latch survives a reboot. Only the explicit reset button clears
-# # it; neither an API reconnect nor a repeated fan command auto-resumes motion.
-# globals:
-#   - id: motor_fault
-#     type: bool
-#     restore_value: yes
-#     initial_value: "false"
-#   - id: status_mode
-#     type: int
-#     restore_value: no
-#     initial_value: "-1"
-#   - id: color_sum_red
-#     type: float
-#     restore_value: no
-#     initial_value: "0.0"
-#   - id: color_sum_green
-#     type: float
-#     restore_value: no
-#     initial_value: "0.0"
-#   - id: color_sum_blue
-#     type: float
-#     restore_value: no
-#     initial_value: "0.0"
-#   - id: color_sum_clear
-#     type: float
-#     restore_value: no
-#     initial_value: "0.0"
-#   - id: color_sample_count
-#     type: int
-#     restore_value: no
-#     initial_value: "0"
-#
-# # FeatherS2 STEMMA/Qwiic I2C pins used by CircuitPython board.SDA/board.SCL.
-# i2c:
-#   - id: main_i2c
-#     sda: GPIO8
-#     scl: GPIO9
-#     scan: true
-#
-# tca9548a:
-#   - id: sensor_mux
-#     i2c_id: main_i2c
-#     address: 0x70
-#     channels:
-#       - bus_id: entry_i2c
-#         channel: 0
-#       - bus_id: exit_i2c
-#         channel: 1
-#
-# # Keep a 100ms polling interval so proximity remains responsive. The exit
-# # APDS9960 runs proximity and color together. No gesture entities are defined.
-# apds9960:
-#   - id: entry_apds
-#     i2c_id: entry_i2c
-#     address: 0x39
-#     update_interval: 100ms
-#   - id: exit_apds
-#     i2c_id: exit_i2c
-#     address: 0x39
-#     update_interval: 100ms
-#     ambient_light_gain: 4x
-#
-# sensor:
-#   # Entry is intentionally proximity-only.
-#   - platform: apds9960
-#     apds9960_id: entry_apds
-#     type: PROXIMITY
-#     id: entry_proximity
-#     name: Entry Proximity
-#
-#   - platform: apds9960
-#     apds9960_id: exit_apds
-#     type: PROXIMITY
-#     id: exit_proximity
-#     name: Exit Proximity
-#
-#   # Raw exit RGBC values remain internal so the 100ms APDS9960 polling does not
-#   # chatter over the native API. The capture script publishes one five-sample
-#   # average per stopped object through the template sensors below.
-#   - platform: apds9960
-#     apds9960_id: exit_apds
-#     type: RED
-#     id: exit_red_raw
-#     internal: true
-#   - platform: apds9960
-#     apds9960_id: exit_apds
-#     type: GREEN
-#     id: exit_green_raw
-#     internal: true
-#   - platform: apds9960
-#     apds9960_id: exit_apds
-#     type: BLUE
-#     id: exit_blue_raw
-#     internal: true
-#   - platform: apds9960
-#     apds9960_id: exit_apds
-#     type: CLEAR
-#     id: exit_clear_raw
-#     internal: true
-#
-#   - platform: template
-#     id: exit_red
-#     name: Exit Red
-#     unit_of_measurement: "%"
-#     accuracy_decimals: 3
-#     update_interval: never
-#   - platform: template
-#     id: exit_green
-#     name: Exit Green
-#     unit_of_measurement: "%"
-#     accuracy_decimals: 3
-#     update_interval: never
-#   - platform: template
-#     id: exit_blue
-#     name: Exit Blue
-#     unit_of_measurement: "%"
-#     accuracy_decimals: 3
-#     update_interval: never
-#   - platform: template
-#     id: exit_clear
-#     name: Exit Clear
-#     unit_of_measurement: "%"
-#     accuracy_decimals: 3
-#     update_interval: never
-#   - platform: template
-#     id: exit_color_confidence
-#     name: Exit Color Confidence
-#     unit_of_measurement: "%"
-#     accuracy_decimals: 1
-#     update_interval: never
-#
-# text_sensor:
-#   - platform: template
-#     id: exit_color_candidate
-#     name: Exit Color Candidate
-#     update_interval: never
-#   - platform: template
-#     id: exit_detected_color
-#     name: Exit Detected Color
-#     update_interval: never
-#
-# binary_sensor:
-#   - platform: template
-#     id: entry_object_present
-#     name: Entry Object Present
-#     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
-#   - platform: template
-#     id: exit_object_present
-#     name: Exit Object Present
-#     # Keep the early-presence threshold for telemetry.
-#     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 20.0;
-#   - platform: template
-#     id: exit_capture_position
-#     internal: true
-#     # 70% is approximately raw proximity 179 on the APDS9960.
-#     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 70.0;
-#     on_press:
-#       - script.execute: capture_exit_color
-#     on_release:
-#       - script.stop: capture_exit_color
-#       - lambda: |-
-#           id(exit_color_ready).publish_state(false);
-#           id(exit_color_candidate).publish_state("none");
-#           id(exit_detected_color).publish_state("none");
-#           id(exit_color_confidence).publish_state(0.0f);
-#       - script.execute: update_status_light
-#   - platform: template
-#     id: exit_color_ready
-#     name: Exit Color Ready
-#   - platform: template
-#     id: conveyor_run_request
-#     name: Conveyor Run Request
-#     # Latch an entry detection until the object reaches the close-range exit
-#     # capture position. Returning an empty optional keeps the previous state.
-#     lambda: |-
-#       if (id(exit_capture_position).state) return false;
-#       if (id(entry_object_present).state) return true;
-#       return {};
-#
-# # The FeatherS2 onboard APA102 uses a dedicated write-only SPI bus. GPIO21
-# # enables the FeatherS2 secondary 3.3V regulator used by onboard peripherals.
-# spi:
-#   - id: status_spi
-#     clk_pin: GPIO45
-#     mosi_pin: GPIO40
-#
-# switch:
-#   - platform: gpio
-#     id: ldo2
-#     pin: GPIO21
-#     restore_mode: ALWAYS_ON
-#     internal: true
-#
-# output:
-#   # CircuitPython board.D21 -> FeatherS2 GPIO38 -> DRV8833 AIN1.
-#   - platform: ledc
-#     id: motor_ain1_pwm
-#     pin: GPIO38
-#     frequency: 20kHz
-#   # CircuitPython board.D20 -> FeatherS2 GPIO33 -> DRV8833 AIN2.
-#   - platform: ledc
-#     id: motor_ain2_pwm
-#     pin: GPIO33
-#     frequency: 20kHz
-#   # CircuitPython board.D5 -> FeatherS2 GPIO1 -> DRV8833 SLP.
-#   - platform: gpio
-#     id: motor_sleep
-#     pin: GPIO1
-#
-# fan:
-#   - platform: hbridge
-#     id: conveyor_motor
-#     name: Conveyor Motor
-#     # Forward matches the tested CircuitPython state:
-#     # AIN1/GPIO38 high and AIN2/GPIO33 low.
-#     pin_a: motor_ain1_pwm
-#     pin_b: motor_ain2_pwm
-#     decay_mode: slow
-#     speed_count: 100
-#     restore_mode: ALWAYS_OFF
-#     on_turn_on:
-#       - if:
-#           condition:
-#             lambda: return id(motor_fault);
-#           then:
-#             - output.turn_off: motor_sleep
-#             - logger.log: "Blocked motor start: safety fault is latched"
-#             - fan.turn_off: conveyor_motor
-#           else:
-#             - output.turn_on: motor_sleep
-#             - script.execute: motor_runtime_limit
-#     on_turn_off:
-#       - output.turn_off: motor_sleep
-#       - script.stop: motor_runtime_limit
-#
-# light:
-#   - platform: spi_led_strip
-#     spi_id: status_spi
-#     id: status_light
-#     name: Status Light
-#     num_leds: 1
-#     data_rate: 1MHz
-#     default_transition_length: 0s
-#     restore_mode: ALWAYS_OFF
-#     effects:
-#       # Firmware owns effects. mgmt never attempts to synthesize animation.
-#       - addressable_rainbow:
-#           name: Rainbow
-#           speed: 10
-#       - strobe:
-#           name: Traveling Blink
-#           colors:
-#             - state: true
-#               brightness: 35%
-#               red: 100%
-#               green: 70%
-#               blue: 0%
-#               duration: 400ms
-#             - state: false
-#               duration: 400ms
-#
-# button:
-#   - platform: template
-#     id: reset_motor_fault
-#     name: Reset Motor Fault
-#     on_press:
-#       - fan.turn_off: conveyor_motor
-#       - output.turn_off: motor_sleep
-#       - globals.set:
-#           id: motor_fault
-#           value: "false"
-#       - logger.log: "Motor fault reset while motor is stopped"
-#
-# script:
-#   - id: motor_runtime_limit
-#     mode: restart
-#     then:
-#       - delay: 30s
-#       - globals.set:
-#           id: motor_fault
-#           value: "true"
-#       - fan.turn_off: conveyor_motor
-#       - logger.log: "Motor stopped: 30 second runtime limit reached"
-#
-#   # Stop the object, discard the first integration, then average five visible
-#   # samples. Samples with raw CLEAR below 100 are rejected as too dark.
-#   - id: capture_exit_color
-#     mode: restart
-#     then:
-#       - lambda: |-
-#           id(exit_color_ready).publish_state(false);
-#           id(exit_color_candidate).publish_state("sampling");
-#           id(exit_detected_color).publish_state("sampling");
-#           id(exit_color_confidence).publish_state(0.0f);
-#           id(color_sum_red) = 0.0f;
-#           id(color_sum_green) = 0.0f;
-#           id(color_sum_blue) = 0.0f;
-#           id(color_sum_clear) = 0.0f;
-#           id(color_sample_count) = 0;
-#       - script.execute: update_status_light
-#       - delay: 250ms
-#       - repeat:
-#           count: 5
-#           then:
-#             - lambda: |-
-#                 if (id(exit_red_raw).has_state() &&
-#                     id(exit_green_raw).has_state() &&
-#                     id(exit_blue_raw).has_state() &&
-#                     id(exit_clear_raw).has_state()) {
-#                   const float clear_raw = id(exit_clear_raw).state * 655.35f;
-#                   if (clear_raw >= 100.0f) {
-#                     id(color_sum_red) += id(exit_red_raw).state;
-#                     id(color_sum_green) += id(exit_green_raw).state;
-#                     id(color_sum_blue) += id(exit_blue_raw).state;
-#                     id(color_sum_clear) += id(exit_clear_raw).state;
-#                     id(color_sample_count)++;
-#                   }
-#                 }
-#             - delay: 250ms
-#       - lambda: |-
-#           const int count = id(color_sample_count);
-#           if (count < 3) {
-#             id(exit_color_candidate).publish_state("unknown");
-#             id(exit_detected_color).publish_state("unknown");
-#             id(exit_color_confidence).publish_state(0.0f);
-#             id(exit_color_ready).publish_state(true);
-#             ESP_LOGW("conveyor", "Color capture rejected: only %d usable samples", count);
-#             return;
-#           }
-#
-#           const float red = id(color_sum_red) / count;
-#           const float green = id(color_sum_green) / count;
-#           const float blue = id(color_sum_blue) / count;
-#           const float clear = id(color_sum_clear) / count;
-#           const float total = red + green + blue;
-#           if (total <= 0.0f) {
-#             id(exit_color_candidate).publish_state("unknown");
-#             id(exit_detected_color).publish_state("unknown");
-#             id(exit_color_confidence).publish_state(0.0f);
-#             id(exit_color_ready).publish_state(true);
-#             return;
-#           }
-#
-#           const float rm = red / total;
-#           const float gm = green / total;
-#           const float bm = blue / total;
-#
-#           struct Prototype {
-#             const char *name;
-#             float red;
-#             float green;
-#             float blue;
-#           };
-#           const Prototype prototypes[] = {
-#             {"red",    0.483f, 0.219f, 0.299f},
-#             {"blue",   0.289f, 0.314f, 0.397f},
-#             {"green",  0.251f, 0.328f, 0.420f},
-#             {"white",  0.285f, 0.346f, 0.369f},
-#             {"yellow", 0.335f, 0.310f, 0.355f},
-#           };
-#
-#           int nearest = -1;
-#           float nearest_distance = 1000.0f;
-#           float second_distance = 1000.0f;
-#           for (int i = 0; i < 5; i++) {
-#             const float dr = rm - prototypes[i].red;
-#             const float dg = gm - prototypes[i].green;
-#             const float db = bm - prototypes[i].blue;
-#             const float distance = sqrtf(dr * dr + dg * dg + db * db);
-#             if (distance < nearest_distance) {
-#               second_distance = nearest_distance;
-#               nearest_distance = distance;
-#               nearest = i;
-#             } else if (distance < second_distance) {
-#               second_distance = distance;
-#             }
-#           }
-#
-#           const float clear_raw = clear * 655.35f;
-#           const float signal = fminf(
-#               1.0f, fmaxf(0.0f, (clear_raw - 100.0f) / 300.0f));
-#           const float fit = fminf(
-#               1.0f, fmaxf(0.0f, 1.0f - nearest_distance / 0.12f));
-#           const float separation = fminf(
-#               1.0f,
-#               fmaxf(
-#                   0.0f,
-#                   1.0f - nearest_distance /
-#                       (second_distance + 0.000001f)));
-#           const float confidence = 100.0f * signal * fit * separation;
-#           const char *candidate = nearest >= 0 ? prototypes[nearest].name : "unknown";
-#           const char *detected = confidence >= 60.0f ? candidate : "unknown";
-#
-#           id(exit_red).publish_state(red);
-#           id(exit_green).publish_state(green);
-#           id(exit_blue).publish_state(blue);
-#           id(exit_clear).publish_state(clear);
-#           id(exit_color_candidate).publish_state(candidate);
-#           id(exit_detected_color).publish_state(detected);
-#           id(exit_color_confidence).publish_state(confidence);
-#           id(exit_color_ready).publish_state(true);
-#
-#           ESP_LOGI(
-#               "conveyor",
-#               "Color capture samples=%d mix=(%.3f, %.3f, %.3f) candidate=%s confidence=%.1f detected=%s",
-#               count, rm, gm, bm, candidate, confidence, detected);
-#       - script.execute: update_status_light
-#
-#   # Status effects are local firmware behavior:
-#   #   white solid      idle
-#   #   yellow blink     object traveling
-#   #   yellow solid     stopped while color capture is running
-#   #   known solid RGB  accepted classification
-#   #   rainbow          unknown/low-confidence classification
-#   - id: update_status_light
-#     mode: restart
-#     then:
-#       - lambda: |-
-#           int next_mode = 0;
-#           if (id(motor_fault)) {
-#             next_mode = 2;
-#           } else if (id(conveyor_run_request).state) {
-#             next_mode = 1;
-#           } else if (id(exit_color_ready).state) {
-#             const std::string color = id(exit_detected_color).state;
-#             if (color == "red") {
-#               next_mode = 2;
-#             } else if (color == "blue") {
-#               next_mode = 3;
-#             } else if (color == "green") {
-#               next_mode = 4;
-#             } else if (color == "white") {
-#               next_mode = 5;
-#             } else if (color == "yellow") {
-#               next_mode = 6;
-#             } else {
-#               next_mode = 7;
-#             }
-#           } else if (id(exit_capture_position).state) {
-#             next_mode = 6;
-#           }
-#
-#           if (next_mode == id(status_mode)) {
-#             return;
-#           }
-#           id(status_mode) = next_mode;
-#
-#           auto call = id(status_light).turn_on();
-#           call.set_transition_length(0);
-#           call.set_brightness(0.35f);
-#           if (next_mode == 1) {
-#             call.set_effect("Traveling Blink");
-#           } else if (next_mode == 7) {
-#             call.set_effect("Rainbow");
-#           } else {
-#             call.set_effect("None");
-#             if (next_mode == 2) {
-#               call.set_rgb(1.0f, 0.0f, 0.0f);
-#             } else if (next_mode == 3) {
-#               call.set_rgb(0.0f, 0.0f, 1.0f);
-#             } else if (next_mode == 4) {
-#               call.set_rgb(0.0f, 1.0f, 0.0f);
-#             } else if (next_mode == 6) {
-#               call.set_rgb(1.0f, 0.70f, 0.0f);
-#             } else {
-#               call.set_rgb(1.0f, 1.0f, 1.0f);
-#             }
-#           }
-#           call.perform();
-#
-# # Stop and latch locally if the state-subscribed controller disappears while
-# # the motor is running. A second interval refreshes the firmware-owned light
-# # state without restarting an unchanged effect.
-# interval:
-#   - interval: 500ms
-#     then:
-#       - if:
-#           condition:
-#             and:
-#               - fan.is_on: conveyor_motor
-#               - not:
-#                   api.connected:
-#                     state_subscription_only: true
-#           then:
-#             - globals.set:
-#                 id: motor_fault
-#                 value: "true"
-#             - fan.turn_off: conveyor_motor
-#             - logger.log: "Motor stopped: native API control lease was lost"
-#   - interval: 250ms
-#     then:
-#       - script.execute: update_status_light
+#	Only red and blue separate cleanly, so only those two are claimed.
+#	Everything else is honestly reported as unknown rather than guessed.
+#	Better illumination beside the sensor is what it would take to add
+#	more colors; see the note on Exit Clear below.
 
 import "fmt"
 import "net/esphome"
 
 $endpoint = "esphome-conveyor"
 $motor = "Conveyor Motor"
+$light = "Status Light"
 
 $entry_present = esphome.binary_sensor($endpoint, "Entry Object Present")
-$exit_present = esphome.binary_sensor($endpoint, "Exit Object Present")
+$in_transit = esphome.binary_sensor($endpoint, "Block In Transit")
+$at_exit = esphome.binary_sensor($endpoint, "Exit Object Present")
 $color_ready = esphome.binary_sensor($endpoint, "Exit Color Ready")
-$run_request = esphome.binary_sensor($endpoint, "Conveyor Run Request")
 $red = esphome.sensor($endpoint, "Exit Red")
 $green = esphome.sensor($endpoint, "Exit Green")
 $blue = esphome.sensor($endpoint, "Exit Blue")
 $clear = esphome.sensor($endpoint, "Exit Clear")
-$confidence = esphome.sensor($endpoint, "Exit Color Confidence")
+
+# Normalize the captured reading. ESPHome reports each channel as
+# ADC/65535*100, but all three share that scaling, so these ratios are the
+# same ones the bench captures produced. Guard the divisor: a rejected
+# capture publishes zeroes.
+$rgb_sum = $red + $green + $blue
+$rgb_total = if $rgb_sum > 0.0 { $rgb_sum } else { 1.0 }
+$red_mix = $red / $rgb_total
+$green_mix = $green / $rgb_total
+$blue_mix = $blue / $rgb_total
+
+# An empty belt reads as roughly 44 / 27 / 30, which is close enough to a real
+# red brick to fool the test below, so a color only counts when the sensor
+# actually saw light. Exit Clear is a percentage of full scale, and 0.15% is
+# the same raw CLEAR floor of 100 that the firmware applies per sample.
+$lit = $color_ready and $clear >= 0.15
+
+$detected = if $lit and $red_mix >= 0.44 and $green_mix <= 0.27 {
+	"red"
+} else {
+	if $lit and $blue_mix >= 0.39 and $green_mix <= 0.33 {
+		"blue"
+	} else {
+		"unknown"
+	}
+}
+$known = $detected == "red" or $detected == "blue"
 
 esphome:endpoint $endpoint {
 	host => "esphome-conveyor.local",
@@ -630,34 +108,72 @@ esphome:endpoint $endpoint {
 
 esphome:fan $motor {
 	endpoint => $endpoint,
-	state => if $run_request {
+	# Run while a brick is on its way and the exit is clear. The firmware
+	# enforces that same exit rule locally as a backstop, so both sides
+	# have to agree here: if we asked for a running belt while the firmware
+	# insisted on a stopped one, the two would fight and never converge.
+	state => if $in_transit and not $at_exit {
 		"on"
 	} else {
 		"off"
 	},
 	speed => 100,
 	direction => "forward",
-	# On a long outage, stop before retrying the desired state. The firmware
-	# lease, persistent fault latch, runtime limit, and physical stop remain the
-	# authoritative safety layers.
+	# On a long outage, stop before retrying the desired state.
 	stop => 5,
 	Meta:retry => -1,
 	Meta:delay => 5000,
 }
 
-print "conveyor telemetry" {
+esphome:light $light {
+	endpoint => $endpoint,
+	state => "on",
+	brightness => 0.35,
+	# A selected effect overrides the color, so this only shows through
+	# when no effect is running: solid for a brick we recognize, idle
+	# white otherwise.
+	color => if $known {
+		$detected
+	} else {
+		"white"
+	},
+	# The device owns both animations. We only name the one we want.
+	#
+	# Blinking means a brick is on its way and the belt is running. Once it
+	# arrives, it is either a color we know, and goes solid, or it is not,
+	# and the rainbow runs until somebody lifts it off. The blink also has
+	# to stand down the moment the brick lands, and the entry and exit
+	# sensors reach us as two separate messages, so the exit wins here
+	# rather than leaving a window where both look true at once.
+	effect => if $known {
+		""
+	} else {
+		if $at_exit {
+			"Rainbow"
+		} else {
+			if $in_transit {
+				"Traveling Blink"
+			} else {
+				""
+			}
+		}
+	},
+}
+
+print "conveyor" {
 	msg => fmt.printf(
-		"entry=%v exit=%v color-ready=%v run=%v exit-rgbc=(%f, %f, %f, %f) confidence=%f",
+		"entry=%v transit=%v exit=%v ready=%v mix=(%f, %f, %f) clear=%f color=%s",
 		$entry_present,
-		$exit_present,
+		$in_transit,
+		$at_exit,
 		$color_ready,
-		$run_request,
-		$red,
-		$green,
-		$blue,
+		$red_mix,
+		$green_mix,
+		$blue_mix,
 		$clear,
-		$confidence,
+		$detected,
 	),
 }
 
 Esphome:Endpoint[$endpoint] -> Esphome:Fan[$motor]
+Esphome:Endpoint[$endpoint] -> Esphome:Light[$light]

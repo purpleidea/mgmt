@@ -91,6 +91,13 @@ const (
 	// what LightSupportedColourModes holds.
 	LightColourModeRGB = "COLOUR_MODE_RGB"
 
+	// LightEffectNone is what the native api calls the absence of a light
+	// effect. Devices report it for a light that is running none, and
+	// advertise it alongside the effects they do have. It is also the only
+	// way to ask for one to be cleared: the empty string matches nothing
+	// and the device rejects it.
+	LightEffectNone = "None"
+
 	// Log levels accepted by the esphome native api.
 	LogLevelError       = "error"
 	LogLevelWarn        = "warn"
@@ -259,6 +266,10 @@ type State struct {
 	Green      float64
 	Blue       float64
 
+	// Effect is the light effect the device reports as currently active. It
+	// is empty when no effect is running.
+	Effect string
+
 	// Missing is true if the device reported this state as unknown.
 	Missing bool
 }
@@ -294,10 +305,16 @@ type LightCommand struct {
 	Green float64
 	Blue  float64
 
-	// HasBrightness and HasRGB select optional capability-specific fields.
-	// An off command leaves both false so any light can be turned off.
+	// Effect is the name of a device-declared light effect, eg: "Rainbow".
+	// The device owns the animation, we only select it by name.
+	Effect string
+
+	// HasBrightness, HasRGB, and HasEffect select optional
+	// capability-specific fields. An off command leaves them all false so
+	// any light can be turned off.
 	HasBrightness bool
 	HasRGB        bool
+	HasEffect     bool
 }
 
 // EntityInfo describes one entity that a device advertises.

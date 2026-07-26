@@ -185,6 +185,7 @@ func (obj *apiClientDriver) subscribe(fn func(*EntityState)) error {
 				Red:        float64(m.GetRed()),
 				Green:      float64(m.GetGreen()),
 				Blue:       float64(m.GetBlue()),
+				Effect:     m.GetEffect(),
 			}})
 		}
 	})
@@ -276,5 +277,7 @@ func (obj *apiClientDriver) setLight(key uint32, command LightCommand) error {
 		Red:           float32(command.Red),
 		Green:         float32(command.Green),
 		Blue:          float32(command.Blue),
+		HasEffect:     command.HasEffect,
+		Effect:        command.Effect,
 	})
 }

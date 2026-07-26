@@ -98,13 +98,34 @@ func TestEsphomeLightValidateAndCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("light command: %v", err)
 	}
+	// An empty effect asks for the device's own name for "no effect", since
+	// the empty string is not something the api will accept.
 	want := esphomeUtil.LightCommand{
 		State: true, Brightness: 0.5, Red: 1,
 		Green: float64(float32(128.0 / 255)), Blue: 0,
-		HasBrightness: true, HasRGB: true,
+		Effect:        esphomeUtil.LightEffectNone,
+		HasBrightness: true, HasRGB: true, HasEffect: true,
 	}
 	if command != want {
 		t.Fatalf("light command = %+v, want %+v", command, want)
+	}
+
+	// An effect rides along with the colour, and an off command carries
+	// neither so that any light can still be turned off.
+	res.Effect = "Rainbow"
+	command, err = res.command(true)
+	if err != nil {
+		t.Fatalf("light effect command: %v", err)
+	}
+	if !command.HasEffect || command.Effect != "Rainbow" {
+		t.Fatalf("light effect command = %+v, want the Rainbow effect", command)
+	}
+	command, err = res.command(false)
+	if err != nil {
+		t.Fatalf("light off command: %v", err)
+	}
+	if command.HasEffect {
+		t.Fatalf("light off command = %+v, want no effect selection", command)
 	}
 
 	res.Brightness = 1.1

@@ -56,8 +56,8 @@ const (
 	// entities such as gpio inputs and buttons wired as binary sensors.
 	DomainBinarySensor = "binary_sensor"
 
-	// DomainSensor is the entity domain for read-only numeric entities
-	// such as adc inputs and temperature sensors.
+	// DomainSensor is the entity domain for read-only numeric entities such
+	// as adc inputs and temperature sensors.
 	DomainSensor = "sensor"
 
 	// DomainTextSensor is the entity domain for read-only string entities.
@@ -85,8 +85,8 @@ const (
 	FanDirectionForward = "forward"
 	FanDirectionReverse = "reverse"
 
-	// LightColorModeRGB is the native RGB color mode required by the current
-	// light resource.
+	// LightColorModeRGB is the native RGB color mode required by the
+	// current light resource.
 	LightColorModeRGB = "COLOR_MODE_RGB"
 
 	// Log levels accepted by the esphome native api.
@@ -291,8 +291,8 @@ type LightCommand struct {
 	Green float64
 	Blue  float64
 
-	// HasBrightness and HasRGB select optional capability-specific fields. An
-	// off command leaves both false so any light can be turned off.
+	// HasBrightness and HasRGB select optional capability-specific fields.
+	// An off command leaves both false so any light can be turned off.
 	HasBrightness bool
 	HasRGB        bool
 }
@@ -320,11 +320,12 @@ type EntityInfo struct {
 	// by a fan.
 	FanSupportedSpeedCount int32
 
-	// FanSupportsDirection reports whether a fan accepts direction commands.
+	// FanSupportsDirection reports whether a fan accepts direction
+	// commands.
 	FanSupportsDirection bool
 
-	// LightSupportedColorModes contains the native color modes advertised by
-	// a light.
+	// LightSupportedColorModes contains the native color modes advertised
+	// by a light.
 	LightSupportedColorModes []string
 }
 
@@ -333,8 +334,8 @@ type EntityState struct {
 	// Key is the numeric entity key used by the wire protocol.
 	Key uint32
 
-	// State is the reported state. The Domain field says which of the
-	// value fields is meaningful.
+	// State is the reported state. The Domain field says which of the value
+	// fields is meaningful.
 	State
 }
 

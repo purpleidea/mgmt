@@ -108,15 +108,15 @@ type EsphomeEndpointRes struct {
 	Password string `lang:"password" yaml:"password"`
 
 	// Interval selects how we watch the device for events. Zero means we
-	// hold a persistent connection open, over which the device pushes
-	// state changes to us natively as they happen. A positive value means
-	// we poll instead: every interval seconds we connect, read a full
-	// state snapshot, send any pending commands, and then disconnect.
+	// hold a persistent connection open, over which the device pushes state
+	// changes to us natively as they happen. A positive value means we poll
+	// instead: every interval seconds we connect, read a full state
+	// snapshot, send any pending commands, and then disconnect.
 	Interval uint32 `lang:"interval" yaml:"interval"`
 
-	// Logs enables streaming the device logger into mgmt's logs. It is empty
-	// by default. Valid levels are error, warn, info, config, debug, verbose,
-	// and very_verbose.
+	// Logs enables streaming the device logger into mgmt's logs. It is
+	// empty by default. Valid levels are error, warn, info, config, debug,
+	// verbose, and very_verbose.
 	Logs string `lang:"logs" yaml:"logs"`
 }
 
@@ -350,8 +350,8 @@ type EsphomeSwitchRes struct {
 
 	init *engine.Init
 
-	// Endpoint is the name of the esphome:endpoint resource which knows
-	// how to connect to the device that this entity lives on.
+	// Endpoint is the name of the esphome:endpoint resource which knows how
+	// to connect to the device that this entity lives on.
 	Endpoint string `lang:"endpoint" yaml:"endpoint"`
 
 	// State is the desired state of the switch. It must be either `on` or
@@ -497,15 +497,15 @@ type EsphomeNumberRes struct {
 
 	init *engine.Init
 
-	// Endpoint is the name of the esphome:endpoint resource which knows
-	// how to connect to the device that this entity lives on.
+	// Endpoint is the name of the esphome:endpoint resource which knows how
+	// to connect to the device that this entity lives on.
 	Endpoint string `lang:"endpoint" yaml:"endpoint"`
 
 	// Value is the desired value of the number entity.
 	Value float64 `lang:"value" yaml:"value"`
 
-	// Id is the exact entity name or legacy object_id of the number entity on
-	// the device. It defaults to the name of this resource.
+	// Id is the exact entity name or legacy object_id of the number entity
+	// on the device. It defaults to the name of this resource.
 	Id string `lang:"id" yaml:"id"`
 
 	// Stop enables the safety interlock when set to a positive number of
@@ -513,24 +513,25 @@ type EsphomeNumberRes struct {
 	// long, then when the connection comes back, we first command the safe
 	// value, and error instead of converging. With a retry metaparam the
 	// resource then recovers and re-applies the desired value on the next
-	// try; without one it stays safely stopped until a new graph runs.
-	// When this is set, we also command the safe value when this resource
-	// is removed. When using a polling endpoint, this must be comfortably
+	// try; without one it stays safely stopped until a new graph runs. When
+	// this is set, we also command the safe value when this resource is
+	// removed. When using a polling endpoint, this must be comfortably
 	// larger than the polling interval, since we only ever control the
 	// device for a moment during each poll.
 	Stop uint32 `lang:"stop" yaml:"stop"`
 
-	// Safe is the value that the safety interlock commands. This is
-	// usually the value which stops whatever the number drives.
+	// Safe is the value that the safety interlock commands. This is usually
+	// the value which stops whatever the number drives.
 	Safe float64 `lang:"safe" yaml:"safe"`
 
 	session *esphomeUtil.Session
-	// cleanupInfo keeps the last successfully used endpoint configuration so
-	// cleanup can reconnect long enough to apply the safe value even when the
-	// endpoint resource is removed first during a graph shutdown. The engine
-	// serializes CheckApply and Cleanup for one resource, which protects this
-	// field without a separate mutex. It can be stale after an unconfirmed
-	// endpoint change, so the ordered live session is always preferred.
+	// cleanupInfo keeps the last successfully used endpoint configuration
+	// so cleanup can reconnect long enough to apply the safe value even
+	// when the endpoint resource is removed first during a graph shutdown.
+	// The engine serializes CheckApply and Cleanup for one resource, which
+	// protects this field without a separate mutex. It can be stale after
+	// an unconfirmed endpoint change, so the ordered live session is always
+	// preferred.
 	cleanupInfo *esphomeUtil.ConnInfo
 
 	// outageID remembers the last outage that we already handled, so that
@@ -705,8 +706,8 @@ type EsphomeFanRes struct {
 	// against the fan's advertised supported_speed_count.
 	Speed int32 `lang:"speed" yaml:"speed"`
 
-	// Direction is the desired fan direction. CheckApply errors clearly when
-	// the entity does not advertise direction support.
+	// Direction is the desired fan direction. CheckApply errors clearly
+	// when the entity does not advertise direction support.
 	Direction string `lang:"direction" yaml:"direction"`
 
 	// Id is the exact entity name or legacy object_id of the fan on the
@@ -714,14 +715,15 @@ type EsphomeFanRes struct {
 	Id string `lang:"id" yaml:"id"`
 
 	// Stop enables the safety interlock when set to a positive number of
-	// seconds. If the device was disconnected from us for at least this long,
-	// then when the connection comes back, we first stop the fan and error
-	// instead of converging. With a retry metaparam the resource then recovers
-	// and re-applies the desired state on the next try; without one it stays
-	// safely stopped until a new graph runs. When this is set, we also stop the
-	// fan when this resource is removed. When using a polling endpoint, this
-	// must be comfortably larger than the polling interval, since we only ever
-	// control the device for a moment during each poll.
+	// seconds. If the device was disconnected from us for at least this
+	// long, then when the connection comes back, we first stop the fan and
+	// error instead of converging. With a retry metaparam the resource then
+	// recovers and re-applies the desired state on the next try; without
+	// one it stays safely stopped until a new graph runs. When this is set,
+	// we also stop the fan when this resource is removed. When using a
+	// polling endpoint, this must be comfortably larger than the polling
+	// interval, since we only ever control the device for a moment during
+	// each poll.
 	Stop uint32 `lang:"stop" yaml:"stop"`
 
 	// session is the shared connection to the endpoint.
@@ -729,12 +731,13 @@ type EsphomeFanRes struct {
 
 	// outageID remembers the last outage that we already handled.
 	outageID uint64
-	// cleanupInfo keeps the last successfully used endpoint configuration so
-	// cleanup can reconnect long enough to stop the fan even when the endpoint
-	// resource is removed first during a graph shutdown. The engine serializes
-	// CheckApply and Cleanup for one resource, which protects this field without
-	// a separate mutex. It can be stale after an unconfirmed endpoint change, so
-	// the ordered live session is always preferred.
+	// cleanupInfo keeps the last successfully used endpoint configuration
+	// so cleanup can reconnect long enough to stop the fan even when the
+	// endpoint resource is removed first during a graph shutdown. The
+	// engine serializes CheckApply and Cleanup for one resource, which
+	// protects this field without a separate mutex. It can be stale after
+	// an unconfirmed endpoint change, so the ordered live session is always
+	// preferred.
 	cleanupInfo *esphomeUtil.ConnInfo
 }
 

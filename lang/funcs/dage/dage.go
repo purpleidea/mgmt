@@ -590,7 +590,26 @@ Start:
 
 		} // end of single graph traversal
 
-		if !valid { // don't send table yet, it's not complete
+		// Advance the epoch after every traversal, whether or not it
+		// produced a complete table. An incomplete one is normal and
+		// transient: it happens while a subgraph is being swapped in,
+		// such as when the condition of an if expression flips and the
+		// output vertex is briefly missing the edge from the branch. It
+		// must not hold the epoch back, because every node that already
+		// ran would then be epoch skipped from here on, including the
+		// streaming functions. Those would never be called again, so a
+		// device could report new values forever without any of them
+		// being read, and nothing would ever rebuild the subgraph that
+		// made the traversal incomplete in the first place. The graph
+		// would be wedged for good.
+		//
+		// XXX: implement epoch rollover by relabelling all nodes
+		epoch++ // increment it after each traversal
+		if obj.Debug {
+			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
+		}
+
+		if !valid { // don't send the table yet, it's not complete
 			continue
 		}
 
@@ -599,12 +618,6 @@ Start:
 		// We need a copy of the map since we'll keep modifying it now.
 		// The table must get cleaned up over time to be consistent. It
 		// currently happens in interrupt as a result of a node delete.
-
-		// XXX: implement epoch rollover by relabelling all nodes
-		epoch++ // increment it after a successful traversal
-		if obj.Debug {
-			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
-		}
 
 		// NOTE: increment epoch above b/c it's needed for table skip!
 		if obj.lastTable != nil && obj.lastTable.Cmp(table) == nil {

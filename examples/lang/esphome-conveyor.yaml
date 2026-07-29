@@ -62,14 +62,14 @@ esphome:
           id: exit_red_ratio
           state: -1.0
       # ESPHome sets APDS9960 ATIME=0xDB (~103ms) and does not expose it. The
-      # bench test that produced usable color used 72 x 2.78ms ~= 200ms, so
+      # bench test that produced usable colour used 72 x 2.78ms ~= 200ms, so
       # ATIME = 256-72 = 184 = 0xB8. Shorter integration is why the earlier
       # ESPHome readings were much worse than the CircuitPython ones.
       - lambda: |-
           if (!id(exit_apds).write_byte(0x81, 0xB8)) {
-            ESP_LOGW("conveyor", "Failed to set exit APDS9960 color integration to 200ms");
+            ESP_LOGW("conveyor", "Failed to set exit APDS9960 colour integration to 200ms");
           } else {
-            ESP_LOGI("conveyor", "Exit APDS9960 color integration set to 200ms");
+            ESP_LOGI("conveyor", "Exit APDS9960 colour integration set to 200ms");
           }
 
 esp32:
@@ -102,28 +102,37 @@ api:
   # motor without being asked: nobody is left to stop the belt. There is no
   # persistent fault latch and no reset button, so reconnecting mgmt is all it
   # takes to resume.
+  #
+  # Clearing the run request matters as much as stopping the belt. Without it,
+  # a controller that goes away mid-run leaves the device still saying a brick
+  # is on its way, and the next mgmt to connect reads that, believes it, and
+  # starts the belt with nothing at the entry.
   on_client_disconnected:
     - fan.turn_off: conveyor_motor
-    - logger.log: "Belt stopped: the mgmt api client disconnected"
+    - light.turn_off: status_light
+    - binary_sensor.template.publish:
+        id: brick_en_route
+        state: false
+    - logger.log: "Belt and light off: the mgmt api client disconnected"
 
 ota:
   - platform: esphome
 
 globals:
-  # Accumulators for one color capture. Nothing here survives a reboot.
-  - id: color_sum_red
+  # Accumulators for one colour capture. Nothing here survives a reboot.
+  - id: colour_sum_red
     type: float
     restore_value: no
     initial_value: "0.0"
-  - id: color_sum_green
+  - id: colour_sum_green
     type: float
     restore_value: no
     initial_value: "0.0"
-  - id: color_sum_blue
+  - id: colour_sum_blue
     type: float
     restore_value: no
     initial_value: "0.0"
-  - id: color_sample_count
+  - id: colour_sample_count
     type: int
     restore_value: no
     initial_value: "0"
@@ -209,7 +218,7 @@ sensor:
   #
   # A negative value means "no trustworthy reading", which covers an empty
   # exit, a brick lifted off mid-capture, and a capture too dark to mean
-  # anything. mgmt reads that as "nothing to classify" rather than a color,
+  # anything. mgmt reads that as "nothing to classify" rather than a colour,
   # so one sensor carries both the presence and the measurement, and mgmt
   # never has to correlate two entities that arrive as separate messages.
   - platform: template
@@ -224,21 +233,33 @@ binary_sensor:
     id: entry_object_present
     internal: true
     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
+    filters:
+      # A brick has to settle at the entry to count. Without this, a hand
+      # passing over the sensor, or a reading that brushes the threshold, is
+      # enough to start the belt. Raise the 20.0 above as well if the idle
+      # reading on your bench ever creeps up near it.
+      - delayed_on: 400ms
     on_press:
       # A brick arriving at the entry is what starts a run. It re-arms after a
       # jam timeout too, so there is no reset button: lift the brick off and
       # put it back down.
-      - binary_sensor.template.publish:
-          id: brick_en_route
-          state: true
+      - script.execute: request_run
 
   # 70% is approximately raw proximity 179. The bench data showed that useful
-  # color discrimination only happens this close to the sensor; the approach
+  # colour discrimination only happens this close to the sensor; the approach
   # readings were not trustworthy.
   - platform: template
     id: exit_object_present
     internal: true
     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 70.0;
+    filters:
+      # Lifting a brick off drags the reading down through the threshold, and a
+      # slow or wobbly hand can cross it more than once. Each of those bounces
+      # would restart the capture and republish, so the light would flicker
+      # between the colour and idle white. Debounce the release only: the press
+      # is what withdraws the run request, and delaying that would let the
+      # brick coast past the sensor.
+      - delayed_off: 300ms
     on_press:
       # The brick arrived, so it is no longer on its way. mgmt sees that and
       # stops the belt within a round trip. Note that the firmware does not
@@ -248,9 +269,10 @@ binary_sensor:
       - binary_sensor.template.publish:
           id: brick_en_route
           state: false
-      - script.execute: capture_exit_color
+      - script.execute: capture_exit_colour
+      - script.execute: exit_hold
     on_release:
-      - script.stop: capture_exit_color
+      - script.stop: capture_exit_colour
       - sensor.template.publish:
           id: exit_red_ratio
           state: -1.0
@@ -333,7 +355,7 @@ light:
           speed: 10
       - strobe:
           name: Traveling Blink
-          colors:
+          colours:
             - state: true
               brightness: 35%
               red: 100%
@@ -344,6 +366,35 @@ light:
               duration: 400ms
 
 script:
+  # The next brick may be dropped on the entry while the last one is still
+  # sitting at the exit, and the belt will happily push it along. It just must
+  # not do that in the first three seconds, which is roughly how long the
+  # capture below takes: the brick being measured has to hold still, and the
+  # result deserves a moment on the light before anything disturbs it.
+  - id: exit_hold
+    mode: restart
+    then:
+      - delay: 3s
+
+  # Ask mgmt for a run, once the exit has had its three seconds. Re-checking
+  # the entry afterwards matters: whoever put the brick down may have picked it
+  # back up while we waited, and a run request with an empty belt would run the
+  # belt for nothing.
+  - id: request_run
+    mode: restart
+    then:
+      - wait_until:
+          condition:
+            not:
+              script.is_running: exit_hold
+      - if:
+          condition:
+            binary_sensor.is_on: entry_object_present
+          then:
+            - binary_sensor.template.publish:
+                id: brick_en_route
+                state: true
+
   # A brick that never arrives, because it jammed, fell off, or was lifted
   # away mid-run, must not leave the belt running forever. The clock measures
   # one continuous run, since it starts when the motor starts and restarts if
@@ -377,14 +428,14 @@ script:
   # Let the belt coast to a stop and the sensor finish one integration period,
   # then average up to five stationary samples. Samples whose raw CLEAR is
   # below 100 are too dark to mean anything and are dropped.
-  - id: capture_exit_color
+  - id: capture_exit_colour
     mode: restart
     then:
       - lambda: |-
-          id(color_sum_red) = 0.0f;
-          id(color_sum_green) = 0.0f;
-          id(color_sum_blue) = 0.0f;
-          id(color_sample_count) = 0;
+          id(colour_sum_red) = 0.0f;
+          id(colour_sum_green) = 0.0f;
+          id(colour_sum_blue) = 0.0f;
+          id(colour_sample_count) = 0;
       - delay: 500ms
       - repeat:
           count: 5
@@ -395,22 +446,22 @@ script:
                     id(exit_blue_raw).has_state() &&
                     id(exit_clear_raw).has_state() &&
                     id(exit_clear_raw).state * 655.35f >= 100.0f) {
-                  id(color_sum_red) += id(exit_red_raw).state;
-                  id(color_sum_green) += id(exit_green_raw).state;
-                  id(color_sum_blue) += id(exit_blue_raw).state;
-                  id(color_sample_count)++;
+                  id(colour_sum_red) += id(exit_red_raw).state;
+                  id(colour_sum_green) += id(exit_green_raw).state;
+                  id(colour_sum_blue) += id(exit_blue_raw).state;
+                  id(colour_sample_count)++;
                 }
             - delay: 250ms
       - lambda: |-
-          const int count = id(color_sample_count);
-          const float total = id(color_sum_red) + id(color_sum_green) + id(color_sum_blue);
+          const int count = id(colour_sample_count);
+          const float total = id(colour_sum_red) + id(colour_sum_green) + id(colour_sum_blue);
           if (count < 3 || total <= 0.0f) {
             // Publish the "no trustworthy reading" value rather than a stale
             // or invented one. mgmt reports the brick as unknown.
             id(exit_red_ratio).publish_state(-1.0f);
-            ESP_LOGW("conveyor", "Color capture rejected: %d usable samples", count);
+            ESP_LOGW("conveyor", "Colour capture rejected: %d usable samples", count);
             return;
           }
-          const float ratio = 100.0f * id(color_sum_red) / total;
+          const float ratio = 100.0f * id(colour_sum_red) / total;
           ESP_LOGI("conveyor", "Exit red ratio %.1f%% from %d samples", ratio, count);
           id(exit_red_ratio).publish_state(ratio);

@@ -11,49 +11,46 @@
 # the motor supply or driver enable. A software stop is not an emergency stop.
 # Keep hands, hair, clothing, and loose parts clear of the belt.
 #
-# The flow, once a brick is dropped on the belt:
+# The demo, once a brick is dropped on the belt:
 #
-#	1. The entry sensor sees it. The belt is still stopped, and the status
-#	   light blinks yellow to say that we noticed and are about to move.
-#	2. mgmt starts the belt.
-#	3. The brick reaches the exit sensor. The firmware stops the belt
-#	   there on its own, and captures one averaged color reading.
-#	4. mgmt classifies that reading and sets the light: solid red or solid
-#	   blue for a brick it recognizes, rainbow for anything else.
-#	5. Take the brick off and the light goes back to idle white.
+#	1. The entry sensor sees it, so the device reports a brick en route.
+#	2. mgmt starts the belt and blinks the light amber.
+#	3. The brick reaches the exit. The device reports that nothing is en
+#	   route any more, and mgmt stops the belt.
+#	4. The device publishes one averaged colour reading, mgmt classifies it,
+#	   and the light goes solid red for a red brick or rainbow for any
+#	   other colour.
+#	5. Lift the brick off and the light goes back to idle white.
 #
-# If a brick never reaches the exit, because it jammed or fell off, the
-# firmware gives up 20 seconds into the run and stops the belt. Dropping the
-# next brick on the entry sensor re-arms it; no reset button is involved.
+# Who decides what:
 #
-# Who does what:
+#	The device reports two facts and nothing else: whether a brick is on
+#	its way, and how red the brick at the exit is. It never steers the
+#	belt during normal operation.
 #
-#	The firmware owns the hardware truth. Sensors, the H-bridge, the color
-#	average, and stopping the belt if a brick is at the exit, if a run
-#	overruns, or if mgmt goes away. It never touches the status light.
+#	mgmt owns every decision, and they are all on this page: when the belt
+#	runs, how red counts as red, and what the light shows. Change the
+#	threshold below and save; the next brick is classified by the new rule
+#	with no reflash and no restart. That is the point of the demo.
 #
-#	mgmt owns the policy, and it is all right here: when the belt runs,
-#	what color a brick is, and what the light shows. Edit a threshold
-#	below and save; the belt changes behavior immediately, with no
-#	reflash and no restart. That is the point of the demo.
+# Why red against everything else:
 #
-# Why only red and blue:
+#	Bench captures of red, green, blue, yellow, and white bricks gave these
+#	average red ratios, sampled at close range with the exit APDS9960
+#	running proximity and colour together at 64x gain and ~200ms
+#	integration:
 #
-#	Bench captures of red, green, blue, yellow, and white bricks gave the
-#	average normalized mixes below, sampled at close range with the exit
-#	APDS9960 running proximity and color together at 4x gain and ~200ms
-#	integration.
+#	red     48%     unmistakable
+#	yellow  35%     the closest of the rest
+#	blue    29%
+#	green   26%
+#	white   overlaps blue and yellow
 #
-#	red     48 / 22 / 30   strongly dominant, unmistakable
-#	blue    29 / 31 / 40   clearly dominant
-#	green   26 / 37 / 37   green and blue effectively tie
-#	yellow  35 / 31 / 35   does not read as red plus green at all
-#	white   overlaps both blue and yellow
-#
-#	Only red and blue separate cleanly, so only those two are claimed.
-#	Everything else is honestly reported as unknown rather than guessed.
-#	Better illumination beside the sensor is what it would take to add
-#	more colors; see the note on Exit Clear below.
+#	Red separates cleanly and nothing else does, so red is the only claim
+#	worth making. A threshold of 42% sits almost exactly between red and
+#	the nearest impostor. Everything else is honestly reported as "other"
+#	rather than guessed at. Better illumination beside the sensor is what
+#	it would take to tell the rest apart.
 
 import "fmt"
 import "net/esphome"
@@ -62,41 +59,25 @@ $endpoint = "esphome-conveyor"
 $motor = "Conveyor Motor"
 $light = "Status Light"
 
-$entry_present = esphome.binary_sensor($endpoint, "Entry Object Present")
-$in_transit = esphome.binary_sensor($endpoint, "Block In Transit")
-$at_exit = esphome.binary_sensor($endpoint, "Exit Object Present")
-$color_ready = esphome.binary_sensor($endpoint, "Exit Color Ready")
-$red = esphome.sensor($endpoint, "Exit Red")
-$green = esphome.sensor($endpoint, "Exit Green")
-$blue = esphome.sensor($endpoint, "Exit Blue")
-$clear = esphome.sensor($endpoint, "Exit Clear")
+# The entire interface to the hardware: two facts.
+$en_route = esphome.binary_sensor($endpoint, "Brick En Route")
+$red_ratio = esphome.sensor($endpoint, "Exit Red Ratio")
 
-# Normalize the captured reading. ESPHome reports each channel as
-# ADC/65535*100, but all three share that scaling, so these ratios are the
-# same ones the bench captures produced. Guard the divisor: a rejected
-# capture publishes zeroes.
-$rgb_sum = $red + $green + $blue
-$rgb_total = if $rgb_sum > 0.0 { $rgb_sum } else { 1.0 }
-$red_mix = $red / $rgb_total
-$green_mix = $green / $rgb_total
-$blue_mix = $blue / $rgb_total
+# The device publishes a negative ratio when it has no trustworthy reading:
+# nothing at the exit, a brick lifted off mid-capture, or a capture too dark
+# to mean anything. So one number tells us both whether there is a brick to
+# judge and what it looks like, and there are no separate messages to
+# correlate.
+$measured = $red_ratio >= 0.0
+$is_red = $red_ratio >= 42.0
+$is_other = $measured and not $is_red
 
-# An empty belt reads as roughly 44 / 27 / 30, which is close enough to a real
-# red brick to fool the test below, so a color only counts when the sensor
-# actually saw light. Exit Clear is a percentage of full scale, and 0.15% is
-# the same raw CLEAR floor of 100 that the firmware applies per sample.
-$lit = $color_ready and $clear >= 0.15
-
-$detected = if $lit and $red_mix >= 0.44 and $green_mix <= 0.27 {
-	"red"
+# Amber blink while a brick is on its way, nothing when the belt is idle.
+$traveling = if $en_route {
+	"Traveling Blink"
 } else {
-	if $lit and $blue_mix >= 0.39 and $green_mix <= 0.33 {
-		"blue"
-	} else {
-		"unknown"
-	}
+	""
 }
-$known = $detected == "red" or $detected == "blue"
 
 esphome:endpoint $endpoint {
 	host => "esphome-conveyor.local",
@@ -108,11 +89,12 @@ esphome:endpoint $endpoint {
 
 esphome:fan $motor {
 	endpoint => $endpoint,
-	# Run while a brick is on its way and the exit is clear. The firmware
-	# enforces that same exit rule locally as a backstop, so both sides
-	# have to agree here: if we asked for a running belt while the firmware
-	# insisted on a stopped one, the two would fight and never converge.
-	state => if $in_transit and not $at_exit {
+	# Run the belt exactly while a brick is on its way, and nothing else.
+	# Nobody else commands this motor while we are connected, so there is
+	# no second opinion to converge against. A brick already sitting at the
+	# exit does not block a new run: drop another brick on the entry and
+	# the belt moves.
+	state => if $en_route {
 		"on"
 	} else {
 		"off"
@@ -129,49 +111,32 @@ esphome:light $light {
 	endpoint => $endpoint,
 	state => "on",
 	brightness => 0.35,
-	# A selected effect overrides the color, so this only shows through
-	# when no effect is running: solid for a brick we recognize, idle
-	# white otherwise.
-	color => if $known {
-		$detected
+	# A running effect overrides the colour, so this shows through only when
+	# no effect is selected: solid red for a red brick, idle white the rest
+	# of the time.
+	colour => if $is_red {
+		"red"
 	} else {
 		"white"
 	},
-	# The device owns both animations. We only name the one we want.
-	#
-	# Blinking means a brick is on its way and the belt is running. Once it
-	# arrives, it is either a color we know, and goes solid, or it is not,
-	# and the rainbow runs until somebody lifts it off. The blink also has
-	# to stand down the moment the brick lands, and the entry and exit
-	# sensors reach us as two separate messages, so the exit wins here
-	# rather than leaving a window where both look true at once.
-	effect => if $known {
-		""
+	# The device owns both animations and we only name the one we want.
+	# Rainbow means "a brick we cannot name", and it wins over the traveling
+	# blink because a brick that has arrived is no longer en route, so the
+	# two are never true at once.
+	effect => if $is_other {
+		"Rainbow"
 	} else {
-		if $at_exit {
-			"Rainbow"
-		} else {
-			if $in_transit {
-				"Traveling Blink"
-			} else {
-				""
-			}
-		}
+		$traveling
 	},
 }
 
 print "conveyor" {
 	msg => fmt.printf(
-		"entry=%v transit=%v exit=%v ready=%v mix=(%f, %f, %f) clear=%f color=%s",
-		$entry_present,
-		$in_transit,
-		$at_exit,
-		$color_ready,
-		$red_mix,
-		$green_mix,
-		$blue_mix,
-		$clear,
-		$detected,
+		"en_route=%v red_ratio=%f red=%v other=%v",
+		$en_route,
+		$red_ratio,
+		$is_red,
+		$is_other,
 	),
 }
 

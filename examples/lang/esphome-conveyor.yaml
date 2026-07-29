@@ -7,20 +7,29 @@
 # the motor supply or driver enable. A software stop is not an emergency stop.
 # Keep hands, hair, clothing, and loose parts clear of the belt.
 #
-# The split of responsibility is deliberate and worth reading before changing
-# anything here:
+# The split of responsibility is the whole point of the demo, so read this
+# before changing anything here:
 #
-#   This firmware owns the hardware truth. It reads the sensors, drives the
-#   H-bridge, averages one color sample per stopped object, and stops the belt
-#   on its own if an object is sitting at the exit, if a run takes longer than
-#   20 seconds, or if mgmt goes away. It makes no policy decisions and it
-#   never touches the status light.
+#   mgmt owns the belt. It is the only thing that starts or stops the motor
+#   during normal operation, and it owns the status light. Edit a threshold in
+#   the mcl and save; the belt behaves differently on the next brick, with no
+#   reflash and no restart.
 #
-#   mgmt owns the policy. It decides when the belt runs, classifies the color,
-#   and drives the status light. Read esphome-conveyor.mcl for that half.
+#   This firmware owns the hardware truth, and reports exactly two facts:
+#   whether a brick is on its way, and how red the brick at the exit is. It
+#   commands the motor on its own in only two situations, both of them
+#   failures: mgmt disconnected, or mgmt stopped reacting while the belt was
+#   running. An earlier version of this file also stopped the belt every time
+#   a brick reached the exit; that fought mgmt for ownership of the motor and
+#   is deliberately gone.
+#
+# Only four entities are exported over the native api, and mgmt uses all four.
+# Everything the firmware needs but mgmt does not is marked internal, which is
+# what keeps the api quiet: roughly eight messages per brick instead of the
+# tens per second that publishing raw proximity and rgbc produced.
 #
 # Put wifi_ssid and wifi_password in ESPHome's secrets.yaml, replace the public
-# sample API key in this file and in the mcl, then validate before flashing:
+# sample api key in this file and in the mcl, then validate before flashing:
 #
 #   esphome config examples/lang/esphome-conveyor.yaml
 #   esphome run examples/lang/esphome-conveyor.yaml
@@ -45,10 +54,13 @@ esphome:
       # Keep the DRV8833 asleep before touching the H-bridge state.
       - output.turn_off: motor_sleep
       - fan.turn_off: conveyor_motor
-      # Start from a known latch state rather than an unpublished one.
+      # Start from known published values rather than unpublished ones.
       - binary_sensor.template.publish:
-          id: block_in_transit
+          id: brick_en_route
           state: false
+      - sensor.template.publish:
+          id: exit_red_ratio
+          state: -1.0
       # ESPHome sets APDS9960 ATIME=0xDB (~103ms) and does not expose it. The
       # bench test that produced usable color used 72 x 2.78ms ~= 200ms, so
       # ATIME = 256-72 = 184 = 0xB8. Shorter integration is why the earlier
@@ -78,7 +90,7 @@ wifi:
 captive_portal:
 
 logger:
-  level: DEBUG
+  level: INFO
 
 api:
   id: native_api
@@ -86,9 +98,10 @@ api:
     # Public demo key. Generate a unique key for every real device.
     key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
   reboot_timeout: 5min
-  # The only safety interlock that outlives a single event: never keep the
-  # belt running once the controller is gone. There is no persistent fault
-  # latch and no reset button, so reconnecting mgmt is all it takes to resume.
+  # Losing the controller is the one case where the firmware must act on the
+  # motor without being asked: nobody is left to stop the belt. There is no
+  # persistent fault latch and no reset button, so reconnecting mgmt is all it
+  # takes to resume.
   on_client_disconnected:
     - fan.turn_off: conveyor_motor
     - logger.log: "Belt stopped: the mgmt api client disconnected"
@@ -107,10 +120,6 @@ globals:
     restore_value: no
     initial_value: "0.0"
   - id: color_sum_blue
-    type: float
-    restore_value: no
-    initial_value: "0.0"
-  - id: color_sum_clear
     type: float
     restore_value: no
     initial_value: "0.0"
@@ -136,9 +145,8 @@ tca9548a:
       - bus_id: exit_i2c
         channel: 1
 
-# Keep a 100ms polling interval so proximity stays responsive. The exit sensor
-# runs proximity and color together, which the bench test proved works. No
-# gesture entities are defined.
+# Keep a 100ms polling interval so proximity stays responsive. Polling this
+# fast costs nothing on the api now that these readings stay on the device.
 apds9960:
   - id: entry_apds
     i2c_id: entry_i2c
@@ -150,28 +158,29 @@ apds9960:
     update_interval: 100ms
     # An object close enough to read is also close enough to block the light
     # the sensor needs, so this runs wide open. At 4x a brick at the capture
-    # position gave clear=0.1%, which is a handful of ADC counts and below
-    # any sane floor. 64x is 16 times that. Gain scales every channel by the
-    # same factor, so the normalized mixes, and the thresholds mgmt tests
-    # against them, are unaffected.
+    # position gave clear=0.1%, which is a handful of ADC counts and below any
+    # sane floor. 64x is 16 times that. Gain scales every channel by the same
+    # factor, so the red ratio, and the threshold mgmt tests it against, are
+    # unaffected.
     ambient_light_gain: 64x
 
+# Every raw reading below is internal. They drive the automations on this page
+# and never reach mgmt, which is what keeps the native api quiet. To calibrate
+# on the bench, flip one to `internal: false` temporarily and watch it in the
+# ESPHome dashboard.
 sensor:
-  # Entry is intentionally proximity-only.
   - platform: apds9960
     apds9960_id: entry_apds
     type: PROXIMITY
     id: entry_proximity
-    name: Entry Proximity
+    internal: true
 
   - platform: apds9960
     apds9960_id: exit_apds
     type: PROXIMITY
     id: exit_proximity
-    name: Exit Proximity
+    internal: true
 
-  # Raw exit RGBC stays internal so 100ms polling does not chatter over the
-  # native api. One averaged result per object is published below instead.
   - platform: apds9960
     apds9960_id: exit_apds
     type: RED
@@ -193,45 +202,34 @@ sensor:
     id: exit_clear_raw
     internal: true
 
-  # ESPHome reports each channel as ADC/65535*100, so these are percentages of
-  # full scale, not an RGB mixture. mgmt normalizes them itself.
+  # One of the two facts mgmt reads. Red as a percentage of red plus green
+  # plus blue, averaged over one stationary brick, published once per brick.
+  # Ratios cancel the gain and the integration time, so this number means the
+  # same thing whatever those are set to.
+  #
+  # A negative value means "no trustworthy reading", which covers an empty
+  # exit, a brick lifted off mid-capture, and a capture too dark to mean
+  # anything. mgmt reads that as "nothing to classify" rather than a color,
+  # so one sensor carries both the presence and the measurement, and mgmt
+  # never has to correlate two entities that arrive as separate messages.
   - platform: template
-    id: exit_red
-    name: Exit Red
+    id: exit_red_ratio
+    name: Exit Red Ratio
     unit_of_measurement: "%"
-    accuracy_decimals: 3
-    update_interval: never
-  - platform: template
-    id: exit_green
-    name: Exit Green
-    unit_of_measurement: "%"
-    accuracy_decimals: 3
-    update_interval: never
-  - platform: template
-    id: exit_blue
-    name: Exit Blue
-    unit_of_measurement: "%"
-    accuracy_decimals: 3
-    update_interval: never
-  - platform: template
-    id: exit_clear
-    name: Exit Clear
-    unit_of_measurement: "%"
-    accuracy_decimals: 3
+    accuracy_decimals: 1
     update_interval: never
 
 binary_sensor:
   - platform: template
     id: entry_object_present
-    name: Entry Object Present
+    internal: true
     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
     on_press:
-      # A newly arrived object is what starts a run, including after a time
-      # limit. An object already sitting here when the limit expired does not
-      # re-arm anything, since its press fired long ago, so a jam at the entry
-      # stays stopped until a human clears it.
+      # A brick arriving at the entry is what starts a run. It re-arms after a
+      # jam timeout too, so there is no reset button: lift the brick off and
+      # put it back down.
       - binary_sensor.template.publish:
-          id: block_in_transit
+          id: brick_en_route
           state: true
 
   # 70% is approximately raw proximity 179. The bench data showed that useful
@@ -239,47 +237,36 @@ binary_sensor:
   # readings were not trustworthy.
   - platform: template
     id: exit_object_present
-    name: Exit Object Present
+    internal: true
     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 70.0;
     on_press:
-      # The belt always stops for an object at the exit, whatever mgmt wants.
-      # mgmt asks for the same thing, so in the happy path this never fires
-      # first; it is here for the case where mgmt is slow, wedged, or gone.
-      - fan.turn_off: conveyor_motor
+      # The brick arrived, so it is no longer on its way. mgmt sees that and
+      # stops the belt within a round trip. Note that the firmware does not
+      # touch the motor here: that is mgmt's call, and the capture below
+      # tolerates the belt still coasting for a moment.
+      - script.stop: jam_timeout
       - binary_sensor.template.publish:
-          id: block_in_transit
+          id: brick_en_route
           state: false
       - script.execute: capture_exit_color
     on_release:
       - script.stop: capture_exit_color
-      - lambda: id(exit_color_ready).publish_state(false);
-      # Lifting this object off releases the next one, if somebody queued it
-      # up at the entry while this one was being read.
-      - if:
-          condition:
-            binary_sensor.is_on: entry_object_present
-          then:
-            - binary_sensor.template.publish:
-                id: block_in_transit
-                state: true
+      - sensor.template.publish:
+          id: exit_red_ratio
+          state: -1.0
 
-  # A block leaves the entry beam long before it reaches the exit, so somebody
-  # has to remember that one is on its way. That is a hardware timing detail
-  # rather than policy, so it lives here.
+  # The other fact mgmt reads. A brick leaves the entry beam long before it
+  # reaches the exit, so somebody has to remember that one is on its way, and
+  # that is a hardware timing detail rather than policy.
   #
   # This deliberately has no lambda. Every transition is published by exactly
-  # one trigger: the entry sees an object, the exit sees one, the run times
-  # out, or we boot. A polled lambda that returned "no change" to hold the
-  # value could get stuck on, and mgmt drives the belt from this, so stuck on
-  # means a belt that will not stop.
+  # one trigger: the entry sees a brick, the exit sees one, a run times out,
+  # or we boot. A polled lambda that returned "no change" to hold the value
+  # could get stuck on, and mgmt runs the belt from this, so stuck on means a
+  # belt that will not stop.
   - platform: template
-    id: block_in_transit
-    name: Block In Transit
-
-  # True once one averaged RGBC result has been published for this object.
-  - platform: template
-    id: exit_color_ready
-    name: Exit Color Ready
+    id: brick_en_route
+    name: Brick En Route
 
 # The FeatherS2 onboard APA102 uses a dedicated write-only SPI bus. GPIO21
 # enables the secondary 3.3V regulator that the onboard peripherals need.
@@ -323,10 +310,10 @@ fan:
     restore_mode: ALWAYS_OFF
     on_turn_on:
       - output.turn_on: motor_sleep
-      - script.execute: belt_runtime_limit
+      - script.execute: jam_timeout
     on_turn_off:
       - output.turn_off: motor_sleep
-      - script.stop: belt_runtime_limit
+      - script.stop: jam_timeout
 
 light:
   - platform: spi_led_strip
@@ -357,40 +344,48 @@ light:
               duration: 400ms
 
 script:
-  # Nothing should keep the belt running forever. If an object never reaches
-  # the exit, because it jammed, fell off, or was lifted away mid-run, give up
-  # after 20 seconds. Restart mode means the clock measures one continuous run
-  # rather than the total for the day. Clearing the in-transit latch matters as
-  # much as stopping the motor: mgmt drives the belt from that latch, so if it
-  # stayed set, mgmt would just ask for the belt again and we would loop.
-  - id: belt_runtime_limit
+  # A brick that never arrives, because it jammed, fell off, or was lifted
+  # away mid-run, must not leave the belt running forever. The clock measures
+  # one continuous run, since it starts when the motor starts and restarts if
+  # the motor is cycled.
+  #
+  # The first step is the normal path and it only publishes a fact: no brick
+  # is on its way any more. mgmt stops the belt because its own policy says
+  # to, so ownership of the motor is never in question. The second step is a
+  # backstop for a controller that has stopped reacting at all, and it is the
+  # only place outside of a disconnect where this firmware overrides mgmt.
+  - id: jam_timeout
     mode: restart
     then:
-      - delay: 20s
+      - delay: 15s
       - binary_sensor.template.publish:
-          id: block_in_transit
+          id: brick_en_route
           state: false
-      - fan.turn_off: conveyor_motor
       - logger.log:
-          # Info, not the default debug, so this is visible at the log level
-          # the example actually runs at.
           level: INFO
-          format: "Belt stopped: 20 second run limit reached without reaching the exit"
+          format: "No brick reached the exit in 15s; withdrawing the run request"
+      - delay: 5s
+      - if:
+          condition:
+            fan.is_on: conveyor_motor
+          then:
+            - fan.turn_off: conveyor_motor
+            - logger.log:
+                level: WARN
+                format: "Belt stopped by the firmware backstop: mgmt did not react to the withdrawn run request"
 
-  # Stop, discard the first integration period, then average up to five
-  # stationary samples. Samples whose raw CLEAR is below 100 are too dark to
-  # mean anything and are dropped.
+  # Let the belt coast to a stop and the sensor finish one integration period,
+  # then average up to five stationary samples. Samples whose raw CLEAR is
+  # below 100 are too dark to mean anything and are dropped.
   - id: capture_exit_color
     mode: restart
     then:
       - lambda: |-
-          id(exit_color_ready).publish_state(false);
           id(color_sum_red) = 0.0f;
           id(color_sum_green) = 0.0f;
           id(color_sum_blue) = 0.0f;
-          id(color_sum_clear) = 0.0f;
           id(color_sample_count) = 0;
-      - delay: 250ms
+      - delay: 500ms
       - repeat:
           count: 5
           then:
@@ -403,32 +398,19 @@ script:
                   id(color_sum_red) += id(exit_red_raw).state;
                   id(color_sum_green) += id(exit_green_raw).state;
                   id(color_sum_blue) += id(exit_blue_raw).state;
-                  id(color_sum_clear) += id(exit_clear_raw).state;
                   id(color_sample_count)++;
                 }
             - delay: 250ms
       - lambda: |-
           const int count = id(color_sample_count);
-          if (count < 3) {
-            // Publish a zeroed result rather than a stale one. mgmt reads
-            // Exit Clear and reports the object as unknown.
-            id(exit_red).publish_state(0.0f);
-            id(exit_green).publish_state(0.0f);
-            id(exit_blue).publish_state(0.0f);
-            id(exit_clear).publish_state(0.0f);
-            id(exit_color_ready).publish_state(true);
-            ESP_LOGW("conveyor", "Color capture rejected: only %d usable samples", count);
+          const float total = id(color_sum_red) + id(color_sum_green) + id(color_sum_blue);
+          if (count < 3 || total <= 0.0f) {
+            // Publish the "no trustworthy reading" value rather than a stale
+            // or invented one. mgmt reports the brick as unknown.
+            id(exit_red_ratio).publish_state(-1.0f);
+            ESP_LOGW("conveyor", "Color capture rejected: %d usable samples", count);
             return;
           }
-          // Order matters here, and it is load bearing. Each of these
-          // reaches mgmt as its own message, so mgmt briefly sees a mix
-          // built from new values for some channels and stale ones for the
-          // others. Those transients have been observed landing inside the
-          // red thresholds. Exit Color Ready must therefore go last: mgmt
-          // gates the whole classification on it, so it is what makes the
-          // set of four look atomic from the other end.
-          id(exit_red).publish_state(id(color_sum_red) / count);
-          id(exit_green).publish_state(id(color_sum_green) / count);
-          id(exit_blue).publish_state(id(color_sum_blue) / count);
-          id(exit_clear).publish_state(id(color_sum_clear) / count);
-          id(exit_color_ready).publish_state(true);
+          const float ratio = 100.0f * id(color_sum_red) / total;
+          ESP_LOGI("conveyor", "Exit red ratio %.1f%% from %d samples", ratio, count);
+          id(exit_red_ratio).publish_state(ratio);

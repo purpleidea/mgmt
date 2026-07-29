@@ -146,6 +146,39 @@ commands against advertised capabilities, and keeps the one intentional
 behavioral difference from the Richard87 branch: an empty key cannot silently
 downgrade to plaintext.
 
+## 2026-07-29 device design rules
+
+Rebuilding the conveyor example produced three rules that apply to any device
+mgmt drives, not just that demo. They are written up here because they are
+easy to violate one automation at a time.
+
+**One owner per actuator.** The firmware must not command an actuator that
+mgmt manages, except when mgmt is demonstrably not in control: the api client
+disconnected, or a watchdog expired and mgmt did not react to it. The first
+conveyor firmware stopped the belt itself every time a brick reached the exit,
+while mgmt was also deciding when the belt runs. Both sides then commanded the
+same motor during normal operation, mgmt re-asserted a state the device had
+just overridden, and the demo was one badly timed sequence away from a belt
+nobody was steering.
+
+**Report facts, not commands.** A device-side timeout should publish what it
+now believes ("no brick is on its way any more") and let the controller act on
+its own policy. That keeps the interlock on the device, where the timer
+belongs, without moving the decision off the controller. Keep a hard actuator
+backstop for the case where the controller ignores the withdrawn request, and
+make it fire late enough that it never runs in normal operation.
+
+**Export only what the controller reads.** Every exported entity is a stream
+of native api messages. The first conveyor firmware exported twelve entities,
+two of them proximity sensors polled at 100ms, so the link carried tens of
+messages a second whether or not anything happened. The current one exports
+four, all of them read by the mcl, and marks everything else `internal: true`:
+about four messages per brick and silence when the belt is idle. Where several
+raw readings only mean something together, reduce them on the device and
+publish one derived value, with an out-of-band value for "no trustworthy
+reading". That also removes a class of bug on the mgmt side, since a single
+message can never be observed half-applied the way a set of four can.
+
 ## Architecture
 
 ```

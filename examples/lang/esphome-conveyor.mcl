@@ -22,6 +22,12 @@
 #	   other color.
 #	5. Lift the brick off and the light goes back to idle white.
 #
+# Hold a brick against the exit sensor without using the belt at all and you
+# get a color tester: nothing is en route, so the belt never moves, and the
+# light names the brick about two seconds later. That is the easy way to pick
+# the threshold below, since Exit Red Ratio is right there in the ESPHome
+# dashboard while you try one brick after another.
+#
 # Who decides what:
 #
 #	The device reports two facts and nothing else: whether a brick is on
@@ -68,11 +74,30 @@ $red_ratio = esphome.sensor($endpoint, "Exit Red Ratio")
 # to mean anything. So one number tells us both whether there is a brick to
 # judge and what it looks like, and there are no separate messages to
 # correlate.
-$measured = $red_ratio >= 0.0
+#
+# Greater than, not at least: a real capture is a share of a positive total
+# and is never zero, and zero is also what this reads before the device has
+# told us anything. Both of those mean "nothing to classify", which is why the
+# light does not flash a color on the way up.
+$measured = $red_ratio > 0.0
 $is_red = $red_ratio >= 42.0
 $is_other = $measured and not $is_red
 
-# Amber blink while a brick is on its way, nothing when the belt is idle.
+# One flat rule per animation, and the empty string for "not this one". A brick
+# that has arrived is no longer en route, so these two are never set at once,
+# which makes adding them below a plain choice between three outcomes: rainbow,
+# amber blink, or no effect at all.
+#
+# Keeping each rule flat is deliberate, and not only for readability. An if
+# expression nested inside the branch of another one currently makes mgmt drop
+# the update that switches between them, so the light would sit on a stale
+# animation until something else happened to it. See
+# https://github.com/purpleidea/mgmt/issues/966.
+$rainbow = if $is_other {
+	"Rainbow"
+} else {
+	""
+}
 $traveling = if $en_route {
 	"Traveling Blink"
 } else {
@@ -120,14 +145,10 @@ esphome:light $light {
 		"white"
 	},
 	# The device owns both animations and we only name the one we want.
-	# Rainbow means "a brick we cannot name", and it wins over the traveling
-	# blink because a brick that has arrived is no longer en route, so the
-	# two are never true at once.
-	effect => if $is_other {
-		"Rainbow"
-	} else {
-		$traveling
-	},
+	# Rainbow means "a brick we cannot name" and the blink means one is on
+	# its way. Exactly one of the two is ever set, so adding them names it,
+	# and an idle belt adds two empty strings and selects no effect.
+	effect => $rainbow + $traveling,
 }
 
 print "conveyor" {

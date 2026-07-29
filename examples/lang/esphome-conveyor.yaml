@@ -102,9 +102,18 @@ api:
   # motor without being asked: nobody is left to stop the belt. There is no
   # persistent fault latch and no reset button, so reconnecting mgmt is all it
   # takes to resume.
+  #
+  # Clearing the run request matters as much as stopping the belt. Without it,
+  # a controller that goes away mid-run leaves the device still saying a brick
+  # is on its way, and the next mgmt to connect reads that, believes it, and
+  # starts the belt with nothing at the entry.
   on_client_disconnected:
     - fan.turn_off: conveyor_motor
-    - logger.log: "Belt stopped: the mgmt api client disconnected"
+    - light.turn_off: status_light
+    - binary_sensor.template.publish:
+        id: brick_en_route
+        state: false
+    - logger.log: "Belt and light off: the mgmt api client disconnected"
 
 ota:
   - platform: esphome
@@ -224,13 +233,17 @@ binary_sensor:
     id: entry_object_present
     internal: true
     lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
+    filters:
+      # A brick has to settle at the entry to count. Without this, a hand
+      # passing over the sensor, or a reading that brushes the threshold, is
+      # enough to start the belt. Raise the 20.0 above as well if the idle
+      # reading on your bench ever creeps up near it.
+      - delayed_on: 400ms
     on_press:
       # A brick arriving at the entry is what starts a run. It re-arms after a
       # jam timeout too, so there is no reset button: lift the brick off and
       # put it back down.
-      - binary_sensor.template.publish:
-          id: brick_en_route
-          state: true
+      - script.execute: request_run
 
   # 70% is approximately raw proximity 179. The bench data showed that useful
   # color discrimination only happens this close to the sensor; the approach
@@ -239,6 +252,14 @@ binary_sensor:
     id: exit_object_present
     internal: true
     lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 70.0;
+    filters:
+      # Lifting a brick off drags the reading down through the threshold, and a
+      # slow or wobbly hand can cross it more than once. Each of those bounces
+      # would restart the capture and republish, so the light would flicker
+      # between the color and idle white. Debounce the release only: the press
+      # is what withdraws the run request, and delaying that would let the
+      # brick coast past the sensor.
+      - delayed_off: 300ms
     on_press:
       # The brick arrived, so it is no longer on its way. mgmt sees that and
       # stops the belt within a round trip. Note that the firmware does not
@@ -249,6 +270,7 @@ binary_sensor:
           id: brick_en_route
           state: false
       - script.execute: capture_exit_color
+      - script.execute: exit_hold
     on_release:
       - script.stop: capture_exit_color
       - sensor.template.publish:
@@ -344,6 +366,35 @@ light:
               duration: 400ms
 
 script:
+  # The next brick may be dropped on the entry while the last one is still
+  # sitting at the exit, and the belt will happily push it along. It just must
+  # not do that in the first three seconds, which is roughly how long the
+  # capture below takes: the brick being measured has to hold still, and the
+  # result deserves a moment on the light before anything disturbs it.
+  - id: exit_hold
+    mode: restart
+    then:
+      - delay: 3s
+
+  # Ask mgmt for a run, once the exit has had its three seconds. Re-checking
+  # the entry afterwards matters: whoever put the brick down may have picked it
+  # back up while we waited, and a run request with an empty belt would run the
+  # belt for nothing.
+  - id: request_run
+    mode: restart
+    then:
+      - wait_until:
+          condition:
+            not:
+              script.is_running: exit_hold
+      - if:
+          condition:
+            binary_sensor.is_on: entry_object_present
+          then:
+            - binary_sensor.template.publish:
+                id: brick_en_route
+                state: true
+
   # A brick that never arrives, because it jammed, fell off, or was lifted
   # away mid-run, must not leave the belt running forever. The clock measures
   # one continuous run, since it starts when the motor starts and restarts if

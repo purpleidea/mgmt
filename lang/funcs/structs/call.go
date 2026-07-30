@@ -37,6 +37,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/types/full"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 const (
@@ -107,7 +108,7 @@ func (obj *CallFunc) Validate() error {
 func (obj *CallFunc) Info() *interfaces.Info {
 	var typ *types.Type
 	if obj.Type != nil && obj.FuncType != nil { // don't panic if called speculatively
-		typ = types.NewType(fmt.Sprintf("func(%s %s) %s", obj.EdgeName, obj.FuncType, obj.Type))
+		typ = types.NewType(strutil.Concat("func(", obj.EdgeName, " ", obj.FuncType.String(), ") ", obj.Type.String())) // func(%s %s) %s
 	}
 
 	return &interfaces.Info{

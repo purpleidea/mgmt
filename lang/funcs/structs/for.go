@@ -37,6 +37,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 const (
@@ -104,7 +105,7 @@ func (obj *ForFunc) Info() *interfaces.Info {
 		// XXX: Improve function engine so it can return no value?
 		//typ = types.NewType(fmt.Sprintf("func(%s []%s)", obj.EdgeName, obj.ValueType)) // returns nothing
 		// dummy type to prove we're dropping the output since we don't use it.
-		typ = types.NewType(fmt.Sprintf("func(%s []%s) nil", obj.EdgeName, obj.ValueType))
+		typ = types.NewType(strutil.Concat("func(", obj.EdgeName, "[]", obj.ValueType.String(), ") nil")) // func(%s []%s) nil
 	}
 
 	return &interfaces.Info{
@@ -150,7 +151,7 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 					return list.List()[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argName, obj.listType(), obj.ValueType)),
+				T: types.NewType(strutil.Concat("func(", argName, " ", obj.listType().String(), ") ", obj.ValueType.String())), // func(%s %s) %s
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
@@ -168,7 +169,7 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 }
 
 func (obj *ForFunc) listType() *types.Type {
-	return types.NewType(fmt.Sprintf("[]%s", obj.ValueType))
+	return types.NewType(strutil.Concat("[]", obj.ValueType.String()))
 }
 
 // Call this function with the input args and return the value if it is possible

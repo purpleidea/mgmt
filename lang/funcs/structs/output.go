@@ -35,6 +35,7 @@ import (
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 const (
@@ -84,7 +85,7 @@ func (obj *OutputFunc) Validate() error {
 // Info returns some static info about itself.
 func (obj *OutputFunc) Info() *interfaces.Info {
 	// contains "dummy" return type
-	s := fmt.Sprintf("func(%s %s, %s nil) %s", obj.EdgeName, obj.Type, OutputFuncDummyArgName, obj.Type)
+	s := strutil.Concat("func(", obj.EdgeName, " ", obj.Type.String(), ", ", OutputFuncDummyArgName, " nil) ", obj.Type.String()) // func(%s %s, %s nil) %s
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,

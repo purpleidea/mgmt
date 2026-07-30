@@ -30,10 +30,11 @@
 package ast
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 // ScopeGraph adds nodes and vertices to the supplied graph.
@@ -180,7 +181,7 @@ func (obj *ExprCall) ScopeGraph(g *pgraph.Graph) {
 			panic("can't graph scope") // programming error
 		}
 		arg.ScopeGraph(g)
-		g.AddEdge(obj, arg, &pgraph.SimpleEdge{Name: fmt.Sprintf("arg%d", i)})
+		g.AddEdge(obj, arg, &pgraph.SimpleEdge{Name: strutil.Concat("arg", strconv.FormatInt(int64(i), 10))})
 	}
 }
 

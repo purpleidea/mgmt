@@ -38,6 +38,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 // Node represents either a Stmt or an Expr. It contains the minimum set of
@@ -552,11 +553,10 @@ type Arg struct {
 
 // String returns a short representation of this arg.
 func (obj *Arg) String() string {
-	s := obj.Name
 	if obj.Type != nil {
-		s += fmt.Sprintf(" %s", obj.Type.String())
+		return strutil.Concat(obj.Name, " ", obj.Type.String())
 	}
-	return s
+	return obj.Name
 }
 
 // Edge is the data structure representing a compiled edge that is used in the

@@ -36,6 +36,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 const (
@@ -104,7 +105,7 @@ func (obj *ForKVFunc) Info() *interfaces.Info {
 		// XXX: Improve function engine so it can return no value?
 		//typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s})", obj.EdgeName, obj.KeyType, obj.ValType)) // returns nothing
 		// dummy type to prove we're dropping the output since we don't use it.
-		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) nil", obj.EdgeName, obj.KeyType, obj.ValType))
+		typ = types.NewType(strutil.Concat("func(", obj.EdgeName, " map{", obj.KeyType.String(), ": ", obj.ValType.String(), "}) nil")) // func(%s map{%s: %s}) nil"
 	}
 
 	return &interfaces.Info{
@@ -156,7 +157,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					//return m.Map().Index(?), nil
 					return k, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameKey, obj.mapType(), obj.KeyType)),
+				T: types.NewType(strutil.Concat("func(", argNameKey, " ", obj.mapType().String(), ") ", obj.KeyType.String())), // func(%s %s) %s
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncKey)
@@ -167,7 +168,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 		// the val
 		inputElemFuncVal := SimpleFnToDirectFunc(
-			fmt.Sprintf("forkvInputElemVal[%v]", ptr),
+			fmt.Sprintf("forkvInputElemVal[%v]", ptr), // %v can't convert to util.Concat
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
 					if len(args) != 1 {
@@ -187,7 +188,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return val, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameVal, obj.mapType(), obj.ValType)),
+				T: types.NewType(strutil.Concat("func(", argNameVal, " ", obj.mapType().String(), ") ", obj.ValType.String())), // func(%s %s) %s
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncVal)
@@ -205,7 +206,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 }
 
 func (obj *ForKVFunc) mapType() *types.Type {
-	return types.NewType(fmt.Sprintf("map{%s: %s}", obj.KeyType, obj.ValType))
+	return types.NewType(strutil.Concat("map{", obj.KeyType.String(), ": ", obj.ValType.String(), "}")) // map{%s: %s}
 }
 
 // cmpMapKeys compares the input map with the cached private lastForKVMap field.

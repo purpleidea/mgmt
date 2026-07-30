@@ -39,6 +39,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 // Interpreter is a base struct for handling the Interpret operation. There is
@@ -369,7 +370,7 @@ func (obj *Interpreter) makeEdge(graph *pgraph.Graph, v1, v2 pgraph.Vertex, edge
 	}
 
 	return &engine.Edge{
-		Name:   fmt.Sprintf("%s -> %s", v1, v2),
+		Name:   strutil.Concat(v1.String(), " -> ", v2.String()),
 		Notify: notify,
 	}
 }

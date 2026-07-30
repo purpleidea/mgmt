@@ -41,6 +41,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 var (
@@ -173,7 +174,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		return &ListValue{
-			T: NewType(fmt.Sprintf("[]%s", t.String())),
+			T: NewType(strutil.Concat("[]", t.String())),
 			V: values,
 		}, nil
 
@@ -206,7 +207,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		return &MapValue{
-			T: NewType(fmt.Sprintf("map{%s: %s}", kt.String(), vt.String())),
+			T: NewType(strutil.Concat("map{", kt.String(), ": ", vt.String(), "}")), // map{%s: %s}
 			V: m,
 		}, nil
 
@@ -943,7 +944,7 @@ func (obj *ListValue) String() string {
 	for _, x := range obj.V {
 		s = append(s, x.String())
 	}
-	return fmt.Sprintf("[%s]", strings.Join(s, ", "))
+	return strutil.Concat("[", strings.Join(s, ", "), "]")
 }
 
 // Type returns the type data structure that represents this type.
@@ -1108,9 +1109,9 @@ func (obj *MapValue) String() string {
 
 	var s []string
 	for _, k := range keys {
-		s = append(s, fmt.Sprintf("%s: %s", k.String(), obj.V[k].String()))
+		s = append(s, strutil.Concat(k.String(), ": ", obj.V[k].String()))
 	}
-	return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+	return strutil.Concat("{", strings.Join(s, ", "), "}")
 }
 
 // Type returns the type data structure that represents this type.
@@ -1360,9 +1361,9 @@ func NewStruct(t *Type) *StructValue {
 func (obj *StructValue) String() string {
 	var s []string
 	for _, k := range obj.T.Ord {
-		s = append(s, fmt.Sprintf("%s: %s", k, obj.V[k].String()))
+		s = append(s, strutil.Concat(k, ": ", obj.V[k].String()))
 	}
-	return fmt.Sprintf("struct{%s}", strings.Join(s, "; "))
+	return strutil.Concat("struct{", strings.Join(s, "; "), "}")
 }
 
 // Type returns the type data structure that represents this type.

@@ -39,6 +39,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/disjoint"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 const (
@@ -334,7 +335,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 			if err != nil {
 				return nil, err
 			}
-			name := fmt.Sprintf("%d", i) // invent a function arg name
+			name := strconv.FormatInt(int64(i), 10) // invent a function arg name
 			m[name] = tt
 			ord = append(ord, name) // in order
 		}
@@ -580,7 +581,7 @@ func newType(s string, table map[uint]*Elem) *Type {
 			// just name the keys 0, 1, 2, N...
 			// XXX: util.NumToAlpha ?
 			if key == "" {
-				key = fmt.Sprintf("%d", len(keys))
+				key = strconv.FormatInt(int64(len(keys)), 10)
 			}
 			keys = append(keys, key)
 
@@ -750,7 +751,7 @@ func (obj *Type) string(table map[*Elem]uint) string {
 		if obj.Key == nil || obj.Val == nil {
 			panic("malformed map type")
 		}
-		return fmt.Sprintf("map{%s: %s}", obj.Key.string(table), obj.Val.string(table))
+		return strutil.Concat("map{", obj.Key.string(table), ": ", obj.Val.string(table), "}") // map{%s: %s}
 
 	case KindStruct: // {a bool; b int}
 		if obj.Map == nil {
@@ -768,7 +769,7 @@ func (obj *Type) string(table map[*Elem]uint) string {
 			if t == nil {
 				panic("malformed struct field")
 			}
-			s[i] = fmt.Sprintf("%s %s", k, t.string(table))
+			s[i] = strutil.Concat(k, " ", t.string(table))
 		}
 		return fmt.Sprintf("struct{%s}", strings.Join(s, "; "))
 

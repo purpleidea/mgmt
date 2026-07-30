@@ -34,6 +34,9 @@ package lang
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
+	"os"
 	"sync"
 	"testing"
 
@@ -1107,6 +1110,71 @@ func TestInterpretMany(t *testing.T) {
 				t.Errorf("test #%d: cmp error:\n%v", index, err)
 				return
 			}
+		})
+	}
+}
+
+var files = []string{
+	"../examples/lang/http-server0.mcl",
+	"../examples/lang/http-server1.mcl",
+	"../examples/lang/http-server-flag1.mcl",
+}
+
+// BenchmarkLang benchmarks to initial parsing of the mcl code.
+func BenchmarkLang(b *testing.B) {
+	for _, arg := range files {
+		data, err := os.ReadFile(arg)
+		if err != nil {
+			b.Fatal(err)
+		}
+		code := string(data)
+		log.SetOutput(io.Discard)
+		b.Run(arg, func(b *testing.B) {
+			// copied from lang/lang_test.go
+			mmFs := afero.NewMemMapFs()
+			afs := &afero.Afero{Fs: mmFs}
+			fs := &util.AferoFs{Afero: afs}
+
+			b.ResetTimer()
+
+			for b.Loop() {
+				output, err := inputs.ParseInput(code, fs)
+				if err != nil {
+					log.Fatal(err)
+				}
+				for _, fn := range output.Workers {
+					if err := fn(fs); err != nil {
+						log.Fatal(err)
+					}
+				}
+
+				ctx := context.Background()
+				ctx, cancel := context.WithCancel(ctx)
+				lang := &Lang{
+					Fs:    fs,
+					Input: "/" + interfaces.MetadataFilename,
+					Data: &Data{
+						UnificationStrategy: make(map[string]string),
+					},
+					Debug: false,
+					Logf:  log.Printf,
+				}
+
+				if err := lang.Init(ctx); err != nil {
+					log.Fatal(err)
+				}
+
+				wg := &sync.WaitGroup{}
+				wg.Go(func() {
+					if err := lang.Run(ctx); err != nil && err != context.Canceled {
+						log.Fatal(err)
+					}
+				})
+				cancel()
+				wg.Wait()
+				lang.Cleanup()
+			}
+
 		})
 	}
 }

@@ -28,7 +28,7 @@
 # additional permission.
 
 SHELL = bash
-.PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt godocfmt yamlfmt format docs
+.PHONY: all art cleanart version program lang path deps run race generate build build-debug crossbuild clean test gofmt godocfmt txtarfmt yamlfmt format docs
 .PHONY: rpmbuild mkdirs rpm srpm spec tar upload upload-sources upload-srpms upload-rpms upload-releases copr tag
 .PHONY: mkosi mkosi_fedora-latest mkosi_fedora-older mkosi_stream-latest mkosi_debian-stable mkosi_ubuntu-latest mkosi_archlinux
 .PHONY: release release_test releases_path release_binary_amd64 release_binary_arm64 release_fedora-latest release_fedora-older release_stream-latest release_debian-stable release_ubuntu-latest release_archlinux
@@ -326,10 +326,13 @@ gofmt:
 godocfmt: ## reflow golang doc comments
 	find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' \( -type l -o -not -exec git check-ignore --no-index -q -- {} \; \) -exec go run ./test/tools/reflowed-comments/ -w {} +
 
+txtarfmt: ## format mcl files embedded in txtar archives
+	go run ./test/tools/txtarfmt
+
 yamlfmt:
 	find . -maxdepth 3 \( -type f -o -type l \) -name '*.yaml' -not -path './old/*' -not -path './tmp/*' -not -path './omv.yaml' -exec ruby -e "require 'yaml'; x=YAML.load_file('{}').to_yaml.each_line.map(&:rstrip).join(10.chr)+10.chr; File.open('{}', 'w').write x" \;
 
-format: gofmt yamlfmt ## format yaml and golang code
+format: gofmt txtarfmt yamlfmt ## format yaml, mcl txtar, and golang code
 
 docs: $(PROGRAM)-documentation.pdf ## generate docs
 

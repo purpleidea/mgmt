@@ -39,6 +39,94 @@ import (
 	_ "github.com/purpleidea/mgmt/gapi/empty" // import so the gapi registers
 )
 
+func TestFmtArgs(t *testing.T) {
+	args := &Args{}
+	parser, err := arg.NewParser(arg.Config{}, args)
+	if err != nil {
+		t.Fatalf("func NewParser failed: %v", err)
+	}
+	if err := parser.Parse([]string{"fmt", "examples/lang/hello0.mcl"}); err != nil {
+		t.Fatalf("func Parse failed: %v", err)
+	}
+	if args.FmtCmd == nil {
+		t.Fatalf("func FmtCmd is nil")
+	}
+	if args.FmtCmd.Test {
+		t.Fatalf("func Test is true")
+	}
+	if args.FmtCmd.Input != "examples/lang/hello0.mcl" {
+		t.Fatalf("unexpected input: %s", args.FmtCmd.Input)
+	}
+}
+
+func TestCheckLangArgs(t *testing.T) {
+	args := &Args{}
+	parser, err := arg.NewParser(arg.Config{}, args)
+	if err != nil {
+		t.Fatalf("func NewParser failed: %v", err)
+	}
+	argv := []string{
+		"check",
+		"lang",
+		"--download",
+		"--update",
+		"--skip-unify",
+		"--unify-name",
+		"noop",
+		"--unify-optimizations",
+		"foo,bar",
+		"--skip-fmt",
+		"--depth",
+		"42",
+		"--retry",
+		"3",
+		"--module-path",
+		"/tmp/modules/",
+		"examples/lang/hello0.mcl",
+	}
+	if err := parser.Parse(argv); err != nil {
+		t.Fatalf("func Parse failed: %v", err)
+	}
+	if args.CheckCmd == nil {
+		t.Fatalf("func CheckCmd is nil")
+	}
+	if args.CheckCmd.CheckLang == nil {
+		t.Fatalf("func CheckLang is nil")
+	}
+
+	cmd := args.CheckCmd.CheckLang
+	if cmd.Input != "examples/lang/hello0.mcl" {
+		t.Fatalf("unexpected input: %s", cmd.Input)
+	}
+	if !cmd.Download {
+		t.Fatalf("download is false")
+	}
+	if !cmd.Update {
+		t.Fatalf("update is false")
+	}
+	if !cmd.SkipUnify {
+		t.Fatalf("skip unify is false")
+	}
+	if cmd.UnifySolver == nil || *cmd.UnifySolver != "noop" {
+		t.Fatalf("unexpected unify solver: %#v", cmd.UnifySolver)
+	}
+	if len(cmd.UnifyOptimizations) != 1 || cmd.UnifyOptimizations[0] != "foo,bar" {
+		t.Fatalf("unexpected unify optimizations: %#v", cmd.UnifyOptimizations)
+	}
+	if !cmd.SkipFmt {
+		t.Fatalf("skip fmt is false")
+	}
+	if cmd.Depth != 42 {
+		t.Fatalf("unexpected depth: %d", cmd.Depth)
+	}
+	if cmd.Retry != 3 {
+		t.Fatalf("unexpected retry: %d", cmd.Retry)
+	}
+	if cmd.ModulePath != "/tmp/modules/" {
+		t.Fatalf("unexpected module path: %s", cmd.ModulePath)
+	}
+}
+
 func TestRunArgsPprof(t *testing.T) {
 	args := &RunArgs{}
 	parser, err := arg.NewParser(arg.Config{}, args)

@@ -16,7 +16,7 @@ set -x
 eth=$(for i in /sys/class/net/*; do d=${i##*/}; [[ "$d" != "lo" && $(<"$i/type") -eq 1 ]] && echo "$d" && break; done) # get the first ethernet device
 
 set +x
-$TIMEOUT "$MGMT" provisioner --interface "$eth" --dversion 42 --mirror https://download.fedoraproject.org/pub/fedora/linux/ --only-unify --password "$password" &
+$TIMEOUT "$MGMT" provisioner --interface "$eth" --dversion 42 --mirror https://download.fedoraproject.org/pub/fedora/linux/ --check --password "$password" &
 pid=$!
 set -x
 wait $pid	# get exit status

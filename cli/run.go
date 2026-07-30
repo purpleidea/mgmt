@@ -162,7 +162,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		return false, cliUtil.CliParseError(err) // consistent errors
 	}
 
-	if cmd := obj.RunLang; cmd != nil && cmd.OnlyUnify && deploy == nil {
+	if cmd := obj.RunLang; cmd != nil && cmd.CheckOnly && deploy == nil {
 		return true, nil // we end early
 	}
 	if cmd := obj.RunLang; cmd != nil && cmd.OnlyDownload && deploy == nil {

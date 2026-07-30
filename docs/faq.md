@@ -198,13 +198,13 @@ requires a number of seconds as an argument.
 
 ### Can I run `mgmt` for type-checking only?
 
-Yes, you can, add the `--only-unify` option to the lang frontend while using the
-`run` command, and it will exit after type unification.
+Yes, you can use the `check` command with the mcl format check disabled, and it
+will exit after type unification.
 
 #### Example:
 
 ```
-./mgmt run --tmp-prefix lang --only-unify examples/lang/hello0.mcl
+./mgmt check --tmp-prefix lang --skip-fmt examples/lang/hello0.mcl
 ```
 
 It will also print how long it took on either success or failure. Keep in mind

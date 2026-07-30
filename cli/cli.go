@@ -124,6 +124,8 @@ type Args struct {
 
 	HelpCmd *HelpArgs `arg:"subcommand:help" help:"display this help and exit"`
 
+	FmtCmd *FmtArgs `arg:"subcommand:fmt" help:"format mcl code"`
+
 	CheckCmd *CheckArgs `arg:"subcommand:check" help:"check code on this machine"`
 
 	RunCmd *RunArgs `arg:"subcommand:run" help:"run code on this machine"`
@@ -171,6 +173,10 @@ func (obj *Args) Description() string {
 // usage or help information if no subcommand activates.
 func (obj *Args) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	if cmd := obj.HelpCmd; cmd != nil {
+		return cmd.Run(ctx, data)
+	}
+
+	if cmd := obj.FmtCmd; cmd != nil {
 		return cmd.Run(ctx, data)
 	}
 

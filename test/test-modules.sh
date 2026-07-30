@@ -20,7 +20,7 @@ find_mcl_modules() {
 # TODO: It might be better to only test from the root module entrypoint.
 for file in $(find_mcl_modules); do
 	#echo "mcl: $file"
-	run-test ./mgmt run --tmp-prefix lang --only-unify "$file" &> /dev/null || fail_test "could not compile: $file"
+	run-test ./mgmt check --tmp-prefix lang --skip-fmt "$file" &> /dev/null || fail_test "could not compile: $file"
 done
 
 if [[ -n "$failures" ]]; then

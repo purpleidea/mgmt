@@ -196,9 +196,9 @@ type localArgs struct {
 	// This is a giant driver://user:password@host:port/whatever URL...
 	BmcURI string `arg:"--bmc-uri" help:"bmc connect string to use for this host" func:"cli_bmc_uri"`
 
-	// OnlyUnify tells the compiler to stop after type unification. This is
-	// used for testing.
-	OnlyUnify bool `arg:"--only-unify" help:"stop after type unification"`
+	// Check tells the compiler to stop after the check stage. This is used
+	// for testing.
+	Check bool `arg:"--check" help:"stop after check stage"`
 }
 
 // provisioner is our cli parser translator and general frontend object.
@@ -468,7 +468,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 			},
 		}
 		// TODO: Add a --quiet flag instead of the above filter hack.
-		cmdArgs := []string{"run", "--tmp-prefix", "lang", "--only-unify"}
+		cmdArgs := []string{"check", "--tmp-prefix", "lang", "--skip-fmt"}
 		cmdArgs = append(cmdArgs, modulePathArgs...)
 		cmdArgs = append(cmdArgs, obj.localArgs.HandoffCode)
 		if err := util.SimpleCmd(ctx, binary, cmdArgs, cmdOpts); err != nil {
@@ -508,12 +508,10 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.password = p // salted
 	}
 
-	// Make any changes here that we want to...
-	runArgs.RunLang.SkipUnify = true // speed things up for known good code
-	if obj.localArgs.OnlyUnify {
-		obj.init.Logf("stopping after type unification...")
-		runArgs.RunLang.OnlyUnify = true
-		runArgs.RunLang.SkipUnify = false // can't skip if we only unify
+	if obj.localArgs.Check {
+		obj.init.Logf("stopping after check stage...")
+		runArgs.RunLang.CheckOnly = true
+		runArgs.RunLang.CheckUnify = true
 	}
 
 	name := fastsolver.Name

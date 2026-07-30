@@ -46,6 +46,8 @@ import (
 	"github.com/purpleidea/mgmt/lang"
 	"github.com/purpleidea/mgmt/lang/ast"
 	"github.com/purpleidea/mgmt/lang/download"
+	"github.com/purpleidea/mgmt/lang/format"
+	"github.com/purpleidea/mgmt/lang/format/astfmt"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -88,6 +90,16 @@ type GAPI struct {
 	wg          *sync.WaitGroup // sync group for tunnel go routines
 	err         error
 	errMutex    *sync.Mutex // guards err
+}
+
+// Formatter returns the mcl formatter for the lang frontend, with the real
+// parser and AST printer wired in. The cli finds this method through the gapi
+// registry, since it can't import the parser without an import cycle.
+func (obj *GAPI) Formatter() *format.Formatter {
+	return &format.Formatter{
+		LexParser:    parser.LexParseWithComments,
+		ASTFormatter: astfmt.Format,
+	}
 }
 
 // Cli takes an *Info struct, and returns our deploy if activated, and if there
@@ -280,6 +292,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		return nil, nil // success!
 	}
 
+	var checkErr error
+
 	unificationStrategy := make(map[string]string)
 	if name := args.UnifySolver; name != nil && *name != "" {
 		unificationStrategy[unification.StrategyNameKey] = *name
@@ -289,7 +303,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		unificationStrategy[unification.StrategyOptimizationsKey] = strings.Join(args.UnifyOptimizations, ",")
 	}
 
-	if !args.SkipUnify {
+	if args.CheckUnify || !args.CheckOnly {
 		// apply type unification
 		unificationLogf := func(format string, v ...interface{}) {
 			logf("unification: "+format, v...)
@@ -316,16 +330,54 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			formatted = delta.Truncate(time.Millisecond).String()
 		}
 		if unifyErr != nil {
-			if args.OnlyUnify {
+			if args.CheckOnly {
 				logf("type unification failed after %s", formatted)
+				checkErr = errwrap.Append(checkErr, errwrap.Wrapf(unifyErr, "could not unify types"))
+			} else {
+				return nil, errwrap.Wrapf(unifyErr, "could not unify types")
 			}
-			return nil, errwrap.Wrapf(unifyErr, "could not unify types")
+		} else if args.CheckOnly {
+			logf("type unification succeeded in %s", formatted)
+		}
+	}
+	if args.CheckFmt {
+		// We only use the AST to find all of the involved source file
+		// paths. The formatting check re-parses each file from source,
+		// because the formatter needs the pre-interpolation AST and
+		// the comments, and neither is available in this AST anymore.
+		programs, err := ast.CollectPrograms(iast)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not collect AST programs")
+		}
+		paths := []string{}
+		for _, program := range programs {
+			paths = append(paths, program.Path)
 		}
 
-		if args.OnlyUnify {
-			logf("type unification succeeded in %s", formatted)
-			return nil, nil // we end early
+		formatter := obj.Formatter()
+		formatter.Verbose = true
+		formatter.Debug = debug
+		formatter.Logf = logf
+		formatter.Init()
+		checkOK, err := formatter.CheckFiles(context.TODO(), paths, os.ReadFile)
+		if err != nil {
+			err = errwrap.Wrapf(err, "could not check mcl formatting")
+			if args.CheckOnly {
+				checkErr = errwrap.Append(checkErr, err)
+			} else {
+				return nil, err
+			}
+		} else if !checkOK {
+			err := fmt.Errorf("not formatted")
+			if args.CheckOnly {
+				checkErr = errwrap.Append(checkErr, err)
+			} else {
+				return nil, err
+			}
 		}
+	}
+	if args.CheckOnly {
+		return nil, checkErr
 	}
 
 	// get the list of needed files (this is available after SetScope)

@@ -41,7 +41,7 @@ import (
 type CheckArgs struct {
 	lib.Config // embedded config (can't be a pointer) https://github.com/alexflint/go-arg/issues/240
 
-	CheckLang *cliUtil.LangArgs `arg:"subcommand:lang" help:"check lang (mcl) payload"`
+	CheckLang *CheckLangArgs `arg:"subcommand:lang" help:"check lang (mcl) payload"`
 }
 
 // Run executes the correct subcommand. It errors if there's ever an error. It
@@ -52,14 +52,54 @@ type CheckArgs struct {
 // of mcl files.
 func (obj *CheckArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	if cmd := obj.CheckLang; cmd != nil {
-		// Run the 'run lang' command, but forcing '--only-unify' enabled.
-		cmd.OnlyUnify = true
+		// Run the 'run lang' command, but stop after all of the checks.
+		la := &cliUtil.LangArgs{
+			Input:              cmd.Input,
+			Download:           cmd.Download,
+			Update:             cmd.Update,
+			UnifySolver:        cmd.UnifySolver,
+			UnifyOptimizations: cmd.UnifyOptimizations,
+			CheckOnly:          true,
+			CheckFmt:           !cmd.SkipFmt,
+			CheckUnify:         !cmd.SkipUnify,
+			Depth:              cmd.Depth,
+			Retry:              cmd.Retry,
+			ModulePath:         cmd.ModulePath,
+		}
 
 		run := RunArgs{
-			RunLang: cmd,
+			RunLang: la,
 		}
 		return run.Run(ctx, data)
 	}
 
 	return false, nil
+}
+
+// CheckLangArgs is the check lang CLI parsing structure and type of the parsed
+// result.
+type CheckLangArgs struct {
+	// Input is the input mcl code or file path or any input specification.
+	Input string `arg:"positional,required"`
+
+	Download bool `arg:"--download" help:"download any missing imports"`
+	Update   bool `arg:"--update" help:"update all dependencies to the latest versions"`
+
+	// SkipUnify specifies that the mcl unification check should be skipped.
+	// It is used by the check command, which enables that check by default.
+	SkipUnify bool `arg:"--skip-unify" help:"skip the mcl type unification"`
+
+	UnifySolver        *string  `arg:"--unify-name" help:"pick a specific unification solver"`
+	UnifyOptimizations []string `arg:"--unify-optimizations,separate" help:"list of unification optimizations to request (experts only)"`
+
+	// SkipFmt specifies that the mcl format check should be skipped. It is
+	// used by the check command, which enables that check by default.
+	SkipFmt bool `arg:"--skip-fmt" help:"skip the mcl format check"`
+
+	Depth int `arg:"--depth" default:"-1" help:"max recursion depth limit (-1 is unlimited)"`
+
+	// The default of 0 means any error is a failure by default.
+	Retry int `arg:"--retry" help:"max number of retries (-1 is unlimited)"`
+
+	ModulePath string `arg:"--module-path,env:MGMT_MODULE_PATH" help:"choose the modules path (absolute)"`
 }

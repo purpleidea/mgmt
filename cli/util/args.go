@@ -86,10 +86,22 @@ type LangArgs struct {
 	OnlyDownload bool `arg:"--only-download" help:"stop after downloading any missing imports"`
 	Update       bool `arg:"--update" help:"update all dependencies to the latest versions"`
 
-	OnlyUnify          bool     `arg:"--only-unify" help:"stop after type unification"`
-	SkipUnify          bool     `arg:"--skip-unify" help:"skip type unification"`
 	UnifySolver        *string  `arg:"--unify-name" help:"pick a specific unification solver"`
 	UnifyOptimizations []string `arg:"--unify-optimizations,separate" help:"list of unification optimizations to request (experts only)"`
+
+	// CheckOnly specifies that the lang frontend should stop after all of
+	// the requested checks. This is not a flag, it is set by the check
+	// command.
+	CheckOnly bool `arg:"-"`
+
+	// CheckFmt specifies that we should check the mcl formatting. This is
+	// not a flag, it is set by the check command unless --skip-fmt is used.
+	CheckFmt bool `arg:"-"`
+
+	// CheckUnify specifies that we should check mcl type unification. This
+	// is not a flag, it is set by the check command unless --skip-unify is
+	// used.
+	CheckUnify bool `arg:"-"`
 
 	Depth int `arg:"--depth" default:"-1" help:"max recursion depth limit (-1 is unlimited)"`
 

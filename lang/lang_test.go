@@ -42,7 +42,6 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/resources"
-	"github.com/purpleidea/mgmt/lang"
 	_ "github.com/purpleidea/mgmt/lang/core" // import so the funcs register
 	"github.com/purpleidea/mgmt/lang/inputs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -1117,7 +1116,7 @@ func TestInterpretMany(t *testing.T) {
 
 var files = []string{
 	"../../examples/lang/http-server0.mcl",
-	"../../examples/lang/http-server1.mcl",
+	"../../examples/lang/http-server.mcl",
 }
 
 // BenchmarkLang benchmarks to initial parsing of the mcl code.
@@ -1150,10 +1149,10 @@ func BenchmarkLang(b *testing.B) {
 
 				ctx := context.Background()
 				ctx, cancel := context.WithCancel(ctx)
-				lang := &lang.Lang{
+				lang := &Lang{
 					Fs:    fs,
 					Input: "/" + interfaces.MetadataFilename,
-					Data: &lang.Data{
+					Data: &Data{
 						UnificationStrategy: make(map[string]string),
 					},
 					Debug: false,

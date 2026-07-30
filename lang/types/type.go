@@ -771,7 +771,7 @@ func (obj *Type) string(table map[*Elem]uint) string {
 			}
 			s[i] = strutil.Concat(k, " ", t.string(table))
 		}
-		return fmt.Sprintf("struct{%s}", strings.Join(s, "; "))
+		return strutil.Concat("struct{", strings.Join(s, "; "), "}")
 
 	case KindFunc:
 		if obj.Map == nil {
@@ -793,13 +793,13 @@ func (obj *Type) string(table map[*Elem]uint) string {
 			// We need to print function arg names for Copy() to use
 			// the String() hack here and avoid erasing them here!
 			//s[i] = t.string(table)
-			s[i] = fmt.Sprintf("%s %s", k, t.string(table)) // strict
+			s[i] = strutil.Concat(k, " ", t.string(table)) // strict
 		}
 		var out string
 		if obj.Out != nil {
-			out = fmt.Sprintf(" %s", obj.Out.string(table))
+			out = strutil.Concat(" ", obj.Out.string(table))
 		}
-		return fmt.Sprintf("func(%s)%s", strings.Join(s, ", "), out)
+		return strutil.Concat("func(", strings.Join(s, ", "), ")", out)
 
 	case KindVariant:
 		return "variant"

@@ -34,6 +34,7 @@ import (
 	"math/bits"
 
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 type config struct {
@@ -106,10 +107,10 @@ func (obj *arg) OldToGolang() (string, error) {
 func (obj *arg) ToGolang(val string) (string, error) {
 	switch obj.Type {
 	case "bool":
-		return fmt.Sprintf("%s.Bool()", val), nil
+		return strutil.Concat(val, ".Bool()"), nil
 
 	case "string", "[]byte":
-		return fmt.Sprintf("%s.Str()", val), nil
+		return strutil.Concat(val, ".Str()"), nil
 
 	case "int":
 		// TODO: consider switching types.Value int64 to int everywhere

@@ -34,8 +34,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/purpleidea/mgmt/util/strutil"
 )
 
 type function struct {
@@ -114,16 +117,16 @@ func generateTemplate(c config, f functions, path, templateFile, finalName strin
 func (obj *function) MakeGolangArgs() (string, error) {
 	var args []string
 	for i, a := range obj.Args {
-		gol, err := a.ToGolang(fmt.Sprintf("args[%d]", i))
+		gol, err := a.ToGolang(strutil.Concat("args[", strconv.FormatInt(int64(i), 10), "]"))
 		if err != nil {
 			return "", err
 		}
 
 		switch a.Type {
 		case "int":
-			gol = fmt.Sprintf("int(%s)", gol)
+			gol = strutil.Concat("int(", gol, ")")
 		case "[]byte":
-			gol = fmt.Sprintf("[]byte(%s)", gol)
+			gol = strutil.Concat("[]byte(", gol, ")")
 		}
 
 		// Variadic expansion for the last slice argument.

@@ -33,6 +33,7 @@ package pgraph
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -701,7 +702,7 @@ func (obj *Graph) InDegree() map[Vertex]int {
 	if obj == nil || obj.adjacency == nil {
 		return nil
 	}
-	result := make(map[Vertex]int, len(obj.adjacency))
+	result := vertexPool.Get().(map[Vertex]int)
 	for k := range obj.adjacency {
 		result[k] = len(obj.revadjmap[k])
 	}
@@ -714,7 +715,7 @@ func (obj *Graph) OutDegree() map[Vertex]int {
 	if obj == nil || obj.adjacency == nil {
 		return nil
 	}
-	result := make(map[Vertex]int, len(obj.adjacency))
+	result := vertexPool.Get().(map[Vertex]int)
 	for k := range obj.adjacency {
 		result[k] = len(obj.adjacency[k])
 	}
@@ -1143,25 +1144,11 @@ Loop:
 
 // VertexContains is an "in array" function to test for a vertex in a slice of
 // vertices.
-func VertexContains(needle Vertex, haystack []Vertex) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
-}
+func VertexContains(needle Vertex, haystack []Vertex) bool { return slices.Contains(haystack, needle) }
 
 // EdgeContains is an "in array" function to test for an edge in a slice of
 // edges.
-func EdgeContains(needle Edge, haystack []Edge) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
-}
+func EdgeContains(needle Edge, haystack []Edge) bool { return slices.Contains(haystack, needle) }
 
 // Reverse reverses a list of vertices.
 func Reverse(vs []Vertex) []Vertex {

@@ -29,6 +29,8 @@
 
 package pgraph
 
+import "sync"
+
 // AddGraph adds the set of edges and vertices of a graph to the existing graph.
 func (obj *Graph) AddGraph(graph *Graph) {
 	obj.addEdgeVertexGraphHelper(nil, graph, nil, false, false)
@@ -88,6 +90,9 @@ func (obj *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenF
 	} else if light { // && !reverse
 		degree = graph.InDegree()
 	}
+	if degree == nil {
+		degree = vertexPool.Get().(map[Vertex]int)
+	}
 	for _, v := range graph.VerticesSorted() { // sort to help out edgeGenFn
 
 		// forward:
@@ -118,4 +123,12 @@ func (obj *Graph) addEdgeVertexGraphHelper(vertex Vertex, graph *Graph, edgeGenF
 			obj.AddEdge(v1, v2, e)
 		}
 	}
+	clear(degree)
+	vertexPool.Put(degree)
+}
+
+var vertexPool = sync.Pool{
+	New: func() any {
+		return make(map[Vertex]int)
+	},
 }

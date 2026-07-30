@@ -6,7 +6,6 @@ $list = ["a", "b", "c"]
 for $index, $value in $list {
 	test [$value] {}
 }
-
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[b]

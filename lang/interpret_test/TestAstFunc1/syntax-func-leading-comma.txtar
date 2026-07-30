@@ -1,3 +1,7 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
 -- main.mcl --
 $fn = func(,$x) {
 	$x

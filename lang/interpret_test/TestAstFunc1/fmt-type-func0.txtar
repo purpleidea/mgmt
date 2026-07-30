@@ -4,11 +4,8 @@ $f func(str, str) str = func($a, $b) {
 	$a + $b + "\n"
 }
 
-# type signature spans multiple lines
-$g func( # good
-	str, # also good
-	str,
-) str = func($a, $b) {
+# type signature spans multiple lines (not allowed in mcl fmt for now)
+$g func(str, str) str = func($a, $b) {
 	$a + $b + "\n"
 }
 

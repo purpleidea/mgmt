@@ -1,7 +1,6 @@
 -- main.mcl --
 # simple bool
-if $b {
-}
+if $b {}
 $b = true
 -- OUTPUT --
 Edge: const: bool(true) -> stmtif # condition

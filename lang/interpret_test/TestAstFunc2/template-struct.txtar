@@ -13,6 +13,5 @@ $tmpl = "{{ .A }};{{ .B }};{{ .C }};{{ if .L }}{{ golang_strings_join .L \",\" }
 $out = golang.template($tmpl, $values)
 
 test [$out] {}
-
 -- OUTPUT --
 Vertex: test[purple;42;3.14;opt1,opt2]

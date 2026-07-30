@@ -5,12 +5,12 @@ value "value1" {
 }
 test "test1" {
 	sendvalue => "hello from test",
-	expectrecv => ["anotherstr"],	# expecting to recv on these keys!
+	expectrecv => ["anotherstr"], # expecting to recv on these keys!
 
 	Meta:autogroup => false,
 }
 print "print1" {
-	#msg => "",	# gets value from send_value above
+	#msg => "", # gets value from send_value above
 }
 Value["value1"].any -> Test["test1"].anotherstr
 Test["test1"].hello -> Print["print1"].msg

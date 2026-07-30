@@ -7,7 +7,7 @@ func use_polymorphically($id) {
 	fmt.printf("%d %s", $id(42), $id("hello"))
 }
 test "test1" {
-	anotherstr => use_polymorphically(func($x) {$x}),
+	anotherstr => use_polymorphically(func($x) { $x }),
 }
 -- OUTPUT --
 # err: errUnify: unify error with: param(id): type error: int != str

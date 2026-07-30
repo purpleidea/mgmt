@@ -1,5 +1,4 @@
 -- main.mcl --
-
 $st1 = struct{
 	a => 42,
 	b => true,
@@ -16,8 +15,7 @@ $st2 = struct{
 }
 
 test [$st2->c] {}
-#test [$st2->missing + "fail"] {}	# this can't unify! (by design!)
-
+#test [$st2->missing + "fail"] {} # this can't unify! (by design!)
 -- OUTPUT --
 Vertex: test[pass1]
 Vertex: test[pass2]

@@ -15,6 +15,5 @@ for $index, $value in $list {
 	$s = fmt.printf("%s is %d", $value, $index)
 	test [$s] {}
 }
-
 -- OUTPUT --
 # err: errSetScope: recursive reference while setting scope: not a dag

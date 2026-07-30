@@ -1,6 +1,6 @@
 -- main.mcl --
 import "fmt"
-$format = "%d"	# should get ignored
+$format = "%d" # should get ignored
 $fn = func($format) {
 	fmt.printf($format, 42)
 }

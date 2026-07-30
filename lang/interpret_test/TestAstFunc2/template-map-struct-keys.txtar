@@ -25,6 +25,5 @@ $tmpl = "{{ range $key, $val := . }}{{ $key.A }};{{ $key.B }};{{ $val }}{{ end }
 $out = golang.template($tmpl, $values)
 
 test [$out] {}
-
 -- OUTPUT --
 Vertex: test[amazing;13;purpleidea;42;magic]

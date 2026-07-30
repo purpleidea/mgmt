@@ -15,7 +15,6 @@ for $index, $value in $list {
 	#$s = fmt.printf("%s is %d", $included.result, $index)
 	#test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[a0]
 Vertex: test[b1]

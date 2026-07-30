@@ -1,7 +1,7 @@
 -- main.mcl --
 # this should be a function as a value, iow a lambda
 $prefixer = func($x) {
-	"hello" + $x	# i'd only ever expect one "hello" string in the graph
+	"hello" + $x # i'd only ever expect one "hello" string in the graph
 }
 
 $out1 = $prefixer("a")

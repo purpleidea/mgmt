@@ -2,6 +2,6 @@
 # variable re-declaration and type change error
 # this should fail b/c of variable re-declaration
 $x = "wow"
-$x = 99	# woops, but also a change of type :P
+$x = 99 # woops, but also a change of type :P
 -- OUTPUT --
 # err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x)

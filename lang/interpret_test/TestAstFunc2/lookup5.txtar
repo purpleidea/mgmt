@@ -7,7 +7,7 @@ $bigmap = {
 		13 => "thing1b",
 	},
 	2 => {
-		42 => "hello",	# pull out this!
+		42 => "hello", # pull out this!
 		13 => "thing2b",
 	},
 }

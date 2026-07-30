@@ -7,11 +7,11 @@ class c1 {
 		$x = "goodbye"
 	}
 }
-include c1 as i1	# has $y
-include i1.c0 as i0	# has $x ...and $y
+include c1 as i1 # has $y
+include i1.c0 as i0 # has $x ...and $y
 
-test "${i0.x}" {}	# ok
-test "${i1.y}" {}	# ok
+test "${i0.x}" {} # ok
+test "${i1.y}" {} # ok
 panic($i0.x != "goodbye")
 panic($i1.y != "hello")
 
@@ -23,7 +23,6 @@ panic($i1.y != "hello")
 # not have the correct dependency (edge) present in the Ordering system, so it
 # is flaky depending on luck of the toposort.
 #test "${i0.y}" {}
-
 -- OUTPUT --
 Vertex: test[goodbye]
 Vertex: test[hello]

@@ -17,7 +17,6 @@ forkv $key, $val in $map {
 	$s = fmt.printf("%s is %d", $included.result($val), $key)
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[aaa is 0]
 Vertex: test[bbb is 1]

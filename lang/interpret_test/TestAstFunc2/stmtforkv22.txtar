@@ -11,7 +11,6 @@ forkv $key1, $val1 in $map1 {
 		test [$s] {}
 	}
 }
-
 -- OUTPUT --
 Vertex: test[a is 42]
 Vertex: test[b is 42]

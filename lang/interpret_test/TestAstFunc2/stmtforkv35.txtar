@@ -19,7 +19,6 @@ forkv $key1, $val1 in $map1 {
 		test [$s] {}
 	}
 }
-
 -- OUTPUT --
 Vertex: test[hello ax is {0,0}]
 Vertex: test[hello ay is {0,1}]

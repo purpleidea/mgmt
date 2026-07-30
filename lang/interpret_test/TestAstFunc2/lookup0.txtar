@@ -31,7 +31,6 @@ test "${name5}" {}
 $map6 = {"wow" => "fail"}
 $name6 = $map6["mom"] || "pass2"
 test "${name6}" {}
-
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[c]

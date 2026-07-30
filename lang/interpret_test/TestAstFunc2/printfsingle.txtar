@@ -2,6 +2,5 @@
 import "fmt"
 
 test [fmt.printf("single")] {} # just a format string without identifiers
-
 -- OUTPUT --
 Vertex: test[single]

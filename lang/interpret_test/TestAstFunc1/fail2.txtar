@@ -1,6 +1,6 @@
 -- main.mcl --
 import "fmt"
-$x str = if true {	# should fail unification
+$x str = if true { # should fail unification
 	42
 } else {
 	13

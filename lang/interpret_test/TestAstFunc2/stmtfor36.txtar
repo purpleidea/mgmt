@@ -15,14 +15,13 @@ for $index, $value in $list {
 		#$result = "hello" + $value # harder
 		#$result = $x + $value # harder
 	}
-	include foo($value)# as included
+	include foo($value) # as included
 	$result = "please"
 
 	# XXX: add $included.some_func and so on... add more tests says sam.
 	$s = fmt.printf("%s is %d is %s", $value, $index, $result)
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[a is 0 is please]
 Vertex: test[b is 1 is please]

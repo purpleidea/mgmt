@@ -34,6 +34,7 @@ package format_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,7 +45,12 @@ import (
 	"github.com/purpleidea/mgmt/lang/parser"
 
 	godiff "github.com/kylelemons/godebug/diff"
+	"golang.org/x/tools/txtar"
 )
+
+type txtarConfig struct {
+	NoFmt bool `json:"nofmt"`
+}
 
 // newFormatter returns a formatter with the real parser and printer wired in.
 // This test file is in a separate _test package so that it can import those
@@ -128,6 +134,73 @@ func TestFmtFiles(t *testing.T) {
 		}
 
 		t.Errorf("unexpected file in tests dir: %s", name)
+	}
+}
+
+func TestFmtTxtarFiles(t *testing.T) {
+	root := filepath.Clean("../..")
+	formatter := newFormatter(t)
+
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".txtar") {
+			return nil
+		}
+
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		t.Run(rel, func(t *testing.T) {
+			archive, err := txtar.ParseFile(path)
+			if err != nil {
+				t.Fatalf("err parsing txtar(%s): %+v", path, err)
+			}
+
+			var config txtarConfig
+			for _, file := range archive.Files {
+				if file.Name != "CONFIG" {
+					continue
+				}
+				if err := json.Unmarshal(file.Data, &config); err != nil {
+					t.Fatalf("err parsing txtar(%s) config: %+v", path, err)
+				}
+				break
+			}
+			if config.NoFmt {
+				t.Skip("nofmt")
+			}
+
+			for _, file := range archive.Files {
+				if !strings.HasSuffix(file.Name, ".mcl") {
+					continue
+				}
+
+				t.Run(file.Name, func(t *testing.T) {
+					output, err := formatter.FormatData(context.TODO(), bytes.NewReader(file.Data))
+					if err != nil {
+						t.Fatalf("func FormatData failed: %+v", err)
+					}
+					if !bytes.Equal(output, file.Data) {
+						t.Errorf("file is not in canonical format: %s", file.Name)
+						t.Logf("diff:\n%s", godiff.Diff(string(file.Data), string(output)))
+					}
+				})
+			}
+		})
+
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("func WalkDir failed: %+v", err)
 	}
 }
 

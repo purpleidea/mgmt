@@ -1,6 +1,6 @@
 -- main.mcl --
 class c1($b) {
-	if $b {	# scope doesn't leak up and out of `if` statement!
+	if $b { # scope doesn't leak up and out of `if` statement!
 		class inner() {
 			test "t1" {}
 		}

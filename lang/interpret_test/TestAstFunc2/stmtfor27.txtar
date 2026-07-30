@@ -22,7 +22,6 @@ for $index1, $value1 in $list1 {
 		test [$s, $s1] {}
 	}
 }
-
 -- OUTPUT --
 Vertex: test[hello axa is {0,0}]
 Vertex: test[hello aya is {0,1}]

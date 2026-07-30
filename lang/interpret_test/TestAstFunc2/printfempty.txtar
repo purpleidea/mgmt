@@ -5,7 +5,6 @@ import "fmt"
 # NOTE: We have historically needed to turn on the recursive solver to find that
 # this was a bug!
 test fmt.printf() {}
-
 -- OUTPUT --
 # err: errUnify: func `printf` infer error: must have at least one arg: /main.mcl @ 6:6-6:18
 func `printf` infer error: must have at least one arg: /main.mcl @ 6:6-6:18

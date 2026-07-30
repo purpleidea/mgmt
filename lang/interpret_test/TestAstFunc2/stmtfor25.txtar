@@ -12,6 +12,5 @@ for $index, $value in $list {
 	$s = fn()
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[hello a]

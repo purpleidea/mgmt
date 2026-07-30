@@ -1,5 +1,5 @@
 -- metadata.yaml --
-#files: "files/"	# these are some extra files we can use (is the default)
+#files: "files/" # these are some extra files we can use (is the default)
 -- main.mcl --
 # XXX: When using multiple star imports, a subsequent one may overwrite the
 # earlier one. We should probably make this a compile error.

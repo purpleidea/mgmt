@@ -3,7 +3,6 @@ $name = ["a", "bb", "ccc"]
 
 #test $name {}    # must pass
 test "${name}" {} # must fail
-
 -- OUTPUT --
 # err: errUnify: type error: str != list: /main.mcl @ 4:1-4:18
 type error: str != list: /main.mcl @ 4:1-4:18

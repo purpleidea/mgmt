@@ -5,6 +5,5 @@ import "net"
 $out = golang.template("{{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Scheme }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Host }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Path }} {{ (net_url_parser \"https://www.example.com/search?q=mgmt\").Raw_query }}")
 
 test [$out] {}
-
 -- OUTPUT --
 Vertex: test[https www.example.com /search q=mgmt]

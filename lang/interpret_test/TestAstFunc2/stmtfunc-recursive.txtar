@@ -14,8 +14,8 @@ func sum($i) {
 	}
 }
 
-$out1 = sum(4)	# 4 + 3 + 2 + 1 + 0 = 10
-$out2 = sum(-5)	# -5 + -4 + -3 + -2 + -1 + -0 = -15
+$out1 = sum(4) # 4 + 3 + 2 + 1 + 0 = 10
+$out2 = sum(-5) # -5 + -4 + -3 + -2 + -1 + -0 = -15
 
 test fmt.printf("sum(4) is %d", $out1) {}
 test fmt.printf("sum(-5) is %d", $out2) {}

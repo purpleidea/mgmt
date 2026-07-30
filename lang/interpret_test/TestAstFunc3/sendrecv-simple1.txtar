@@ -9,10 +9,10 @@ test "test1" {
 	Meta:autogroup => false,
 }
 value "value2" {
-	any => "",	# gets value from send_value above
+	any => "", # gets value from send_value above
 }
 value "value3" {
-	any => 0,	# gets 42
+	any => 0, # gets 42
 }
 Value["value1"].any -> Test["test1"].anotherstr
 Test["test1"].hello -> Value["value2"].any

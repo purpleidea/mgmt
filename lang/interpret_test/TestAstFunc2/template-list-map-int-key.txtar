@@ -8,6 +8,5 @@ $values = [
 $out = golang.template("{{ range . }}{{ index . 42 }}{{ end }}", $values)
 
 test [$out] {}
-
 -- OUTPUT --
 Vertex: test[answer]

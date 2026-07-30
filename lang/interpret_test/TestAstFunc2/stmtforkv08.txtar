@@ -15,6 +15,5 @@ forkv $key, $val in $map {
 	$s = fmt.printf("%s is %d", $val, $key)
 	test [$s] {}
 }
-
 -- OUTPUT --
 # err: errSetScope: recursive reference while setting scope: not a dag

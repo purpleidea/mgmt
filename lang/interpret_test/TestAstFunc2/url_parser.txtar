@@ -1,5 +1,4 @@
 -- main.mcl --
-
 import "net"
 import "fmt"
 
@@ -14,7 +13,6 @@ $url_parse3 = net.url_parser($url3)
 test [fmt.printf("%s %s %s %s", $url_parse1->scheme, $url_parse1->host, $url_parse1->path, $url_parse1->raw_query)] {}
 test [fmt.printf("%s %s %s %s", $url_parse2->scheme, $url_parse2->host, $url_parse2->path, $url_parse2->raw_query)] {}
 test [fmt.printf("%s %s %s %s", $url_parse3->scheme, $url_parse3->host, $url_parse3->path, $url_parse3->raw_query)] {}
-
 -- OUTPUT --
 
 Vertex: test[https www.example.com /search q=mgmt]

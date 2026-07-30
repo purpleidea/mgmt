@@ -2,7 +2,7 @@
 $prefix = "hello"
 
 func prefixer($x) {
-	$prefix + ":" + $x	# i'd only ever expect one ":" in the graph
+	$prefix + ":" + $x # i'd only ever expect one ":" in the graph
 }
 
 $out1 = prefixer("a")

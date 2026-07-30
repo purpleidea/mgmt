@@ -3,13 +3,13 @@ import "fmt"
 
 $map = {0 => "a", 1 => "b", 2 => "c"}
 
-import "thing.mcl"	# works
+import "thing.mcl" # works
 
 forkv $key, $val in $map {
 	# The semantics are that only one copy of an import is needed... Not one per iteration.
 	# XXX: Error: could not find `inside` in env for ExprIterated
 	class foo($y) {
-		#import "thing.mcl"	# XXX: doesn't work :(
+		#import "thing.mcl" # XXX: doesn't work :(
 		$out = $y + 7 + $thing.inside
 	}
 	include foo($key) as usefoo

@@ -1,3 +1,7 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
 -- main.mcl --
 $st = struct{w => 1, , o => 2}
 

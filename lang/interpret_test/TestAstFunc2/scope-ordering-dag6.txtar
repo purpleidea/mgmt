@@ -4,7 +4,7 @@ class bar($z) {
 	$zz = $z
 }
 class foo() {
-	include bar("hello") as x	# bind to x
+	include bar("hello") as x # bind to x
 	$y = $x.zz
 	test [$y + "a"] {}
 }

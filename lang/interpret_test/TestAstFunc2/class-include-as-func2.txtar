@@ -29,7 +29,7 @@ include c1(false) as i2
 
 test [i1.f1()] {}
 test [i2.f1()] {}
-test [i1.i0.f0()] {}	# I think these might work directly too. Do we want them to?
+test [i1.i0.f0()] {} # I think these might work directly too. Do we want them to?
 test [i2.i0.f0()] {}
 -- OUTPUT --
 Vertex: test[goodbye]

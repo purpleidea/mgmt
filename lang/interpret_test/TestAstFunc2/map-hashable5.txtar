@@ -1,5 +1,4 @@
 -- main.mcl --
-
 $st0 = struct{} # matches $st1, and $st2 but different "pointer"
 $st1 = struct{}
 $st2 = struct{}

@@ -1,11 +1,11 @@
 -- main.mcl --
-$x1 = "i am x1"	# i am top-level
-$x2 = "i am x2"	# i am top-level
+$x1 = "i am x1" # i am top-level
+$x2 = "i am x2" # i am top-level
 
 class c2() {
 	$z = "i am y and " + $x1
 
-	$x1 = "hey"	# shadow
+	$x1 = "hey" # shadow
 }
 
 include c2 as f1
@@ -21,7 +21,6 @@ test "${f1.x1}" {}
 # not have the correct dependency (edge) present in the Ordering system, so it
 # is flaky depending on luck of the toposort.
 #test "${f1.x2}" {}
-
 -- OUTPUT --
 Vertex: test[hey]
 Vertex: test[i am y and hey]

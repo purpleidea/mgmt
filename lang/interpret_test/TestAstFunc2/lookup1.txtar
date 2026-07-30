@@ -27,7 +27,6 @@ test "${name4}" {}
 $map5 = {"wow" => "pass1"}
 $name5 = $map5["wow"]
 test "${name5}" {}
-
 -- OUTPUT --
 Vertex: test[a]
 Vertex: test[c]

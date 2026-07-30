@@ -4,7 +4,7 @@ value "value1" {
 	any => "i am value1",
 }
 print "print1" {
-	#msg => "",	# gets value from send_value above
+	#msg => "", # gets value from send_value above
 }
 Value["value1"].any -> Print["print1"].msg
 -- OUTPUT --

@@ -7,7 +7,7 @@ $bigmap = {
 		"bar" => "thing1b",
 	},
 	"key2" => {
-		"foo" => "hello",	# pull out this!
+		"foo" => "hello", # pull out this!
 		"bar" => "thing2b",
 	},
 }

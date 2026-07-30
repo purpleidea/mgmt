@@ -11,7 +11,6 @@ for $index1, $value1 in $list1 {
 		test [$s] {}
 	}
 }
-
 -- OUTPUT --
 Vertex: test[a is 42]
 Vertex: test[b is 42]

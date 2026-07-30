@@ -12,6 +12,5 @@ forkv $key, $val in $map {
 	$s = $fn()
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[hello a]

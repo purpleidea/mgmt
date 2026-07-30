@@ -1,7 +1,7 @@
 -- main.mcl --
 $x = "not this x"
 $add = func($x) {
-	func($y) {$x + $y}
+	func($y) { $x + $y }
 }
 $addfoo = $add("foo")
 

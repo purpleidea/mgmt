@@ -9,7 +9,7 @@ test "test1" {
 	Meta:autogroup => false,
 }
 value "value2" {
-	any => "",	# gets value from send_value above
+	any => "", # gets value from send_value above
 }
 value "value3" {
 	# XXX: This works because this value gets overwritten, but it really
@@ -19,7 +19,7 @@ value "value3" {
 	# print[print1]: Error: could not SendRecv:
 	# mismatch: value[value3].any (ptr) -> print[print1].msg (string):
 	# cannot Into() 42 of type int into string
-	any => "NOPE",	# gets 42
+	any => "NOPE", # gets 42
 }
 print "print1" {}
 

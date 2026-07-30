@@ -3,9 +3,8 @@ $name = ["a", "bb", "ccc"]
 test $name {}
 test "test" {}
 
-Test[$name] -> Test["test"]      # must pass
+Test[$name] -> Test["test"] # must pass
 #Test["${name}"] -> Test["test"] # must fail
-
 -- OUTPUT --
 Edge: test[a] -> test[test] # test[a] -> test[test]
 Edge: test[bb] -> test[test] # test[bb] -> test[test]

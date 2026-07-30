@@ -8,7 +8,6 @@ class c1($b) {
 }
 include c1(true)
 include c1(false)
-
 -- OUTPUT --
 Vertex: test[t2]
 Vertex: test[t3]

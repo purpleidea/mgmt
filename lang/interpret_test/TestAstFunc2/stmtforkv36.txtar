@@ -15,14 +15,13 @@ forkv $key, $val in $map {
 		#$result = "hello" + $val # harder
 		#$result = $x + $val # harder
 	}
-	include foo($val)# as included
+	include foo($val) # as included
 	$result = "please"
 
 	# XXX: add $included.some_func and so on... add more tests says sam.
 	$s = fmt.printf("%s is %d is %s", $val, $key, $result)
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[a is 0 is please]
 Vertex: test[b is 1 is please]

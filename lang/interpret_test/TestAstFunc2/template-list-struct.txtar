@@ -9,6 +9,5 @@ $values = [
 $out = golang.template("{{ range . }}{{ .Name }}={{ .Value }};{{ end }}", $values)
 
 test [$out] {}
-
 -- OUTPUT --
 Vertex: test[one=alpha;two=beta;]

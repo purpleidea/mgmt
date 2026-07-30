@@ -6,7 +6,7 @@ $apply1 = func($f, $x) {
 $apply2 = func($f, $x) {
 	$f($f($x))
 }
-$apply = if (os.system("echo 0; echo 1") == "0") {$apply1} else {$apply2}
+$apply = if (os.system("echo 0; echo 1") == "0") { $apply1 } else { $apply2 }
 $id = func($y) { $y }
 
 # since $apply changes over time, this call needs a dynamic sub-graph. In

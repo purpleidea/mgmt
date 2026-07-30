@@ -1,5 +1,4 @@
 -- main.mcl --
-
 $st0 = struct{foo => "a", bar => ["a1", "a2"]}
 $st1 = struct{foo => "a", bar => ["a1", "a2"]}
 $st2 = struct{foo => "b", bar => ["b1", "b2", "b3"]}

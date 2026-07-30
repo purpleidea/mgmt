@@ -10,7 +10,6 @@ forkv $key, $val in $map {
 	$s = fmt.printf("%s is %d", $val, $key)
 	test [$s] {}
 }
-
 -- OUTPUT --
 Vertex: test[a is 42]
 Vertex: test[b is 42]

@@ -6,7 +6,7 @@ import "sys"
 $secplus42 = 42 + $ayear
 
 # note the order of the assignment (year can come later in the code)
-$ayear = 60 * 60 * 24 * 365	# is a year in seconds (31536000)
+$ayear = 60 * 60 * 24 * 365 # is a year in seconds (31536000)
 
 $tmplvalues = struct{time => $secplus42, hello => "world", load => sys.load()}
 

@@ -10,7 +10,7 @@ class use_polymorphically($id) {
 		anotherstr => $id("hello"),
 	}
 }
-include use_polymorphically(func($x) {$x})
+include use_polymorphically(func($x) { $x })
 -- OUTPUT --
 # err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: str != int
 # err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: int != str

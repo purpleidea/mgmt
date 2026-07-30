@@ -1115,8 +1115,9 @@ func TestInterpretMany(t *testing.T) {
 }
 
 var files = []string{
-	"../../examples/lang/http-server0.mcl",
-	"../../examples/lang/http-server.mcl",
+	"../examples/lang/http-server0.mcl",
+	"../examples/lang/http-server1.mcl",
+	"../examples/lang/http-server-flag1.mcl",
 }
 
 // BenchmarkLang benchmarks to initial parsing of the mcl code.

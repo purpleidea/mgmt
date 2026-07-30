@@ -222,8 +222,14 @@ overloaded, and in particular it was even already used by the
 ## Overview for mcl code
 
 The `mcl` language is quite new, so this guide will probably change over time as
-we find what's best, and hopefully we'll be able to add an `mclfmt` tool in the
-future so that less of this needs to be documented. (Patches welcome!)
+we find what's best. Most of the formatting rules are automated now: run
+`mgmt fmt` in your source directory to recursively format every mcl file below
+it, `mgmt fmt <file>` for a single file, or `mgmt fmt --test` to only check. The
+`mgmt check` command also verifies the formatting unless you use the `--no-fmt`
+flag. The formatter uses tabs for indentation, preserves your blank lines
+(collapsing repeats), preserves your choice of single-line vs multi-line lists,
+maps, structs and call args, and keeps your comments and parenthesis where you
+wrote them.
 
 ### Indentation
 
@@ -264,6 +270,14 @@ confusion with the normal core package you get from `import "strings"`.
 
 In the long-term, we expect to remove the `"golang/"` namespace when our own
 standard library is complete enough.
+
+### Bugs
+
+Multiline type signatures are allowed by the parser, but will be collapsed down
+to a single line when you run the formatter. If you have end of line comments on
+any of the lines, then will be moved outside of the type signature. This is rare
+but could be unexpected if you're writing weird type signatures. Perhaps we'll
+change this behaviour in the future.
 
 ### Licensing
 

@@ -801,17 +801,19 @@ func TestLexParse0(t *testing.T) {
 									&ast.ExprInt{
 										V: 3,
 									},
-									&ast.ExprCall{
-										Name: operators.OperatorFuncName,
-										Args: []interfaces.Expr{
-											&ast.ExprStr{
-												V: "+",
-											},
-											&ast.ExprInt{
-												V: 12,
-											},
-											&ast.ExprInt{
-												V: 4,
+									&ast.ExprParen{
+										Inner: &ast.ExprCall{
+											Name: operators.OperatorFuncName,
+											Args: []interfaces.Expr{
+												&ast.ExprStr{
+													V: "+",
+												},
+												&ast.ExprInt{
+													V: 12,
+												},
+												&ast.ExprInt{
+													V: 4,
+												},
 											},
 										},
 									},
@@ -1745,8 +1747,10 @@ func TestLexParse0(t *testing.T) {
 					Func: &ast.ExprFunc{
 						Title: "f1",
 						Args:  []*interfaces.Arg{},
-						Body: &ast.ExprInt{
-							V: 42,
+						Body: &ast.ExprBlock{
+							Inner: &ast.ExprInt{
+								V: 42,
+							},
 						},
 					},
 				},
@@ -1768,17 +1772,19 @@ func TestLexParse0(t *testing.T) {
 			Title:  "f2",
 			Args:   []*interfaces.Arg{},
 			Return: types.TypeInt,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "+",
-					},
-					&ast.ExprInt{
-						V: 13,
-					},
-					&ast.ExprInt{
-						V: 42,
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "+",
+						},
+						&ast.ExprInt{
+							V: 13,
+						},
+						&ast.ExprInt{
+							V: 42,
+						},
 					},
 				},
 			},
@@ -1822,17 +1828,19 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 			Return: types.TypeInt,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "+",
-					},
-					&ast.ExprVar{
-						Name: "a",
-					},
-					&ast.ExprVar{
-						Name: "b",
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "+",
+						},
+						&ast.ExprVar{
+							Name: "a",
+						},
+						&ast.ExprVar{
+							Name: "b",
+						},
 					},
 				},
 			},
@@ -1870,17 +1878,19 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 			Return: types.TypeStr,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "+",
-					},
-					&ast.ExprStr{
-						V: "hello",
-					},
-					&ast.ExprVar{
-						Name: "x",
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "+",
+						},
+						&ast.ExprStr{
+							V: "hello",
+						},
+						&ast.ExprVar{
+							Name: "x",
+						},
 					},
 				},
 			},
@@ -1913,8 +1923,10 @@ func TestLexParse0(t *testing.T) {
 
 		fn := &ast.ExprFunc{
 			Args: []*interfaces.Arg{},
-			Body: &ast.ExprInt{
-				V: 42,
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprInt{
+					V: 42,
+				},
 			},
 		}
 		exp := &ast.StmtProg{
@@ -1946,17 +1958,19 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 			Return: types.TypeStr,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "+",
-					},
-					&ast.ExprStr{
-						V: "hello",
-					},
-					&ast.ExprVar{
-						Name: "x",
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "+",
+						},
+						&ast.ExprStr{
+							V: "hello",
+						},
+						&ast.ExprVar{
+							Name: "x",
+						},
 					},
 				},
 			},
@@ -1993,17 +2007,19 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 			Return: types.TypeStr,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "+",
-					},
-					&ast.ExprStr{
-						V: "hello",
-					},
-					&ast.ExprVar{
-						Name: "x",
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "+",
+						},
+						&ast.ExprStr{
+							V: "hello",
+						},
+						&ast.ExprVar{
+							Name: "x",
+						},
 					},
 				},
 			},
@@ -2054,10 +2070,14 @@ func TestLexParse0(t *testing.T) {
 						Title: "funcgen",
 						Args:  []*interfaces.Arg{},
 						// This is the inner function...
-						Body: &ast.ExprFunc{
-							Args: []*interfaces.Arg{},
-							Body: &ast.ExprStr{
-								V: "hello",
+						Body: &ast.ExprBlock{
+							Inner: &ast.ExprFunc{
+								Args: []*interfaces.Arg{},
+								Body: &ast.ExprBlock{
+									Inner: &ast.ExprStr{
+										V: "hello",
+									},
+								},
 							},
 						},
 					},
@@ -2104,17 +2124,19 @@ func TestLexParse0(t *testing.T) {
 				},
 			},
 			//Return: types.TypeInt,
-			Body: &ast.ExprCall{
-				Name: operators.OperatorFuncName,
-				Args: []interfaces.Expr{
-					&ast.ExprStr{
-						V: "*",
-					},
-					&ast.ExprVar{
-						Name: "x",
-					},
-					&ast.ExprVar{
-						Name: "x",
+			Body: &ast.ExprBlock{
+				Inner: &ast.ExprCall{
+					Name: operators.OperatorFuncName,
+					Args: []interfaces.Expr{
+						&ast.ExprStr{
+							V: "*",
+						},
+						&ast.ExprVar{
+							Name: "x",
+						},
+						&ast.ExprVar{
+							Name: "x",
+						},
 					},
 				},
 			},
@@ -2367,6 +2389,54 @@ func TestLexParse2(t *testing.T) {
 		t.Logf("row x col: %d x %d", e.Row, e.Col)
 		t.Logf("message: %s", e.Str)
 		t.Logf("output: %+v", err)
+	}
+}
+
+func TestLexParseWithComments1(t *testing.T) {
+	code := `# start of file comment
+$x = 42 # trailing comment
+if true {
+	# indented comment
+}
+#no space comment
+` // has comments in different places
+	str := strings.NewReader(code)
+	stmt, comments, err := LexParseWithComments(str)
+	if err != nil {
+		t.Fatalf("lex/parse failure: %+v", err)
+	}
+	if stmt == nil {
+		t.Fatalf("lex/parse missing AST")
+	}
+	expected := []*interfaces.Comment{
+		{Value: " start of file comment", Row: 0, Col: 0},
+		{Value: " trailing comment", Row: 1, Col: 8},
+		{Value: " indented comment", Row: 3, Col: 1},
+		{Value: "no space comment", Row: 5, Col: 0},
+	}
+	if a, b := len(comments), len(expected); a != b {
+		t.Fatalf("unexpected number of comments: got %d, expected %d", a, b)
+	}
+	for i, comment := range comments {
+		if !reflect.DeepEqual(comment, expected[i]) {
+			t.Errorf("unexpected comment #%d: got %+v, expected %+v", i, comment, expected[i])
+		}
+	}
+}
+
+func TestLexParseWithComments2(t *testing.T) {
+	code := `$x = 42
+` // no comments at all
+	str := strings.NewReader(code)
+	stmt, comments, err := LexParseWithComments(str)
+	if err != nil {
+		t.Fatalf("lex/parse failure: %+v", err)
+	}
+	if stmt == nil {
+		t.Fatalf("lex/parse missing AST")
+	}
+	if len(comments) != 0 {
+		t.Fatalf("unexpected comments: %+v", comments)
 	}
 }
 

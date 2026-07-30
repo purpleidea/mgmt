@@ -1,0 +1,24 @@
+$c = true
+$list1 = [1, 2, 3]
+$map1 = {"k1" => 1, "k2" => 2}
+$st1 = struct{a => 1, b => "two"}
+$a = 1 + 2 * 3
+$b = (1 + 2) * 3
+$d = not $c
+$e = $c and false or true
+$f = $list1[0]
+$g = $map1["k1"] || 0
+$h = $st1->a
+$i = $st1->b || "default"
+$j = "x" in ["x", "y"]
+$k = if $c {
+	"yes"
+} else {
+	"no"
+}
+$l = if $c { "yes" } else { "no" }
+$m int = 42
+$n = -13
+$o = 3.14
+$p = 13 - -1
+$q = ($c or false) and true

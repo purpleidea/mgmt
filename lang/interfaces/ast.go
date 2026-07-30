@@ -545,7 +545,11 @@ func (obj *ValueEnv) Copy() *ValueEnv {
 
 // Arg represents a name identifier for a func or class argument declaration and
 // is sometimes accompanied by a type. This does not satisfy the Expr interface.
+// It embeds Textarea so that the parser can store the source code position,
+// which tools such as the code formatter use.
 type Arg struct {
+	Textarea
+
 	Name string
 	Type *types.Type // nil if unspecified (needs to be solved for)
 }

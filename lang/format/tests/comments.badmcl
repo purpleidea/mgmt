@@ -1,0 +1,19 @@
+# file header comment
+# second header line
+
+
+import "fmt"
+
+$x=42 # trailing comment
+
+# standalone before resource
+file "/tmp/hello" { # trailing on header
+# standalone inside body
+	content =>    "hello", # trailing on field
+
+	# comment after a blank line
+	mode=>"0644",
+		# comment before close brace
+} # trailing on close brace
+
+# comment at end of file

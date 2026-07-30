@@ -67,6 +67,7 @@ linters:
 				- behavior
 				- capitalize
 				- capitalized
+				- capitalizes
 				- customize
 				- finalizes
 				- fulfill
@@ -125,6 +126,8 @@ linters:
 				  correction: capitalize
 				- typo: capitalised
 				  correction: capitalized
+				- typo: capitalises
+				  correction: capitalizes
 				- typo: customise
 				  correction: customize
 				- typo: finalises

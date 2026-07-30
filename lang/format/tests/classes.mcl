@@ -1,0 +1,51 @@
+import "fmt"
+
+class simple {
+	test "t1" {}
+}
+
+class params($a, $b str) {
+	test ["p-" + $a] {
+		anotherstr => $b,
+	}
+}
+
+class base:inner {
+	test "nested" {}
+}
+
+include simple
+include params("x", "y")
+include params("z", "w") as aliased
+
+func hello($name str) str {
+	"hello " + $name
+}
+
+func short() int { 42 }
+
+$fn = func($x int) int {
+	$x * 2
+}
+
+$anon = func($x) { $x }(42)
+
+$msg = fmt.printf(
+	"%s-%s", # a trailing comment
+	"a",
+	"b",
+)
+
+if true {
+	include simple
+} else {
+	include params("a", "b")
+}
+
+for $i, $v in [1, 2, 3] {
+	test ["loop-" + fmt.printf("%d", $i)] {}
+}
+
+forkv $k, $v in {"a" => 1} {
+	test [$k] {}
+}

@@ -1,0 +1,14 @@
+$empty1 = [
+	# a comment inside an empty list
+]
+$empty2 = {
+	# a comment inside an empty map
+}
+file "/tmp/empty" {
+	# TODO: fill this in
+}
+if true {
+	# empty then block
+} else {
+	# empty else block
+}

@@ -32,6 +32,7 @@ package parser
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/ast"
@@ -199,7 +200,11 @@ prog:
 			$$.stmt = &ast.StmtProg{
 				Body: stmts,
 			}
-			locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+			// We locate against the stmt and not the trailing
+			// NEWLINE, because the lexer stores the end of a
+			// newline token as the start of the next row, and that
+			// would spill this end position onto the next line.
+			locateOnly($1, $2, $$.stmt)
 		}
 	}
 // Skip over nil statements (like a newline)
@@ -249,6 +254,7 @@ stmt:
 			ThenBranch: $4.stmt,
 			//ElseBranch: nil,
 		}
+		relocate($3, $5, $4.stmt) // the block spans the braces
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 |	IF expr OPEN_CURLY prog CLOSE_CURLY ELSE OPEN_CURLY prog CLOSE_CURLY
@@ -258,6 +264,8 @@ stmt:
 			ThenBranch: $4.stmt,
 			ElseBranch: $8.stmt,
 		}
+		relocate($3, $5, $4.stmt) // the blocks span the braces
+		relocate($7, $9, $8.stmt)
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// iterate over lists
@@ -270,6 +278,7 @@ stmt:
 			Expr:  $6.expr, // XXX: name this List ?
 			Body:  $8.stmt,
 		}
+		relocate($7, $9, $8.stmt) // the block spans the braces
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// iterate over maps
@@ -282,6 +291,7 @@ stmt:
 			Expr: $6.expr, // XXX: name this Map ?
 			Body: $8.stmt,
 		}
+		relocate($7, $9, $8.stmt) // the block spans the braces
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// this is the named version, iow, a user-defined function (statement)
@@ -290,13 +300,17 @@ stmt:
 	// `func name(<arg>, <arg>) { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY
 	{
+		body := &ast.ExprBlock{
+			Inner: $8.expr,
+		}
+		relocate($6, $10, body) // the block spans the braces
 		$$.stmt = &ast.StmtFunc{
 			Name: $2.str,
 			Func: &ast.ExprFunc{
 				Title:  $2.str,
 				Args:   $4.args,
 				Return: nil,
-				Body:   $8.expr,
+				Body:   body,
 			},
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
@@ -304,11 +318,15 @@ stmt:
 	// `func name(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY
 	{
+		body := &ast.ExprBlock{
+			Inner: $9.expr,
+		}
+		relocate($7, $11, body) // the block spans the braces
 		fn := &ast.ExprFunc{
 			Title:  $2.str,
 			Args:   $4.args,
 			Return: $6.typ, // return type is known
-			Body:   $9.expr,
+			Body:   body,
 		}
 		isFullyTyped := $6.typ != nil // true if set
 		m := make(map[string]*types.Type)
@@ -351,6 +369,7 @@ stmt:
 			Args: nil,
 			Body: $4.stmt,
 		}
+		relocate($3, $5, $4.stmt) // the block spans the braces
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `class name(<arg>) { <prog> }`
@@ -362,6 +381,7 @@ stmt:
 			Args: $4.args,
 			Body: $7.stmt,
 		}
+		relocate($6, $8, $7.stmt) // the block spans the braces
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
 	}
 	// `include name`
@@ -505,17 +525,32 @@ expr:
 	}
 |	IF expr OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY ELSE OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY
 	{
+		thenBranch := &ast.ExprBlock{
+			Inner: $5.expr,
+		}
+		relocate($3, $7, thenBranch) // the blocks span the braces
+		elseBranch := &ast.ExprBlock{
+			Inner: $11.expr,
+		}
+		relocate($9, $13, elseBranch)
 		$$.expr = &ast.ExprIf{
 			Condition:  $2.expr,
-			ThenBranch: $5.expr,
-			ElseBranch: $11.expr,
+			ThenBranch: thenBranch,
+			ElseBranch: elseBranch,
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// parenthesis wrap an expression for precedence
 |	OPEN_PAREN expr CLOSE_PAREN
 	{
-		$$.expr = $2.expr
+		// We wrap it in ExprParen, which is a transient AST node that
+		// records where the explicit parenthesis were in the source
+		// code, so that tools like the code formatter can print them
+		// back out. It gets removed during the Interpolate step, since
+		// the parser already used it for expression precedence here.
+		$$.expr = &ast.ExprParen{
+			Inner: $2.expr,
+		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 ;
@@ -691,11 +726,16 @@ map_multi_kvs:
 map_multi_kv:
 	expr ROCKET expr COMMA NEWLINE
 	{
+		posLast(yylex, yyDollar) // our pos
 		$$.mapKV = &ast.ExprMapKV{
 			Key: $1.expr,
 			Val: $3.expr,
 		}
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.mapKV)
+		// We locate against the comma and not the trailing NEWLINE,
+		// because the lexer stores the end of a newline token as the
+		// start of the next row, and that would spill this end position
+		// onto the next line.
+		locateOnly($1, $4, $$.mapKV)
 	}
 ;
 struct:
@@ -784,11 +824,16 @@ struct_multi_fields:
 struct_multi_field:
 	IDENTIFIER ROCKET expr COMMA NEWLINE
 	{
+		posLast(yylex, yyDollar) // our pos
 		$$.structField = &ast.ExprStructField{
 			Name:  $1.str,
 			Value: $3.expr,
 		}
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.structField)
+		// We locate against the comma and not the trailing NEWLINE,
+		// because the lexer stores the end of a newline token as the
+		// start of the next row, and that would spill this end position
+		// onto the next line.
+		locateOnly($1, $4, $$.structField)
 	}
 ;
 call:
@@ -1181,20 +1226,28 @@ func:
 	// `func(<arg>, <arg>) { <expr> }`
 	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY
 	{
+		body := &ast.ExprBlock{
+			Inner: $7.expr,
+		}
+		relocate($5, $9, body) // the block spans the braces
 		$$.expr = &ast.ExprFunc{
 			Args: $3.args,
 			//Return: nil,
-			Body: $7.expr,
+			Body: body,
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// `func(...) <type> { <expr> }`
 |	FUNC_IDENTIFIER OPEN_PAREN args CLOSE_PAREN type OPEN_CURLY opt_newlines expr opt_newlines CLOSE_CURLY
 	{
+		body := &ast.ExprBlock{
+			Inner: $8.expr,
+		}
+		relocate($6, $10, body) // the block spans the braces
 		$$.expr = &ast.ExprFunc{
 			Args:   $3.args,
 			Return: $5.typ, // return type is known
-			Body:   $8.expr,
+			Body:   body,
 		}
 		isFullyTyped := $5.typ != nil // true if set
 		m := make(map[string]*types.Type)
@@ -1311,6 +1364,7 @@ arg:
 		$$.arg = &interfaces.Arg{
 			Name: $1.str,
 		}
+		locateOnly($1, yyDollar[len(yyDollar)-1], $$.arg)
 	}
 	// `$x <type>`
 |	var_identifier type
@@ -1319,6 +1373,7 @@ arg:
 			Name: $1.str,
 			Type: $2.typ,
 		}
+		locateOnly($1, yyDollar[len(yyDollar)-1], $$.arg)
 	}
 ;
 bind:
@@ -1754,7 +1809,13 @@ type:
 			}
 			name := a.Name
 			if name == "" {
-				name = util.NumToAlpha(i) // if unspecified...
+				// Digit names can't collide with user-written
+				// names (identifiers start with a letter) and
+				// match the types.NewType convention, so the
+				// formatter can tell them apart and omit them.
+				// We are storing the digit as a "hack" to
+				// represent the "name was omitted here" signal.
+				name = strconv.Itoa(i) // if unspecified...
 			}
 			if util.StrInList(name, ord) {
 				// duplicate arg name used
@@ -2020,9 +2081,25 @@ func locate(y yyLexer, first yySymType, last yySymType, node interface{}) {
 	// Only run Locate on nodes that look like they have not received
 	// locations yet otherwise the parser will come back and overwrite them
 	// with invalid ending positions.
-	if pn, ok := node.(interfaces.PositionableNode); !ok {
-		return
-	} else if !pn.IsSet() {
+	locateOnly(first, last, node)
+}
+
+// locateOnly is like locate, but it doesn't update the row/col position state
+// that the error messages use, so that storing positions on small nodes can't
+// change any of the reported error positions.
+func locateOnly(first yySymType, last yySymType, node interface{}) {
+	if pn, ok := node.(interfaces.PositionableNode); ok && !pn.IsSet() {
+		//pn.Locate(first.row, first.col, last.endRow, last.endCol)
+		relocate(first, last, node)
+	}
+}
+
+// relocate is like locateOnly, but it overwrites any previously stored
+// position. It is used by rules which wrap a curly brace region around an
+// already located node, so that the node's position becomes the exact span of
+// the region, brace to brace, which tools such as the code formatter rely on.
+func relocate(first yySymType, last yySymType, node interface{}) {
+	if pn, ok := node.(interfaces.PositionableNode); ok {
 		//fmt.Printf("LOCATE(%v): %v, %v, %v, %v\n", node, first.row, first.col, last.endRow, last.endCol)
 		pn.Locate(first.row, first.col, last.endRow, last.endCol)
 	}

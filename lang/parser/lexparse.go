@@ -84,6 +84,9 @@ type lexParseAST struct {
 	row int
 	col int
 
+	// comments are collected by the lexer in order of appearance.
+	comments []*interfaces.Comment
+
 	lexerErr error // from lexer
 	parseErr error // from Error(e string)
 }
@@ -91,6 +94,16 @@ type lexParseAST struct {
 // LexParse runs the lexer/parser machinery and returns the AST. Make sure that
 // the final character is a newline, or the parser may error.
 func LexParse(input io.Reader) (interfaces.Stmt, error) {
+	stmt, _, err := LexParseWithComments(input)
+	return stmt, err
+}
+
+// LexParseWithComments runs the lexer/parser machinery and returns the AST and
+// the list of comments found in the input, in order of appearance. The parser
+// skips over the comments entirely, so they are returned separately with their
+// position information. This is what a code formatting tool would want to use.
+// Make sure that the final character is a newline, or the parser may error.
+func LexParseWithComments(input io.Reader) (interfaces.Stmt, []*interfaces.Comment, error) {
 	lp := &lexParseAST{}
 	// parseResult is a seemingly unused field in the Lexer struct for us...
 	lexer := NewLexerWithInit(input, func(y *Lexer) { y.parseResult = lp })
@@ -103,9 +116,9 @@ func LexParse(input io.Reader) (interfaces.Stmt, error) {
 		err = e
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return lp.ast, nil
+	return lp.ast, lp.comments, nil
 }
 
 // LexParseWithOffsets takes an io.Reader input and a list of corresponding

@@ -37,6 +37,22 @@ import (
 	"github.com/purpleidea/mgmt/util"
 )
 
+// Comment is a single comment as found by the lexer. The parser doesn't consume
+// these as tokens, instead the lexer collects them in a side-channel list so
+// that tools such as the code formatter can re-attach them to the printed
+// output based on their position information.
+type Comment struct {
+	// Value is the text of the comment without the leading pound (#) char.
+	// It often begins with a leading space.
+	Value string
+
+	// Row is the zero-indexed line that the comment starts on.
+	Row int
+
+	// Col is the zero-indexed column that the comment starts on.
+	Col int
+}
+
 // Textarea stores the coordinates of a statement or expression in the form of a
 // starting line/column and ending line/column.
 type Textarea struct {

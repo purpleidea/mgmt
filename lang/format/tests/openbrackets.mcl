@@ -1,0 +1,21 @@
+$l = [ # trailing the open bracket
+	1,
+]
+$m = { # trailing the open curly
+	"k" => 1,
+}
+$c = fmt.printf( # trailing the open paren
+	"%d",
+	42,
+)
+import "fmt"
+
+for $i, $v in [1, 2] { # trailing the for header
+	# inside the for body
+	test [$v] {}
+}
+
+forkv $k, $v in {"a" => 1} { # trailing the forkv header
+	# inside the forkv body
+	test [$k] {}
+}

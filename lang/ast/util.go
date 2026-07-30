@@ -288,6 +288,39 @@ func CollectFiles(ast interfaces.Stmt) ([]string, error) {
 	return fileList, nil
 }
 
+// Program is a source file program in the AST.
+type Program struct {
+	Path string
+	AST  interfaces.Stmt
+}
+
+// CollectPrograms collects all the source file programs used in the AST.
+func CollectPrograms(stmt interfaces.Stmt) ([]*Program, error) {
+	prog, ok := stmt.(*StmtProg)
+	if !ok {
+		return nil, fmt.Errorf("the AST did not return a program")
+	}
+
+	seen := make(map[string]struct{})
+	programs := []*Program{}
+	var collect func(*StmtProg)
+	collect = func(prog *StmtProg) {
+		path := prog.Path()
+		if _, exists := seen[path]; path != "" && !exists {
+			seen[path] = struct{}{}
+			programs = append(programs, &Program{
+				Path: path,
+				AST:  prog,
+			})
+		}
+		for _, importProg := range prog.importProgs {
+			collect(importProg)
+		}
+	}
+	collect(prog)
+	return programs, nil
+}
+
 // CopyNodeMapping copies the map of string to node and is used in Ordering.
 func CopyNodeMapping(in map[string]interfaces.Node) map[string]interfaces.Node {
 	out := make(map[string]interfaces.Node)
@@ -334,6 +367,13 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 	//case *ExprSingleton:
 	case *ExprIf:
 		return expr.scope, nil
+
+	// These shouldn't be seen here, because they're removed during the
+	// Interpolate step, but delegate to the inner expression if one is.
+	case *ExprParen:
+		return getScope(expr.Inner)
+	case *ExprBlock:
+		return getScope(expr.Inner)
 
 	default:
 		return nil, fmt.Errorf("unexpected: %+v", node)
@@ -453,6 +493,14 @@ func checkParamScope(node interfaces.Expr, freeVars map[interfaces.Expr]struct{}
 		}
 		return nil
 
+	// These shouldn't be seen here, because they're removed during the
+	// Interpolate step, but delegate to the inner expression if one is.
+	case *ExprParen:
+		return checkParamScope(obj.Inner, freeVars)
+
+	case *ExprBlock:
+		return checkParamScope(obj.Inner, freeVars)
+
 	default:
 		return fmt.Errorf("unexpected: %+v", node)
 	}
@@ -472,6 +520,10 @@ func trueCallee(apparentCallee interfaces.Expr) interfaces.Expr {
 		return trueCallee(x.Definition)
 	case *ExprPoly: // XXX: Did we want this one added too?
 		return trueCallee(x.Definition)
+	case *ExprParen: // usually removed by Interpolate before this runs
+		return trueCallee(x.Inner)
+	case *ExprBlock: // usually removed by Interpolate before this runs
+		return trueCallee(x.Inner)
 
 	default:
 		return apparentCallee
@@ -489,6 +541,10 @@ func findExprPoly(apparentCallee interfaces.Expr) *ExprPoly {
 		return findExprPoly(x.Definition)
 	case *ExprPoly:
 		return x // found it!
+	case *ExprParen: // usually removed by Interpolate before this runs
+		return findExprPoly(x.Inner)
+	case *ExprBlock: // usually removed by Interpolate before this runs
+		return findExprPoly(x.Inner)
 	default:
 		return nil // not found!
 	}

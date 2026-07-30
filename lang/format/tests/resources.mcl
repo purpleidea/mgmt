@@ -1,0 +1,28 @@
+$present = true
+
+file "/tmp/a" {}
+
+file "/tmp/b" {
+	content => "hello",
+	mode => $present ?: "0644",
+
+	Meta:noop => true,
+	Meta => struct{retry => 3},
+	Before => File["/tmp/a"],
+	Notify => $present ?: File["/tmp/a"],
+}
+
+file ["/tmp/c", "/tmp/d"] {
+	content => "multi",
+}
+
+File["/tmp/a"] -> File["/tmp/b"]
+File["/tmp/a"] -> File["/tmp/b"] -> File["/tmp/c"]
+Test["t1"].foo_send -> Test["t2"].blah_recv
+Dhcp:Host["h1"] -> Dhcp:Host["h2"]
+
+panic("oops")
+
+collect file "/tmp/exported" {
+	content => "data",
+}

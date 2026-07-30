@@ -8483,10 +8483,7 @@ func (obj *ExprMap) String() string {
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *ExprMap) Apply(fn func(interfaces.Node) error) error {
 	for _, x := range obj.KVs {
-		if err := x.Key.Apply(fn); err != nil {
-			return err
-		}
-		if err := x.Val.Apply(fn); err != nil {
+		if err := x.Apply(fn); err != nil {
 			return err
 		}
 	}
@@ -9021,12 +9018,33 @@ func (obj *ExprMap) Value() (types.Value, error) {
 }
 
 // ExprMapKV represents a key and value pair in a (dictionary) map. This does
-// not satisfy the Expr interface.
+// not satisfy the Expr interface, but it does satisfy the Node interface, so
+// that generic AST traversals with Apply can visit it.
 type ExprMapKV struct {
 	interfaces.Textarea
 
 	Key interfaces.Expr // keys can be strings, int's, etc...
 	Val interfaces.Expr
+}
+
+// String returns a short representation of this key value pair.
+func (obj *ExprMapKV) String() string {
+	return fmt.Sprintf("mapkv(%s => %s)", obj.Key.String(), obj.Val.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprMapKV) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Key.Apply(fn); err != nil {
+		return err
+	}
+	if err := obj.Val.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
 }
 
 // ExprStruct is a representation of a struct.
@@ -9056,7 +9074,7 @@ func (obj *ExprStruct) String() string {
 // a select number of node types, since they won't need extra noop iterators...
 func (obj *ExprStruct) Apply(fn func(interfaces.Node) error) error {
 	for _, x := range obj.Fields {
-		if err := x.Value.Apply(fn); err != nil {
+		if err := x.Apply(fn); err != nil {
 			return err
 		}
 	}
@@ -9428,12 +9446,30 @@ func (obj *ExprStruct) Value() (types.Value, error) {
 }
 
 // ExprStructField represents a name value pair in a struct field. This does not
-// satisfy the Expr interface.
+// satisfy the Expr interface, but it does satisfy the Node interface, so that
+// generic AST traversals with Apply can visit it.
 type ExprStructField struct {
 	interfaces.Textarea
 
 	Name  string
 	Value interfaces.Expr
+}
+
+// String returns a short representation of this struct field.
+func (obj *ExprStructField) String() string {
+	return fmt.Sprintf("structfield(%s => %s)", obj.Name, obj.Value.String())
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprStructField) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Value.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
 }
 
 // ExprFunc is a representation of a function value. This is not a function
@@ -13064,4 +13100,366 @@ func (obj *ExprIf) Value() (types.Value, error) {
 		return obj.ThenBranch.Value()
 	}
 	return obj.ElseBranch.Value()
+}
+
+// ExprParen is a set of parenthesis which wrap an expression. It is a transient
+// AST node which exists only between the parsing and interpolation stages. The
+// parser produces one for every explicit set of parenthesis in the source code,
+// and the Interpolate step removes them by returning the interpolated inner
+// expression, since they carry no semantic meaning; the parser already used
+// them to shape the AST. They exist so that tools which need to know about the
+// original source code (such as the code formatter) can find out where the
+// explicit parenthesis were. Every other method delegates to the inner
+// expression.
+type ExprParen struct {
+	interfaces.Textarea
+
+	Inner interfaces.Expr // the inner expression
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprParen) String() string {
+	return "paren(" + obj.Inner.String() + ")"
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprParen) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Inner.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprParen) Init(data *interfaces.Data) error {
+	obj.Textarea.Setup(data)
+
+	return obj.Inner.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This particular implementation removes the ExprParen node from the AST, since
+// it only exists to keep track of the parenthesis positions in the source code.
+func (obj *ExprParen) Interpolate() (interfaces.Expr, error) {
+	return obj.Inner.Interpolate() // remove the wrapper!
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprParen) Copy() (interfaces.Expr, error) {
+	inner, err := obj.Inner.Copy()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprParen{
+		Textarea: obj.Textarea,
+		Inner:    inner,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprParen) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraint: We know the inner expression has to be
+	// satisfied before this ExprParen expression itself can be used, since
+	// ExprParen delegates to it.
+	edge := &pgraph.SimpleEdge{Name: "exprparen1"}
+	graph.AddEdge(obj.Inner, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Inner.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "exprparen2"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *ExprParen) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	return obj.Inner.SetScope(scope, sctx)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprParen) SetType(typ *types.Type) error {
+	return obj.Inner.SetType(typ)
+}
+
+// Type returns the type of this expression.
+func (obj *ExprParen) Type() (*types.Type, error) {
+	return obj.Inner.Type()
+}
+
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer is an exception to that pattern.
+func (obj *ExprParen) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Inner.Infer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprParen) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprParen) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	return obj.Inner.Graph(env)
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the inner expr) will have had this done to
+// them first, and as such when we try and retrieve the set value from this
+// expression by calling `Value`, it will build it from scratch!
+func (obj *ExprParen) SetValue(value types.Value) error {
+	return obj.Inner.SetValue(value)
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprParen) Value() (types.Value, error) {
+	return obj.Inner.Value()
+}
+
+// ExprBlock is a set of curly braces which wrap an expression, as used for the
+// branches of an if expression and for function bodies. It is a transient AST
+// node which exists only between the parsing and interpolation stages. The
+// parser produces one for every such curly brace region in the source code, and
+// the Interpolate step removes them by returning the interpolated inner
+// expression, since they carry no semantic meaning; the grammar requires the
+// braces. They exist so that every delimited region of source code is a located
+// node, which tools such as the code formatter depend on. Every other method
+// delegates to the inner expression.
+type ExprBlock struct {
+	interfaces.Textarea
+
+	Inner interfaces.Expr // the inner expression
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprBlock) String() string {
+	return "block(" + obj.Inner.String() + ")"
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprBlock) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Inner.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprBlock) Init(data *interfaces.Data) error {
+	obj.Textarea.Setup(data)
+
+	return obj.Inner.Init(data)
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+// This particular implementation removes the ExprBlock node from the AST, since
+// it only exists to keep track of the curly brace positions in the source code.
+func (obj *ExprBlock) Interpolate() (interfaces.Expr, error) {
+	return obj.Inner.Interpolate() // remove the wrapper!
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprBlock) Copy() (interfaces.Expr, error) {
+	inner, err := obj.Inner.Copy()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ExprBlock{
+		Textarea: obj.Textarea,
+		Inner:    inner,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprBlock) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	// Additional constraint: We know the inner expression has to be
+	// satisfied before this ExprBlock expression itself can be used, since
+	// ExprBlock delegates to it.
+	edge := &pgraph.SimpleEdge{Name: "exprblock1"}
+	graph.AddEdge(obj.Inner, obj, edge) // prod -> cons
+
+	cons := make(map[interfaces.Node]string)
+
+	g, c, err := obj.Inner.Ordering(produces)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g) // add in the child graph
+
+	for k, v := range c { // c is consumes
+		x, exists := cons[k]
+		if exists && v != x {
+			return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+		}
+		cons[k] = v // add to map
+
+		n, exists := produces[v]
+		if !exists {
+			continue
+		}
+		edge := &pgraph.SimpleEdge{Name: "exprblock2"}
+		graph.AddEdge(n, k, edge)
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *ExprBlock) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	return obj.Inner.SetScope(scope, sctx)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprBlock) SetType(typ *types.Type) error {
+	return obj.Inner.SetType(typ)
+}
+
+// Type returns the type of this expression.
+func (obj *ExprBlock) Type() (*types.Type, error) {
+	return obj.Inner.Type()
+}
+
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer. This Infer is an exception to that pattern.
+func (obj *ExprBlock) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	typ, invariants, err := obj.Inner.Infer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// This adds the obj ptr, so it's seen as an expr that we need to solve.
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
+	}
+	invariants = append(invariants, invar)
+
+	return typ, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprBlock) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// includes any vertices produced by this node, and the appropriate edges to any
+// vertices that are produced by its children. Nodes which fulfill the Expr
+// interface directly produce vertices (and possible children) where as nodes
+// that fulfill the Stmt interface do not produces vertices, where as their
+// children might.
+func (obj *ExprBlock) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	return obj.Inner.Graph(env)
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the inner expr) will have had this done to
+// them first, and as such when we try and retrieve the set value from this
+// expression by calling `Value`, it will build it from scratch!
+func (obj *ExprBlock) SetValue(value types.Value) error {
+	return obj.Inner.SetValue(value)
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+func (obj *ExprBlock) Value() (types.Value, error) {
+	return obj.Inner.Value()
 }

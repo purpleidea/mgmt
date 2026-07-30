@@ -35,8 +35,46 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func TestCollectPrograms(t *testing.T) {
+	main := &StmtProg{}
+	if err := main.Init(&interfaces.Data{
+		Base:     "/tmp/main/",
+		Metadata: &interfaces.Metadata{Main: "main.mcl"},
+	}); err != nil {
+		t.Fatalf("func Init failed: %+v", err)
+	}
+
+	imported := &StmtProg{}
+	if err := imported.Init(&interfaces.Data{
+		Base:     "/tmp/imported/",
+		Metadata: &interfaces.Metadata{Main: "main.mcl"},
+	}); err != nil {
+		t.Fatalf("func Init failed: %+v", err)
+	}
+
+	main.importProgs = []*StmtProg{
+		imported,
+		imported,
+	}
+
+	programs, err := CollectPrograms(main)
+	if err != nil {
+		t.Fatalf("func CollectPrograms failed: %+v", err)
+	}
+	if len(programs) != 2 {
+		t.Fatalf("unexpected program count: %d", len(programs))
+	}
+	if programs[0].Path != "/tmp/main/main.mcl" {
+		t.Fatalf("unexpected main path: %s", programs[0].Path)
+	}
+	if programs[1].Path != "/tmp/imported/main.mcl" {
+		t.Fatalf("unexpected imported path: %s", programs[1].Path)
+	}
+}
 
 func TestValueToExprPreservesStructFieldOrder(t *testing.T) {
 	fields := ""

@@ -1,0 +1,25 @@
+$list1 = [1, 2, 3]
+$list2 = [
+	"a", # first
+	"b",
+
+	# a comment between elements
+	"c",
+]
+$empty = []
+$map1 = {"k1" => 1, "k2" => 2}
+$map2 = {
+	"k1" => 1,
+	"k2" => 2,
+}
+$st1 = struct{a => 1, b => "two"}
+$st2 = struct{
+	a => 1,
+	b => "two",
+}
+$nested = [
+	[1, 2],
+	[
+		3,
+	],
+]

@@ -1,0 +1,26 @@
+func multi(
+	$a, # the first arg
+	# a comment between the args
+	$b str,
+	$c int,
+) str {
+	$b
+}
+
+func single($a, $b str, $c int) str {
+	$b
+}
+
+class withargs(
+	$name str,
+	$count int,
+) {
+	test [$name] {}
+}
+
+$lambda = func(
+	$x int,
+	$y int,
+) int {
+	$x + $y
+}

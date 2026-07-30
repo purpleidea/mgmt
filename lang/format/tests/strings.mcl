@@ -1,0 +1,6 @@
+$s1 = "hello\n"
+$s2 = "a \"quoted\" word"
+$s3 = "back\\slash and \ttab"
+$s4 = "unicode: héllo wörld"
+$s5 = "${s1} interpolated"
+$s6 = ""

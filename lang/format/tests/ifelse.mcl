@@ -1,0 +1,27 @@
+if true { # start
+	# inside then
+	test "a" {}
+	# before else brace
+} else { # else line
+	# inside else
+	test "b" {}
+	# before final brace
+}
+
+if true {
+	test "c" {}
+}
+
+if false {} else {
+	test "d" {}
+}
+
+$x = if true { # header
+	# above then value
+	"yes" # after then value
+	# before else
+} else { # on the else line
+	# above else value
+	"no" # after else value
+	# before the end
+}

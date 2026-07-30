@@ -356,7 +356,16 @@
 
 			lval.str = s[1:] // remove the leading #
 			//log.Printf("lang: lexer: comment: `%s`", lval.str)
-			//return COMMENT // skip return to avoid parsing
+			// We don't return a COMMENT token (which would need
+			// grammar support everywhere) but we instead collect
+			// the comments in a side-channel list so that tools
+			// like the code formatter can re-attach them by pos.
+			lp := yylex.cast()
+			lp.comments = append(lp.comments, &interfaces.Comment{
+				Value: lval.str,
+				Row:   yylex.Line(),
+				Col:   yylex.Column(),
+			})
 		}
 /./		{
 			yylex.pos(lval) // our pos

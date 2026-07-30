@@ -590,6 +590,12 @@ Start:
 
 		} // end of single graph traversal
 
+		// XXX: implement epoch rollover by relabelling all nodes
+		epoch++ // increment it after a successful traversal
+		if obj.Debug {
+			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
+		}
+
 		if !valid { // don't send table yet, it's not complete
 			continue
 		}
@@ -599,12 +605,6 @@ Start:
 		// We need a copy of the map since we'll keep modifying it now.
 		// The table must get cleaned up over time to be consistent. It
 		// currently happens in interrupt as a result of a node delete.
-
-		// XXX: implement epoch rollover by relabelling all nodes
-		epoch++ // increment it after a successful traversal
-		if obj.Debug {
-			obj.Logf("epoch(%d) increment to %d", epoch-1, epoch)
-		}
 
 		// NOTE: increment epoch above b/c it's needed for table skip!
 		if obj.lastTable != nil && obj.lastTable.Cmp(table) == nil {

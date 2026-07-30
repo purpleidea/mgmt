@@ -16,8 +16,7 @@ $some_key = "some_mac"
 $key1 = "done"
 $key2 = "sshkey"
 
-http:server ":9090" {
-}
+http:server ":9090" {}
 
 http:server:file "/file1" {
 	data => "hello, world, i'm file1 and i don't exist on disk!\n",

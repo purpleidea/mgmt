@@ -179,8 +179,7 @@ class vm($name, $config) {
 			},
 		],
 		osinit => "",
-		cdrom => [
-		],
+		cdrom => [],
 		network => [
 			struct{
 				# TODO: network name and mac prefix should be $const's
@@ -188,8 +187,7 @@ class vm($name, $config) {
 				mac => "52:54:00:" + $mac_tail,
 			},
 		],
-		filesystem => [
-		],
+		filesystem => [],
 		auth => struct{
 			username => "",
 			password => "",

@@ -15,8 +15,7 @@
 # Because the value lands via send/recv it is updated in place (no graph churn),
 # so the held client connections survive across updates.
 
-http:server ":8080" {
-}
+http:server ":8080" {}
 
 # POST an event in here. The value of the `key` field becomes the payload:
 #	wget --post-data 'key=hello' -O - http://127.0.0.1:8080/push

@@ -36,12 +36,9 @@ virt "mgmt4" {
 		},
 	],
 	osinit => "",
-	cdrom => [
-	],
-	network => [
-	],
-	filesystem => [
-	],
+	cdrom => [],
+	network => [],
+	filesystem => [],
 	auth => struct{
 		username => "",
 		password => "",

@@ -18,6 +18,10 @@ find_files() {
 	repo_files | grep -e '\.mcl$' -e '\.txtar$' | grep -v 'misc/TODO.mcl'
 }
 
+find_mcl_roots() {
+	repo_files | grep '\.mcl$' | grep -v 'misc/TODO.mcl' | sed 's#/.*##' | sort -u
+}
+
 bad_files=$(
 	#if grep -q '^  ' "$F"; then
 	#	echo "$F"
@@ -35,4 +39,17 @@ bad_files=$(
 if [[ -n "${bad_files}" ]]; then
 	fail_test "The following mcl files are not properly formatted: ${bad_files}"
 fi
+
+bad_files=$(
+	for i in $(find_mcl_roots); do
+		if ! "$MGMT" fmt --test "$i/" &>/dev/null; then
+			echo "$i/"
+		fi
+	done
+)
+
+if [[ -n "${bad_files}" ]]; then
+	fail_test "The following mcl files are not properly formatted (mgmt fmt --test): ${bad_files}"
+fi
+
 echo 'PASS'

@@ -293,8 +293,7 @@ mac-address={{ .Mac }}
 		Notify => Svc["NetworkManager"],
 	}
 
-	svc "NetworkManager" {
-	}
+	svc "NetworkManager" {}
 }
 
 # network_manager_static sets up a static ip address with network manager.
@@ -363,8 +362,7 @@ mac-address={{ .Mac }}
 		Notify => Svc["NetworkManager"],
 	}
 
-	svc "NetworkManager" {
-	}
+	svc "NetworkManager" {}
 }
 
 # setup wifi
@@ -428,8 +426,7 @@ addr-gen-mode=stable-privacy
 		Notify => Svc["NetworkManager"],
 	}
 
-	svc "NetworkManager" {
-	}
+	svc "NetworkManager" {}
 }
 
 # systemd_daemon_reload creates an exec which runs a systemctl daemon-reload if

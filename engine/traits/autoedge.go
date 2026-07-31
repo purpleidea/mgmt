@@ -42,7 +42,7 @@ type Edgeable struct {
 	Xmeta *engine.AutoEdgeMeta
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // AutoEdgeMeta lets you get or set meta params for the automatic edges trait.

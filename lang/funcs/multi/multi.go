@@ -75,7 +75,7 @@ type Scaffold struct {
 
 	// D is the documentation handle for this function. We look on that
 	// struct or function for the doc string.
-	D interface{}
+	D any
 }
 
 // Register registers a simple, static, pure, polymorphic function. It is easier

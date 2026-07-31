@@ -41,7 +41,7 @@ func TestPrintEmptyMessageFirstRun(t *testing.T) {
 	logs := []string{}
 	obj := &PrintRes{}
 	if err := obj.Init(&engine.Init{
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			logs = append(logs, fmt.Sprintf(format, v...))
 		},
 		Recv: func() map[string]*engine.Send {

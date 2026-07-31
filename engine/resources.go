@@ -163,7 +163,7 @@ type Init struct {
 
 	// Send exposes some variables you wish to send via the Send/Recv
 	// mechanism. You must implement the Sendable trait for this to work.
-	Send func(interface{}) error
+	Send func(any) error
 
 	// Recv provides a map of variables which were sent to this resource via
 	// the Send/Recv mechanism. You must implement the Recvable trait for
@@ -213,7 +213,7 @@ type Init struct {
 	// Logf is a logging facility which will correctly namespace any
 	// messages which you wish to pass on. You should use this instead of
 	// the log package directly for production quality resources.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // Copy makes a copy of this Init struct, with all of the same elements inside.
@@ -478,7 +478,7 @@ type BackgroundHandle struct {
 
 	//Prefix string
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // trimPath is a helper used to find the path for documentation generation.

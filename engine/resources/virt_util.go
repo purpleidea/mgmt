@@ -107,9 +107,7 @@ func generateLibvirtBackground(handle *engine.BackgroundHandle) engine.Backgroun
 		wg := sync.WaitGroup{}
 		defer wg.Wait()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			select {
 			case <-ctx.Done(): // wait until ctx exits
 			}
@@ -117,7 +115,7 @@ func generateLibvirtBackground(handle *engine.BackgroundHandle) engine.Backgroun
 			// EventRunDefaultImpl to return so that the loop below notices
 			// the done ctx when it next iterates.
 			libvirt.EventUpdateTimeout(timerID, 0)
-		}()
+		})
 
 		close(ready)   // ready to go!
 		defer cancel() // XXX: would an error below cause a block above?

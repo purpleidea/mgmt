@@ -47,7 +47,7 @@ func TestJSONEditParse(t *testing.T) {
 		name  string
 		input string
 		keys  []string
-		value interface{}
+		value any
 	}{
 		{
 			name:  "identifiers",
@@ -65,7 +65,7 @@ func TestJSONEditParse(t *testing.T) {
 			name:  "object value",
 			input: `.server.settings = {"enabled":true}`,
 			keys:  []string{"server", "settings"},
-			value: map[string]interface{}{"enabled": true},
+			value: map[string]any{"enabled": true},
 		},
 	}
 
@@ -268,8 +268,8 @@ func TestJSONEditFileCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
-	expected := map[string]interface{}{
-		"server": map[string]interface{}{
+	expected := map[string]any{
+		"server": map[string]any{
 			"old":   true,
 			"state": "ready",
 		},
@@ -334,9 +334,9 @@ func TestJSONEditFileMultipleCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
-	expected := map[string]interface{}{
-		"service": map[string]interface{}{
-			"labels": map[string]interface{}{
+	expected := map[string]any{
+		"service": map[string]any{
+			"labels": map[string]any{
 				"owner": "purple",
 			},
 			"state": "ready",
@@ -473,8 +473,8 @@ func TestJSONEditFileDeleteCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
-	expected := map[string]interface{}{
-		"server": map[string]interface{}{
+	expected := map[string]any{
+		"server": map[string]any{
 			"keep": true,
 		},
 		"untouched": json.Number("1"),

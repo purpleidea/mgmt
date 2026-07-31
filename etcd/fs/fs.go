@@ -117,7 +117,7 @@ type Fs struct {
 	Ctx context.Context
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	// DeferMetadata, when true, makes sync() of the superblock a no-op that
 	// simply marks the metadata as dirty. Callers who perform many

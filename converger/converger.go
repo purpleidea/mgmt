@@ -55,7 +55,7 @@ type Coordinator struct {
 	StateFns StateFns
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	// duration is the cached time.Duration form of Timeout. It's negative
 	// when the coordinator is disabled.

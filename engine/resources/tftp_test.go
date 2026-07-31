@@ -56,7 +56,7 @@ func TestTFTPServerWatchReportsListenErrorBeforeCheckApply(t *testing.T) {
 			}
 			return nil
 		},
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			t.Logf(format, v...)
 		},
 	}
@@ -70,8 +70,7 @@ func TestTFTPServerWatchReportsListenErrorBeforeCheckApply(t *testing.T) {
 		t.Fatalf("init failed: %+v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan error, 1)
 	go func() {
@@ -102,7 +101,7 @@ func TestTFTPServerWaitsForSuccessfulCheckApplyBeforeServing(t *testing.T) {
 			}
 			return nil
 		},
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			t.Logf(format, v...)
 		},
 	}
@@ -191,7 +190,7 @@ func TestTFTPServerWatchShutdownWithStalledClient(t *testing.T) {
 			}
 			return nil
 		},
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			t.Logf(format, v...)
 		},
 	}

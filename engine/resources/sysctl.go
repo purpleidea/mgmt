@@ -388,7 +388,7 @@ func (obj *SysctlRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *SysctlRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *SysctlRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes SysctlRes // indirection to avoid infinite recursion
 
 	def := obj.Default()        // get the default

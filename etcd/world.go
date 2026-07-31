@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -108,7 +109,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 	obj.simpleDeploy = &deployer.SimpleDeploy{
 		Client: obj.client,
 		Debug:  obj.init.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.init.Logf("deploy: "+format, v...)
 		},
 	}
@@ -128,7 +129,7 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 		Prefix:   SchedulerPath, // ends with a slash
 		Hostname: obj.init.Hostname,
 		Debug:    obj.init.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.init.Logf("scheduler: "+format, v...)
 		},
 	}).Init()
@@ -139,8 +140,8 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 // cleanup performs all the "close" actions either at the very end or as we go.
 func (obj *World) cleanup() error {
 	var errs error
-	for i := len(obj.cleanups) - 1; i >= 0; i-- { // reverse
-		f := obj.cleanups[i]
+	for _, f := range slices.Backward(obj.cleanups) { // reverse
+
 		if err := f(); err != nil {
 			errs = errwrap.Append(errs, err)
 		}
@@ -338,7 +339,7 @@ func (obj *World) Fs(ctx context.Context, uri string) (engine.Fs, error) {
 		DataPrefix: obj.StoragePrefix,
 
 		Debug: obj.init.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.init.Logf("fs: "+format, v...)
 		},
 	}

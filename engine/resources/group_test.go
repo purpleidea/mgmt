@@ -103,7 +103,7 @@ func (obj *fakeGroupFuncs) install(t *testing.T) {
 func fakeGroupInit(t *testing.T) *engine.Init {
 	return &engine.Init{
 		Debug: testing.Verbose(),
-		Logf:  func(format string, v ...interface{}) { t.Logf("group: "+format, v...) },
+		Logf:  func(format string, v ...any) { t.Logf("group: "+format, v...) },
 	}
 }
 

@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -40,7 +41,7 @@ import (
 )
 
 // AutoEdge adds the automatic edges to the graph.
-func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
+func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(format string, v ...any)) error {
 	logf("building...")
 
 	// initially get all of the autoedges to seek out all possible errors
@@ -139,7 +140,7 @@ func AutoEdge(ctx context.Context, graph *pgraph.Graph, debug bool, logf func(fo
 // matches a uid list. The index must contain the candidate UIDs of all of the
 // eligible (edgeable, not disabled) resources in the graph.
 // TODO: add ctx?
-func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, index *uidIndex, graph *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) []bool {
+func addEdgesByMatchingUIDS(res engine.EdgeableRes, uids []engine.ResUID, index *uidIndex, graph *pgraph.Graph, debug bool, logf func(format string, v ...any)) []bool {
 	// search for edges and see what matches!
 	var result []bool
 
@@ -251,10 +252,5 @@ func (obj *uidIndex) candidates(uid engine.ResUID) []*uidEntry {
 
 // UIDExistsInUIDs wraps the IFF method when used with a list of UID's.
 func UIDExistsInUIDs(uid engine.ResUID, uids []engine.ResUID) bool {
-	for _, u := range uids {
-		if uid.IFF(u) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(uids, uid.IFF)
 }

@@ -119,7 +119,7 @@ func (obj *FuncValue) Copy() types.Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *FuncValue) Value() interface{} {
+func (obj *FuncValue) Value() any {
 	// TODO: can we do something useful here?
 	panic("cannot implement Value() for FuncValue, because FuncValue is a full.FuncValue, not a Value")
 	//typ := obj.T.Reflect()
@@ -151,7 +151,7 @@ func (obj *FuncValue) Value() interface{} {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *FuncValue) Func() interface{} {
+func (obj *FuncValue) Func() any {
 	return obj.V
 }
 

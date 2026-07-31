@@ -92,7 +92,7 @@ func TestFs1(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: etcd: fs: "+format, v...)
 	}
 	etcdClient := client.NewClientFromSeedsNamespace(
@@ -212,7 +212,7 @@ func TestFs2(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: etcd: fs: "+format, v...)
 	}
 	etcdClient := client.NewClientFromSeedsNamespace(
@@ -271,7 +271,7 @@ func TestFs3(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: etcd: fs: "+format, v...)
 	}
 	etcdClient := client.NewClientFromSeedsNamespace(
@@ -458,7 +458,7 @@ func TestFsDeferMetadata(t *testing.T) {
 	}
 	defer stopEtcd() // ignore the error
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: etcd: fs: "+format, v...)
 	}
 	etcdClient := client.NewClientFromSeedsNamespace(

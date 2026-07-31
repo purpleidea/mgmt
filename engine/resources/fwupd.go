@@ -527,8 +527,8 @@ func fwupdInstall(ctx context.Context, client *fwupdClient, device *fwupdDevice,
 // the lvfs, and file uris or plain paths for local (directory kind) remotes
 // like the built-in fwupd-tests one.
 func fwupdDownload(ctx context.Context, uri string) (*os.File, error) {
-	if strings.HasPrefix(uri, "file://") {
-		return os.Open(strings.TrimPrefix(uri, "file://"))
+	if after, ok := strings.CutPrefix(uri, "file://"); ok {
+		return os.Open(after)
 	}
 	if strings.HasPrefix(uri, "/") {
 		return os.Open(uri)

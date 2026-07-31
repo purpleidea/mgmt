@@ -32,6 +32,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 )
 
@@ -108,9 +109,9 @@ func (obj *rrStrategy) Schedule(ctx context.Context, hostnames map[string]string
 	}
 
 	// remove any hosts we previously knew about from the list
-	for ix := len(obj.hosts) - 1; ix >= 0; ix-- {
+	for ix, v := range slices.Backward(obj.hosts) {
 		// without cache: !util.StrInList(obj.hosts[ix], sortedHosts)
-		if _, exists := lookupCache[obj.hosts[ix]]; !exists {
+		if _, exists := lookupCache[v]; !exists {
 			// delete entry at this index
 			obj.hosts = append(obj.hosts[:ix], obj.hosts[ix+1:]...)
 		}
@@ -121,7 +122,7 @@ func (obj *rrStrategy) Schedule(ctx context.Context, hostnames map[string]string
 
 	result := []string{}
 	// now return the number of needed hosts from the list
-	for i := 0; i < max; i++ {
+	for i := range max {
 		result = append(result, obj.hosts[i])
 	}
 

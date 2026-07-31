@@ -142,7 +142,7 @@ func newFakeInit(t *testing.T) *fakeInit {
 			}
 		},
 		Refresh: func() bool { return fi.refresh.Load() },
-		Send: func(v interface{}) error {
+		Send: func(v any) error {
 			s, ok := v.(*HTTPClientSends)
 			if !ok {
 				return fmt.Errorf("unexpected Send payload %T", v)
@@ -157,12 +157,12 @@ func newFakeInit(t *testing.T) *fakeInit {
 			return nil
 		},
 		Debug: testing.Verbose(),
-		Logf:  func(format string, v ...interface{}) { t.Logf("res: "+format, v...) },
+		Logf:  func(format string, v ...any) { t.Logf("res: "+format, v...) },
 	}
 	fi.init.Local = (&local.API{
 		Prefix: filepath.Join(tmpdir, "local"),
 		Debug:  testing.Verbose(),
-		Logf:   func(format string, v ...interface{}) { t.Logf("local: "+format, v...) },
+		Logf:   func(format string, v ...any) { t.Logf("local: "+format, v...) },
 	}).Init()
 	return fi
 }
@@ -430,8 +430,7 @@ func TestHTTPClientLongpollCheckApplyGoodStateSkipsRequest(t *testing.T) {
 	}
 	defer res.Cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	ok, err := res.CheckApply(ctx, true)
 	if err != nil {
@@ -500,8 +499,7 @@ func TestHTTPClientLongpollCheckApplyFetchesWhenNotConverged(t *testing.T) {
 			}
 			defer res.Cleanup()
 
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
+			ctx := t.Context()
 
 			// Nothing is waiting on respCh and the state is not good,
 			// so CheckApply must make its own request to recover.
@@ -563,8 +561,7 @@ func TestHTTPClientPollRefreshesExistingFile(t *testing.T) {
 	}
 	defer res.Cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	// Seed: first CheckApply downloads "v1".
 	done := make(chan struct{})

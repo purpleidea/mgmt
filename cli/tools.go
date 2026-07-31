@@ -60,14 +60,14 @@ func (obj *ToolsArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error)
 	defer cancel()
 
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.ToolsGrow; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "grow"
 		args = cmd
 	}
 	_ = name
 
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		// Don't block this globally...
 		//if !data.Flags.Debug {
 		//	return

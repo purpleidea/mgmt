@@ -990,13 +990,13 @@ func JoinToRelFile(relDir RelDir, relFile RelFile) RelFile {
 
 // JoinToRelDir joins any number of relative dir's to produce a relative dir.
 func JoinToRelDir(relDir ...RelDir) RelDir {
-	p := ""
+	var p strings.Builder
 	for _, x := range relDir {
 		x.PanicValidate()
-		p += x.path
+		p.WriteString(x.path)
 	}
 	return RelDir{
-		path: p,
+		path: p.String(),
 	}
 }
 

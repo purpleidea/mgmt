@@ -50,7 +50,7 @@ type benchSourceFunc struct {
 	trigger chan struct{}
 
 	init  *interfaces.Init
-	value int64
+	value atomic.Int64
 }
 
 func (obj *benchSourceFunc) String() string { return "benchSource" }
@@ -79,7 +79,7 @@ func (obj *benchSourceFunc) Stream(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			atomic.AddInt64(&obj.value, 1)
+			obj.value.Add(1)
 			if err := obj.init.Event(ctx); err != nil {
 				return err
 			}
@@ -91,7 +91,7 @@ func (obj *benchSourceFunc) Stream(ctx context.Context) error {
 }
 
 func (obj *benchSourceFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
-	return &types.IntValue{V: atomic.LoadInt64(&obj.value)}, nil
+	return &types.IntValue{V: obj.value.Load()}, nil
 }
 
 // benchAddFunc is a pure two-arg adder so that traversals must build the args
@@ -146,7 +146,7 @@ func BenchmarkEngineEvents(b *testing.B) {
 
 			engine := &Engine{
 				Name: "bench",
-				Logf: func(format string, v ...interface{}) {},
+				Logf: func(format string, v ...any) {},
 			}
 			if err := engine.Setup(); err != nil {
 				b.Fatalf("setup failed: %+v", err)

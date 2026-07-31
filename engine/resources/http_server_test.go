@@ -119,10 +119,10 @@ func TestHTTPServerChildWatchErrorDoesNotDeadlock(t *testing.T) {
 			}
 		},
 		Refresh: func() bool { return false },
-		Send:    func(interface{}) error { return nil },
+		Send:    func(any) error { return nil },
 		Recv:    func() map[string]*engine.Send { return map[string]*engine.Send{} },
 		Debug:   testing.Verbose(),
-		Logf:    func(format string, v ...interface{}) { t.Logf(format, v...) },
+		Logf:    func(format string, v ...any) { t.Logf(format, v...) },
 	}
 
 	// The failing child errors right after startup...
@@ -149,8 +149,7 @@ func TestHTTPServerChildWatchErrorDoesNotDeadlock(t *testing.T) {
 	}
 	defer server.Cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan error, 1)
 	go func() { done <- server.Watch(ctx) }()
@@ -192,10 +191,10 @@ func TestHTTPServerChildWatchErrorBeforeStartupDoesNotDeadlock(t *testing.T) {
 			}
 		},
 		Refresh: func() bool { return false },
-		Send:    func(interface{}) error { return nil },
+		Send:    func(any) error { return nil },
 		Recv:    func() map[string]*engine.Send { return map[string]*engine.Send{} },
 		Debug:   testing.Verbose(),
-		Logf:    func(format string, v ...interface{}) { t.Logf(format, v...) },
+		Logf:    func(format string, v ...any) { t.Logf(format, v...) },
 	}
 
 	boom := fmt.Errorf("boom")
@@ -215,8 +214,7 @@ func TestHTTPServerChildWatchErrorBeforeStartupDoesNotDeadlock(t *testing.T) {
 	}
 	defer server.Cleanup()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	done := make(chan error, 1)
 	go func() { done <- server.Watch(ctx) }()
@@ -258,7 +256,7 @@ func TestHTTPServerFileEmptyAndMissingContent(t *testing.T) {
 			}
 			obj.SetName("/event")
 			if err := obj.Init(&engine.Init{
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					t.Logf(format, v...)
 				},
 			}); err != nil {
@@ -308,10 +306,10 @@ func TestHTTPServerLongpollShutdownUnblocksHeldClient(t *testing.T) {
 			}
 		},
 		Refresh: func() bool { return false },
-		Send:    func(interface{}) error { return nil },
+		Send:    func(any) error { return nil },
 		Recv:    func() map[string]*engine.Send { return map[string]*engine.Send{} },
 		Debug:   testing.Verbose(),
-		Logf:    func(format string, v ...interface{}) { t.Logf(format, v...) },
+		Logf:    func(format string, v ...any) { t.Logf(format, v...) },
 	}
 
 	dir := t.TempDir()
@@ -468,7 +466,7 @@ func TestHTTPServerFileLongpollDataCursorAdvancesPerUpdate(t *testing.T) {
 	if err := obj.Init(&engine.Init{
 		Recv:    func() map[string]*engine.Send { return recv },
 		Refresh: func() bool { return false },
-		Logf:    func(format string, v ...interface{}) { t.Logf(format, v...) },
+		Logf:    func(format string, v ...any) { t.Logf(format, v...) },
 	}); err != nil {
 		t.Fatalf("func Init: %v", err)
 	}
@@ -516,7 +514,7 @@ func TestHTTPServerFileLongpollPathServesLogicalMtime(t *testing.T) {
 	}
 	obj.SetName("/event")
 	if err := obj.Init(&engine.Init{
-		Logf: func(format string, v ...interface{}) { t.Logf(format, v...) },
+		Logf: func(format string, v ...any) { t.Logf(format, v...) },
 	}); err != nil {
 		t.Fatalf("func Init: %v", err)
 	}

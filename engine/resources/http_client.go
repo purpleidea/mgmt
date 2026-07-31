@@ -1055,7 +1055,7 @@ func (obj *HTTPClientRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPClientRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPClientRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPClientRes // indirection to avoid infinite recursion
 
 	def := obj.Default()            // get the default
@@ -1082,7 +1082,7 @@ type HTTPClientSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *HTTPClientRes) Sends() interface{} {
+func (obj *HTTPClientRes) Sends() any {
 	return &HTTPClientSends{
 		Content: nil,
 	}
@@ -1092,7 +1092,7 @@ func (obj *HTTPClientRes) Sends() interface{} {
 // progress updates on a slow download. It throttles its log output so a fast
 // stream doesn't drown the log.
 type progressWriter struct {
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 	Debug bool
 
 	written int64
@@ -1144,10 +1144,7 @@ func (obj *retryAfterGrace) Delay(now time.Time) (time.Duration, bool) {
 	if obj.delay <= 0 {
 		obj.delay = time.Second // 1 sec minimum
 	}
-	delay := obj.delay
-	if delay > remaining {
-		delay = remaining
-	}
+	delay := min(obj.delay, remaining)
 
 	obj.delay *= 2 // exponential backoff: 1, 2, 4, ...
 	if obj.delay > time.Duration(obj.Max)*time.Second {

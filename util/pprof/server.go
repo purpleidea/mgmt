@@ -50,7 +50,7 @@ type Server struct {
 	Listen string
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	server *http.Server
 }
@@ -97,14 +97,12 @@ func (obj *Server) Run(ctx context.Context) (reterr error) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := obj.server.Serve(listener)
 		if err != http.ErrServerClosed {
 			reterr = err
 		}
-	}()
+	})
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

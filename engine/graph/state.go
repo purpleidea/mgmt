@@ -71,7 +71,7 @@ type State struct {
 	Debug bool
 
 	// Logf is the logging function that should be used to display messages.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	timestamp int64        // last updated timestamp
 	isStateOK *atomic.Bool // is state OK or do we need to run CheckApply ?
@@ -271,7 +271,7 @@ func (obj *State) Init() error {
 		VarDir: obj.varDir,
 
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.Logf(format, v...)
 		},
 	}

@@ -48,7 +48,7 @@ type Interpreter struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	// lookup stores the resources found by kind and name. It doesn't store
 	// any resources which are hidden since those could have duplicates.

@@ -50,7 +50,7 @@ type Exporter struct {
 	World engine.World
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	state map[engine.ResDelete]bool // key NOT a pointer for it to be unique
 	prev  map[engine.ResDelete]pgraph.Vertex

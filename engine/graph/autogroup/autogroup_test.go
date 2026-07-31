@@ -277,7 +277,7 @@ func (obj *testGrouper) EdgeMerge(e1, e2 pgraph.Edge) pgraph.Edge {
 // helper function
 func runGraphCmp(t *testing.T, g1, g2 *pgraph.Graph) {
 	debug := testing.Verbose() // set via the -test.v flag to `go test`
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 
@@ -1137,12 +1137,12 @@ func TestPgraphGroupingKinds5(t *testing.T) {
 func benchmarkAutoGroup(b *testing.B, n int) {
 	for i := 0; i < b.N; i++ {
 		g, _ := pgraph.NewGraph("bench")
-		for j := 0; j < n; j++ {
+		for j := range n {
 			v := NewNoopResTest(fmt.Sprintf("a%d", j))
 			g.AddVertex(v)
 		}
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			b.Fatal(err)
 		}
@@ -1160,20 +1160,20 @@ func BenchmarkAutoGroup1000(b *testing.B) { benchmarkAutoGroup(b, 1000) }
 func BenchmarkAutoGroupMixed(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		g, _ := pgraph.NewGraph("bench")
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			v := NewNoopResTest(fmt.Sprintf("a%d", j))
 			g.AddVertex(v)
 		}
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			v := NewNoopResTest(fmt.Sprintf("b%d", j))
 			g.AddVertex(v)
 		}
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			v := NewNoopResTest(fmt.Sprintf("c%d", j))
 			g.AddVertex(v)
 		}
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			b.Fatal(err)
 		}
@@ -1191,7 +1191,7 @@ func BenchmarkAutoGroupHierarchical(b *testing.B) {
 		a5 := NewKindNoopResTest("nooptestkind:foo:world:bazzz", "a5")
 		g.AddVertex(a1, a2, a3, a4, a5)
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			b.Fatal(err)
 		}
@@ -1204,13 +1204,13 @@ func BenchmarkAutoGroupNoMatch(b *testing.B) {
 	letters := "abcdefghijklmnopqrstuvwxyz"
 	for i := 0; i < b.N; i++ {
 		g, _ := pgraph.NewGraph("bench")
-		for j := 0; j < 100; j++ {
+		for j := range 100 {
 			name := fmt.Sprintf("%c%d", letters[j%len(letters)], j)
 			v := NewNoopResTest(name)
 			g.AddVertex(v)
 		}
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			b.Fatal(err)
 		}

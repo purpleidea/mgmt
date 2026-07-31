@@ -225,7 +225,7 @@ func (obj *provisioner) Init(init *entry.Init) error {
 
 // Customize implements the Customizable interface which lets us manipulate the
 // CLI.
-func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
+func (obj *provisioner) Customize(a any) (*cli.RunArgs, error) {
 	//if obj.init.Debug {
 	//	obj.init.Logf("got: %T: %+v\n", a, a) // parent Args
 	//}
@@ -239,7 +239,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	libConfig := runArgs.Config
 	//var name string
-	var args interface{}
+	var args any
 	if cmd := runArgs.RunLang; cmd != nil {
 		//name = cliUtil.LookupSubcommand(obj, cmd) // "lang" // reflect.Value.Interface: cannot return value obtained from unexported field or method
 		args = cmd
@@ -455,11 +455,11 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		out := ""
 		cmdOpts := &util.SimpleCmdOpts{
 			Debug: true,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				// XXX: HACK to make output more beautiful!
 				errorText := "cli parse error: "
 				s := fmt.Sprintf(format+"\n", v...)
-				for _, x := range strings.Split(s, "\n") {
+				for x := range strings.SplitSeq(s, "\n") {
 					if !strings.HasPrefix(x, errorText) {
 						continue
 					}
@@ -568,7 +568,7 @@ func init() {
 	//fs := embedded.MergeFS(metadata, main, files) // To merge filesystems!
 	embedded.ModuleRegister(fullModuleName, fs)
 
-	var a interface{} = &localArgs{} // must use the pointer here
+	var a any = &localArgs{} // must use the pointer here
 
 	custom := &provisioner{
 		localArgs: a.(*localArgs), // force the correct type
@@ -579,7 +579,7 @@ func init() {
 		Version: Version, // TODO: get from git?
 
 		Debug: false,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			log.Printf(format, v...)
 		},
 

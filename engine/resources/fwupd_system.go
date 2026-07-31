@@ -32,6 +32,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -89,10 +90,8 @@ func (obj *FwupdSystemRes) Validate() error {
 	if obj.State != FwupdSystemStateNewest {
 		return fmt.Errorf("the State must be %s", FwupdSystemStateNewest)
 	}
-	for _, id := range obj.Exclude {
-		if id == "" {
-			return fmt.Errorf("an Exclude entry is empty")
-		}
+	if slices.Contains(obj.Exclude, "") {
+		return fmt.Errorf("an Exclude entry is empty")
 	}
 	return nil
 }
@@ -118,12 +117,7 @@ func (obj *FwupdSystemRes) Watch(ctx context.Context) error {
 
 // isExcluded returns true if this device is on our Exclude list.
 func (obj *FwupdSystemRes) isExcluded(device *fwupdDevice) bool {
-	for _, id := range obj.Exclude {
-		if device.Matches(id) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(obj.Exclude, device.Matches)
 }
 
 // CheckApply method for the FwupdSystem resource.
@@ -209,7 +203,7 @@ func (obj *FwupdSystemRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *FwupdSystemRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *FwupdSystemRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes FwupdSystemRes // indirection to avoid infinite recursion
 
 	def := obj.Default()             // get the default

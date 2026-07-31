@@ -95,7 +95,7 @@ type Instance struct {
 	Preserve bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	// Debug enables more verbosity.
 	Debug bool
@@ -318,22 +318,18 @@ func (obj *Instance) Quit(ctx context.Context) error {
 	var err error
 	wg := &sync.WaitGroup{}
 	done := make(chan error)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		done <- obj.cmd.Wait()
 		close(done)
-	}()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		select {
 		case err = <-done:
 		case <-ctx.Done():
 			_ = obj.Kill() // should cause the Wait() to exit
 			err = ctx.Err()
 		}
-	}()
+	})
 
 	wg.Wait()
 	obj.cmd = nil

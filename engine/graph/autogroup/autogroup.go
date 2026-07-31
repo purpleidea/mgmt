@@ -40,7 +40,7 @@ import (
 
 // AutoGroup is the mechanical auto group "runner" that runs the interface spec.
 // TODO: this algorithm may not be correct in all cases. replace if needed!
-func AutoGroup(ctx context.Context, ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(format string, v ...interface{})) error {
+func AutoGroup(ctx context.Context, ag engine.AutoGrouper, g *pgraph.Graph, debug bool, logf func(format string, v ...any)) error {
 	logf("algorithm: %s...", ag.Name())
 	if err := ag.Init(g); err != nil {
 		return errwrap.Wrapf(err, "error running autoGroup(init)")

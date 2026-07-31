@@ -45,7 +45,7 @@ type SimpleCmdOpts struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	// LogOutput is the path to where we can append the stdout and stderr.
 	LogOutput string
@@ -60,7 +60,7 @@ func SimpleCmd(ctx context.Context, name string, args []string, opts *SimpleCmdO
 // SimpleCmdOut is a simple wrapper for us to run commands how we usually want
 // to. This various returns the combined command output.
 func SimpleCmdOut(ctx context.Context, name string, args []string, opts *SimpleCmdOpts) ([]byte, error) {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		if opts == nil {
 			return
 		}

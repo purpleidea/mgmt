@@ -107,7 +107,7 @@ func (obj *PanicRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *PanicRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *PanicRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes PanicRes // indirection to avoid infinite recursion
 
 	def := obj.Default()       // get the default

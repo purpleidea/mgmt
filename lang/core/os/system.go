@@ -222,9 +222,7 @@ func (obj *SystemFunc) Stream(ctx context.Context) (reterr error) {
 			// Emit one value downstream for each line from stdout.
 			// Terminates when the process exits, on its own or due
 			// to cancel().
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 
 				stdoutScanner := bufio.NewScanner(stdoutReader)
 				for stdoutScanner.Scan() {
@@ -245,20 +243,18 @@ func (obj *SystemFunc) Stream(ctx context.Context) (reterr error) {
 						return
 					}
 				}
-			}()
+			})
 
 			// Log the lines from stderr, to help the user debug.
 			// Terminates when the process exits, on its own or
 			// due to cancel().
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 
 				stderrScanner := bufio.NewScanner(stderrReader)
 				for stderrScanner.Scan() {
 					obj.init.Logf("system: \"%v\": stderr: %v\n", shellCommand, stderrScanner.Text())
 				}
-			}()
+			})
 
 			// Closes processedChan after the previous two
 			// goroutines terminate. Thus, this goroutine also

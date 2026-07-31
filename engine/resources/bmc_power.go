@@ -448,7 +448,7 @@ func (obj *BmcPowerRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *BmcPowerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *BmcPowerRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes BmcPowerRes // indirection to avoid infinite recursion
 
 	def := obj.Default()          // get the default

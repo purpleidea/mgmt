@@ -253,7 +253,7 @@ func (obj *HTTPServerFlagRes) Init(init *engine.Init) error {
 			//VarDir: obj.init.VarDir, // TODO: wrap this
 
 			Debug: obj.init.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.init.Logf(r.String()+": "+format, v...)
 			},
 		}
@@ -416,7 +416,7 @@ type HTTPServerFlagSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *HTTPServerFlagRes) Sends() interface{} {
+func (obj *HTTPServerFlagRes) Sends() any {
 	return &HTTPServerFlagSends{
 		Value: nil,
 	}
@@ -446,7 +446,7 @@ func (obj *HTTPServerFlagRes) GroupCmp(r engine.GroupableRes) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPServerFlagRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPServerFlagRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPServerFlagRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                // get the default

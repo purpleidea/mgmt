@@ -154,7 +154,7 @@ func (obj *PkgRes) Watch(ctx context.Context) error {
 	}
 	defer bus.Close()
 	bus.Debug = obj.init.Debug
-	bus.Logf = func(format string, v ...interface{}) {
+	bus.Logf = func(format string, v ...any) {
 		obj.init.Logf("packagekit: "+format, v...)
 	}
 
@@ -310,7 +310,7 @@ func (obj *PkgRes) populateFileList(ctx context.Context) error {
 	defer bus.Close()
 	if obj.init != nil {
 		bus.Debug = obj.init.Debug
-		bus.Logf = func(format string, v ...interface{}) {
+		bus.Logf = func(format string, v ...any) {
 			obj.init.Logf("packagekit: "+format, v...)
 		}
 	}
@@ -356,7 +356,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 	defer bus.Close()
 	bus.Debug = obj.init.Debug
-	bus.Logf = func(format string, v ...interface{}) {
+	bus.Logf = func(format string, v ...any) {
 		obj.init.Logf("packagekit: "+format, v...)
 	}
 
@@ -696,7 +696,7 @@ func (obj *PkgResAutoEdges) Test(input []bool) bool {
 	// 4) We then iterate in (0) until the fileList is empty!
 	var dirs = make([]string, count)
 	done := []string{}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		dir := util.Dirname(obj.fileList[i]) // dirname of /foo/ should be /
 		dirs[i] = dir
 		if input[i] {
@@ -792,7 +792,7 @@ func (obj *PkgRes) GroupCmp(r engine.GroupableRes) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *PkgRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *PkgRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes PkgRes // indirection to avoid infinite recursion
 
 	def := obj.Default()     // get the default
@@ -857,7 +857,7 @@ func InstallOnePackage(ctx context.Context, name string) error {
 			return nil
 		},
 		Debug: false,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// noop
 		},
 	}

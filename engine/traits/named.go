@@ -38,7 +38,7 @@ type Named struct {
 	Xname string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // Name returns the unique name this resource has. It is only unique within its

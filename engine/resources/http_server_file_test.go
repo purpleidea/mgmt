@@ -64,7 +64,7 @@ func TestHTTPServerFileAutoEdge1(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -118,7 +118,7 @@ func TestHTTPServerFileAutoEdge2(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -156,7 +156,7 @@ func TestHTTPServerFileAutoEdge3(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -191,7 +191,7 @@ func TestHTTPServerFileAutoEdge4(t *testing.T) {
 	g.AddVertex(resFile, resHTTPFile)
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -234,7 +234,7 @@ func TestHTTPServerFileAutoEdge5(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -302,7 +302,7 @@ func TestHTTPServerFileAutoEdge6(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {
@@ -364,7 +364,7 @@ func TestHTTPServerFileAutoEdge7(t *testing.T) {
 	}
 
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {

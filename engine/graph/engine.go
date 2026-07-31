@@ -81,7 +81,7 @@ type Engine struct {
 	// created if needed.
 	Prefix string
 	Debug  bool
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 
 	graph     *pgraph.Graph
 	nextGraph *pgraph.Graph
@@ -155,7 +155,7 @@ func (obj *Engine) Init() error {
 	obj.Exporter = &Exporter{
 		World: obj.World,
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			obj.Logf("export: "+format, v...)
 		},
@@ -303,7 +303,7 @@ func (obj *Engine) Commit(ctx context.Context) error {
 			Prefix: statePrefix,
 
 			Debug: obj.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.Logf(res.String()+": "+format, v...)
 			},
 

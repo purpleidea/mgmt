@@ -649,7 +649,7 @@ func (obj *HTTPServerUIInputRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPServerUIInputRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPServerUIInputRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPServerUIInputRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                   // get the default
@@ -675,7 +675,7 @@ type HTTPServerUIInputSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *HTTPServerUIInputRes) Sends() interface{} {
+func (obj *HTTPServerUIInputRes) Sends() any {
 	return &HTTPServerUIInputSends{
 		Value: nil,
 	}

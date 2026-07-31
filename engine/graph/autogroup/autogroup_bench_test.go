@@ -44,7 +44,7 @@ import (
 // the merges themselves.
 func buildGroupable(n int) *pgraph.Graph {
 	g, _ := pgraph.NewGraph("bench")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		g.AddVertex(NewNoopResTest(fmt.Sprintf("a%d", i)))
 	}
 	return g
@@ -55,7 +55,7 @@ func buildGroupable(n int) *pgraph.Graph {
 // pair comparisons are rejected by the cheap cmp.
 func buildLetters(n int) *pgraph.Graph {
 	g, _ := pgraph.NewGraph("bench")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		g.AddVertex(NewNoopResTest(fmt.Sprintf("%c%d", 'a'+(i%26), i)))
 	}
 	return g
@@ -67,7 +67,7 @@ func buildLetters(n int) *pgraph.Graph {
 func buildChain(n int) *pgraph.Graph {
 	g, _ := pgraph.NewGraph("bench")
 	var prev pgraph.Vertex
-	for i := 0; i < n; i++ {
+	for i := range n {
 		v := NewNoopResTest(fmt.Sprintf("a%d", i))
 		if i == 0 {
 			g.AddVertex(v)
@@ -84,7 +84,7 @@ func buildChain(n int) *pgraph.Graph {
 // possible. This approximates a large graph of resources that don't group.
 func buildDisabled(n int) *pgraph.Graph {
 	g, _ := pgraph.NewGraph("bench")
-	for i := 0; i < n; i++ {
+	for i := range n {
 		r := NewNoopResTest(fmt.Sprintf("a%d", i))
 		r.AutoGroupMeta().Disabled = true
 		g.AddVertex(r)
@@ -109,7 +109,7 @@ func BenchmarkAutoGroup(b *testing.B) {
 		{name: "chain/1000", build: func() *pgraph.Graph { return buildChain(1000) }},
 		{name: "disabled/1000", build: func() *pgraph.Graph { return buildDisabled(1000) }},
 	}
-	logf := func(format string, v ...interface{}) {} // discard
+	logf := func(format string, v ...any) {} // discard
 	for _, tc := range benchCases {
 		b.Run(tc.name, func(b *testing.B) {
 			b.ReportAllocs()

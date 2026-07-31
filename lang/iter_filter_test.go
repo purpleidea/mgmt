@@ -48,7 +48,7 @@ import (
 func runLangEvents(t *testing.T, code string, events int, timeout time.Duration) error {
 	t.Helper()
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: lang: "+format, v...)
 	}
 	mmFs := afero.NewMemMapFs()
@@ -95,7 +95,7 @@ func runLangEvents(t *testing.T, code string, events int, timeout time.Duration)
 	defer timer.Stop()
 
 	stream := lang.Stream(ctx)
-	for i := 0; i < events; i++ {
+	for i := range events {
 		select {
 		case _, ok := <-stream:
 			if !ok {

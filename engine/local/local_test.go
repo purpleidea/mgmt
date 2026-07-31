@@ -66,7 +66,7 @@ func TestHTTPPool(t *testing.T) {
 	ctx := context.Background()
 	pool := &HTTPPool{}
 	pool.Init(&HTTPPoolInit{
-		Logf: func(format string, v ...interface{}) { t.Logf("pool: "+format, v...) },
+		Logf: func(format string, v ...any) { t.Logf("pool: "+format, v...) },
 	})
 
 	// An unpublished uid reads back as an empty (zero-value) response. This
@@ -143,7 +143,7 @@ func TestBridge(t *testing.T) {
 	ctx := context.Background()
 	bridge := &BridgeImpl{}
 	bridge.Init(&BridgeInit{
-		Logf: func(format string, v ...interface{}) { t.Logf("bridge: "+format, v...) },
+		Logf: func(format string, v ...any) { t.Logf("bridge: "+format, v...) },
 	})
 
 	// An unpublished entry reads back as nil, which is the "nothing has

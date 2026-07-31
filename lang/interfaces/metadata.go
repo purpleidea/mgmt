@@ -176,7 +176,7 @@ func (obj *Metadata) ToBytes() ([]byte, error) {
 //}
 
 // UnmarshalYAML is the standard unmarshal method for this struct.
-func (obj *Metadata) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *Metadata) UnmarshalYAML(unmarshal func(any) error) error {
 	type indirect Metadata // indirection to avoid infinite recursion
 	def := DefaultMetadata()
 	// support overriding

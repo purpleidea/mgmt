@@ -160,7 +160,7 @@ func (obj *PasswordRes) write(password string) (int, error) {
 // generate generates a new password.
 func (obj *PasswordRes) generate() (string, error) {
 	max := len(alphabet) - 1 // last index
-	output := ""
+	var output strings.Builder
 
 	// FIXME: have someone verify this is cryptographically secure & correct
 	for i := uint16(0); i < obj.Length; i++ {
@@ -169,18 +169,18 @@ func (obj *PasswordRes) generate() (string, error) {
 			return "", errwrap.Wrapf(err, "could not generate password")
 		}
 		ix := big.Int64()
-		output += string(alphabet[ix])
+		output.WriteString(string(alphabet[ix]))
 	}
 
-	if output == "" { // safety against empty passwords
+	if output.String() == "" { // safety against empty passwords
 		return "", fmt.Errorf("password is empty")
 	}
 
-	if len(output) != int(obj.Length) { // safety against weird bugs
+	if len(output.String()) != int(obj.Length) { // safety against weird bugs
 		return "", fmt.Errorf("password length is too short") // bug!
 	}
 
-	return output, nil
+	return output.String(), nil
 }
 
 // check validates a stored password string
@@ -198,8 +198,8 @@ func (obj *PasswordRes) check(value string) error {
 		return fmt.Errorf("string length is not %d", obj.Length)
 	}
 Loop:
-	for i := 0; i < length; i++ {
-		for j := 0; j < len(alphabet); j++ {
+	for i := range length {
+		for j := range len(alphabet) {
 			if value[i] == alphabet[j] {
 				continue Loop
 			}
@@ -390,7 +390,7 @@ type PasswordSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *PasswordRes) Sends() interface{} {
+func (obj *PasswordRes) Sends() any {
 	return &PasswordSends{
 		Password: nil,
 	}
@@ -398,7 +398,7 @@ func (obj *PasswordRes) Sends() interface{} {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *PasswordRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *PasswordRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes PasswordRes // indirection to avoid infinite recursion
 
 	def := obj.Default()          // get the default

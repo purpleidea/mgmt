@@ -57,7 +57,7 @@ type SimpleDeploy struct {
 	Client interfaces.Client
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	ns string // TODO: if we ever need to hardcode a base path
 	wg *sync.WaitGroup

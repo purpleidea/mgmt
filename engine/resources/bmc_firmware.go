@@ -305,7 +305,7 @@ func (obj *BmcFirmwareRes) CheckApply(ctx context.Context, apply bool) (bool, er
 		FirmwareFile: obj.File,
 
 		Debug: obj.init.Debug, // TODO: add true?
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.init.Logf("bmc: "+format, v...)
 		},
 	}
@@ -437,7 +437,7 @@ func (obj *BmcFirmwareRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *BmcFirmwareRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *BmcFirmwareRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes BmcFirmwareRes // indirection to avoid infinite recursion
 
 	def := obj.Default()             // get the default

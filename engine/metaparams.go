@@ -31,6 +31,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/util"
@@ -252,10 +253,8 @@ func (obj *MetaParams) Validate() error {
 		}
 	}
 
-	for _, s := range obj.Export {
-		if s == "" {
-			return fmt.Errorf("export is empty")
-		}
+	if slices.Contains(obj.Export, "") {
+		return fmt.Errorf("export is empty")
 	}
 	// TODO: Should we validate the export patterns?
 
@@ -295,7 +294,7 @@ func (obj *MetaParams) Copy() *MetaParams {
 // UnmarshalYAML is the custom unmarshal handler for the MetaParams struct. It
 // is primarily useful for setting the defaults.
 // TODO: this is untested
-func (obj *MetaParams) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *MetaParams) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawMetaParams MetaParams            // indirection to avoid infinite recursion
 	raw := rawMetaParams(*DefaultMetaParams) // convert; the defaults go here
 

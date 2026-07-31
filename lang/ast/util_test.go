@@ -78,13 +78,13 @@ func TestCollectPrograms(t *testing.T) {
 
 func TestValueToExprPreservesStructFieldOrder(t *testing.T) {
 	fields := ""
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		fields += fmt.Sprintf("field%02d int; ", i)
 	}
 	typ := types.NewType("struct{" + fields + "}")
 	value := types.NewStruct(typ)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		expr, err := ValueToExpr(value)
 		if err != nil {
 			t.Fatal(err)

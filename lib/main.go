@@ -39,6 +39,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -91,7 +92,7 @@ type Config struct {
 	Debug bool `arg:"-"` // cli should ignore
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{}) `arg:"-"` // cli should ignore
+	Logf func(format string, v ...any) `arg:"-"` // cli should ignore
 
 	// Hostname to use; nil if undefined. Useful for testing multiple
 	// instances on same machine or for overriding a bad automatic hostname.
@@ -311,7 +312,7 @@ func (obj *Main) Init() error {
 
 // Run is the main execution entrypoint to run mgmt.
 func (obj *Main) Run(ctx context.Context) (reterr error) {
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		obj.Logf("main: "+format, v...)
 	}
 	defer func() {
@@ -458,14 +459,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	}
 
 	if obj.Pprof != nil {
-		logf := func(format string, v ...interface{}) {
+		logf := func(format string, v ...any) {
 			obj.Logf("pprof: "+format, v...)
 		}
 		server := &pprof.Server{
 			Listen: *obj.Pprof,
 
 			Debug: obj.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				logf("pprof: "+format, v...)
 			},
 		}
@@ -474,20 +475,18 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 
 		logf("starting server on: %s", server.Listen)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			// TODO: add to the ctx chain to measure shutdown too!
 			err := errwrap.Wrapf(server.Run(ctx), "the pprof server exited poorly")
 			if err != nil {
 				logf("cleanup error: %+v", err)
 				cancelCause(err)
 			}
-		}()
+		})
 	}
 
 	if !obj.NoPgp {
-		pgpLogf := func(format string, v ...interface{}) {
+		pgpLogf := func(format string, v ...any) {
 			obj.Logf("pgp: "+format, v...)
 		}
 		pgpPrefix := fmt.Sprintf("%s/", path.Join(prefix, "pgp"))
@@ -539,9 +538,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	// exit after `max-runtime` seconds for no reason at all...
 	if i := obj.MaxRuntime; i > 0 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			select {
 			//nolint:gosec // G115: max-runtime is trusted operator config in s; only wraps above 2^63
 			case <-time.After(time.Duration(i) * time.Second):
@@ -550,7 +547,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			case <-ctx.Done():
 				return
 			}
-		}()
+		})
 	}
 
 	// raise inotify limits
@@ -584,7 +581,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		StateFns: stateFns,
 
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			Logf("converger: "+format, v...)
 		},
 	}
@@ -592,16 +589,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		return errwrap.Wrapf(err, "can't init converger")
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		err := converger.Run(convergerCtx, false) // true to start paused
 		err = errwrap.NoContextCanceled(err)
 		if err == nil {
 			return
 		}
 		cancelCause(errwrap.Wrapf(err, "converger run failed"))
-	}()
+	})
 
 	// embedded etcd
 	embdCtx, embdCancel := context.WithCancel(context.Background())
@@ -629,16 +624,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			Prefix: fmt.Sprintf("%s/", path.Join(prefix, "etcd")),
 
 			Debug: obj.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.Logf("etcd: "+format, v...)
 			},
 		}
 		if err := obj.embdEtcd.Init(); err != nil {
 			return errwrap.Wrapf(err, "etcd init failed")
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer convergerCancel()
 			select {
 			case <-embdCtx.Done():
@@ -650,11 +643,9 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			}
 			Logf("etcd embd cleanup error: %+v", err)
 			cancelCause(err)
-		}()
+		})
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := obj.embdEtcd.Run(embdCtx)     // returns when it shuts down...
 			err = errwrap.NoContextCanceled(err) // strip
 			if err != nil {
@@ -665,7 +656,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// XXX: if this exits before the engine, that engine
 			// might block when trying to store some value...
 			cancelCause(nil) // try and cancel the main thing anyway
-		}()
+		})
 
 		// wait for etcd to be ready before continuing...
 		// TODO: do we need to add a timeout here?
@@ -708,9 +699,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	if err := client.Init(); err != nil {
 		return errwrap.Wrapf(err, "client Init failed")
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if obj.embdEtcd == nil {
 			defer convergerCancel()
 		} else {
@@ -725,14 +714,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 		Logf("etcd client cleanup error: %+v", err)
 		cancelCause(err)
-	}()
+	})
 
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
 		Cancel: cancelCause, // async handle to use to shut it all down
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
 		Debug:  obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.Logf("local: api: "+format, v...)
 		},
 	}).Init()
@@ -782,16 +771,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	worldInit := &engine.WorldInit{
 		Hostname: hostname,
 		Debug:    obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.Logf("world: etcd: "+format, v...)
 		},
 	}
 	if err := world.Connect(worldCtx, worldInit); err != nil {
 		return errwrap.Wrapf(err, "world Connect failed")
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer etcdCancel()
 		select {
 		case <-worldCtx.Done():
@@ -802,7 +789,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 		Logf("world cleanup error: %+v", err)
 		cancelCause(err)
-	}()
+	})
 
 	geCtx, geCancel := context.WithCancel(context.Background())
 	defer geCancel()
@@ -819,7 +806,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		Prefix:    fmt.Sprintf("%s/", path.Join(prefix, "engine")),
 		//Prometheus: prom, // TODO: implement this via a general Status API
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.Logf("engine: "+format, v...)
 		},
 	}
@@ -827,9 +814,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	if err := obj.ge.Init(); err != nil {
 		return errwrap.Wrapf(err, "engine Init failed")
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer worldCancel()
 		select {
 		case <-geCtx.Done():
@@ -840,7 +825,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		}
 		Logf("graph engine shutdown error: %+v", err)
 		cancelCause(err)
-	}()
+	})
 
 	// After this point, the inner "main loop" will run, so that the engine
 	// can get closed with the deploy close via the deploy chan shutdown...
@@ -854,9 +839,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	var gapiChan chan gapi.Next // stream events contain some instructions!
 	gapiChan = nil              // starts off blocked
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer geCancel() // at the end of deploy, we trigger this!
 		defer Logf("loop: exited")
 		started := true // track engine started state
@@ -925,7 +908,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 					NoStreamWatch: obj.NoStreamWatch,
 					Prefix:        fmt.Sprintf("%s/", path.Join(prefix, "gapi")),
 					Debug:         obj.Debug,
-					Logf: func(format string, v ...interface{}) {
+					Logf: func(format string, v ...any) {
 						obj.Logf("gapi: "+format, v...)
 					},
 				}
@@ -1196,12 +1179,10 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("prometheus: UpdatePgraphStartTime() errored: %+v", err)
 			}
 		}
-	}()
+	})
 
 	// improved etcd based deploy
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer deployCancel()
 		defer close(deployChan) // no more are coming ever!
 
@@ -1389,7 +1370,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				return
 			}
 		}
-	}()
+	})
 
 	Logf("running...")
 
@@ -1477,8 +1458,8 @@ func (obj *Main) Cleanup() error {
 	var err error
 
 	// run cleanup functions in reverse (defer) order
-	for i := len(obj.cleanup) - 1; i >= 0; i-- {
-		fn := obj.cleanup[i]
+	for _, fn := range slices.Backward(obj.cleanup) {
+
 		e := fn()
 		err = errwrap.Append(err, e) // list of errors
 	}

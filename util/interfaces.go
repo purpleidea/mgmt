@@ -30,7 +30,7 @@
 package util
 
 // Bool returns the interface value if it is a bool, and otherwise it panics.
-func Bool(x interface{}) bool {
+func Bool(x any) bool {
 	b, ok := x.(bool)
 	if !ok {
 		panic("not a bool")
@@ -39,7 +39,7 @@ func Bool(x interface{}) bool {
 }
 
 // Uint returns the interface value if it is a uint, and otherwise it panics.
-func Uint(x interface{}) uint {
+func Uint(x any) uint {
 	u, ok := x.(uint)
 	if !ok {
 		panic("not a uint")

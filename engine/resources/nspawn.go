@@ -328,7 +328,7 @@ func (obj *NspawnRes) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *NspawnRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *NspawnRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes NspawnRes // indirection to avoid infinite recursion
 
 	def := obj.Default()        // get the default
@@ -368,7 +368,7 @@ func systemdVersion() (uint16, error) {
 		return 0, errwrap.Wrapf(err, "error unquoting version number")
 	}
 	// trim possible version suffix like in "242.19-1"
-	verNum := strings.Split(verNumString, ".")[0]
+	verNum, _, _ := strings.Cut(verNumString, ".")
 	// cast to uint16
 	ver, err := strconv.ParseUint(verNum, 10, 16)
 	if err != nil {

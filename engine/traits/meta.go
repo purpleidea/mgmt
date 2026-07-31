@@ -42,7 +42,7 @@ type Meta struct {
 	Xmeta *engine.MetaParams
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // MetaParams lets you get or set meta params for this trait.

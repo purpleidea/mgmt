@@ -71,7 +71,7 @@ type RunArgs struct {
 // the same engine.
 func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.RunEmpty; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "empty"
 		args = cmd
@@ -113,7 +113,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 
 	main.Program, main.Version = data.Program, data.Version
 	main.Debug, main.Logf = data.Flags.Debug, data.Flags.Logf // no prefix
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		data.Flags.Logf("main: "+format, v...)
 	}
 
@@ -152,7 +152,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 
 		Fs:    standaloneFs,
 		Debug: data.Flags.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			data.Flags.Logf("cli: "+format, v...)
 		},
 	}
@@ -188,9 +188,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	defer wg.Wait()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// must have buffer for max number of signals
 		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
 		signal.Notify(signals, os.Interrupt) // catch ^C
@@ -228,7 +226,7 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 				return
 			}
 		}
-	}()
+	})
 
 	reterr := main.Run(ctx)
 	if reterr != nil {

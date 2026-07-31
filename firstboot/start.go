@@ -72,7 +72,7 @@ type Start struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // Main runs everything for this setup item.

@@ -62,7 +62,7 @@ func (obj *Semaphore) Close() {
 
 // P acquires n resources.
 func (obj *Semaphore) P(n int) error {
-	for i := 0; i < n; i++ {
+	for range n {
 		select {
 		case obj.C <- struct{}{}: // acquire one
 		case <-obj.closed: // exit signal
@@ -74,7 +74,7 @@ func (obj *Semaphore) P(n int) error {
 
 // V releases n resources.
 func (obj *Semaphore) V(n int) error {
-	for i := 0; i < n; i++ {
+	for range n {
 		select {
 		case <-obj.C: // release one
 		// TODO: is the closed signal needed if unlocks should always pass?

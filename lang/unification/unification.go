@@ -55,7 +55,7 @@ type Unifier struct {
 	UnifiedState *types.UnifiedState
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Unify takes an AST expression tree and attempts to assign types to every node

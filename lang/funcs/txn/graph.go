@@ -42,7 +42,7 @@ var _ interfaces.GraphAPI = &Graph{} // ensure it meets this expectation
 // interface is also implemented by *dage.Engine and the code is very similar.
 type Graph struct {
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	graph      *pgraph.Graph // guarded by graphMutex
 	graphMutex *sync.Mutex   // TODO: &sync.RWMutex{} ?

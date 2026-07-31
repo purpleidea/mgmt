@@ -168,7 +168,7 @@ func HilInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.
 
 		Prefix: data.Prefix,
 		Debug:  data.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			data.Logf("transform: "+format, v...)
 		},
 	}

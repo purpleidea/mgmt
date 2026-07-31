@@ -269,7 +269,7 @@ func (obj *LineRes) check(ctx context.Context) (bool, error) {
 		}
 
 		match := true
-		for j := 0; j < len(matchLines); j++ {
+		for j := range matchLines {
 			if fileLines[i+j] != matchLines[j] {
 				match = false
 				break
@@ -335,7 +335,7 @@ func (obj *LineRes) remove(ctx context.Context) (bool, error) {
 
 		match := true
 		if i+len(matchLines) <= len(fileLines) {
-			for j := 0; j < len(matchLines); j++ {
+			for j := range matchLines {
 				if fileLines[i+j] != matchLines[j] {
 					match = false
 					break
@@ -414,7 +414,7 @@ func (obj *LineRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *LineRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *LineRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes LineRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default

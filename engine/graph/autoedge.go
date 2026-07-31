@@ -37,7 +37,7 @@ import (
 
 // AutoEdge adds the automatic edges to the graph.
 func (obj *Engine) AutoEdge(ctx context.Context) error {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		obj.Logf("autoedge: "+format, v...)
 	}
 	return autoedge.AutoEdge(ctx, obj.nextGraph, obj.Debug, logf)

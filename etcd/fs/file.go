@@ -382,11 +382,7 @@ func (obj *File) Read(b []byte) (n int, err error) {
 	if len(b) > 0 && int(obj.cursor) >= len(obj.data) {
 		return 0, io.EOF
 	}
-	if len(obj.data)-int(obj.cursor) >= len(b) {
-		n = len(b)
-	} else {
-		n = len(obj.data) - int(obj.cursor)
-	}
+	n = min(len(obj.data)-int(obj.cursor), len(b))
 	copy(b, obj.data[obj.cursor:obj.cursor+int64(n)]) // store into input b
 	obj.cursor = obj.cursor + int64(n)                // update cursor
 
@@ -608,7 +604,7 @@ func (obj *FileInfo) IsDir() bool {
 }
 
 // Sys returns the underlying data source (can return nil).
-func (obj *FileInfo) Sys() interface{} {
+func (obj *FileInfo) Sys() any {
 	return nil // TODO: should we do something better?
 	//return obj.file.fs // TODO: would this work?
 }

@@ -593,7 +593,7 @@ func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 			//VarDir: obj.init.VarDir, // TODO: wrap this
 
 			Debug: obj.init.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.init.Logf(res.Kind()+": "+format, v...)
 			},
 		}
@@ -628,9 +628,7 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 
 	for _, r := range obj.GetGroup() { // grouped elements
 		res := r // optional in newer golang
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer close(obj.eventsChanMap[res]) // where Watch sends events
 			if err := res.Watch(ctx); err != nil {
 				select {
@@ -638,15 +636,13 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 				case <-ctx.Done():
 				}
 			}
-		}()
+		})
 		// wait for Watch first Event() call or immediate error...
 		select {
 		case <-obj.eventsChanMap[res]: // triggers on start or on err...
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				var ok bool
 				var err error
@@ -665,7 +661,7 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 	// we block until all the children are started first...
 
@@ -748,7 +744,7 @@ func (obj *HTTPServerUIRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPServerUIRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPServerUIRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPServerUIRes // indirection to avoid infinite recursion
 
 	def := obj.Default()              // get the default

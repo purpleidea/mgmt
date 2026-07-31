@@ -100,7 +100,7 @@ type Lang struct {
 	World    engine.World
 	Prefix   string
 	Debug    bool
-	Logf     func(format string, v ...interface{})
+	Logf     func(format string, v ...any)
 
 	ast   interfaces.Stmt // store main prog AST here
 	funcs *dage.Engine    // function event engine
@@ -202,7 +202,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 
 		Prefix: obj.Prefix,
 		Debug:  obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			obj.Logf("ast: "+format, v...)
 		},
@@ -255,7 +255,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 	obj.Logf("scope building took: %s", time.Since(timing))
 
 	// apply type unification
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		obj.Logf("unification: "+format, v...)
 	}
 	obj.Logf("running type unification...")
@@ -332,7 +332,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 		World:    obj.World,
 		//Prefix:   fmt.Sprintf("%s/", path.Join(obj.Prefix, "funcs")),
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.Logf("funcs: "+format, v...)
 		},
 	}
@@ -351,7 +351,7 @@ func (obj *Lang) Init(ctx context.Context) error {
 
 	obj.interpreter = &interpret.Interpreter{
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			obj.Logf("interpret: "+format, v...)
 		},
@@ -401,9 +401,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 
 	tableChan := obj.funcs.Stream() // after obj.funcs.Setup runs
 
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(obj.streamChan)
 		defer cancel() // if this loop errors, it should cancel and err
 
@@ -438,7 +436,7 @@ func (obj *Lang) Run(ctx context.Context) (reterr error) {
 				return
 			}
 		}
-	}()
+	})
 
 	// print some stats if the engine takes too long to startup
 	//if EngineStartupStatsTimeout > 0 {

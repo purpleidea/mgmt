@@ -120,9 +120,7 @@ func (obj *CPUCount) Stream(ctx context.Context) error {
 	defer close(closeChan)
 
 	// wait for kernel to poke us about new device changes on the system
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(eventChan)
 		for {
 			// XXX: This does *not* generate an initial event on
@@ -140,7 +138,7 @@ func (obj *CPUCount) Stream(ctx context.Context) error {
 				return
 			}
 		}
-	}()
+	})
 
 	// streams must generate an initial event on startup
 	startChan := make(chan struct{}) // start signal
@@ -201,7 +199,7 @@ func getCPUCount() (int64, error) {
 // the line the function will return 0.
 func parseCPUList(list string) (int64, error) {
 	var count int64
-	for _, rg := range strings.Split(list, ",") {
+	for rg := range strings.SplitSeq(list, ",") {
 		cpuRange := strings.SplitN(rg, "-", 2)
 		if len(cpuRange) == 1 {
 			count++

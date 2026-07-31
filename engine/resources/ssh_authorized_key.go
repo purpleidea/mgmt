@@ -318,10 +318,10 @@ func (obj *SSHAuthorizedKeyRes) Init(init *engine.Init) error {
 	obj.line = res
 
 	newInit := obj.init.Copy()
-	newInit.Send = func(interface{}) error { // override so line can't send
+	newInit.Send = func(any) error { // override so line can't send
 		return nil
 	}
-	newInit.Logf = func(format string, v ...interface{}) {
+	newInit.Logf = func(format string, v ...any) {
 		obj.init.Logf("line: "+format, v...) // TODO: good enough for now
 	}
 
@@ -488,7 +488,7 @@ func (obj *SSHAuthorizedKeyRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *SSHAuthorizedKeyRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *SSHAuthorizedKeyRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes SSHAuthorizedKeyRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                  // get the default

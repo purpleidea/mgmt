@@ -176,7 +176,7 @@ func NewClientFromNamespace(client *etcd.Client, kv etcd.KV, w etcd.Watcher, ns 
 // methods.
 type Simple struct {
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	method method
 	wg     *sync.WaitGroup
@@ -198,7 +198,7 @@ type Simple struct {
 
 // logf is a safe wrapper around the Logf parameter that doesn't panic if the
 // user didn't pass a logger in.
-func (obj *Simple) logf(format string, v ...interface{}) {
+func (obj *Simple) logf(format string, v ...any) {
 	if obj.Logf == nil {
 		return
 	}
@@ -363,9 +363,7 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 		return nil, err
 	}
 	ch := make(chan error)
-	obj.wg.Add(1) // hook in to global wait group
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(ch)
 		defer cancel()
 		var data *interfaces.WatcherData
@@ -386,7 +384,7 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 				continue // wait for ch closure, but don't block
 			}
 		}
-	}()
+	})
 	return ch, nil
 }
 
@@ -429,9 +427,7 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 	wOpts = append(wOpts, opts...)
 	var err error
 
-	obj.wg.Add(1) // hook in to global wait group
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(eventsChan)
 		defer cancel() // it's safe to cancel() more than once!
 		ch := obj.w.Watch(cancelCtx, path, wOpts...)
@@ -502,7 +498,7 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 				return
 			}
 		}
-	}()
+	})
 
 	wg.Wait() // wait for created event before we return
 
@@ -520,9 +516,7 @@ func (obj *Simple) WatchMembers(ctx context.Context) (<-chan *interfaces.Members
 	}
 
 	ch := make(chan *interfaces.MembersResult)
-	obj.wg.Add(1) // hook in to global wait group
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(ch)
 		for {
 
@@ -584,7 +578,7 @@ func (obj *Simple) WatchMembers(ctx context.Context) (<-chan *interfaces.Members
 				return
 			}
 		}
-	}()
+	})
 
 	return ch, nil
 }

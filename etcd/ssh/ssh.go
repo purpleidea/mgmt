@@ -39,6 +39,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -632,8 +633,8 @@ func (obj *World) closeSSH() error {
 	obj.sshMutex.Lock()
 	defer obj.sshMutex.Unlock()
 	var errs error
-	for i := len(obj.sshCleanups) - 1; i >= 0; i-- { // reverse
-		if err := obj.sshCleanups[i](); err != nil {
+	for _, v := range slices.Backward(obj.sshCleanups) { // reverse
+		if err := v(); err != nil {
 			errs = errwrap.Append(errs, err)
 		}
 	}
@@ -644,8 +645,8 @@ func (obj *World) closeSSH() error {
 // cleanup performs all the "close" actions either at the very end or as we go.
 func (obj *World) cleanup() error {
 	var errs error
-	for i := len(obj.cleanups) - 1; i >= 0; i-- { // reverse
-		f := obj.cleanups[i]
+	for _, f := range slices.Backward(obj.cleanups) { // reverse
+
 		if err := f(); err != nil {
 			errs = errwrap.Append(errs, err)
 		}

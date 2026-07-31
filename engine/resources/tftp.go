@@ -226,9 +226,7 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 	obj.wg = &sync.WaitGroup{}
 	defer obj.wg.Wait()
 
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 
 		err := server.Serve(conn) // blocks until Shutdown() is called!
 		if err == nil {
@@ -236,7 +234,7 @@ func (obj *TFTPServerRes) Watch(ctx context.Context) error {
 			return
 		}
 		cancel(errwrap.Wrapf(err, "the server errored"))
-	}()
+	})
 	defer server.Shutdown()
 
 	select {
@@ -312,7 +310,7 @@ func (obj *TFTPServerRes) Copy() engine.CopyableRes {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TFTPServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *TFTPServerRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes TFTPServerRes // indirection to avoid infinite recursion
 
 	def := obj.Default()            // get the default
@@ -449,16 +447,14 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 		done := make(chan struct{})
 		if transfer != nil {
 			defer close(done)
-			obj.wg.Add(1)
-			go func() {
-				defer obj.wg.Done()
+			obj.wg.Go(func() {
 
 				select {
 				case <-ctx.Done():
 					_ = transfer.Close() // this unblocks ReadFrom
 				case <-done:
 				}
-			}()
+			})
 		}
 		if closer, ok := handle.(io.Closer); ok {
 			defer closer.Close()
@@ -495,7 +491,7 @@ func (obj *TFTPServerRes) hook() tftp.Hook {
 	}
 	return &hook{
 		debug: obj.init.Debug,
-		logf: func(format string, v ...interface{}) {
+		logf: func(format string, v ...any) {
 			obj.init.Logf("tftp: "+format, v...)
 		},
 	}
@@ -505,7 +501,7 @@ func (obj *TFTPServerRes) hook() tftp.Hook {
 // pass in a debug flag and a logging handle, in case we want to log some stuff.
 type hook struct {
 	debug bool
-	logf  func(format string, v ...interface{})
+	logf  func(format string, v ...any)
 }
 
 // OnSuccess is called by the tftp server if a transfer succeeds.
@@ -688,7 +684,7 @@ func (obj *TFTPFileRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TFTPFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *TFTPFileRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes TFTPFileRes // indirection to avoid infinite recursion
 
 	def := obj.Default()          // get the default

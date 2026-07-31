@@ -567,7 +567,7 @@ func (obj *HTTPServerFileResAutoEdges) Test(input []bool) bool {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPServerFileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPServerFileRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPServerFileRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                // get the default

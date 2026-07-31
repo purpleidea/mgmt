@@ -453,9 +453,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		}
 		defer rw.Close()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				var event *recwatch.Event
 				var ok bool
@@ -481,7 +479,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 	for _, frag := range obj.Fragments {
 		// This block is virtually identical to the above one.
@@ -493,9 +491,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		}
 		defer rw.Close()
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				var event *recwatch.Event
 				var ok bool
@@ -521,7 +517,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	if err := obj.init.Event(ctx); err != nil {
@@ -1150,7 +1146,7 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 		return true, nil
 	}
 
-	content := ""
+	var content strings.Builder
 	// TODO: In the future we could have a flag that merges and then sorts
 	// all the individual files in each directory before they are combined.
 	for _, frag := range obj.Fragments {
@@ -1160,7 +1156,7 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 			if err != nil {
 				return false, errwrap.Wrapf(err, "could not read file fragment")
 			}
-			content += string(out)
+			content.WriteString(string(out))
 			continue
 		}
 
@@ -1180,12 +1176,12 @@ func (obj *FileRes) fragmentsCheckApply(ctx context.Context, apply bool) (bool, 
 			if err != nil {
 				return false, errwrap.Wrapf(err, "could not read directory file fragment")
 			}
-			content += string(out)
+			content.WriteString(string(out))
 		}
 	}
 
 	// Actually write the file. This is similar to contentCheckApply.
-	bufferSrc := bytes.NewReader([]byte(content))
+	bufferSrc := bytes.NewReader([]byte(content.String()))
 	// NOTE: We pass in an invalidated sha256sum cache since we don't cache
 	// all the individual files, and it could all change without us knowing.
 	// TODO: Is the sha256sum caching even having an effect at all here ???
@@ -1717,7 +1713,7 @@ func (obj *FileRes) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *FileRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *FileRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes FileRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default
@@ -1981,19 +1977,19 @@ func mapPaths(fileInfos []FileInfo) map[string]FileInfo {
 
 // printFiles is a pretty print function to make log messages less ugly.
 func printFiles(fileInfos map[string]FileInfo) string {
-	s := ""
+	var s strings.Builder
 	keys := []string{}
 	for k := range fileInfos {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for i, k := range keys {
-		s += fileInfos[k].RelPath
+		s.WriteString(fileInfos[k].RelPath)
 		if i < len(keys)-1 {
-			s += ", "
+			s.WriteString(", ")
 		}
 	}
-	return s
+	return s.String()
 }
 
 // isInvalidSymlink is a helper which returns true if the error from os.Readlink

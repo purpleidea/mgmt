@@ -105,7 +105,7 @@ func edgeCmpFn(e1, e2 pgraph.Edge) (bool, error) {
 }
 
 func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: lang: "+format, v...)
 	}
 	mmFs := afero.NewMemMapFs()
@@ -148,13 +148,11 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	}
 	defer lang.Cleanup()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := lang.Run(ctx); err != nil && err != context.Canceled {
 			reterr = errwrap.Append(reterr, err)
 		}
-	}()
+	})
 	defer cancel() // shutdown the Run
 
 	// we only wait for the first event, instead of the continuous stream

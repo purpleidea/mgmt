@@ -476,10 +476,7 @@ func (obj *ZipFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 
 	n1 := len(newInputList1.List())
 	n2 := len(newInputList2.List())
-	n := n1
-	if n2 < n {
-		n = n2
-	}
+	n := min(n2, n1)
 
 	c := n == obj.lastN
 	if b && c {

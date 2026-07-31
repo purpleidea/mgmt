@@ -39,7 +39,7 @@ import (
 
 // Wrapf adds a new error onto an existing chain of errors. If the new error to
 // be added is nil, then the old error is returned unchanged.
-func Wrapf(err error, format string, args ...interface{}) error {
+func Wrapf(err error, format string, args ...any) error {
 	return errors.Wrapf(err, format, args...)
 }
 

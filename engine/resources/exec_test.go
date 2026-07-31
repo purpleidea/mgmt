@@ -50,7 +50,7 @@ import (
 func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 	tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
 	debug := testing.Verbose()                // set via the -test.v flag to `go test`
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	execSends := &ExecSends{}
@@ -58,7 +58,7 @@ func fakeExecInit(t *testing.T) (*engine.Init, *ExecSends) {
 		Event: func(ctx context.Context) error {
 			return nil
 		},
-		Send: func(st interface{}) error {
+		Send: func(st any) error {
 			x, ok := st.(*ExecSends)
 			if !ok {
 				return fmt.Errorf("unable to send")
@@ -353,7 +353,7 @@ func TestExecEnvEmpty(t *testing.T) {
 		t.Errorf("stdout is nil")
 		return
 	}
-	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+	for v := range strings.SplitSeq(*execSends.Stdout, "\n") {
 		if v == "" {
 			continue
 		}
@@ -409,7 +409,7 @@ func TestExecEnvSetByResource(t *testing.T) {
 		t.Errorf("stdout is nil")
 		return
 	}
-	for _, v := range strings.Split(*execSends.Stdout, "\n") {
+	for v := range strings.SplitSeq(*execSends.Stdout, "\n") {
 		if v == "" {
 			continue
 		}
@@ -539,7 +539,7 @@ func TestExecAutoEdge1(t *testing.T) {
 	}
 
 	debug := testing.Verbose() // set via the -test.v flag to `go test`
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := autoedge.AutoEdge(context.TODO(), g, debug, logf); err != nil {

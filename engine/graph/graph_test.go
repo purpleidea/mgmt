@@ -147,13 +147,13 @@ func (obj *slowWatchRes) CheckApply(ctx context.Context, apply bool) (bool, erro
 // CheckApply quickly pokes its children right away, and that poke must not run
 // the CheckApply of a child while the Watch of that child is still starting.
 func TestNoCheckApplyBeforeWatchStartup(t *testing.T) {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 
 	conv := &converger.Coordinator{
 		Timeout: -1, // disabled
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			logf("converger: "+format, v...)
 		},
 	}
@@ -164,11 +164,9 @@ func TestNoCheckApplyBeforeWatchStartup(t *testing.T) {
 	convWg := &sync.WaitGroup{}
 	defer convWg.Wait()
 	defer convCancel()
-	convWg.Add(1)
-	go func() {
-		defer convWg.Done()
+	convWg.Go(func() {
 		_ = conv.Run(convCtx, false) // errors on context cancel
-	}()
+	})
 
 	ge := &Engine{
 		Program:   "mgmt",
@@ -323,13 +321,13 @@ func (obj *restartWatchRes) CheckApply(ctx context.Context, apply bool) (bool, e
 // finished before the replacement Watch starts, and that no new CheckApply runs
 // until that replacement Watch sends its initial startup event.
 func TestWatchRestartSerializesCheckApply(t *testing.T) {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 
 	conv := &converger.Coordinator{
 		Timeout: -1, // disabled
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			logf("converger: "+format, v...)
 		},
 	}
@@ -340,11 +338,9 @@ func TestWatchRestartSerializesCheckApply(t *testing.T) {
 	convWg := &sync.WaitGroup{}
 	defer convWg.Wait()
 	defer convCancel()
-	convWg.Add(1)
-	go func() {
-		defer convWg.Done()
+	convWg.Go(func() {
 		_ = conv.Run(convCtx, false) // errors on context cancel
-	}()
+	})
 
 	ge := &Engine{
 		Program:   "mgmt",
@@ -489,13 +485,13 @@ func (obj *swallowedEventRes) CheckApply(ctx context.Context, apply bool) (bool,
 // while a CheckApply is still running is not swallowed when that CheckApply
 // completes successfully, and that it causes another CheckApply to run.
 func TestEventDuringCheckApplyNotSwallowed(t *testing.T) {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 
 	conv := &converger.Coordinator{
 		Timeout: -1, // disabled
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			logf("converger: "+format, v...)
 		},
 	}
@@ -506,11 +502,9 @@ func TestEventDuringCheckApplyNotSwallowed(t *testing.T) {
 	convWg := &sync.WaitGroup{}
 	defer convWg.Wait()
 	defer convCancel()
-	convWg.Add(1)
-	go func() {
-		defer convWg.Done()
+	convWg.Go(func() {
 		_ = conv.Run(convCtx, false) // errors on context cancel
-	}()
+	})
 
 	ge := &Engine{
 		Program:   "mgmt",

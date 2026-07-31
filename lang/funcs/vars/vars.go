@@ -32,6 +32,7 @@ package vars
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -146,8 +147,7 @@ func LookupPrefix(prefix string) map[string]func() interfaces.Var {
 // one might need to have its own unique memory address to work properly.
 func Map() map[string]func() interfaces.Var {
 	m := make(map[string]func() interfaces.Var)
-	for name, fn := range registeredVars { // copy
-		m[name] = fn
-	}
+	// copy
+	maps.Copy(m, registeredVars)
 	return m
 }

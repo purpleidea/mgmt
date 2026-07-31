@@ -941,78 +941,78 @@ func (obj *VirtRes) getOSInit() string {
 // getDomainXML returns the representative XML for a domain struct.
 // FIXME: replace this with the libvirt-go-xml package instead!
 func (obj *VirtRes) getDomainXML() string {
-	var b string
-	b += obj.getDomainType() // start domain
+	var b strings.Builder
+	b.WriteString(obj.getDomainType()) // start domain
 
-	b += fmt.Sprintf("<name>%s</name>", obj.Name())
+	b.WriteString(fmt.Sprintf("<name>%s</name>", obj.Name()))
 
 	// with this, live migrate only runs safely with identical host hardware
 	//b += "<cpu mode='host-passthrough' check='none' migratable='on' />"
 
 	// this gets us avx instructions, otherwise if not specified, cpu is bad
-	b += "<cpu mode='host-model'>" // check='partial' is added automatically
-	b += "<model fallback='forbid'>qemu64</model>"
-	b += "</cpu>"
+	b.WriteString("<cpu mode='host-model'>") // check='partial' is added automatically
+	b.WriteString("<model fallback='forbid'>qemu64</model>")
+	b.WriteString("</cpu>")
 
-	b += fmt.Sprintf("<memory unit='KiB'>%d</memory>", obj.Memory)
+	b.WriteString(fmt.Sprintf("<memory unit='KiB'>%d</memory>", obj.Memory))
 
 	if obj.HotCPUs {
-		b += fmt.Sprintf("<vcpu current='%d'>%d</vcpu>", obj.CPUs, obj.MaxCPUs)
-		b += "<vcpus>"
-		b += "<vcpu id='0' enabled='yes' hotpluggable='no' order='1'/>" // zeroth cpu can't change
-		for i := uint(1); i < obj.MaxCPUs; i++ {                        // skip first entry
+		b.WriteString(fmt.Sprintf("<vcpu current='%d'>%d</vcpu>", obj.CPUs, obj.MaxCPUs))
+		b.WriteString("<vcpus>")
+		b.WriteString("<vcpu id='0' enabled='yes' hotpluggable='no' order='1'/>") // zeroth cpu can't change
+		for i := uint(1); i < obj.MaxCPUs; i++ {                                  // skip first entry
 			enabled := "no"
 			if i < obj.CPUs {
 				enabled = "yes"
 			}
 			// all vcpus must have either set or unset order
-			b += fmt.Sprintf("<vcpu id='%d' enabled='%s' hotpluggable='yes' order='%d'/>", i, enabled, i+1)
+			b.WriteString(fmt.Sprintf("<vcpu id='%d' enabled='%s' hotpluggable='yes' order='%d'/>", i, enabled, i+1))
 		}
-		b += "</vcpus>"
+		b.WriteString("</vcpus>")
 	} else {
-		b += fmt.Sprintf("<vcpu>%d</vcpu>", obj.CPUs)
+		b.WriteString(fmt.Sprintf("<vcpu>%d</vcpu>", obj.CPUs))
 	}
 
-	b += "<os>"
-	b += obj.getOSType()
-	b += obj.getOSInit()
+	b.WriteString("<os>")
+	b.WriteString(obj.getOSType())
+	b.WriteString(obj.getOSInit())
 	if obj.Boot != nil {
 		for _, boot := range obj.Boot {
-			b += fmt.Sprintf("<boot dev='%s'/>", boot)
+			b.WriteString(fmt.Sprintf("<boot dev='%s'/>", boot))
 		}
 	}
-	b += "</os>"
+	b.WriteString("</os>")
 
 	if obj.HotCPUs {
 		// acpi is needed for cpu hotplug support
-		b += "<features>"
-		b += "<acpi/>"
-		b += "</features>"
+		b.WriteString("<features>")
+		b.WriteString("<acpi/>")
+		b.WriteString("</features>")
 	}
 
-	b += "<devices>" // start devices
+	b.WriteString("<devices>") // start devices
 
 	if obj.Disk != nil {
 		for i, disk := range obj.Disk {
-			b += disk.GetXML(i)
+			b.WriteString(disk.GetXML(i))
 		}
 	}
 
 	if obj.CDRom != nil {
 		for i, cdrom := range obj.CDRom {
-			b += cdrom.GetXML(i)
+			b.WriteString(cdrom.GetXML(i))
 		}
 	}
 
 	if obj.Network != nil {
 		for i, net := range obj.Network {
-			b += net.GetXML(i)
+			b.WriteString(net.GetXML(i))
 		}
 	}
 
 	if obj.Filesystem != nil {
 		for i, fs := range obj.Filesystem {
-			b += fs.GetXML(i)
+			b.WriteString(fs.GetXML(i))
 		}
 	}
 
@@ -1020,17 +1020,17 @@ func (obj *VirtRes) getDomainXML() string {
 	// it helps because it can ask the host to make them online...
 	if obj.HotCPUs {
 		// enable qemu guest agent (on the host side)
-		b += "<channel type='unix'>"
-		b += "<source mode='bind'/>"
-		b += "<target type='virtio' name='org.qemu.guest_agent.0'/>"
-		b += "</channel>"
+		b.WriteString("<channel type='unix'>")
+		b.WriteString("<source mode='bind'/>")
+		b.WriteString("<target type='virtio' name='org.qemu.guest_agent.0'/>")
+		b.WriteString("</channel>")
 	}
 
-	b += "<serial type='pty'><target port='0'/></serial>"
-	b += "<console type='pty'><target type='serial' port='0'/></console>"
-	b += "</devices>" // end devices
-	b += "</domain>"  // end domain
-	return b
+	b.WriteString("<serial type='pty'><target port='0'/></serial>")
+	b.WriteString("<console type='pty'><target type='serial' port='0'/></console>")
+	b.WriteString("</devices>") // end devices
+	b.WriteString("</domain>")  // end domain
+	return b.String()
 }
 
 // DiskDevice represents a disk that is attached to the virt machine.
@@ -1322,7 +1322,7 @@ func (obj *VirtRes) Background(handle *engine.BackgroundHandle) engine.Backgroun
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *VirtRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *VirtRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes VirtRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default

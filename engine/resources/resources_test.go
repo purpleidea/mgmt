@@ -518,7 +518,7 @@ func TestResources1(t *testing.T) {
 			eventChan := make(chan struct{})
 			tmpdir := fmt.Sprintf("%s/", t.TempDir()) // gets cleaned up at end, new dir for each call
 			debug := testing.Verbose()                // set via the -test.v flag to `go test`
-			logf := func(format string, v ...interface{}) {
+			logf := func(format string, v ...any) {
 				t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 			}
 			init := &engine.Init{
@@ -544,7 +544,7 @@ func TestResources1(t *testing.T) {
 				Logf:  logf,
 
 				// unused
-				Send: func(st interface{}) error {
+				Send: func(st any) error {
 					return nil
 				},
 				Recv: func() map[string]*engine.Send {
@@ -619,16 +619,14 @@ func TestResources1(t *testing.T) {
 			defer wg.Wait() // if we return early
 			defer close(changedChan)
 			defer doneCtxCancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				t.Logf("test #%d: running Watch", index)
 				if err := res.Watch(doneCtx); err != nil && err != context.Canceled {
 					t.Errorf("test #%d: FAIL", index)
 					t.Errorf("test #%d: Watch failed: %s", index, err.Error())
 				}
 				close(eventChan) // done with this part
-			}()
+			})
 
 			// TODO: can we block here if the test fails early?
 			select {
@@ -732,7 +730,7 @@ func TestResources2(t *testing.T) {
 		// TODO: add more options if needed
 
 		// logf specifies the log function for Init to pass through...
-		logf func(format string, v ...interface{})
+		logf func(format string, v ...any)
 	}
 
 	type initOption func(*initOptions)
@@ -743,7 +741,7 @@ func TestResources2(t *testing.T) {
 		}
 	}
 
-	addLogf := func(logf func(format string, v ...interface{})) initOption {
+	addLogf := func(logf func(format string, v ...any)) initOption {
 		return func(io *initOptions) {
 			io.logf = logf
 		}
@@ -764,7 +762,7 @@ func TestResources2(t *testing.T) {
 			optionFunc(io)
 		}
 
-		logf := func(format string, v ...interface{}) {
+		logf := func(format string, v ...any) {
 			if io.logf == nil {
 				return
 			}
@@ -780,7 +778,7 @@ func TestResources2(t *testing.T) {
 			},
 
 			// unused
-			Send: func(st interface{}) error {
+			Send: func(st any) error {
 				return nil
 			},
 			Recv: func() map[string]*engine.Send {

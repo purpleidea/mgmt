@@ -46,7 +46,7 @@ type Kinded struct {
 	Xkind string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // Kind returns the string representation for the kind this resource is.

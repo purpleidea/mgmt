@@ -38,7 +38,7 @@ type Refreshable struct {
 	refresh bool
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // Refresh returns the refresh notification state.

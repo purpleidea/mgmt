@@ -644,7 +644,7 @@ func (obj *FWAttrRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *FWAttrRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *FWAttrRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes FWAttrRes // indirection to avoid infinite recursion
 
 	def := obj.Default()        // get the default

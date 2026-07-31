@@ -81,7 +81,7 @@ func (obj *alphaStrategy) Schedule(ctx context.Context, hostnames map[string]str
 
 	result := []string{}
 	// now return the number of needed hosts from the list
-	for i := 0; i < max; i++ {
+	for i := range max {
 		result = append(result, sortedHosts[i])
 	}
 

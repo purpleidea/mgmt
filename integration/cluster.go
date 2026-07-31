@@ -35,6 +35,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"slices"
 	"syscall"
 	"time"
 
@@ -59,7 +60,7 @@ type Cluster struct {
 	Preserve bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	// Debug enables more verbosity.
 	Debug bool
@@ -100,7 +101,7 @@ func (obj *Cluster) Init() error {
 			Etcd:     true,
 			Hostname: h,
 			Preserve: obj.Preserve,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.Logf(fmt.Sprintf("instance <%s>: ", h)+format, v...)
 			},
 			Debug: obj.Debug,
@@ -125,7 +126,7 @@ func (obj *Cluster) Init() error {
 			EtcdServer: obj.Etcd, // is the 0th instance an etcd?
 			Hostname:   h,
 			Preserve:   obj.Preserve,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.Logf(fmt.Sprintf("instance <%s>: ", h)+format, v...)
 			},
 			Debug: obj.Debug,
@@ -142,8 +143,8 @@ func (obj *Cluster) Init() error {
 func (obj *Cluster) Close() error {
 	var err error
 	// do this in reverse for fun
-	for i := len(obj.Hostnames) - 1; i >= 0; i-- {
-		h := obj.Hostnames[i]
+	for _, h := range slices.Backward(obj.Hostnames) {
+
 		instance, exists := obj.instances[h]
 		if !exists {
 			continue
@@ -187,7 +188,7 @@ func (obj *Cluster) RunLinear() error {
 	for i, h := range obj.Hostnames {
 		// build a list of earlier instances that have already run
 		seeds := []*Instance{}
-		for j := 0; j < i; j++ {
+		for j := range i {
 			x := obj.instances[obj.Hostnames[j]]
 			seeds = append(seeds, x)
 		}
@@ -221,8 +222,8 @@ func (obj *Cluster) RunLinear() error {
 func (obj *Cluster) Kill() error {
 	var err error
 	// do this in reverse for fun
-	for i := len(obj.Hostnames) - 1; i >= 0; i-- {
-		h := obj.Hostnames[i]
+	for _, h := range slices.Backward(obj.Hostnames) {
+
 		instance, exists := obj.instances[h]
 		if !exists {
 			continue
@@ -243,8 +244,8 @@ func (obj *Cluster) Kill() error {
 func (obj *Cluster) Quit(ctx context.Context) error {
 	var err error
 	// do this in reverse for fun
-	for i := len(obj.Hostnames) - 1; i >= 0; i-- {
-		h := obj.Hostnames[i]
+	for _, h := range slices.Backward(obj.Hostnames) {
+
 		instance, exists := obj.instances[h]
 		if !exists {
 			continue

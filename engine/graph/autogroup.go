@@ -46,7 +46,7 @@ func (obj *Engine) AutoGroup(ctx context.Context, ag engine.AutoGrouper) error {
 		return fmt.Errorf("there is no active graph to autogroup")
 	}
 
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		obj.Logf("autogroup: "+format, v...)
 	}
 

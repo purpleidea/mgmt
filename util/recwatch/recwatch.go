@@ -94,7 +94,7 @@ func (obj *RecWatcher) Init() error {
 	obj.safename = path.Clean(obj.Path)          // no trailing slash
 	obj.options = &recwatchOptions{              // default recwatch options
 		debug: false,
-		logf: func(format string, v ...interface{}) {
+		logf: func(format string, v ...any) {
 			// noop
 		},
 	}
@@ -118,9 +118,7 @@ func (obj *RecWatcher) Init() error {
 		}
 	}
 
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		if err := obj.Watch(); err != nil {
 			// we need this mutex, because if we Init and then Close
 			// immediately, this can send after closed which panics!
@@ -134,7 +132,7 @@ func (obj *RecWatcher) Init() error {
 			}
 			obj.mutex.Unlock()
 		}
-	}()
+	})
 	return nil
 }
 
@@ -410,7 +408,7 @@ type Option func(*recwatchOptions)
 
 type recwatchOptions struct {
 	debug bool
-	logf  func(format string, v ...interface{})
+	logf  func(format string, v ...any)
 	// TODO: add more options
 }
 
@@ -422,7 +420,7 @@ func Debug(debug bool) Option {
 }
 
 // Logf passes a logger function that we can use if so desired.
-func Logf(logf func(format string, v ...interface{})) Option {
+func Logf(logf func(format string, v ...any)) Option {
 	return func(rwo *recwatchOptions) {
 		rwo.logf = logf
 	}

@@ -222,7 +222,7 @@ func setNoFmt(archive *txtar.Archive) (bool, error) {
 			continue
 		}
 
-		config := map[string]interface{}{}
+		config := map[string]any{}
 		if err := json.Unmarshal(archive.Files[i].Data, &config); err != nil {
 			return false, err
 		}
@@ -239,7 +239,7 @@ func setNoFmt(archive *txtar.Archive) (bool, error) {
 		return true, nil
 	}
 
-	config := map[string]interface{}{
+	config := map[string]any{
 		"nofmt": true,
 	}
 	data, err := json.MarshalIndent(config, "", "\t")

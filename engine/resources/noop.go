@@ -142,7 +142,7 @@ func (obj *NoopRes) GroupCmp(r engine.GroupableRes) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *NoopRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *NoopRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes NoopRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default

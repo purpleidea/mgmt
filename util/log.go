@@ -33,7 +33,7 @@ package util
 // TODO: Logf should end in (n int, err error) like fmt.Printf does!
 type LogWriter struct {
 	Prefix string
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 }
 
 // Write satisfies the io.Writer interface.

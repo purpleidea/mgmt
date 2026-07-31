@@ -160,8 +160,8 @@ func (obj *TLS) Generate(keyPemFile, certPemFile string) error {
 		BasicConstraintsValid: true,
 	}
 
-	hosts := strings.Split(obj.Host, ",")
-	for _, h := range hosts {
+	hosts := strings.SplitSeq(obj.Host, ",")
+	for h := range hosts {
 		if ip := net.ParseIP(h); ip != nil {
 			template.IPAddresses = append(template.IPAddresses, ip)
 		} else {

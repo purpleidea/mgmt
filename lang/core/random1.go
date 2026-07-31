@@ -35,6 +35,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -112,27 +113,27 @@ func (obj *Random1Func) Info() *interfaces.Info {
 // generate generates a random string.
 func generate(length uint16) (string, error) {
 	max := len(alphabet) - 1 // last index
-	output := ""
+	var output strings.Builder
 
 	// FIXME: have someone verify this is cryptographically secure & correct
-	for i := uint16(0); i < length; i++ {
+	for range length {
 		big, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
 		if err != nil {
 			return "", errwrap.Wrapf(err, "could not generate random string")
 		}
 		ix := big.Int64()
-		output += string(alphabet[ix])
+		output.WriteString(string(alphabet[ix]))
 	}
 
-	if length != 0 && output == "" { // safety against empty strings
+	if length != 0 && output.String() == "" { // safety against empty strings
 		return "", fmt.Errorf("string is empty")
 	}
 
-	if len(output) != int(length) { // safety against weird bugs
+	if len(output.String()) != int(length) { // safety against weird bugs
 		return "", fmt.Errorf("random string is too short") // bug!
 	}
 
-	return output, nil
+	return output.String(), nil
 }
 
 // Init runs some startup code for this function.

@@ -84,11 +84,11 @@ type Resource struct {
 	ResourceData
 
 	resource  engine.Res
-	unmarshal func(interface{}) error
+	unmarshal func(any) error
 }
 
 // UnmarshalYAML is the first stage for unmarshaling of resources.
-func (obj *Resource) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *Resource) UnmarshalYAML(unmarshal func(any) error) error {
 	obj.unmarshal = unmarshal
 	return unmarshal(&obj.ResourceData)
 }
@@ -124,11 +124,11 @@ type GraphConfig struct {
 	ResList []engine.Res
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // NewGraphConfigFromFile takes data and returns the graph config structure.
-func NewGraphConfigFromFile(data []byte, debug bool, logf func(format string, v ...interface{})) (*GraphConfig, error) {
+func NewGraphConfigFromFile(data []byte, debug bool, logf func(format string, v ...any)) (*GraphConfig, error) {
 	var config GraphConfig
 	config.Debug = debug
 	config.Logf = logf
@@ -140,7 +140,7 @@ func NewGraphConfigFromFile(data []byte, debug bool, logf func(format string, v 
 }
 
 // UnmarshalYAML unmarshalls the complete graph.
-func (obj *GraphConfig) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *GraphConfig) UnmarshalYAML(unmarshal func(any) error) error {
 	// Unmarshal the graph data, except the resources
 	if err := unmarshal(&obj.GraphConfigData); err != nil {
 		return err

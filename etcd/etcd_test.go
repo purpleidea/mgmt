@@ -61,7 +61,7 @@ func TestValidateOverlappingURLs(t *testing.T) {
 		}
 		return *u
 	}
-	logf := func(format string, v ...interface{}) {}
+	logf := func(format string, v ...any) {}
 
 	// Same host:port for both client and server should fail.
 	embdEtcd := &EmbdEtcd{

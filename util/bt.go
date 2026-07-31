@@ -68,7 +68,7 @@ type BlockedTimer struct {
 
 // Printf will print as expected when the timer expires if Cancel isn't run
 // first. This can be used multiple times.
-func (obj *BlockedTimer) Printf(format string, v ...interface{}) {
+func (obj *BlockedTimer) Printf(format string, v ...any) {
 	f := func() {
 		// safe Logf in case f.String contains %? chars...
 		s := fmt.Sprintf(format, v...)

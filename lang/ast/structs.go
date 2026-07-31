@@ -35,8 +35,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -4794,8 +4796,8 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 	// into the base class that it belongs inside. We also rename it to pop
 	// off the front prefix name once it's inside the new base class. This
 	// is all syntactic sugar to implement the class child nesting.
-	for i := len(obj.Body) - 1; i >= 0; i-- { // reverse order for remove
-		stmt, ok := obj.Body[i].(*StmtClass)
+	for i, v := range slices.Backward(obj.Body) { // reverse order for remove
+		stmt, ok := v.(*StmtClass)
 		if !ok || stmt.Name == "" {
 			continue
 		}
@@ -5028,9 +5030,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	newProduces := CopyNodeMapping(produces) // don't modify the input map!
 
 	// Overwrite anything in this scope with the shadowed parent variable!
-	for key, val := range prod {
-		newProduces[key] = val // copy, and overwrite (shadow) any parent var
-	}
+	// copy, and overwrite (shadow) any parent var
+	maps.Copy(newProduces, prod)
 
 	cons := make(map[interfaces.Node]string) // swapped!
 
@@ -5460,7 +5461,7 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 	reader := bytes.NewReader(input.Main)
 
 	// nested logger
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		//obj.data.Logf("import: "+format, v...) // don't nest!
 		obj.data.Logf(format, v...)
 	}
@@ -5746,12 +5747,7 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 
 	// TODO: move this function to a utility package
 	stmtInList := func(needle interfaces.Stmt, haystack []interfaces.Stmt) bool {
-		for _, x := range haystack {
-			if needle == x {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(haystack, needle)
 	}
 
 	stmts := []interfaces.Stmt{}
@@ -6642,9 +6638,8 @@ func (obj *StmtClass) Ordering(produces map[string]interfaces.Node) (*pgraph.Gra
 	newProduces := CopyNodeMapping(produces) // don't modify the input map!
 
 	// Overwrite anything in this scope with the shadowed parent variable!
-	for key, val := range prod {
-		newProduces[key] = val // copy, and overwrite (shadow) any parent var
-	}
+	// copy, and overwrite (shadow) any parent var
+	maps.Copy(newProduces, prod)
 
 	// additional constraint...
 	edge := &pgraph.SimpleEdge{Name: "stmtclassbody"}
@@ -6987,8 +6982,8 @@ func (obj *StmtInclude) SetScope(scope *interfaces.Scope) error {
 		}
 	}
 
-	for i := len(scope.Chain) - 1; i >= 0; i-- { // reverse order
-		x, ok := scope.Chain[i].(*StmtInclude)
+	for _, v := range slices.Backward(scope.Chain) { // reverse order
+		x, ok := v.(*StmtInclude)
 		if !ok {
 			continue
 		}
@@ -7631,7 +7626,7 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 
 		Prefix: obj.data.Prefix,
 		Debug:  obj.data.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			obj.data.Logf("interpolate: "+format, v...)
 		},
 	}
@@ -9793,9 +9788,8 @@ func (obj *ExprFunc) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 	newProduces := CopyNodeMapping(produces) // don't modify the input map!
 
 	// Overwrite anything in this scope with the shadowed parent variable!
-	for key, val := range prod {
-		newProduces[key] = val // copy, and overwrite (shadow) any parent var
-	}
+	// copy, and overwrite (shadow) any parent var
+	maps.Copy(newProduces, prod)
 
 	cons := make(map[interfaces.Node]string)
 
@@ -9836,9 +9830,7 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 
 	if obj.Body != nil {
 		sctxBody := make(map[string]interfaces.Expr)
-		for k, v := range sctx {
-			sctxBody[k] = v
-		}
+		maps.Copy(sctxBody, sctx)
 
 		// add the parameters to the context (sctx) for the body
 		// make a list as long as obj.Args
@@ -11242,7 +11234,7 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		txn := (&txn.GraphTxn{
 			GraphAPI: (&txn.Graph{
 				Debug: obj.data.Debug,
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					obj.data.Logf(format, v...)
 				},
 			}).Init(),

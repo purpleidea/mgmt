@@ -37,7 +37,7 @@ import (
 // LookupSubcommand returns the name of the subcommand in the obj, of a struct.
 // This is useful for determining the name of the subcommand that was activated.
 // It returns an empty string if a specific name was not found.
-func LookupSubcommand(obj interface{}, st interface{}) string {
+func LookupSubcommand(obj any, st any) string {
 	val := reflect.ValueOf(obj)
 	if val.Kind() == reflect.Pointer { // max one de-referencing
 		val = val.Elem()

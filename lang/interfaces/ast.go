@@ -32,6 +32,7 @@ package interfaces
 import (
 	"fmt"
 	"io"
+	"maps"
 	"sort"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -253,7 +254,7 @@ type Data struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // AbsFilename returns the absolute filename path to the code this Data struct
@@ -326,15 +327,15 @@ func (obj *Scope) Copy() *Scope {
 	iterated := obj.Iterated
 	chain := []Node{}
 
-	for k, v := range obj.Variables { // copy
-		variables[k] = v // we don't copy the expr's!
-	}
-	for k, v := range obj.Functions { // copy
-		functions[k] = v // we don't copy the generator func's
-	}
-	for k, v := range obj.Classes { // copy
-		classes[k] = v // we don't copy the StmtClass!
-	}
+	// copy
+	// we don't copy the expr's!
+	maps.Copy(variables, obj.Variables)
+	// copy
+	// we don't copy the generator func's
+	maps.Copy(functions, obj.Functions)
+	// copy
+	// we don't copy the StmtClass!
+	maps.Copy(classes, obj.Classes)
 	for _, x := range obj.Chain { // copy
 		chain = append(chain, x) // we don't copy the Stmt pointer!
 	}
@@ -457,12 +458,12 @@ func (obj *Env) Copy() *Env {
 	variables := make(map[Expr]*FuncSingleton)
 	functions := make(map[Expr]*Env)
 
-	for k, v := range obj.Variables { // copy
-		variables[k] = v // we don't copy the func's!
-	}
-	for k, v := range obj.Functions { // copy
-		functions[k] = v // we don't copy the generator func's
-	}
+	// copy
+	// we don't copy the func's!
+	maps.Copy(variables, obj.Variables)
+	// copy
+	// we don't copy the generator func's
+	maps.Copy(functions, obj.Functions)
 
 	return &Env{
 		Variables: variables,
@@ -534,9 +535,9 @@ func (obj *ValueEnv) Copy() *ValueEnv {
 
 	variables := make(map[Expr]types.Value)
 
-	for k, v := range obj.Variables { // copy
-		variables[k] = v // we don't copy the values!
-	}
+	// copy
+	// we don't copy the values!
+	maps.Copy(variables, obj.Variables)
 
 	return &ValueEnv{
 		Variables: variables,

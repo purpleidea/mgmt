@@ -191,42 +191,34 @@ func ExampleBoundedReadSemaphore() {
 
 	brs := NewBoundedReadSemaphore()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		brs.Lock()
 		defer brs.Unlock()
 		time.Sleep(100 * time.Millisecond) // delay for consistent print
 
 		fmt.Printf("#1 is in the locked zone\n")
 		time.Sleep(1 * time.Second)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		brs.Lock()
 		defer brs.Unlock()
 		time.Sleep(200 * time.Millisecond) // delay for consistent print
 
 		fmt.Printf("#2 is in the locked zone\n")
 		time.Sleep(2 * time.Second)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		brs.Lock()
 		defer brs.Unlock()
 		time.Sleep(300 * time.Millisecond) // delay for consistent print
 
 		fmt.Printf("#3 is in the locked zone\n")
 		time.Sleep(3 * time.Second)
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(ch) // exit signal
 		max := 2        // configure me
 		for {
@@ -243,7 +235,7 @@ func ExampleBoundedReadSemaphore() {
 			time.Sleep(100 * time.Millisecond) // delay for consistent print
 			fmt.Printf("#4 is in the unlocked zone\n")
 		}
-	}()
+	})
 
 Loop:
 	for {

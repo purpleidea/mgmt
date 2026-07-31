@@ -334,7 +334,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 			if err != nil {
 				return nil, err
 			}
-			name := fmt.Sprintf("%d", i) // invent a function arg name
+			name := strconv.FormatInt(int64(i), 10) // invent a function arg name
 			m[name] = tt
 			ord = append(ord, name) // in order
 		}
@@ -580,7 +580,7 @@ func newType(s string, table map[uint]*Elem) *Type {
 			// just name the keys 0, 1, 2, N...
 			// XXX: util.NumToAlpha ?
 			if key == "" {
-				key = fmt.Sprintf("%d", len(keys))
+				key = strconv.FormatInt(int64(len(keys)), 10)
 			}
 			keys = append(keys, key)
 

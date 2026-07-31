@@ -33,12 +33,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"net"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -939,11 +940,24 @@ func NewList(t *Type) *ListValue {
 
 // String returns a visual representation of this value.
 func (obj *ListValue) String() string {
-	var s []string
-	for _, x := range obj.V {
-		s = append(s, x.String())
+	switch len(obj.V) {
+	case 0:
+		return "[]"
+	case 1:
+		return "[" + obj.V[0].String() + "]"
 	}
-	return fmt.Sprintf("[%s]", strings.Join(s, ", "))
+
+	sb := builderPool.Get()
+	defer builderPool.Put(sb)
+
+	sb.WriteString("[")
+	sb.WriteString(obj.V[0].String())
+	for _, x := range obj.V[1:] {
+		sb.WriteString(", ")
+		sb.WriteString(x.String())
+	}
+	sb.WriteString("]")
+	return sb.String()
 }
 
 // Type returns the type data structure that represents this type.
@@ -1100,17 +1114,34 @@ func NewMap(t *Type) *MapValue {
 
 // String returns a visual representation of this value.
 func (obj *MapValue) String() string {
-	keys := []Value{}
-	for k := range obj.V {
-		keys = append(keys, k)
-	}
+	keys := slices.Collect(maps.Keys(obj.V))
 	sort.Sort(ValueSlice(keys)) // deterministic print order
 
-	var s []string
-	for _, k := range keys {
-		s = append(s, fmt.Sprintf("%s: %s", k.String(), obj.V[k].String()))
+	switch len(keys) {
+	case 0:
+		return "{}"
+	case 1:
+		return "{" + keys[0].String() + ": " + obj.V[keys[0]].String() + "}"
 	}
-	return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+
+	sb := builderPool.Get()
+	defer builderPool.Put(sb)
+
+	sb.WriteString("{")
+
+	sb.WriteString(keys[0].String())
+	sb.WriteString(": ")
+	sb.WriteString(obj.V[keys[0]].String())
+	for _, k := range keys[1:] {
+		sb.WriteString(", ")
+
+		sb.WriteString(k.String())
+		sb.WriteString(": ")
+		sb.WriteString(obj.V[k].String())
+	}
+
+	sb.WriteString("}")
+	return sb.String()
 }
 
 // Type returns the type data structure that represents this type.
@@ -1358,11 +1389,28 @@ func NewStruct(t *Type) *StructValue {
 
 // String returns a visual representation of this value.
 func (obj *StructValue) String() string {
-	var s []string
-	for _, k := range obj.T.Ord {
-		s = append(s, fmt.Sprintf("%s: %s", k, obj.V[k].String()))
+	switch len(obj.T.Ord) {
+	case 0:
+		return "struct{}"
+	case 1:
+		return "struct{" + obj.T.Ord[0] + obj.V[obj.T.Ord[0]].String() + "}"
 	}
-	return fmt.Sprintf("struct{%s}", strings.Join(s, "; "))
+
+	sb := builderPool.Get()
+	defer builderPool.Put(sb)
+
+	sb.WriteString("struct{")
+	sb.WriteString(obj.T.Ord[0])
+	sb.WriteString(": ")
+	sb.WriteString(obj.V[obj.T.Ord[0]].String())
+	for _, k := range obj.T.Ord[1:] {
+		sb.WriteString("; ")
+		sb.WriteString(k)
+		sb.WriteString(": ")
+		sb.WriteString(obj.V[k].String())
+	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
 // Type returns the type data structure that represents this type.

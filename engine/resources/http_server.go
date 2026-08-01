@@ -43,9 +43,8 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/pgraph"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	securefilepath "github.com/cyphar/filepath-securejoin"
 )
 
 const (
@@ -235,9 +234,9 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if HTTPUseSecureJoin {
 		var err error
-		p, err = securefilepath.SecureJoin(obj.Root, requestPath)
+		p, err = util.SecureJoin(obj.Root, requestPath)
 		if err != nil {
-			obj.init.Logf("secure join fail: %s", p)
+			obj.init.Logf("secure join fail: %s", requestPath)
 			http.NotFound(w, req) // lie to them...
 			return
 		}

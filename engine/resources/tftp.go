@@ -46,9 +46,9 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	securefilepath "github.com/cyphar/filepath-securejoin"
 	tftp "github.com/pin/tftp/v3"
 )
 
@@ -406,9 +406,9 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 			}
 			if TftpUseSecureJoin {
 				var err error
-				p, err = securefilepath.SecureJoin(obj.Root, filename)
+				p, err = util.SecureJoin(obj.Root, filename)
 				if err != nil {
-					obj.init.Logf("secure join fail: %s", p)
+					obj.init.Logf("secure join fail: %s", filename)
 					return openError // match this to below error...
 				}
 			}

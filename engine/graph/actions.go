@@ -281,6 +281,11 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		exportOK, exportErr = obj.Exporter.Export(ctx, res)
 	}()
 
+	// Did we actually run CheckApply? If we didn't, then the resource never
+	// got the chance to look at its send/recv changed flags, and so we must
+	// leave them alone for a subsequent run to consume.
+	ranCheckApply := false
+
 	// Check cached state, to skip CheckApply, but can't skip if refreshing!
 	// If the resource doesn't implement refresh, skip the refresh test.
 	// FIXME: if desired, check that we pass through refresh notifications!
@@ -303,12 +308,24 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 			obj.Logf("%s: CheckApply(%t)", res, !noop)
 		}
 		// if this fails, don't UpdateTimestamp()
+		ranCheckApply = true
 		checkOK, err = safeCheckApply(ctx, res, !noop)
 		if !checkOK && obj.Debug { // don't log on (checkOK == true)
 			obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 		}
 	}
 	wg.Wait()
+
+	// The resource has now had its chance to consume any send/recv changed
+	// flags, so turn them off. We wait for the exporter above to finish
+	// first, because it reads those flags too. If CheckApply errored, then
+	// we leave them on, because the Worker retry loop runs us again, and
+	// SendRecv won't report the same transfer a second time. This is also
+	// why we don't do this when CheckApply was skipped entirely.
+	if ranCheckApply && err == nil {
+		ClearRecv(res)
+	}
+
 	checkOK = checkOK && exportOK // always combine
 	if err == nil {               // If CheckApply didn't error, look at exportOK.
 		// This is because if CheckApply errors we don't need to care or

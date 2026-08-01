@@ -120,7 +120,17 @@ type Send struct {
 	Res SendableRes // a handle to the resource which is sending a value
 	Key string      // the key in the resource that we're sending
 
-	Changed bool // set to true if this key was updated, read only!
+	// Changed is set to true when a new value was transferred into this
+	// key, and it stays true until the engine has run a CheckApply which
+	// had the opportunity to consume it. It is read only for resources.
+	//
+	// It must be sticky like this because Send/Recv can run more than once
+	// for each CheckApply, and because a CheckApply might get skipped or
+	// might error and get retried. Once a value has been transferred into
+	// the receiver field, a subsequent Send/Recv run finds the field it
+	// already wrote there and won't see a difference, so if this flag was
+	// recomputed on each run, then the notification would be silently lost.
+	Changed bool
 }
 
 // GenerateSendFunc generates the Send function using the resource of our choice

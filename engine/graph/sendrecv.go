@@ -87,7 +87,24 @@ func (obj *Engine) SendRecv() error {
 				//return r.Recv(), nil // NO!
 				return map[string]*engine.Send{}, nil
 			}
-			return old.Recv(), nil // swap
+			// We hand out fresh Send structs instead of the ones
+			// the old resource owns, because SendRecv sets the
+			// Changed flag on whatever we return here. This pass
+			// compares the sender against the *new* resource
+			// fields, which isn't a question the old resource is
+			// asking, and if the old resource survives the graph
+			// sync then it must keep any notification it hasn't
+			// consumed yet, and it works out its own Changed flags
+			// during its next CheckApply anyways.
+			swap := make(map[string]*engine.Send)
+			for k, v := range old.Recv() { // map[string]*Send
+				swap[k] = &engine.Send{
+					Res: v.Res,
+					Key: v.Key,
+					// Changed is false, this pass owns it
+				}
+			}
+			return swap, nil // swap
 		}
 		if updated, err := SendRecv(res, fn); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
@@ -111,6 +128,12 @@ type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
 // It applies the loaded values to the resource. It is called recursively, as it
 // recurses into any grouped resources found within the first receiver. It
 // returns a map of resource pointer, to resource field key, to changed boolean.
+//
+// The changed flags it sets are sticky. This function only ever turns them on,
+// and the engine turns them off with ClearRecv once the receiver has had a
+// CheckApply in which to consume them. This is because we can run more than
+// once for each CheckApply, and a repeat run finds the value it already stored
+// in the receiver field and therefore doesn't see anything change.
 func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
 	updated := make(map[engine.RecvableRes]map[string]*engine.Send) // list of updated keys
 	if groupableRes, ok := res.(engine.GroupableRes); ok {
@@ -180,7 +203,10 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		}
 
 		//updated[res][k] = false // default
-		v.Changed = false   // reset to the default
+		// NOTE: We don't reset v.Changed to false here. It is sticky
+		// until the engine consumes it with ClearRecv, because we might
+		// run more than once before the receiver gets a CheckApply, and
+		// the transfer below is a no-op the second time through.
 		updated[res][k] = v // default
 
 		var st interface{} = v.Res // old style direct send/recv
@@ -338,6 +364,21 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 			continue
 		}
 
+		// Convert into the receiver's type before comparing. The sender
+		// and receiver fields can have different golang container types
+		// for the same mcl value, such as *string and *interface{} for
+		// value.any. Comparing those fields directly always reports a
+		// difference.
+		converted := reflect.New(dest.Type()).Elem()
+		if e := types.Into(fv, converted); e != nil {
+			e = errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", v.Res, v.Key, kind1, res, k, kind2)
+			err = errwrap.Append(err, e) // list of errors
+			continue
+		}
+		if reflect.DeepEqual(converted.Interface(), dest.Interface()) {
+			continue // skip as they're the same, no error needed
+		}
+
 		// mutate the struct field dest with the mcl data in fv
 		if e := types.Into(fv, dest); e != nil {
 			// runtime error, probably from using value res
@@ -352,6 +393,29 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		//obj.Logf("SendRecv: %s.%s -> %s.%s (%+v)", v.Res, v.Key, res, k, fv) // fv may be private data
 	}
 	return updated, err
+}
+
+// ClearRecv turns off the changed flags on the receive keys of this resource,
+// and of any grouped resources found within it. The engine runs this after a
+// CheckApply which returned without erroring, since that resource has now had
+// its chance to consume those notifications. If CheckApply is skipped or if it
+// errors and gets retried, then we must not run this, or the notification would
+// be lost, because SendRecv won't produce it a second time. See the Send struct
+// for more information on why these flags are sticky.
+func ClearRecv(res engine.Res) {
+	if groupableRes, ok := res.(engine.GroupableRes); ok {
+		for _, x := range groupableRes.GetGroup() { // grouped elements
+			ClearRecv(x) // recurse
+		}
+	}
+
+	recvableRes, ok := res.(engine.RecvableRes)
+	if !ok {
+		return
+	}
+	for _, v := range recvableRes.Recv() { // map[string]*Send
+		v.Changed = false // consumed
+	}
 }
 
 // TypeCmp compares two reflect values to see if they are the same Kind. It can

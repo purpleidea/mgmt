@@ -1,0 +1,4 @@
+#!ipxe
+
+dhcp
+chain {{ .Server_base }}${netX/mac}.ipxe

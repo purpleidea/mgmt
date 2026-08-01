@@ -51,6 +51,10 @@ $uefi_suffix = "uefi/"
 $kickstart_suffix = "kickstart/"
 $ipxe_iso_filename = "ipxe.iso"
 $ipxe_iso_default = "https://boot.ipxe.org/${ipxe_iso_filename}" # default download source
+# TODO: add more architectures
+$ipxe_efi_x86_64_filename = "ipxe.x86_64.efi" # .efi must be last for it to work!
+$ipxe_efi_x86_64_default = "https://boot.ipxe.org/x86_64-efi/ipxe.efi"
+$ipxe_autoexec_filename = "autoexec.ipxe"
 
 # The base class is the core provisioner which can also spawn child classes.
 class base($config) {
@@ -132,6 +136,20 @@ class base($config) {
 		""
 	} else {
 		"${server_base}${ipxe_iso_filename}"
+	}
+
+	# Fetch architecture-specific iPXE UEFI executables once and serve them
+	# forever. Each architecture has an explicit variable and a stable root
+	# URL, while every executable shares the root autoexec.ipxe below.
+	$ipxe_efi_x86_64_source = $config->ipxe_efi_x86_64 || $ipxe_efi_x86_64_default
+	$ipxe_efi_x86_64_file = "${http_prefix}${ipxe_efi_x86_64_filename}"
+	$ipxe_efi_x86_64 = if $ipxe_efi_x86_64_source == "" {
+		""
+	} else {
+		"${server_base}${ipxe_efi_x86_64_filename}"
+	}
+	$ipxe_autoexec_template = struct{
+		server_base => $server_base,
 	}
 
 	#
@@ -270,6 +288,36 @@ class base($config) {
 			Depend => Exec["provisioner-ipxe-iso"],
 			Before => Print["ready"],
 		}
+	}
+
+	if $ipxe_efi_x86_64_source != "" {
+		exec "provisioner-ipxe-efi-x86-64" {
+			cmd => "/usr/bin/wget",
+			args => [
+				"--no-verbose",
+				$ipxe_efi_x86_64_source,
+				"-O",
+				$ipxe_efi_x86_64_file,
+			],
+			creates => $ipxe_efi_x86_64_file,
+
+			Depend => File["${http_prefix}"],
+		}
+
+		http:server:file "/${ipxe_efi_x86_64_filename}" {
+			path => $ipxe_efi_x86_64_file,
+
+			Depend => Exec["provisioner-ipxe-efi-x86-64"],
+			Before => Print["ready"],
+		}
+	}
+
+	# UEFI HTTP Boot gives iPXE the executable's full URL, so every
+	# architecture-specific executable above discovers this shared script.
+	http:server:file "/${ipxe_autoexec_filename}" {
+		data => golang.template(deploy.readfile("/files/ipxe-autoexec.tmpl"), $ipxe_autoexec_template),
+
+		Before => Print["ready"],
 	}
 
 	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"

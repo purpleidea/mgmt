@@ -402,7 +402,7 @@ func (obj *NetRes) ifaceCheckApply(ctx context.Context, apply bool) (bool, error
 // adds/deletes addresses as necessary.
 func (obj *NetRes) addrCheckApply(ctx context.Context, apply bool) (bool, error) {
 	// get the link's addresses
-	ifaceAddrs, err := obj.iface.getAddrs()
+	ifaceAddrs, err := obj.iface.getAddrs(obj.Addrs)
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error getting addresses from %s", obj.Name())
 	}
@@ -774,9 +774,10 @@ func (obj *iface) linkUpDown(state string) error {
 	return netlink.LinkSetDown(obj.link)
 }
 
-// getAddrs returns a list of strings containing all of the interface's IP
-// addresses in CIDR format.
-func (obj *iface) getAddrs() ([]string, error) {
+// getAddrs returns the interface addresses which this resource manages in CIDR
+// format. It excludes automatically managed IPv6 link-local addresses unless
+// they are explicitly configured.
+func (obj *iface) getAddrs(objAddrs []string) ([]string, error) {
 	var ifaceAddrs []string
 	a, err := obj.iface.Addrs()
 	if err != nil {
@@ -784,7 +785,32 @@ func (obj *iface) getAddrs() ([]string, error) {
 	}
 	// we're only interested in the strings (not the network)
 	for _, addr := range a {
-		ifaceAddrs = append(ifaceAddrs, addr.String())
+		s := addr.String()
+		configured := false
+		for _, objAddr := range objAddrs {
+			if s == objAddr {
+				configured = true
+				break
+			}
+		}
+
+		// IPv6 link-local addresses are normally maintained
+		// automatically by the kernel or a network manager. Unless one
+		// is explicitly listed, leave it outside the resource's
+		// authoritative address set. Deleting an automatic address can
+		// make its owner restore it, causing an endless add/delete
+		// netlink event loop.
+		if !configured {
+			ip, _, err := net.ParseCIDR(s)
+			if err != nil {
+				return nil, errwrap.Wrapf(err, "error parsing interface addr: %s", s)
+			}
+			if ip.To4() == nil && ip.IsLinkLocalUnicast() {
+				continue
+			}
+		}
+
+		ifaceAddrs = append(ifaceAddrs, s)
 	}
 	return ifaceAddrs, nil
 }
@@ -852,7 +878,7 @@ func (obj *iface) kernelApply(addrs []string) error {
 // addrApplyDelete, checks the interface's addresses and deletes any that are
 // not in the list/definition.
 func (obj *iface) addrApplyDelete(objAddrs []string) error {
-	ifaceAddrs, err := obj.getAddrs()
+	ifaceAddrs, err := obj.getAddrs(objAddrs)
 	if err != nil {
 		return errwrap.Wrapf(err, "error getting addrs from interface: %s", obj.iface.Name)
 	}
@@ -880,7 +906,7 @@ func (obj *iface) addrApplyDelete(objAddrs []string) error {
 // addrApplyAdd checks if the interface has each address in the supplied list,
 // and if it doesn't, it adds them.
 func (obj *iface) addrApplyAdd(objAddrs []string) error {
-	ifaceAddrs, err := obj.getAddrs()
+	ifaceAddrs, err := obj.getAddrs(objAddrs)
 	if err != nil {
 		return errwrap.Wrapf(err, "error getting addrs from interface: %s", obj.iface.Name)
 	}

@@ -63,7 +63,12 @@ class base($config) {
 	} else {
 		$interface_env
 	}
-	$interface = $config->interface || "${interface_def}" # if no interface exists, we error
+	$interface_config = $config->interface || ""
+	$interface = if $interface_config == "" {
+		$interface_def # if no interface exists, we error
+	} else {
+		$interface_config
+	}
 
 	$http_port = $config->http_port || 4280 # using :4280 avoids needing root and isn't in /etc/services
 	$http_port_str = convert.int_to_str($http_port)
@@ -86,7 +91,12 @@ class base($config) {
 			"192.168.42.1/24"
 		}
 	}
-	$router = $config->router || "${router_def}"
+	$router_config = $config->router || ""
+	$router = if $router_config == "" {
+		$router_def
+	} else {
+		$router_config
+	}
 	$router_ip = net.cidr_to_ip($router) # removes cidr suffix
 
 	$dns = $config->dns || ["8.8.8.8", "1.1.1.1"] # maybe google/cloudflare will sponsor!

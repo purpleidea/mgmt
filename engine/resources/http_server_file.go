@@ -263,8 +263,9 @@ func (obj *HTTPServerFileRes) AcceptHTTP(req *http.Request) error {
 
 // ServeHTTP is the standard HTTP handler that will be used here.
 func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// We only allow GET at the moment.
-	if req.Method != http.MethodGet {
+	// We only allow GET and HEAD at the moment.
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodHead}, ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}

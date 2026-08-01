@@ -154,7 +154,7 @@ func (obj *HTTPServerProxyRes) getPath() string {
 
 // serveHTTP is the real implementation of ServeHTTP, but with a more ergonomic
 // signature.
-func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string) (handlerFuncError, error) {
+func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, method, requestPath string) (handlerFuncError, error) {
 	// TODO: switch requestPath to use safepath.AbsPath instead of a string
 
 	result, err := obj.pathParser.parse(requestPath)
@@ -187,13 +187,13 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string
 	// FIXME: should we be using a different client?
 	client := http.DefaultClient
 	//nolint:gosec // G704: proxyURL is rooted at the operator-configured Head; proxying to it is this resource's purpose
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, proxyURL, nil) // (*Request, error)
+	request, err := http.NewRequestWithContext(ctx, method, proxyURL, nil) // (*Request, error)
 	if err != nil {
 		return nil, err
 	}
 
 	// TODO: add a progress logf...
-	obj.init.Logf("get: %s", proxyURL)
+	obj.init.Logf("%s: %s", method, proxyURL)
 
 	return func(w http.ResponseWriter, req *http.Request) error {
 
@@ -241,7 +241,9 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string
 		var copyError error
 		writers := []io.Writer{w} // out to the client
 
-		if obj.Cache != "" { // check in the cache...
+		// A HEAD request only retrieves metadata, so it must not create
+		// an empty cache entry.
+		if obj.Cache != "" && method != http.MethodHead { // check in the cache...
 			httpServerProxyRWMutex.Lock()
 			defer httpServerProxyRWMutex.Unlock()
 
@@ -298,6 +300,10 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, requestPath string
 		}
 
 		w.WriteHeader(http.StatusOK) // Tell client everything is ok.
+		if method == http.MethodHead {
+			// end early, no content
+			return nil
+		}
 
 		//if progressBar {
 		//	writers = append(writers, progress)
@@ -390,8 +396,9 @@ func (obj *HTTPServerProxyRes) AcceptHTTP(req *http.Request) error {
 
 // ServeHTTP is the standard HTTP handler that will be used here.
 func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// We only allow GET at the moment.
-	if req.Method != http.MethodGet {
+	// We only allow GET and HEAD at the moment.
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodHead}, ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -407,9 +414,9 @@ func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	//	sendHTTPError(w, err)
 	//	return
 	//}
-	//fn, err := obj.serveHTTP(ctx, absPath)
+	//fn, err := obj.serveHTTP(ctx, req.Method, absPath)
 
-	fn, err := obj.serveHTTP(ctx, requestPath)
+	fn, err := obj.serveHTTP(ctx, req.Method, requestPath)
 	if err != nil {
 		obj.init.Logf("error: %s", err)
 		sendHTTPError(w, err)

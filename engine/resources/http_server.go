@@ -217,8 +217,9 @@ func (obj *HTTPServerRes) AcceptHTTP(req *http.Request) error {
 // implemented with this signature in case it gets moved. It doesn't
 // intentionally match the HTTPServerGroupableRes interface.
 func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// We only allow GET at the moment.
-	if req.Method != http.MethodGet {
+	// We only allow GET and HEAD at the moment.
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		w.Header().Set("Allow", strings.Join([]string{http.MethodGet, http.MethodHead}, ", "))
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
@@ -771,7 +772,7 @@ func (obj *HTTPServerRes) handler() func(http.ResponseWriter, *http.Request) {
 			obj.init.Logf("Client: %s", req.RemoteAddr)
 		}
 		// TODO: would this leak anything security sensitive in our log?
-		obj.init.Logf("URL: %s", req.URL)
+		obj.init.Logf("%s URL: %s", req.Method, req.URL)
 		requestPath := req.URL.Path // TODO: is this what we want here?
 		if obj.init.Debug {
 			obj.init.Logf("Path: %s", requestPath)

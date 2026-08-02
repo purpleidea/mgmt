@@ -734,8 +734,10 @@ class base:host($name, $config) {
 		$mac
 	}
 	$provision_key = $hkey # XXX: what unique id should we use for the host? mac? name? hkey?
+	$provision_key_done = "${provision_key}-done"
+	$provision_key_sshkey = "${provision_key}-sshkey"
 
-	#$ret = world.getval($provision_key) # has it previously been provisioned?
+	#$ret = world.getval($provision_key_done) # has it previously been provisioned?
 	#$val = if $ret->value == "" { # avoid an invalid string killing the parse_bool function
 	#	convert.format_bool(false) # "false"
 	#} else {
@@ -1059,15 +1061,15 @@ class base:host($name, $config) {
 		path => "/action/done/mac=${provision_key}",
 	}
 
-	# TODO: rename the names of kv and value here?
+	# Persist each callback field separately for this provisioning identity.
 	kv "${name}-done" {
-		key => $provision_key,
+		key => $provision_key_done,
 	}
 	value "${name}-done" {
 		#any => true, # bool
 	}
 	kv "${name}-sshkey" {
-		key => $provision_key,
+		key => $provision_key_sshkey,
 	}
 	value "${name}-sshkey" {
 		#any => "",
@@ -1078,8 +1080,6 @@ class base:host($name, $config) {
 	Http:Server:Flag["${name}-sshkey"].value -> Kv["${name}-sshkey"].value
 	Http:Server:Flag["${name}-sshkey"].value -> Value["${name}-sshkey"].any
 
-	#$st_provisioned = value.get_bool($provision_key)
-	#$st_provisioned = value.get_str($provision_key)
 	$st_done = value.get_str("${name}-done")
 	$provisioned = $st_done->ready and $st_done->value == "true" # export this value to parent scope
 

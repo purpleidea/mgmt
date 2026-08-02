@@ -79,6 +79,8 @@ class base($config) {
 
 	# if $network is the empty string, then we don't do any dhcp ourselves!
 	# if $network is the empty string, then we don't bring up the interface!
+	# an unspecified network uses the private default, while an explicitly
+	# empty network uses the address already assigned to the interface.
 	$network_def = if sys.hasenv("MGMT_PROVISIONER_NETWORK") {
 		sys.getenv("MGMT_PROVISIONER_NETWORK")
 	} else {
@@ -86,18 +88,17 @@ class base($config) {
 	}
 	$network = $config->network || "${network_def}"
 
-	$router_def = if sys.hasenv("MGMT_PROVISIONER_ROUTER") {
-		sys.getenv("MGMT_PROVISIONER_ROUTER")
-	} else {
+	$router_config = $config->router || ""
+	$router = if $router_config == "" {
 		if $network == "" {
 			net.interface_cidr($interface)
 		} else {
-			"192.168.42.1/24"
+			if sys.hasenv("MGMT_PROVISIONER_ROUTER") {
+				sys.getenv("MGMT_PROVISIONER_ROUTER")
+			} else {
+				"192.168.42.1/24"
+			}
 		}
-	}
-	$router_config = $config->router || ""
-	$router = if $router_config == "" {
-		$router_def
 	} else {
 		$router_config
 	}

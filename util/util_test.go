@@ -32,6 +32,9 @@
 package util
 
 import (
+	"errors"
+	"os"
+	"os/exec"
 	"reflect"
 	"slices"
 	"sort"
@@ -2334,13 +2337,15 @@ func TestRemovePathSuffix(t *testing.T) {
 func TestSystemBusPrivateUsable(t *testing.T) {
 	t.Run("return conn", func(t *testing.T) {
 		conn, err := SystemBusPrivateUsable()
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				t.Skipf("system D-Bus is unavailable: %v", err)
+			}
+			t.Fatalf("got error %v", err)
+		}
 
 		if conn == nil {
 			t.Errorf("got conn %v", conn)
-		}
-
-		if err != nil {
-			t.Errorf("got error %v", err)
 		}
 	})
 	// XXX: testing other cases require refactoring(dependency injection, mock provider)
@@ -2349,13 +2354,15 @@ func TestSystemBusPrivateUsable(t *testing.T) {
 func TestSessionBusPrivateUsable(t *testing.T) {
 	t.Run("return conn", func(t *testing.T) {
 		conn, err := SessionBusPrivateUsable()
+		if err != nil {
+			if errors.Is(err, exec.ErrNotFound) {
+				t.Skipf("session D-Bus is unavailable: %v", err)
+			}
+			t.Fatalf("got error %v", err)
+		}
 
 		if conn == nil {
 			t.Errorf("got conn %v", conn)
-		}
-
-		if err != nil {
-			t.Errorf("got error %v", err)
 		}
 	})
 	// XXX: testing other cases require refactoring(dependency injection, mock provider)

@@ -205,9 +205,15 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 			if !ok {
 				continue
 			}
-			_, stateExists := obj.state[v] // autogrouped children probably don't have a state
+			state, stateExists := obj.state[v] // autogrouped children probably don't have a state
 			if !stateExists {
-				continue
+				// An autogrouped child doesn't have a state of
+				// its own, so the vertex which owns it is the
+				// one to dirty. That parent CheckApply is what
+				// runs the child, so if we skipped this, then
+				// it could stay clean and the received value
+				// would never get applied.
+				state = obj.state[vertex]
 			}
 			for s, send := range m {
 				if !send.Changed {
@@ -216,8 +222,11 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 				obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
 				// if send.Changed == true, at least one was updated
 				// invalidate cache, mark as dirty
-				obj.state[v].setDirty()
+				state.setDirty()
 				//break // we might have more vertices now
+			}
+			if !stateExists {
+				continue // only re-validate our own
 			}
 
 			// re-validate after we change any values

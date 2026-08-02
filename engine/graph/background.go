@@ -72,7 +72,7 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 		Local: obj.Local,
 		World: obj.World,
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			obj.Logf(fmt.Sprintf("background(%s): ", kind)+format, v...)
 		},
@@ -80,9 +80,7 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 	backgroundFunc := background(handle) // build the real background function
 
 	// TODO: Should we add in a global waitgroup for the engine?
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		//defer close(exit)
 		defer cancel() // make sure to free the memory on early exit
 		reterr = backgroundFunc(bgCtx, ready)
@@ -95,7 +93,7 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 			// Run a shutdown of the main graph engine, we're broken!
 			obj.Cancel(reterr) // trigger an exit!
 		}
-	}()
+	})
 
 	// TODO: should we have a startup timeout here too?
 	select {

@@ -48,7 +48,7 @@ import (
 func buildFileTree(n int) []engine.Res {
 	resources := []engine.Res{}
 	dirs := make(map[string]struct{})
-	for i := 0; i < n; i++ {
+	for i := range n {
 		d1 := fmt.Sprintf("/tmp/bench/d%d/", i/100)
 		d2 := fmt.Sprintf("%sd%d/", d1, (i/10)%10)
 		dirs[d1] = struct{}{}
@@ -70,7 +70,7 @@ func buildFileTree(n int) []engine.Res {
 // where every parent directory question must be answered with a miss.
 func buildFileFlat(n int) []engine.Res {
 	resources := []engine.Res{}
-	for i := 0; i < n; i++ {
+	for i := range n {
 		resources = append(resources, &FileRes{
 			Path: fmt.Sprintf("/tmp/bench/flat/f%d", i),
 		})
@@ -93,7 +93,7 @@ func BenchmarkAutoEdge(b *testing.B) {
 		{name: "tree/10000", build: func() []engine.Res { return buildFileTree(10000) }},
 		{name: "flat/1000", build: func() []engine.Res { return buildFileFlat(1000) }},
 	}
-	logf := func(format string, v ...interface{}) {} // discard
+	logf := func(format string, v ...any) {} // discard
 	for _, tc := range benchCases {
 		resources := tc.build()
 		b.Run(tc.name, func(b *testing.B) {

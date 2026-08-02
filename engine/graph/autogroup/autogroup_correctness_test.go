@@ -741,7 +741,7 @@ func TestSemaPreservedWithEdges(t *testing.T) {
 		g1.AddEdge(a2, b1, NE("e2"))
 	}
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
@@ -808,7 +808,7 @@ func TestDeterminism10(t *testing.T) {
 // TestDeterminismWithEdges runs autogrouping 20 times on a graph with edges and
 // verifies consistent results despite map iteration randomness.
 func TestDeterminismWithEdges(t *testing.T) {
-	for iter := 0; iter < 20; iter++ {
+	for iter := range 20 {
 		g1, _ := pgraph.NewGraph("g1")
 		{
 			a1 := NewNoopResTest("a1")
@@ -822,7 +822,7 @@ func TestDeterminismWithEdges(t *testing.T) {
 			g1.AddVertex(a4)
 		}
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
 			t.Fatalf("iter %d: %v", iter, err)
 		}
@@ -856,13 +856,13 @@ func TestDeterminismWithEdges(t *testing.T) {
 // times, verifying the result is always 1 merged vertex.
 func runDeterminismTest(t *testing.T, n, iters int, withEdges bool) {
 	t.Helper()
-	for iter := 0; iter < iters; iter++ {
+	for iter := range iters {
 		g, _ := pgraph.NewGraph("g")
-		for i := 0; i < n; i++ {
+		for i := range n {
 			g.AddVertex(NewNoopResTest(fmt.Sprintf("a%d", i)))
 		}
 		debug := false
-		logf := func(format string, v ...interface{}) {}
+		logf := func(format string, v ...any) {}
 		if err := AutoGroup(context.TODO(), &testGrouper{}, g, debug, logf); err != nil {
 			t.Fatalf("iter %d: %v", iter, err)
 		}
@@ -875,7 +875,7 @@ func runDeterminismTest(t *testing.T, n, iters int, withEdges bool) {
 			names := strings.Split(r.Name(), ",")
 			sort.Strings(names)
 			expected := []string{}
-			for i := 0; i < n; i++ {
+			for i := range n {
 				expected = append(expected, fmt.Sprintf("a%d", i))
 			}
 			sort.Strings(expected)
@@ -925,14 +925,14 @@ func TestAutoGroupDisabled(t *testing.T) {
 func TestLargeGroupMerge(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1")
 	{
-		for i := 0; i < 50; i++ {
+		for i := range 50 {
 			g1.AddVertex(NewNoopResTest(fmt.Sprintf("a%d", i)))
 		}
 	}
 	g2, _ := pgraph.NewGraph("g2")
 	{
 		names := []string{}
-		for i := 0; i < 50; i++ {
+		for i := range 50 {
 			names = append(names, fmt.Sprintf("a%d", i))
 		}
 		sort.Strings(names)
@@ -952,7 +952,7 @@ func TestLargeChainNoMerge(t *testing.T) {
 	g2, _ := pgraph.NewGraph("g2")
 
 	var prev1, prev2 *NoopResTest
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		aName := fmt.Sprintf("a%d", i)
 		bName := fmt.Sprintf("b%d", i)
 		a1 := NewNoopResTest(aName)
@@ -980,7 +980,7 @@ func TestLargeFanOutMerge(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1")
 	{
 		root := NewNoopResTest("r1")
-		for i := 0; i < n; i++ {
+		for i := range n {
 			a := NewNoopResTest(fmt.Sprintf("a%d", i))
 			g1.AddEdge(root, a, NE(fmt.Sprintf("e%d", i)))
 		}
@@ -990,7 +990,7 @@ func TestLargeFanOutMerge(t *testing.T) {
 		root := NewNoopResTest("r1")
 		names := []string{}
 		edgeNames := []string{}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			names = append(names, fmt.Sprintf("a%d", i))
 			edgeNames = append(edgeNames, fmt.Sprintf("e%d", i))
 		}
@@ -1009,7 +1009,7 @@ func TestLargeFanInMerge(t *testing.T) {
 	g1, _ := pgraph.NewGraph("g1")
 	{
 		sink := NewNoopResTest("s1")
-		for i := 0; i < n; i++ {
+		for i := range n {
 			a := NewNoopResTest(fmt.Sprintf("a%d", i))
 			g1.AddEdge(a, sink, NE(fmt.Sprintf("e%d", i)))
 		}
@@ -1019,7 +1019,7 @@ func TestLargeFanInMerge(t *testing.T) {
 		sink := NewNoopResTest("s1")
 		names := []string{}
 		edgeNames := []string{}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			names = append(names, fmt.Sprintf("a%d", i))
 			edgeNames = append(edgeNames, fmt.Sprintf("e%d", i))
 		}
@@ -1039,7 +1039,7 @@ func TestLargeWideDiamond(t *testing.T) {
 	{
 		src := NewNoopResTest("s1")
 		dst := NewNoopResTest("d1")
-		for i := 0; i < n; i++ {
+		for i := range n {
 			b := NewNoopResTest(fmt.Sprintf("b%d", i))
 			g1.AddEdge(src, b, NE(fmt.Sprintf("ei%d", i)))
 			g1.AddEdge(b, dst, NE(fmt.Sprintf("eo%d", i)))
@@ -1052,7 +1052,7 @@ func TestLargeWideDiamond(t *testing.T) {
 		names := []string{}
 		einNames := []string{}
 		eoutNames := []string{}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			names = append(names, fmt.Sprintf("b%d", i))
 			einNames = append(einNames, fmt.Sprintf("ei%d", i))
 			eoutNames = append(eoutNames, fmt.Sprintf("eo%d", i))
@@ -1127,7 +1127,7 @@ func TestLargeMultiFamilyLayers(t *testing.T) {
 
 	// run autogroup
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
@@ -1202,7 +1202,7 @@ func TestLargeParallelChainsPartialMerge(t *testing.T) {
 	const n = 20
 	g1, _ := pgraph.NewGraph("g1")
 	{
-		for i := 0; i < n; i++ {
+		for i := range n {
 			a := NewNoopResTest(fmt.Sprintf("a%d", i))
 			b := NewNoopResTest(fmt.Sprintf("b%d", i))
 			c := NewNoopResTest(fmt.Sprintf("c%d", i))
@@ -1217,7 +1217,7 @@ func TestLargeParallelChainsPartialMerge(t *testing.T) {
 		cNames := []string{}
 		eabNames := []string{}
 		ebcNames := []string{}
-		for i := 0; i < n; i++ {
+		for i := range n {
 			aNames = append(aNames, fmt.Sprintf("a%d", i))
 			bNames = append(bNames, fmt.Sprintf("b%d", i))
 			cNames = append(cNames, fmt.Sprintf("c%d", i))
@@ -1250,7 +1250,7 @@ func TestLargeMixedReachabilityGrid(t *testing.T) {
 	const chains = 5
 	g1, _ := pgraph.NewGraph("g1")
 	{
-		for i := 0; i < chains; i++ {
+		for i := range chains {
 			aEven := NewNoopResTest(fmt.Sprintf("a%d", i*2))
 			x := NewNoopResTest(fmt.Sprintf("x%d", i))
 			aOdd := NewNoopResTest(fmt.Sprintf("a%d", i*2+1))
@@ -1261,7 +1261,7 @@ func TestLargeMixedReachabilityGrid(t *testing.T) {
 
 	// run autogroup manually to verify structure
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {
@@ -1290,7 +1290,7 @@ func TestLargeIsolated200(t *testing.T) {
 	families := []string{"a", "b", "c", "d"}
 	for _, prefix := range families {
 		names := []string{}
-		for i := 0; i < 50; i++ {
+		for i := range 50 {
 			name := fmt.Sprintf("%s%d", prefix, i)
 			g1.AddVertex(NewNoopResTest(name))
 			names = append(names, name)
@@ -1314,7 +1314,7 @@ func TestLargeDiamondChain(t *testing.T) {
 	{
 		src := NewNoopResTest("s1")
 		prev := []pgraph.Vertex{src}
-		for level := 0; level < levels; level++ {
+		for level := range levels {
 			m0 := NewNoopResTest(fmt.Sprintf("m%d", level*2))
 			m1 := NewNoopResTest(fmt.Sprintf("m%d", level*2+1))
 			for _, p := range prev {
@@ -1331,7 +1331,7 @@ func TestLargeDiamondChain(t *testing.T) {
 
 	// run autogroup
 	debug := testing.Verbose()
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	if err := AutoGroup(context.TODO(), &testGrouper{}, g1, debug, logf); err != nil {

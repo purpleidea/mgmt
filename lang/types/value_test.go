@@ -475,7 +475,7 @@ func TestSort1(t *testing.T) {
 			continue
 		}
 		// cmp two lists each element at a time
-		for i := 0; i < len(v1); i++ {
+		for i := range v1 {
 			if err := v1[i].Cmp(v2[i]); err != nil {
 				t.Errorf("sort test #%d: value did not match expected: %v", index, err)
 				t.Errorf("got: `%+v`", v1)
@@ -619,7 +619,7 @@ func TestStruct2(t *testing.T) {
 }
 
 func TestValueOf0(t *testing.T) {
-	testCases := map[Value]interface{}{
+	testCases := map[Value]any{
 		&BoolValue{V: true}:  true,
 		&StrValue{V: "abc"}:  "abc",
 		&IntValue{V: 4}:      4,
@@ -775,7 +775,7 @@ func TestValueOf4(t *testing.T) {
 
 func TestValueInto0(t *testing.T) {
 	// converts a Go variable to a types.Value, or panics if any error
-	mustValue := func(v interface{}) Value {
+	mustValue := func(v any) Value {
 		val, err := ValueOfGolang(v)
 		if err != nil {
 			panic(err)
@@ -784,7 +784,7 @@ func TestValueInto0(t *testing.T) {
 	}
 	// reflect variant of & on a variable. Creates a pointer in
 	// memory, sets the destination, then returns the pointer
-	ptrto := func(v interface{}) interface{} {
+	ptrto := func(v any) any {
 		p := reflect.New(reflect.TypeOf(v))
 		p.Elem().Set(reflect.ValueOf(v))
 		return p.Interface()
@@ -828,11 +828,11 @@ func TestValueInto0(t *testing.T) {
 
 	var testCases = []struct {
 		// backing container to call Into() on
-		container interface{}
+		container any
 		// lang value to be Into()ed
 		value Value
 		// test comparison data to ensure the Into() worked
-		compare interface{}
+		compare any
 		// shouldErr set to true if an err is expected
 		shouldErr bool
 		// shouldPanic set to true if a panic is expected
@@ -1046,8 +1046,8 @@ func TestValueInto0(t *testing.T) {
 
 func TestValueInto1(t *testing.T) {
 	testCases := []struct {
-		container interface{}
-		compare   interface{}
+		container any
+		compare   any
 		data      Value
 	}{
 		{

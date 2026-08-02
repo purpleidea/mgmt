@@ -86,7 +86,7 @@ type GsettingsRes struct {
 	// Value is the value to set. It is interface{} because it can hold any
 	// value type.
 	// XXX: Add resource unification to this key
-	Value interface{} `lang:"value" yaml:"value"`
+	Value any `lang:"value" yaml:"value"`
 
 	// User is the (optional) user to use to execute the command. It is used
 	// for any command being run.
@@ -306,10 +306,10 @@ func (obj *GsettingsRes) Init(init *engine.Init) error {
 	obj.exec = exec
 
 	newInit := obj.init.Copy()
-	newInit.Send = func(interface{}) error { // override so exec can't send
+	newInit.Send = func(any) error { // override so exec can't send
 		return nil
 	}
-	newInit.Logf = func(format string, v ...interface{}) {
+	newInit.Logf = func(format string, v ...any) {
 		//if format == "cmd out empty!" {
 		//	return
 		//}
@@ -454,7 +454,7 @@ func (obj *GsettingsRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *GsettingsRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *GsettingsRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes GsettingsRes // indirection to avoid infinite recursion
 
 	def := obj.Default()           // get the default

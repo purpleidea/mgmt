@@ -568,7 +568,7 @@ func (obj *UserRes) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *UserRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *UserRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes UserRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default

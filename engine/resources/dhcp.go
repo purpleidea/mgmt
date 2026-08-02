@@ -485,7 +485,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	//opts = append(opts, logfOpt)
 
 	newLogger := &overEngineeredLogger{
-		logf: func(format string, v ...interface{}) {
+		logf: func(format string, v ...any) {
 			// Once we've started exiting, the library logs the
 			// closed conn read garbage that we don't care about.
 			if s := fmt.Sprintf(format, v...); ctx.Err() != nil && strings.Contains(s, net.ErrClosed.Error()) {
@@ -530,9 +530,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
 		err := server.Serve() // blocks until Close() is called I hope!
 		// TODO: getting this error is probably a bug, please see:
@@ -543,7 +541,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 			return
 		}
 		cancel(errwrap.Wrapf(err, "the server errored"))
-	}()
+	})
 	defer server.Close()
 
 	select {
@@ -746,7 +744,7 @@ func (obj *DHCPServerRes) Copy() engine.CopyableRes {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *DHCPServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *DHCPServerRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes DHCPServerRes // indirection to avoid infinite recursion
 
 	def := obj.Default()            // get the default
@@ -1201,7 +1199,7 @@ func (obj *DHCPHostRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *DHCPHostRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *DHCPHostRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes DHCPHostRes // indirection to avoid infinite recursion
 
 	def := obj.Default()          // get the default
@@ -1806,7 +1804,7 @@ func (obj *DHCPRangeRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *DHCPRangeRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *DHCPRangeRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes DHCPRangeRes // indirection to avoid infinite recursion
 
 	def := obj.Default()           // get the default
@@ -2029,10 +2027,10 @@ type HostData struct {
 // logging interface that was introduced in:
 // https://github.com/insomniacslk/dhcp/pull/371/
 type overEngineeredLogger struct {
-	logf func(format string, v ...interface{})
+	logf func(format string, v ...any)
 }
 
-func (obj *overEngineeredLogger) Printf(format string, v ...interface{}) {
+func (obj *overEngineeredLogger) Printf(format string, v ...any) {
 	obj.logf(format, v...)
 }
 

@@ -53,7 +53,7 @@ func BenchmarkResGraphMapper(b *testing.B) {
 				b.Fatal(err)
 			}
 
-			for i := 0; i < size; i++ {
+			for i := range size {
 				r := newRes(b, "file", fmt.Sprintf("/tmp/file%d", i))
 				oldGraph.AddVertex(r)
 				newGraph.AddVertex(r)

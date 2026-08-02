@@ -39,7 +39,7 @@ import (
 
 // raiseLimits is a helper to raise some of our limits to prevent us hitting the
 // maximums too easily.
-func raiseLimits(logf func(format string, v ...interface{})) (bool, error) {
+func raiseLimits(logf func(format string, v ...any)) (bool, error) {
 	b1, err1 := raisePathValue("/proc/sys/fs/inotify/max_user_instances", 512, logf)
 	b2, err2 := raisePathValue("/proc/sys/fs/inotify/max_user_watches", 242940, logf)
 	b := true
@@ -64,7 +64,7 @@ func raiseLimits(logf func(format string, v ...interface{})) (bool, error) {
 	return false, err1
 }
 
-func raisePathValue(path string, value int, logf func(format string, v ...interface{})) (bool, error) {
+func raisePathValue(path string, value int, logf func(format string, v ...any)) (bool, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		// system or permissions error?

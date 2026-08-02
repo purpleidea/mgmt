@@ -48,7 +48,7 @@ type Groupable struct {
 	parent    engine.GroupableRes   // resource i am grouped inside of
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // AutoGroupMeta lets you get or set meta params for the automatic grouping

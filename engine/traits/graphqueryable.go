@@ -41,7 +41,7 @@ type GraphQueryable struct {
 	//allowedResourceKinds []string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // GraphQueryAllowed returns nil if you're allowed to query the graph. This

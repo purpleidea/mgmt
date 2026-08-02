@@ -111,13 +111,11 @@ func ReadPasswordCtxFdPrompt(ctx context.Context, fd int, prompt string) ([]byte
 	defer wg.Wait()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-ctx.Done()
 		// best-effort: unblock the pending read on cancellation
 		_ = file.SetReadDeadline(time.Now())
-	}()
+	})
 
 	if prompt != "" {
 		fmt.Print(prompt) // prints because we only turned off echo on fd

@@ -183,7 +183,7 @@ func (obj RHVSlice) Less(i, j int) bool {
 	}
 
 	// same number of chunks
-	for k := 0; k < li; k++ {
+	for k := range li {
 		if si[k] != sj[k] { // lhs chunk differs
 			return si[k] > sj[k] // reverse
 		}

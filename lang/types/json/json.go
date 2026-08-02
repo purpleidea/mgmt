@@ -41,7 +41,7 @@ import (
 // the JSON matches that type, returns the equivalent types.Value matching it.
 func ValueOfJSON(data string, typ *types.Type) (types.Value, error) {
 	// Unmarshal into interface{}
-	var v interface{}
+	var v any
 	dec := json.NewDecoder(strings.NewReader(data))
 	dec.UseNumber() // to preserve number precision
 	if err := dec.Decode(&v); err != nil {
@@ -58,7 +58,7 @@ func ValueOfJSON(data string, typ *types.Type) (types.Value, error) {
 // zero value for the data instead of erroring.
 func FlexibleValueOfJSON(data string, typ *types.Type) (types.Value, error) {
 	// Unmarshal into interface{}
-	var v interface{}
+	var v any
 	dec := json.NewDecoder(strings.NewReader(data))
 	dec.UseNumber() // to preserve number precision
 	if err := dec.Decode(&v); err != nil {
@@ -71,7 +71,7 @@ func FlexibleValueOfJSON(data string, typ *types.Type) (types.Value, error) {
 // convertJSON is the recursive helper that takes the parsed json data and the
 // expected type. If you specify flexible, then it allows missing fields in the
 // data. This API may change if we add more modifiers in the future.
-func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, error) {
+func convertJSON(val any, typ *types.Type, flexible bool) (types.Value, error) {
 	if typ == nil {
 		// TODO: attempt to guess the type and hope it's not ambiguous?
 		return nil, fmt.Errorf("type is nil")
@@ -121,7 +121,7 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 		return &types.FloatValue{V: v}, nil
 
 	case types.KindList:
-		v, ok := val.([]interface{})
+		v, ok := val.([]any)
 		if !ok {
 			return nil, fmt.Errorf("type doesn't match list")
 		}
@@ -146,7 +146,7 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 
 	case types.KindMap:
 		// Amazingly, json only supports string keys!
-		v, ok := val.(map[string]interface{})
+		v, ok := val.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("type doesn't match map")
 		}
@@ -175,7 +175,7 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 		return m, nil
 
 	case types.KindStruct:
-		v, ok := val.(map[string]interface{})
+		v, ok := val.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("type doesn't match struct")
 		}

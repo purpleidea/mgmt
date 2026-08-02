@@ -62,7 +62,7 @@ func (obj *SetupArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error)
 	defer cancel()
 
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.SetupPkg; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "pkg"
 		args = cmd
@@ -77,7 +77,7 @@ func (obj *SetupArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error)
 	}
 	_ = name
 
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		// Don't block this globally...
 		//if !data.Flags.Debug {
 		//	return

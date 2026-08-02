@@ -55,7 +55,7 @@ type API struct {
 
 	Prefix string
 	Debug  bool
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 
 	// Each piece of the API can take a handle here.
 	*Value // TODO: Rename to ValueImpl?
@@ -134,7 +134,7 @@ func (obj *API) Init() *API {
 type ValueInit struct {
 	Prefix string
 	Debug  bool
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 }
 
 // Value is the API for getting, setting, and watching local values.
@@ -143,7 +143,7 @@ type Value struct {
 	mutex        *sync.Mutex
 	prefix       string
 	prefixExists bool // is it okay to use the prefix?
-	values       map[string]interface{}
+	values       map[string]any
 	notify       map[chan struct{}]string // one chan (unique ptr) for each watch
 	skipread     map[string]struct{}
 }
@@ -153,7 +153,7 @@ func (obj *Value) Init(init *ValueInit) {
 	obj.init = init
 	obj.mutex = &sync.Mutex{}
 	obj.prefix = fmt.Sprintf("%s/", path.Join(obj.init.Prefix, "value"))
-	obj.values = make(map[string]interface{})
+	obj.values = make(map[string]any)
 	obj.notify = make(map[chan struct{}]string)
 	obj.skipread = make(map[string]struct{})
 
@@ -170,7 +170,7 @@ func (obj *Value) Init(init *ValueInit) {
 // instead of a `types.Value` because it's more generic, and not limited to
 // being used with the language type system. If the value doesn't exist, we
 // return a nil value and no error.
-func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error) {
+func (obj *Value) ValueGet(ctx context.Context, key string) (any, error) {
 	prefix, err := obj.getPrefix()
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error)
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	var val interface{}
+	var val any
 	//var err error
 	if _, skip := obj.skipread[key]; !skip {
 		val, err = valueRead(ctx, prefix, key) // must return val == nil if missing
@@ -205,7 +205,7 @@ func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error)
 // ValueSet sets a value to our in-memory, key-value store that is backed by
 // on-disk storage. If you provide a nil value, this is the equivalent of
 // removing or deleting the value.
-func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) error {
+func (obj *Value) ValueSet(ctx context.Context, key string, value any) error {
 	prefix, err := obj.getPrefix()
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func (obj *Value) getPrefix() (string, error) {
 	return obj.prefix, nil
 }
 
-func valueRead(ctx context.Context, prefix, key string) (interface{}, error) {
+func valueRead(ctx context.Context, prefix, key string) (any, error) {
 	// TODO: implement ctx cancellation
 	// TODO: replace with my path library
 	if !strings.HasSuffix(prefix, "/") {
@@ -367,7 +367,7 @@ func valueRead(ctx context.Context, prefix, key string) (interface{}, error) {
 	return util.B64ToValue(s)
 }
 
-func valueWrite(ctx context.Context, prefix, key string, value interface{}) error {
+func valueWrite(ctx context.Context, prefix, key string, value any) error {
 	// TODO: implement ctx cancellation
 	// TODO: replace with my path library
 	if !strings.HasSuffix(prefix, "/") {
@@ -407,7 +407,7 @@ func valueRemove(ctx context.Context, prefix, key string) error {
 type VarDirInit struct {
 	Prefix string
 	Debug  bool
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 }
 
 // VarDirImpl is the implementation for the VarDir API's. The API's are the
@@ -485,7 +485,7 @@ func (obj *VarDirImpl) getPrefix() (string, error) {
 type PoolInit struct {
 	Prefix string
 	Debug  bool
-	Logf   func(format string, v ...interface{})
+	Logf   func(format string, v ...any)
 }
 
 // PoolConfig configures how the Pool operates.
@@ -678,7 +678,7 @@ func (obj *CancelImpl) Exit(code int) error {
 // HTTPPoolInit are the init values that the HTTP API needs to work correctly.
 type HTTPPoolInit struct {
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // HTTPResponse is the response state that an http client resource publishes for
@@ -823,7 +823,7 @@ func (obj *HTTPPool) HTTPWatch(ctx context.Context, uid string) (chan struct{}, 
 // BridgeInit are the init values that the Bridge API needs to work correctly.
 type BridgeInit struct {
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // BridgeImpl is the implementation for the Bridge API's. The API's are the
@@ -846,7 +846,7 @@ type BridgeInit struct {
 type BridgeImpl struct {
 	init   *BridgeInit
 	mutex  *sync.Mutex
-	values map[string]interface{}
+	values map[string]any
 	notify map[chan struct{}]string // one chan (unique ptr) for each watch
 }
 
@@ -854,7 +854,7 @@ type BridgeImpl struct {
 func (obj *BridgeImpl) Init(init *BridgeInit) {
 	obj.init = init
 	obj.mutex = &sync.Mutex{}
-	obj.values = make(map[string]interface{})
+	obj.values = make(map[string]any)
 	obj.notify = make(map[chan struct{}]string)
 }
 
@@ -863,7 +863,7 @@ func (obj *BridgeImpl) Init(init *BridgeInit) {
 // notifies. Setting the same value as already stored (as compared with
 // reflect.DeepEqual) is a no-op that does not notify. Callers must treat a
 // published value as immutable, and set a new one instead of modifying it.
-func (obj *BridgeImpl) BridgeSet(ctx context.Context, namespace, uid string, value interface{}) error {
+func (obj *BridgeImpl) BridgeSet(ctx context.Context, namespace, uid string, value any) error {
 	key, err := bridgeKey(namespace, uid)
 	if err != nil {
 		return err
@@ -912,7 +912,7 @@ func (obj *BridgeImpl) BridgeSet(ctx context.Context, namespace, uid string, val
 // "nothing has happened yet" state that consumers want to see. The caller must
 // treat the returned value as read-only, since it is shared with the publisher
 // and any other readers.
-func (obj *BridgeImpl) BridgeGet(ctx context.Context, namespace, uid string) (interface{}, error) {
+func (obj *BridgeImpl) BridgeGet(ctx context.Context, namespace, uid string) (any, error) {
 	key, err := bridgeKey(namespace, uid)
 	if err != nil {
 		return nil, err

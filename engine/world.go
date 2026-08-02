@@ -47,7 +47,7 @@ type WorldInit struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // World is an interface to the rest of the different graph state. It allows the
@@ -281,5 +281,4 @@ type EtcdWorld interface {
 // backend is implementing embedded etcd.
 // TODO: In theory we could generalize this to support other backends, but lets
 // assume it's specific to etcd only for now.
-type EmbdEtcdWorld interface {
-}
+type EmbdEtcdWorld any

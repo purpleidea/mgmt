@@ -35,6 +35,7 @@ import (
 	"context"
 	"os/user"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -144,7 +145,7 @@ func (obj *fakeUserFuncs) addGroup(g *user.Group) {
 func fakeUserInit(t *testing.T) *engine.Init {
 	return &engine.Init{
 		Debug: testing.Verbose(),
-		Logf:  func(format string, v ...interface{}) { t.Logf("user: "+format, v...) },
+		Logf:  func(format string, v ...any) { t.Logf("user: "+format, v...) },
 	}
 }
 
@@ -204,11 +205,8 @@ func loadEtc(t *testing.T, passwd, group string) *fakeUserFuncs {
 			if g.gid == gid {
 				continue // primary group: not supplemental
 			}
-			for _, m := range g.members {
-				if m == username {
-					suppl = append(suppl, g.gid)
-					break
-				}
+			if slices.Contains(g.members, username) {
+				suppl = append(suppl, g.gid)
 			}
 		}
 		f.addUser(u, suppl, shell)

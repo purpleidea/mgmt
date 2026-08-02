@@ -293,9 +293,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 	closeChan := make(chan struct{})
 	defer close(closeChan)
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer close(nlChan)
 		for {
 			// receive messages from the socket set
@@ -318,7 +316,7 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 				return
 			}
 		}
-	}()
+	})
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err
@@ -653,7 +651,7 @@ func (obj *NetRes) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *NetRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *NetRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes NetRes // indirection to avoid infinite recursion
 
 	def := obj.Default()     // get the default

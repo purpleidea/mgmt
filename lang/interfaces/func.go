@@ -32,6 +32,7 @@ package interfaces
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 
 	docsUtil "github.com/purpleidea/mgmt/docs/util"
@@ -53,9 +54,7 @@ type Table map[Func]types.Value
 // copy the contained keys or values.
 func (obj Table) Copy() Table {
 	cp := make(Table, len(obj))
-	for k, v := range obj {
-		cp[k] = v
-	}
+	maps.Copy(cp, obj)
 	return cp
 }
 
@@ -129,7 +128,7 @@ type Init struct {
 	World engine.World
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Func is the interface that any valid func must fulfill. Most functions will

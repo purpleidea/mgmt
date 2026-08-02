@@ -36,6 +36,7 @@ import (
 	"math"
 	"net"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ type Value interface {
 	Less(Value) bool // to find the smaller of the two values (for sort)
 	Cmp(Value) error // error if the two values aren't the same
 	Copy() Value     // returns a copy of this value
-	Value() interface{}
+	Value() any
 	Bool() bool
 	Str() string
 	Int() int64
@@ -80,14 +81,14 @@ type Value interface {
 	List() []Value
 	Map() map[Value]Value // keys must all have same type, same for values
 	Struct() map[string]Value
-	Func() interface{} // func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
+	Func() any // func(interfaces.Txn, []interfaces.Func) (interfaces.Func, error)
 }
 
 // ValueOfGolang is a helper that takes a golang value, and produces the mcl
 // equivalent internal representation. This is very useful for writing tests. A
 // reminder that if you pass in a nil value, or something containing a nil
 // value, then you won't get what you want. See our documentation for ValueOf.
-func ValueOfGolang(i interface{}) (Value, error) {
+func ValueOfGolang(i any) (Value, error) {
 	// XXX: Should a nil return a &NilValue{} here?
 	return ValueOf(reflect.ValueOf(i))
 }
@@ -226,7 +227,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		values := make(map[string]Value)
-		for i := 0; i < l; i++ {
+		for i := range l {
 			x := value.Field(i)
 			v, err := ValueOf(x) // recurse
 			if err != nil {
@@ -338,10 +339,8 @@ func Into(v Value, rv reflect.Value) error {
 	// mustInto ensures rv is in a list of compatible types before attempting to reflect it
 	mustInto := func(kinds ...reflect.Kind) error {
 		// sigh. Go can be so elegant, and then it makes you do this
-		for _, n := range kinds {
-			if kind == n {
-				return nil
-			}
+		if slices.Contains(kinds, kind) {
+			return nil
 		}
 		// No matching kind found, must be an incompatible conversion
 		return fmt.Errorf("cannot Into() %+v of type %s into %s", v, v.Type(), typ)
@@ -596,7 +595,7 @@ func (obj *Base) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *Base) Func() interface{} {
+func (obj *Base) Func() any {
 	panic("not a func")
 }
 
@@ -662,7 +661,7 @@ func (obj *NilValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *NilValue) Value() interface{} {
+func (obj *NilValue) Value() any {
 	return nil
 }
 
@@ -719,7 +718,7 @@ func (obj *BoolValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *BoolValue) Value() interface{} {
+func (obj *BoolValue) Value() any {
 	return obj.V
 }
 
@@ -780,7 +779,7 @@ func (obj *StrValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *StrValue) Value() interface{} {
+func (obj *StrValue) Value() any {
 	return obj.V
 }
 
@@ -840,7 +839,7 @@ func (obj *IntValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *IntValue) Value() interface{} {
+func (obj *IntValue) Value() any {
 	return obj.V
 }
 
@@ -903,7 +902,7 @@ func (obj *FloatValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *FloatValue) Value() interface{} {
+func (obj *FloatValue) Value() any {
 	return obj.V
 }
 
@@ -1001,7 +1000,7 @@ func (obj *ListValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *ListValue) Value() interface{} {
+func (obj *ListValue) Value() any {
 	typ := obj.T.Reflect()
 	// create an empty slice (of len=0) with room for cap=len(obj.V) elements
 	val := reflect.MakeSlice(typ, 0, len(obj.V))
@@ -1178,7 +1177,7 @@ func (obj *MapValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *MapValue) Value() interface{} {
+func (obj *MapValue) Value() any {
 	typ := obj.T.Reflect()
 	val := reflect.MakeMap(typ)
 
@@ -1409,7 +1408,7 @@ func (obj *StructValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *StructValue) Value() interface{} {
+func (obj *StructValue) Value() any {
 	typ := obj.T.Reflect()
 	val := reflect.New(typ).Elem() // New returns a PtrTo(typ)
 
@@ -1542,7 +1541,7 @@ func (obj *FuncValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *FuncValue) Value() interface{} {
+func (obj *FuncValue) Value() any {
 	//typ := obj.T.Reflect()
 	//
 	//// wrap our function with the translation that is necessary
@@ -1583,7 +1582,7 @@ func (obj *FuncValue) Call(ctx context.Context, args []Value) (Value, error) {
 	if length != len(args) {
 		return nil, fmt.Errorf("arg length of %d does not match expected of %d", len(args), length)
 	}
-	for i := 0; i < length; i++ {
+	for i := range length {
 		if err := args[i].Type().Cmp(obj.T.Map[obj.T.Ord[i]]); err != nil {
 			return nil, errwrap.Wrapf(err, "cannot cmp input types")
 		}
@@ -1673,7 +1672,7 @@ func (obj *VariantValue) Copy() Value {
 }
 
 // Value returns the raw value of this type.
-func (obj *VariantValue) Value() interface{} {
+func (obj *VariantValue) Value() any {
 	return obj.V.Value()
 }
 
@@ -1725,6 +1724,6 @@ func (obj *VariantValue) Struct() map[string]Value {
 
 // Func represents the value of this type as a function if it is one. If this is
 // not a function, then this panics.
-func (obj *VariantValue) Func() interface{} {
+func (obj *VariantValue) Func() any {
 	return obj.V.Func()
 }

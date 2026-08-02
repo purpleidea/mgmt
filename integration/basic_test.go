@@ -55,7 +55,7 @@ func TestInstance0(t *testing.T) {
 		Hostname: "h1", // arbitrary
 		Preserve: true,
 		Debug:    false, // TODO: set to true if not too wordy
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			t.Logf("test: "+format, v...)
 		},
 	}
@@ -114,7 +114,7 @@ func TestInstance1(t *testing.T) {
 				Hostname: "h1",
 				Preserve: true,
 				Debug:    false, // TODO: set to true if not too wordy
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 				},
 			}
@@ -242,7 +242,7 @@ func TestCluster1(t *testing.T) {
 				Hostnames: hosts,
 				Preserve:  true,
 				Debug:     false, // TODO: set to true if not too wordy
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					t.Logf(fmt.Sprintf("test #%d: ", index)+format, v...)
 				},
 			}

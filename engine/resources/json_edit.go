@@ -422,7 +422,7 @@ const (
 type jsonEdit struct {
 	operation jsonEditOperation
 	keys      []string
-	value     interface{}
+	value     any
 }
 
 // parseJSONEdits parses a non-empty list of edit expressions.
@@ -464,11 +464,11 @@ func parseJSONEdit(input string) (*jsonEdit, error) {
 
 	decoder := json.NewDecoder(strings.NewReader(parser.input[parser.pos:]))
 	decoder.UseNumber()
-	var value interface{}
+	var value any
 	if err := decoder.Decode(&value); err != nil {
 		return nil, errwrap.Wrapf(err, "could not parse JSON value")
 	}
-	var extra interface{}
+	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
 		if err == nil {
 			return nil, fmt.Errorf("the JSON value contains trailing data")
@@ -663,7 +663,7 @@ func isJSONEditIdentifierPart(ch byte) bool {
 }
 
 // applyJSONEdit applies one parsed edit to a decoded JSON object.
-func applyJSONEdit(root map[string]interface{}, edit *jsonEdit) error {
+func applyJSONEdit(root map[string]any, edit *jsonEdit) error {
 	parent := root
 	for _, key := range edit.keys[:len(edit.keys)-1] {
 		child, exists := parent[key]
@@ -671,10 +671,10 @@ func applyJSONEdit(root map[string]interface{}, edit *jsonEdit) error {
 			if edit.operation == jsonEditOperationDelete {
 				return nil
 			}
-			child = make(map[string]interface{})
+			child = make(map[string]any)
 			parent[key] = child
 		}
-		next, ok := child.(map[string]interface{})
+		next, ok := child.(map[string]any)
 		if !ok {
 			return fmt.Errorf("edit key `%s` is not a JSON object", key)
 		}
@@ -696,18 +696,18 @@ func applyJSONEdit(root map[string]interface{}, edit *jsonEdit) error {
 }
 
 // jsonEditDecode decodes exactly one JSON object.
-func jsonEditDecode(data []byte) (map[string]interface{}, error) {
+func jsonEditDecode(data []byte) (map[string]any, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 
-	root := make(map[string]interface{})
+	root := make(map[string]any)
 	if err := decoder.Decode(&root); err != nil {
 		return nil, errwrap.Wrapf(err, "could not parse JSON store")
 	}
 	if root == nil {
 		return nil, fmt.Errorf("the JSON store root is not an object")
 	}
-	var extra interface{}
+	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
 		if err == nil {
 			return nil, fmt.Errorf("the JSON store contains multiple values")
@@ -718,7 +718,7 @@ func jsonEditDecode(data []byte) (map[string]interface{}, error) {
 }
 
 // jsonEditEqual compares values by their JSON representation.
-func jsonEditEqual(a, b interface{}) bool {
+func jsonEditEqual(a, b any) bool {
 	aa, err := json.Marshal(a)
 	if err != nil {
 		return false

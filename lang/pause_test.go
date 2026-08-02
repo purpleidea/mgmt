@@ -62,7 +62,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 	tmpdir := t.TempDir()
 	localAPI := (&local.API{
 		Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
-		Logf:   func(format string, v ...interface{}) {},
+		Logf:   func(format string, v ...any) {},
 	}).Init()
 
 	mmFs := afero.NewMemMapFs()
@@ -73,7 +73,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 		StandaloneFs: fs,
 	}
 	if err := world.Connect(context.Background(), &engine.WorldInit{
-		Logf: func(format string, v ...interface{}) {},
+		Logf: func(format string, v ...any) {},
 	}); err != nil {
 		t.Fatalf("could not connect world: %+v", err)
 	}
@@ -85,7 +85,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 
 	coordinator := &converger.Coordinator{
 		Timeout: -1,
-		Logf:    func(format string, v ...interface{}) {},
+		Logf:    func(format string, v ...any) {},
 	}
 	if err := coordinator.Init(); err != nil {
 		t.Fatalf("could not initialize converger: %+v", err)
@@ -113,7 +113,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 		World:     world,
 		Prefix:    fmt.Sprintf("%s/", filepath.Join(tmpdir, "engine")),
 		Debug:     true,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			if strings.Contains(format, "CheckApply(%t)") {
 				checkApplyStartedOnce.Do(func() { close(checkApplyStarted) })
 			}
@@ -165,7 +165,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 	// panic so that the rest of the engine can still be drained before the
 	// test reports the regression.
 	var pauseErr error
-	var pausePanic interface{}
+	var pausePanic any
 	func() {
 		defer func() {
 			pausePanic = recover()

@@ -60,12 +60,12 @@ const (
 var (
 	// errorType represents a reflection type of error as seen in:
 	// https://github.com/golang/go/blob/ec62ee7f6d3839fe69aeae538dadc1c9dc3bf020/src/text/template/exec.go#L612
-	errorType = reflect.TypeOf((*error)(nil)).Elem()
+	errorType = reflect.TypeFor[error]()
 
 	// interfaceType represents a reflection type of interface{} which we
 	// use when the underlying mgmt type isn't reflectable. (See the
 	// reflectable function for more information.)
-	interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
+	interfaceType = reflect.TypeFor[any]()
 )
 
 func init() {
@@ -226,7 +226,7 @@ func (obj *TemplateFunc) Init(init *interfaces.Init) error {
 func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars types.Value) (string, error) {
 	// see: https://golang.org/pkg/text/template/#FuncMap for more info
 	// note: we can override any other functions by adding them here...
-	funcMap := map[string]interface{}{
+	funcMap := map[string]any{
 		//"test1": func(in interface{}) (interface{}, error) { // ok
 		//	return fmt.Sprintf("got(%T): %+v", in, in), nil
 		//},
@@ -307,7 +307,7 @@ func (obj *TemplateFunc) run(ctx context.Context, templateText string, vars type
 }
 
 // convert helper function.
-func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
+func (obj *TemplateFunc) convert(v types.Value) (any, error) {
 	// TODO: simplify with Type.Underlying()
 	switch x := v.Type().Kind; x {
 	case types.KindBool:
@@ -329,7 +329,7 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 		}
 		// Otherwise (eg: a list of structs with lowercase fields) we
 		// recurse so the elements become map[string]interface{}.
-		l := []interface{}{}
+		l := []any{}
 		for _, x := range v.List() {
 			val, err := obj.convert(x)
 			if err != nil {
@@ -344,7 +344,7 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 		// so that template field access (eg: .key) keeps working even
 		// when the keys aren't valid (exported) golang identifiers.
 		if v.Type().Key.Cmp(types.TypeStr) == nil { // key type is str
-			m := make(map[string]interface{})
+			m := make(map[string]any)
 			for k, v := range v.Map() { // map[Value]Value
 				val, err := obj.convert(v)
 				if err != nil {
@@ -374,7 +374,7 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 			m.SetMapIndex(rk, reflect.ValueOf(val))
 		}
 		if !m.IsValid() { // empty map
-			return map[string]interface{}{}, nil
+			return map[string]any{}, nil
 		}
 		return m.Interface(), nil
 
@@ -386,7 +386,7 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 		// consistency. This way every struct field is accessed the same
 		// way (eg: .Foo) regardless of whether the struct is a value,
 		// list element, function return value, or map key.
-		m := make(map[string]interface{})
+		m := make(map[string]any)
 		for k, v := range v.Struct() { // map[string]Value
 			val, err := obj.convert(v)
 			if err != nil {
@@ -412,7 +412,7 @@ func (obj *TemplateFunc) convert(v types.Value) (interface{}, error) {
 // function API with what is expected from the reflection API. It returns a
 // version that includes the optional second error return value so that our
 // functions can return errors without causing a panic.
-func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ interface{}, reterr error) {
+func (obj *TemplateFunc) wrap(ctx context.Context, name string, scaffold *simple.Scaffold) (_ any, reterr error) {
 	defer func() {
 		// catch unhandled panics
 		if r := recover(); r != nil {
@@ -591,7 +591,7 @@ func reflectable(typ *types.Type) bool {
 // golang, so structs are turned into real golang structs (with exported, titled
 // field names) instead of the map[string]interface{} that convert would
 // otherwise build.
-func convertKey(v types.Value) (interface{}, error) {
+func convertKey(v types.Value) (any, error) {
 	switch x := v.Type().Kind; x {
 	case types.KindBool:
 		fallthrough

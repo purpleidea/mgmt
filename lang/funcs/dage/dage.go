@@ -101,7 +101,7 @@ type Engine struct {
 	World    engine.World
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	// graph is the internal graph. It is only changed during interrupt.
 	graph *pgraph.Graph
@@ -352,9 +352,7 @@ Start:
 
 			streamableFunc, isStreamable := f.(interfaces.StreamableFunc)
 			if isStreamable && !node.started { // don't start twice
-				obj.wg.Add(1)
-				go func() {
-					defer obj.wg.Done()
+				obj.wg.Go(func() {
 					// XXX: I think the design should be that
 					// if this ever shuts down, then the
 					// function engine should shut down, but
@@ -383,7 +381,7 @@ Start:
 						obj.errAppend(interfaces.HighlightHelper(f, obj.Logf, err))
 					}
 					obj.cancel() // error
-				}()
+				})
 				node.started = true
 			}
 
@@ -826,7 +824,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 		Local: obj.Local,
 		World: obj.World,
 		Debug: obj.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// safe Logf in case f.String contains %? chars...
 			s := f.String() + ": " + fmt.Sprintf(format, v...)
 			obj.Logf("%s", s)
@@ -1159,8 +1157,7 @@ func (obj *state) String() string {
 }
 
 // ops is either an addVertex or deleteVertex operation.
-type ops interface {
-}
+type ops any
 
 // addVertex is one of the "ops" that are possible.
 type addVertex struct {

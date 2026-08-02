@@ -36,6 +36,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"slices"
 	"strings"
 
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
@@ -221,7 +222,7 @@ func (obj *PkError) Error() string {
 	return fmt.Sprintf("packagekit error %d: %s", obj.Code, obj.Details)
 }
 
-func newPkError(body []interface{}) error {
+func newPkError(body []any) error {
 	if len(body) != 2 {
 		return fmt.Errorf("error in body: %v", body)
 	}
@@ -244,7 +245,7 @@ type Conn struct {
 	conn *dbus.Conn
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // PkPackageIDActionData is a struct that is returned by PackagesToPackageIDs in
@@ -297,8 +298,8 @@ func (obj *Conn) matchSignal(ch chan *dbus.Signal, path dbus.ObjectPath, iface s
 			obj.GetBus().RemoveSignal(ch)
 		}
 		var errList error
-		for i := len(argsList) - 1; i >= 0; i-- { // last in first out
-			call := bus.Call(engineUtil.DBusRemoveMatch, 0, argsList[i])
+		for _, a := range slices.Backward(argsList) { // last in first out
+			call := bus.Call(engineUtil.DBusRemoveMatch, 0, a)
 			errList = errwrap.Append(errList, call.Err)
 		}
 		return errList
@@ -461,14 +462,11 @@ func (obj *Conn) IsInstalledList(ctx context.Context, packages []string) ([]bool
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg := s[0]
 		flags := strings.Split(s[3], ":")
-		for _, f := range flags {
-			if f == "installed" {
-				if _, exists := m[pkg]; !exists {
-					m[pkg] = 0
-				}
-				m[pkg]++ // if we see pkg installed, increment
-				break
+		if slices.Contains(flags, "installed") {
+			if _, exists := m[pkg]; !exists {
+				m[pkg] = 0
 			}
+			m[pkg]++
 		}
 	}
 
@@ -1126,12 +1124,7 @@ func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, 
 // field?
 func FlagInData(flag, data string) bool {
 	flags := strings.Split(data, ":")
-	for _, f := range flags {
-		if f == flag {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(flags, flag)
 }
 
 // FmtTransactionMethod builds the transaction method string properly.

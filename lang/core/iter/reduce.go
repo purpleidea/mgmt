@@ -306,7 +306,7 @@ func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphI
 	// reduce dummy output so that a list shrink can't race a stale
 	// per-index node into reading off the end of the new list.
 	inputElemFuncs := make([]interfaces.Func, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		inputElemFunc := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("reduceInputElem[%d]", i),
 			&types.FuncValue{

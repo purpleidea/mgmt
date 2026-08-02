@@ -31,6 +31,7 @@ package ast
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -135,9 +136,8 @@ func MergeExprMaps(m, extra map[string]interfaces.Expr, prefix ...string) (map[s
 	p := strings.Join(prefix, "") // hack to have prefix be optional
 
 	result := map[string]interfaces.Expr{}
-	for k, v := range m {
-		result[k] = v // copy
-	}
+	// copy
+	maps.Copy(result, m)
 
 	for k, v := range extra {
 		name := p + k
@@ -324,9 +324,8 @@ func CollectPrograms(stmt interfaces.Stmt) ([]*Program, error) {
 // CopyNodeMapping copies the map of string to node and is used in Ordering.
 func CopyNodeMapping(in map[string]interfaces.Node) map[string]interfaces.Node {
 	out := make(map[string]interfaces.Node)
-	for k, v := range in {
-		out[k] = v // copy the map, not the Node's
-	}
+	// copy the map, not the Node's
+	maps.Copy(out, in)
 	return out
 }
 
@@ -430,9 +429,7 @@ func checkParamScope(node interfaces.Expr, freeVars map[interfaces.Expr]struct{}
 	case *ExprFunc:
 		if obj.Body != nil {
 			newFreeVars := make(map[interfaces.Expr]struct{})
-			for k, v := range freeVars {
-				newFreeVars[k] = v
-			}
+			maps.Copy(newFreeVars, freeVars)
 			for _, param := range obj.params {
 				newFreeVars[param] = struct{}{}
 			}
@@ -575,7 +572,7 @@ func newExprIterated(name string, definition interfaces.Expr) *ExprIterated {
 // variableScopeFeedback logs some messages about what is actually in scope so
 // that the user gets a hint about what's going on. This is useful for catching
 // bugs in our programming or in user code!
-func variableScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+func variableScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...any)) {
 	logf("variables in scope:")
 	names := []string{}
 	for name := range scope.Variables {
@@ -590,7 +587,7 @@ func variableScopeFeedback(scope *interfaces.Scope, logf func(format string, v .
 // functionScopeFeedback logs some messages about what is actually in scope so
 // that the user gets a hint about what's going on. This is useful for catching
 // bugs in our programming or in user code!
-func functionScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+func functionScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...any)) {
 	logf("functions in scope:")
 	names := []string{}
 	for name := range scope.Functions {
@@ -608,7 +605,7 @@ func functionScopeFeedback(scope *interfaces.Scope, logf func(format string, v .
 // lambdaScopeFeedback logs some messages about what is actually in scope so
 // that the user gets a hint about what's going on. This is useful for catching
 // bugs in our programming or in user code!
-func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...any)) {
 	logf("lambdas in scope:")
 	names := []string{}
 	for name, val := range scope.Variables {
@@ -627,7 +624,7 @@ func lambdaScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...
 // classScopeFeedback logs some messages about what is actually in scope so that
 // the user gets a hint about what's going on. This is useful for catching bugs
 // in our programming or in user code!
-func classScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...interface{})) {
+func classScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...any)) {
 	logf("classes in scope:")
 	names := []string{}
 	for name := range scope.Classes {

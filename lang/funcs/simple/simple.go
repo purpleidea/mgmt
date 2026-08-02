@@ -88,7 +88,7 @@ type Scaffold struct {
 	// D is the documentation handle for this function. We look on that
 	// struct or function for the doc string instead of the F field if this
 	// is specified.
-	D interface{}
+	D any
 }
 
 // Register registers a simple, static, pure, polymorphic function. It is easier
@@ -126,7 +126,7 @@ func Register(name string, scaffold *Scaffold) {
 	//if strings.HasPrefix(name, "embedded/") {}
 	//if strings.HasPrefix(name, "golang/") {}
 
-	var f interface{} = scaffold.F
+	var f any = scaffold.F
 	if scaffold.D != nil { // override the doc lookup location if specified
 		f = scaffold.D
 	}
@@ -250,7 +250,7 @@ func TypeMatch(typeList []string) func(*types.Type) error {
 // contains the `-` character, then the field will be skipped.
 // TODO: An alternative version of this might choose to return all of the values
 // as a single giant struct.
-func StructRegister(moduleName string, args interface{}) error {
+func StructRegister(moduleName string, args any) error {
 	if args == nil {
 		// programming error
 		return fmt.Errorf("could not convert/access our struct")

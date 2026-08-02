@@ -68,7 +68,7 @@ type FastInvariantSolver struct {
 	UnifiedState *types.UnifiedState
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	// notImplemented tells the solver to behave differently somehow...
 	notImplemented bool
@@ -86,7 +86,7 @@ func (obj *FastInvariantSolver) Init(init *unification.Init) error {
 		return nil
 	}
 	// TODO: use a query string parser instead?
-	for _, x := range strings.Split(optimizations, ",") {
+	for x := range strings.SplitSeq(optimizations, ",") {
 		if x == OptimizationNotImplemented {
 			obj.notImplemented = true
 			continue

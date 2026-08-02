@@ -177,7 +177,7 @@ type printer struct {
 
 // indent writes the indentation for the given depth.
 func (obj *printer) indent(depth int) {
-	for i := 0; i < depth; i++ {
+	for range depth {
 		obj.buf.WriteByte('\t')
 	}
 }

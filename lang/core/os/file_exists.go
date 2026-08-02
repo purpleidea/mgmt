@@ -168,9 +168,7 @@ func (obj *FileExistsFunc) Stream(ctx context.Context) error {
 			// watch recwatch events in a proxy goroutine, since
 			// changing the recwatch object would panic the main
 			// select when it's nil...
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				for {
 					var err error
 					select {
@@ -213,7 +211,7 @@ func (obj *FileExistsFunc) Stream(ctx context.Context) error {
 					}
 					//err = nil // reset
 				}
-			}()
+			})
 			continue // wait for an actual event or we'd send empty!
 
 		case err, ok := <-obj.events:

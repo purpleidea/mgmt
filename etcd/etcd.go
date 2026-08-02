@@ -230,7 +230,7 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	Prefix string
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	wg       *sync.WaitGroup // sync group for tunnel go routines
 	err      error
@@ -469,9 +469,7 @@ func (obj *EmbdEtcd) Run(ctx context.Context) error {
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer wg.Done()
 
 		// blocks until server exits
@@ -490,7 +488,7 @@ func (obj *EmbdEtcd) Run(ctx context.Context) error {
 		//	case <-ctx.Done():
 		//	}
 		//}
-	}()
+	})
 
 	// block until either server is ready or an early exit occurs
 	// we *don't* have a ctx here since we expect ctx closing to cause this!

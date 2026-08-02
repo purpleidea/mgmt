@@ -125,7 +125,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	fs := info.Fs // copy files from local filesystem *into* this fs...
 	prefix := ""  // TODO: do we need this?
 	debug := info.Debug
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		info.Logf(Name+": "+format, v...)
 	}
 
@@ -185,7 +185,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 			Update: args.Update,
 
 			Debug: debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				// TODO: is this a sane prefix to use here?
 				logf("get: "+format, v...)
 			},
@@ -232,7 +232,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 
 		Prefix: prefix,
 		Debug:  debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			logf("ast: "+format, v...)
 		},
@@ -305,7 +305,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 
 	if args.CheckUnify || !args.CheckOnly {
 		// apply type unification
-		unificationLogf := func(format string, v ...interface{}) {
+		unificationLogf := func(format string, v ...any) {
 			logf("unification: "+format, v...)
 		}
 		logf("running type unification...")
@@ -589,7 +589,7 @@ func (obj *GAPI) Init(data *gapi.Data) error {
 		Local:    obj.data.Local,
 		World:    obj.data.World,
 		Debug:    obj.data.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: add the Name prefix in parent logger
 			obj.data.Logf(Name+": "+format, v...)
 		},
@@ -626,9 +626,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 		}
 	}()
 
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
 			next := gapi.Next{
@@ -672,7 +670,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 				return
 			}
 		}
-	}()
+	})
 	return ch
 }
 

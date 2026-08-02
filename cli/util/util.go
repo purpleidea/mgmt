@@ -58,7 +58,7 @@ func CliParseError(err error) error {
 // Flags are some constant flags which are used throughout the program.
 type Flags struct {
 	Debug bool // add additional log messages
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Data is a struct of values that we usually pass to the main CLI function.

@@ -73,7 +73,7 @@ type Apparatus struct {
 	Hostname string
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 
 	// strategy is the active scheduler strategy struct for each namespace.
 	strategy map[string]scheduler.Strategy

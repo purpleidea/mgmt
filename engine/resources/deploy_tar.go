@@ -511,7 +511,7 @@ func (obj *DeployTar) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *DeployTar) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *DeployTar) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes DeployTar // indirection to avoid infinite recursion
 
 	def := obj.Default()        // get the default

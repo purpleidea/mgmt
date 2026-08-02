@@ -32,7 +32,9 @@ package pgraph
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -61,7 +63,7 @@ type Graph struct {
 
 	adjacency map[Vertex]map[Vertex]Edge // Vertex -> Vertex (edge)
 	revadjmap map[Vertex]map[Vertex]Edge // Vertex <- Vertex (edge) mirror index
-	kv        map[string]interface{}     // some values associated with the graph
+	kv        map[string]any             // some values associated with the graph
 }
 
 // Vertex is the primary vertex struct in this library. It can be anything that
@@ -101,15 +103,15 @@ func NewGraph(name string) (*Graph, error) {
 }
 
 // Value returns a value stored alongside the graph in a particular key.
-func (obj *Graph) Value(key string) (interface{}, bool) {
+func (obj *Graph) Value(key string) (any, bool) {
 	val, exists := obj.kv[key]
 	return val, exists
 }
 
 // SetValue sets a value to be stored alongside the graph in a particular key.
-func (obj *Graph) SetValue(key string, val interface{}) {
+func (obj *Graph) SetValue(key string, val any) {
 	if obj.kv == nil { // initialize on first use
-		obj.kv = make(map[string]interface{})
+		obj.kv = make(map[string]any)
 	}
 	obj.kv[key] = val
 }
@@ -134,9 +136,8 @@ func (obj *Graph) Copy() *Graph {
 			continue
 		}
 		newGraph.adjacency[v1] = make(map[Vertex]Edge, len(m))
-		for v2, e := range m {
-			newGraph.adjacency[v1][v2] = e // copy
-		}
+		// copy
+		maps.Copy(newGraph.adjacency[v1], m)
 	}
 	for v1, m := range obj.revadjmap {
 		newGraph.revadjmap[v1] = nil // preserve any lazy (nil) maps
@@ -144,9 +145,8 @@ func (obj *Graph) Copy() *Graph {
 			continue
 		}
 		newGraph.revadjmap[v1] = make(map[Vertex]Edge, len(m))
-		for v2, e := range m {
-			newGraph.revadjmap[v1][v2] = e // copy
-		}
+		// copy
+		maps.Copy(newGraph.revadjmap[v1], m)
 	}
 	return newGraph
 }
@@ -512,9 +512,9 @@ func (obj *Graph) Sprint() string {
 	if obj == nil {
 		return ""
 	}
-	var str string
+	var str strings.Builder
 	for _, v := range obj.VerticesSorted() {
-		str += fmt.Sprintf("Vertex: %s\n", v)
+		str.WriteString(fmt.Sprintf("Vertex: %s\n", v))
 	}
 	for _, v1 := range obj.VerticesSorted() {
 		vs := []Vertex{}
@@ -524,16 +524,16 @@ func (obj *Graph) Sprint() string {
 		VertexSlice(vs).Sort() // deterministic order
 		for _, v2 := range vs {
 			e := obj.adjacency[v1][v2]
-			str += fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e)
+			str.WriteString(fmt.Sprintf("Edge: %s -> %s # %s\n", v1, v2, e))
 		}
 	}
-	return strings.TrimSuffix(str, "\n") // trim off trailing \n if it exists
+	return strings.TrimSuffix(str.String(), "\n") // trim off trailing \n if it exists
 }
 
 // Logf logs a printed representation of the graph with the logf of your choice.
 // This is helpful to ensure each line of logged output has the prefix you want.
-func (obj *Graph) Logf(logf func(format string, v ...interface{})) {
-	for _, x := range strings.Split(obj.Sprint(), "\n") {
+func (obj *Graph) Logf(logf func(format string, v ...any)) {
+	for x := range strings.SplitSeq(obj.Sprint(), "\n") {
 		logf("%s", x)
 	}
 }
@@ -1144,23 +1144,13 @@ Loop:
 // VertexContains is an "in array" function to test for a vertex in a slice of
 // vertices.
 func VertexContains(needle Vertex, haystack []Vertex) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // EdgeContains is an "in array" function to test for an edge in a slice of
 // edges.
 func EdgeContains(needle Edge, haystack []Edge) bool {
-	for _, v := range haystack {
-		if needle == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // Reverse reverses a list of vertices.

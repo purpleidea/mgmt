@@ -133,23 +133,23 @@ func (obj *Graphviz) Text() string {
 	//	D -> E [label=h];
 	//}
 
-	str := ""
+	var str strings.Builder
 	name := obj.name()
-	str += fmt.Sprintf("digraph \"%s\" {\n", name)
-	str += fmt.Sprintf("\tlabel=\"%s\";\n", name)
+	str.WriteString(fmt.Sprintf("digraph \"%s\" {\n", name))
+	str.WriteString(fmt.Sprintf("\tlabel=\"%s\";\n", name))
 	//if obj.filter() == "dot" || true {
-	str += fmt.Sprintf("\tnewrank=true;\n")
+	str.WriteString(fmt.Sprintf("\tnewrank=true;\n"))
 	//}
 
 	//str += "\tnode [shape=box];\n"
 
 	for _, g := range obj.graphs() { // deterministic
-		str += g.graphvizBody(obj.Graphs[g])
+		str.WriteString(g.graphvizBody(obj.Graphs[g]))
 	}
 
-	str += "}\n"
+	str.WriteString("}\n")
 
-	return str
+	return str.String()
 }
 
 // Exec writes out the graphviz data and runs the correct graphviz filter
@@ -224,7 +224,7 @@ type GraphvizOpts struct {
 }
 
 func (obj *Graph) graphvizBody(opts *GraphvizOpts) string {
-	str := ""
+	var str strings.Builder
 	style := ""
 	if opts != nil {
 		style = opts.Style
@@ -236,9 +236,9 @@ func (obj *Graph) graphvizBody(opts *GraphvizOpts) string {
 		if ptrLabels {
 			text := fmt.Sprintf("%p", i)
 			small := fmt.Sprintf("<FONT POINT-SIZE=\"%d\">%s</FONT>", ptrLabelsSize, text)
-			str += fmt.Sprintf("\t\"%p\" [label=<%s<BR />%s>];\n", i, v1, small)
+			str.WriteString(fmt.Sprintf("\t\"%p\" [label=<%s<BR />%s>];\n", i, v1, small))
 		} else {
-			str += fmt.Sprintf("\t\"%p\" [label=<%s>];\n", i, v1)
+			str.WriteString(fmt.Sprintf("\t\"%p\" [label=<%s>];\n", i, v1))
 		}
 
 		vs := []Vertex{}
@@ -258,19 +258,19 @@ func (obj *Graph) graphvizBody(opts *GraphvizOpts) string {
 			if false { // XXX: don't need the labels for edges
 				text := fmt.Sprintf("%p", k)
 				small := fmt.Sprintf("<FONT POINT-SIZE=\"%d\">%s</FONT>", ptrLabelsSize, text)
-				str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s<BR />%s>];\n", i, j, e, small)
+				str.WriteString(fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s<BR />%s>];\n", i, j, e, small))
 			} else {
 				if style != "" {
-					str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s>,style=%s];\n", i, j, e, style)
+					str.WriteString(fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s>,style=%s];\n", i, j, e, style))
 				} else {
-					str += fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s>];\n", i, j, e)
+					str.WriteString(fmt.Sprintf("\t\"%p\" -> \"%p\" [label=<%s>];\n", i, j, e))
 				}
 			}
 			//}
 		}
 	}
 
-	return str
+	return str.String()
 }
 
 // Graphviz outputs the graph in graphviz format.

@@ -98,7 +98,7 @@ type TestRes struct {
 		SomeFloat        float64 `lang:"somefloat" yaml:"somefloat"`
 		somePrivatefield string
 	} `lang:"mixedstruct" yaml:"mixedstruct"`
-	Interface interface{} `lang:"interface" yaml:"interface"`
+	Interface any `lang:"interface" yaml:"interface"`
 
 	AnotherStr string `lang:"anotherstr" yaml:"anotherstr"`
 
@@ -176,7 +176,7 @@ func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, fmt.Errorf("the received keys differ from expected, got: %+v", expectRecv)
 	}
 
-	fakeLogf := func(format string, v ...interface{}) {
+	fakeLogf := func(format string, v ...any) {
 		key := format[0:strings.LastIndex(format, ":")]
 		if len(obj.OnlyShow) == 0 || util.StrInList(key, obj.OnlyShow) {
 			obj.init.Logf(format, v...)
@@ -473,7 +473,7 @@ type TestSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *TestRes) Sends() interface{} {
+func (obj *TestRes) Sends() any {
 	return &TestSends{
 		Hello:  nil,
 		Answer: -1,
@@ -507,7 +507,7 @@ func (obj *TestRes) Background(handle *engine.BackgroundHandle) engine.Backgroun
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TestRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *TestRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes TestRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default

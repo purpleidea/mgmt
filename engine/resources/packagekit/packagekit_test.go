@@ -36,7 +36,7 @@ import (
 )
 
 func TestNewPkError(t *testing.T) {
-	err := newPkError([]interface{}{
+	err := newPkError([]any{
 		PkErrorEnumPackageAlreadyInstalled,
 		"higher version is already installed",
 	})
@@ -53,7 +53,7 @@ func TestNewPkError(t *testing.T) {
 }
 
 func TestNewPkErrorInvalidBody(t *testing.T) {
-	if err := newPkError([]interface{}{"bad", "body"}); err == nil {
+	if err := newPkError([]any{"bad", "body"}); err == nil {
 		t.Errorf("expected error")
 	}
 }

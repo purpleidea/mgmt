@@ -60,14 +60,14 @@ func (obj *DocsGenerateArgs) Run(ctx context.Context, data *cliUtil.Data) (bool,
 	defer cancel()
 
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.DocsGenerate; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "generate"
 		args = cmd
 	}
 	_ = name
 
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		// Don't block this globally...
 		//if !data.Flags.Debug {
 		//	return

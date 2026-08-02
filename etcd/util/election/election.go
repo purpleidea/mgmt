@@ -59,7 +59,7 @@ type Observer struct {
 	ResignTimeout time.Duration
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Observe is the same as the concurrency package election.Observe call except

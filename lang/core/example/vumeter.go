@@ -245,8 +245,8 @@ func newTicker() *time.Ticker {
 func extract(data []byte) (float64, error) {
 	const prefix = "Maximum amplitude:"
 	str := string(data)
-	lines := strings.Split(str, "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(str, "\n")
+	for line := range lines {
 		if !strings.HasPrefix(line, prefix) {
 			continue
 		}

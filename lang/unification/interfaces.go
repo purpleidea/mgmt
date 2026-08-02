@@ -63,7 +63,7 @@ type Init struct {
 	UnifiedState *types.UnifiedState
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Data contains the input data for the solver to process.

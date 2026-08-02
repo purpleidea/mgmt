@@ -237,7 +237,7 @@ func lastAddrIPv6(networkAddr netip.Addr, prefixBits int) netip.Addr {
 
 	// flip the lowest hostBits to 1
 	// bit 0 is the highest bit, bit 127 is the lowest in the 128-bit addr
-	for i := 0; i < hostBits; i++ {
+	for i := range hostBits {
 		bitPos := 127 - i       // which bit from the left (0-based)
 		bytePos := bitPos / 8   // which byte in the array
 		bitInByte := bitPos % 8 // which bit within that byte

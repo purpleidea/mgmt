@@ -183,8 +183,8 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		v.Changed = false   // reset to the default
 		updated[res][k] = v // default
 
-		var st interface{} = v.Res // old style direct send/recv
-		if true {                  // new style send/recv API
+		var st any = v.Res // old style direct send/recv
+		if true {          // new style send/recv API
 			st = v.Res.Sent()
 		}
 

@@ -64,7 +64,7 @@ type FmtArgs struct {
 // Run formats the selected mcl input. Return true to not have a parser error.
 func (obj *FmtArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		// Don't block this globally...
 		//if !data.Flags.Debug {
 		//	return

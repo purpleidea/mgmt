@@ -107,7 +107,7 @@ func ResToB64(res engine.Res) (string, error) {
 // B64ToRes decodes a resource from a base64 encoded string (after
 // deserialization).
 func B64ToRes(str string) (engine.Res, error) {
-	var output interface{}
+	var output any
 	bb, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "base64 failed to decode")
@@ -127,7 +127,7 @@ func B64ToRes(str string) (engine.Res, error) {
 // StructTagToFieldName returns a mapping from recommended alias to actual field
 // name. It returns an error if it finds a collision. It uses the `lang` tags.
 // It must be passed a ptr to a struct or it will error.
-func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
+func StructTagToFieldName(stptr any) (map[string]string, error) {
 	// TODO: fallback to looking up yaml tags, although harder to parse
 	result := make(map[string]string) // `lang` field tag -> field name
 	if stptr == nil {
@@ -164,7 +164,7 @@ func StructTagToFieldName(stptr interface{}) (map[string]string, error) {
 // key that can be found in the struct tag. The (1) first values are for send,
 // and the (2) second values are for recv.
 // TODO: add a bool to decide if *string to string or string to *string is okay.
-func StructFieldCompat(st1 interface{}, key1 string, st2 interface{}, key2 string) error {
+func StructFieldCompat(st1 any, key1 string, st2 any, key2 string) error {
 	m1, err := StructTagToFieldName(st1)
 	if err != nil {
 		return err
@@ -566,8 +566,8 @@ func CleanError(err error) string {
 
 // DebugStructFields returns a pretty string display of struct fields (like a
 // resource) for debugging. The output is not guaranteed to be stable.
-func DebugStructFields(st interface{}) string {
-	s := ""
+func DebugStructFields(st any) string {
+	var s strings.Builder
 	v := reflect.ValueOf(st)
 	t := reflect.TypeOf(st)
 
@@ -586,11 +586,11 @@ func DebugStructFields(st interface{}) string {
 			continue
 		}
 		if value.IsZero() {
-			s += fmt.Sprintf("(%s): %v\n", field.Name, "<nil>")
+			s.WriteString(fmt.Sprintf("(%s): %v\n", field.Name, "<nil>"))
 		} else {
-			s += fmt.Sprintf("(%s): %v\n", field.Name, value.Elem().Interface())
+			s.WriteString(fmt.Sprintf("(%s): %v\n", field.Name, value.Elem().Interface()))
 		}
 	}
 
-	return s
+	return s.String()
 }

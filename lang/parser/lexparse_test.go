@@ -2269,7 +2269,7 @@ func TestLexParse0(t *testing.T) {
 			pattern := regexp.MustCompile(`\ \/\/\ p[0-9]+$`) // the p0, p1 comments...
 			clean := func(s string) string {
 				lines := []string{}
-				for _, line := range strings.Split(s, "\n") {
+				for line := range strings.SplitSeq(s, "\n") {
 					s := pattern.ReplaceAllLiteralString(line, "")
 					lines = append(lines, s)
 				}

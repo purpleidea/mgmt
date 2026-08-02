@@ -50,7 +50,7 @@ import (
 // go tool pprof -no_browser -http :10000 ~/pprof/out.pprof
 func Run(ctx context.Context) error {
 	s := os.Getenv("MGMT_PPROF_PATH")
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		// TODO: is this a sane prefix to use here?
 		//nolint:gosec // G706: format and args come from internal callers, not untrusted input
 		log.Printf(format, v...) // XXX: use parent logger when available

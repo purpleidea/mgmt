@@ -639,7 +639,7 @@ func (obj *TarRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *TarRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *TarRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes TarRes // indirection to avoid infinite recursion
 
 	def := obj.Default()     // get the default

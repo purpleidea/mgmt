@@ -60,7 +60,7 @@ func newFormatter(t *testing.T) *format.Formatter {
 	formatter := &format.Formatter{
 		LexParser:    parser.LexParseWithComments,
 		ASTFormatter: astfmt.Format,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			t.Logf("formatter: "+format, v...)
 		},
 	}
@@ -107,14 +107,14 @@ func TestFmtFiles(t *testing.T) {
 			continue
 		}
 
-		if strings.HasSuffix(name, ".badmcl") {
+		if before, ok := strings.CutSuffix(name, ".badmcl"); ok {
 			t.Run(name, func(t *testing.T) {
 				data, err := os.ReadFile(filepath.Join(dir, name))
 				if err != nil {
 					t.Fatalf("could not read file: %+v", err)
 				}
 
-				goodName := strings.TrimSuffix(name, ".badmcl") + ".mcl"
+				goodName := before + ".mcl"
 				expected, err := os.ReadFile(filepath.Join(dir, goodName))
 				if err != nil {
 					t.Fatalf("missing the %s pair file: %+v", goodName, err)

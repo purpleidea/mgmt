@@ -37,6 +37,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -70,12 +71,7 @@ func FirstToUpper(str string) string {
 
 // StrInList returns true if a string exists inside a list, otherwise false.
 func StrInList(needle string, haystack []string) bool {
-	for _, x := range haystack {
-		if needle == x {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // Uint64KeyFromStrInMap returns true if needle is found in haystack of keys
@@ -241,7 +237,7 @@ func HasPathPrefix(p, prefix string) bool {
 		return false
 	}
 
-	for i := 0; i < len(prefixarray); i++ {
+	for i := range prefixarray {
 		if prefixarray[i] != patharray[i] {
 			return false
 		}
@@ -265,7 +261,7 @@ func StrInPathPrefixList(needle string, haystack []string) bool {
 // the tree of other files.
 func RemoveCommonFilePrefixes(paths []string) []string {
 	var result = make([]string, len(paths))
-	for i := 0; i < len(paths); i++ { // copy, b/c append can modify the args!!
+	for i := range paths { // copy, b/c append can modify the args!!
 		result[i] = paths[i]
 	}
 	// is there a string path which is common everywhere?
@@ -393,7 +389,7 @@ func PathSplitFullReversed(p string) []string {
 	split := PathSplit(p)
 	count := len(split)
 	var x string
-	for i := 0; i < count; i++ {
+	for i := range count {
 		x = "/" + path.Join(split[0:i+1]...)
 		if i != 0 && !(i+1 == count && !strings.HasSuffix(p, "/")) {
 			x += "/" // add trailing slash
@@ -781,7 +777,7 @@ func SortMapStringValuesByUInt64Keys(m map[uint64]string) []string {
 }
 
 // ValueToB64 encodes a value to a base64 encoded string (after serialization).
-func ValueToB64(value interface{}) (string, error) {
+func ValueToB64(value any) (string, error) {
 	b := bytes.Buffer{}
 	e := gob.NewEncoder(&b)
 	if err := e.Encode(&value); err != nil { // pass with &
@@ -792,8 +788,8 @@ func ValueToB64(value interface{}) (string, error) {
 
 // B64ToValue decodes a value from a base64 encoded string (after
 // deserialization).
-func B64ToValue(str string) (interface{}, error) {
-	var output interface{}
+func B64ToValue(str string) (any, error) {
+	var output any
 	bb, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "base64 failed to decode")
@@ -803,7 +799,7 @@ func B64ToValue(str string) (interface{}, error) {
 	if err := d.Decode(&output); err != nil { // pass with &
 		return nil, errwrap.Wrapf(err, "gob failed to decode")
 	}
-	value, ok := output.(interface{})
+	value, ok := output.(any)
 	if !ok {
 		return nil, fmt.Errorf("output `%v` is not a value", output)
 	}

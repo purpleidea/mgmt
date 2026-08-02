@@ -379,7 +379,7 @@ func TestUtilT9(t *testing.T) {
 		t.Errorf("counts didn't match: %d != %d", a, b)
 	} else if !equals {
 		t.Errorf("did not match expected!")
-		for i := 0; i < len(dirify); i++ {
+		for i := range dirify {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])
 			}
@@ -415,7 +415,7 @@ func TestUtilT10(t *testing.T) {
 		t.Errorf("counts didn't match: %d != %d", a, b)
 	} else if !equals {
 		t.Errorf("did not match expected!")
-		for i := 0; i < len(dirify); i++ {
+		for i := range dirify {
 			if fileListOut[i] != dirify[i] {
 				t.Errorf("# %d: %v <> %v", i, fileListOut[i], dirify[i])
 			}
@@ -788,7 +788,7 @@ func TestUtilT11(t *testing.T) {
 	sort.Strings(out10)
 	if !reflect.DeepEqual(ex10, out10) {
 		t.Errorf("expected: %v; got: %v.", ex10, out10)
-		for i := 0; i < len(ex10); i++ {
+		for i := range ex10 {
 			if ex10[i] != out10[i] {
 				t.Errorf("# %d: %v <> %v", i, ex10[i], out10[i])
 			}

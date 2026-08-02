@@ -273,13 +273,11 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	var exportOK bool
 	var exportErr error
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
 	// (Run this concurrently with the CheckApply related stuff below...)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// doesn't really need to be in parallel, but we can...
 		exportOK, exportErr = obj.Exporter.Export(ctx, res)
-	}()
+	})
 
 	// Check cached state, to skip CheckApply, but can't skip if refreshing!
 	// If the resource doesn't implement refresh, skip the refresh test.
@@ -452,18 +450,14 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 
 	defer state.wg.Wait() // this Worker is the last to exit!
 
-	state.wg.Add(1)
-	go func() {
-		defer state.wg.Done()
+	state.wg.Go(func() {
 		defer close(state.eventsChan) // we close this on behalf of res
 
 		// This is a close reverse-multiplexer. If any of the channels
 		// close, then it will cause the doneCtx to cancel. That way,
 		// multiple different folks can send a close signal, without
 		// every worrying about duplicate channel close panics.
-		state.wg.Add(1)
-		go func() {
-			defer state.wg.Done()
+		state.wg.Go(func() {
 
 			// reverse-multiplexer: any close, causes *the* close!
 			select {
@@ -477,7 +471,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 
 			// the main "done" signal gets activated here!
 			state.doneCtxCancel() // cancels doneCtx
-		}()
+		})
 
 		var err error
 		var retry = res.MetaParams().Retry // lookup the retry value
@@ -584,7 +578,7 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 		case state.eventsChan <- errwrap.Wrapf(err, "watch failed"):
 			// send
 		}
-	}()
+	})
 
 	// If this exits cleanly, we must unblock the reverse-multiplexer.
 	// I think this additional close is unnecessary, but it's not harmful.

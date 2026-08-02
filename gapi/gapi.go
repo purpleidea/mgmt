@@ -83,7 +83,7 @@ type Flags struct {
 type Info struct {
 	// Args are the CLI args that are populated after parsing the args list.
 	// They need to be converted to the struct you are expecting to read it.
-	Args interface{}
+	Args any
 
 	// Flags are the common data which is passed down into the sub command.
 	Flags *Flags
@@ -93,7 +93,7 @@ type Info struct {
 	Fs engine.Fs
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Data is the set of input values passed into the GAPI structs via Init.
@@ -107,7 +107,7 @@ type Data struct {
 	NoStreamWatch bool
 	Prefix        string
 	Debug         bool
-	Logf          func(format string, v ...interface{})
+	Logf          func(format string, v ...any)
 	// NOTE: we can add more fields here if needed by GAPI endpoints
 }
 

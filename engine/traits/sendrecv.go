@@ -44,7 +44,7 @@ import (
 // atomic.Value carries no noCopy field, so resources embedding the Sendable
 // trait stay copyable and don't fail golang vet checks.
 type sendableValue struct {
-	value interface{}
+	value any
 }
 
 // Sendable contains a general implementation with some of the properties and
@@ -69,13 +69,13 @@ type Sendable struct {
 	//sendIsActive bool // TODO: public?
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // Sends returns a struct containing the defaults of the type we send. This
 // needs to be implemented (overridden) by the struct with the Sendable trait to
 // be able to send any values. The field struct tag names are the keys used.
-func (obj *Sendable) Sends() interface{} {
+func (obj *Sendable) Sends() any {
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (obj *Sendable) Sends() interface{} {
 // resource API and consumed that way. The atomic store gives the cross-worker
 // handoff a synchronization boundary. See the SendableRes interface for the
 // snapshot/no-mutate contract that callers must honour.
-func (obj *Sendable) Send(st interface{}) error {
+func (obj *Sendable) Send(st any) error {
 	obj.copyCheck()
 	// TODO: can we (or should we) run the type checking here instead?
 	obj.send.Store(&sendableValue{value: st})
@@ -94,7 +94,7 @@ func (obj *Sendable) Send(st interface{}) error {
 // nil if nothing has been sent yet. It should not be called before a value was
 // sent, the nil return is a courtesy. It may run concurrently with Send. See
 // the SendableRes interface for the read-only contract on the returned value.
-func (obj *Sendable) Sent() interface{} {
+func (obj *Sendable) Sent() any {
 	obj.copyCheck()
 	value := obj.send.Load()
 	if value == nil {
@@ -141,7 +141,7 @@ type Recvable struct {
 	recv map[string]*engine.Send
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // SetRecv is used to inject incoming values into the resource. More

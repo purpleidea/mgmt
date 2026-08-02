@@ -74,7 +74,7 @@ type Grow struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // Run the whole sequence. This is probably the only function you want to run.
@@ -382,7 +382,7 @@ func (obj *Grow) RunFindMnt(ctx context.Context, p string) ([]*MountInfo, error)
 
 // cmdOpts is just a helper to return the same struct repeatedly.
 func (obj *Grow) cmdOpts() *util.SimpleCmdOpts {
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		if !obj.Debug { // ignore the noisy "always on" log messages...
 			return
 		}

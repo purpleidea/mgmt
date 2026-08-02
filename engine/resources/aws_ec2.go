@@ -40,6 +40,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -246,7 +247,7 @@ type snsStatement struct {
 	Sid       string       `json:"Sid"`
 	Effect    string       `json:"Effect"`
 	Principal snsPrincipal `json:"Principal"`
-	Action    interface{}  `json:"Action"`
+	Action    any          `json:"Action"`
 	Resource  string       `json:"Resource"`
 	Condition *struct {
 		StringEquals *struct {
@@ -307,13 +308,7 @@ func (obj *AwsEc2Res) Validate() error {
 	}
 
 	// compare obj.Region to the list of available AWS endpoints.
-	validRegion := false
-	for _, region := range AwsRegions {
-		if obj.Region == region {
-			validRegion = true
-			break
-		}
-	}
+	validRegion := slices.Contains(AwsRegions, obj.Region)
 	if !validRegion {
 		return fmt.Errorf("region must be a valid AWS endpoint")
 	}
@@ -474,19 +469,15 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 	defer close(obj.closeChan)
 
 	// cancel our context if obj.closeChan closes
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		select {
 		case <-obj.closeChan:
 			cancel()
 		}
-	}()
+	})
 
 	// monitor the resource and send the state to the channel
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(obj.awsChan)
 		for {
 			// get the instance with the name specified in the definition
@@ -522,7 +513,7 @@ func (obj *AwsEc2Res) longpollWatch(ctx context.Context) error {
 				return
 			}
 		}
-	}()
+	})
 
 	// process events from the goroutine
 	for {
@@ -583,10 +574,8 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 		}
 	}()
 	defer close(obj.closeChan)
-	obj.wg.Add(1)
 	// start the sns server
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(obj.awsChan)
 		if err := snsServer.Serve(listener); err != nil {
 			// when we shut down
@@ -602,7 +591,7 @@ func (obj *AwsEc2Res) snsWatch(ctx context.Context) error {
 			case <-obj.closeChan:
 			}
 		}
-	}()
+	})
 	obj.init.Logf("Started SNS Endpoint")
 	// Subscribing the endpoint to the topic needs to happen after starting
 	// the http server, so that the server can process the subscription
@@ -850,7 +839,7 @@ func (obj *AwsEc2Res) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *AwsEc2Res) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *AwsEc2Res) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes AwsEc2Res // indirection to avoid infinite recursion
 
 	def := obj.Default()        // get the default
@@ -1182,12 +1171,10 @@ func (obj *AwsEc2Res) snsAuthorizeCloudWatch(topicArn string) error {
 		Resource: topicArn,
 	}
 	// check if permissions have already been added
-	for _, statement := range policy.Statement {
-		if statement == permission {
-			// if it's already there, we're done
-			obj.init.Logf("Target Already Authorized")
-			return nil
-		}
+	if slices.Contains(policy.Statement, permission) {
+		// if it's already there, we're done
+		obj.init.Logf("Target Already Authorized")
+		return nil
 	}
 	// add the new policy statement to the existing one(s)
 	policy.Statement = append(policy.Statement, permission)

@@ -32,6 +32,7 @@ package core // TODO: should this be in its own individual package?
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -301,9 +302,9 @@ func (obj *HistoryFunc) peekAgo(ms int) types.Value {
 
 	target := time.Now().Add(-time.Duration(ms) * time.Millisecond)
 
-	for i := len(obj.buffer) - 1; i >= 0; i-- {
-		if !obj.buffer[i].Timestamp.After(target) {
-			return obj.buffer[i].Value
+	for _, v := range slices.Backward(obj.buffer) {
+		if !v.Timestamp.After(target) {
+			return v.Value
 		}
 	}
 

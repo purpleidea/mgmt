@@ -153,14 +153,12 @@ func (obj *EasyExit) Signal() <-chan struct{} {
 // This can be used in addition to or instead of the Signal method.
 func (obj *EasyExit) Context() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
-	obj.wg.Add(1) // prevent leaks
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer cancel()
 		select {
 		case <-obj.Signal():
 		}
-	}()
+	})
 
 	return ctx
 }

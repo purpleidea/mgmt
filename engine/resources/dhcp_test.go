@@ -60,7 +60,7 @@ func TestDHCPServerValidateNBP(t *testing.T) {
 func TestDHCPHostNBPHandlerNoRace(t *testing.T) {
 	init := &engine.Init{
 		Event: func(ctx context.Context) error { return nil },
-		Logf:  func(format string, v ...interface{}) {},
+		Logf:  func(format string, v ...any) {},
 	}
 
 	res := &DHCPHostRes{
@@ -92,23 +92,19 @@ func TestDHCPHostNBPHandlerNoRace(t *testing.T) {
 	var wg sync.WaitGroup
 	start := make(chan struct{})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-start
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			if _, err := res.handler4(&HostData{NBP: "tftp://192.0.2.2/boot-b"}); err != nil {
 				t.Errorf("handler rebuild failed: %+v", err)
 				return
 			}
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		<-start
-		for i := 0; i < 1000; i++ {
+		for range 1000 {
 			resp, err := dhcpv4.NewReplyFromRequest(req)
 			if err != nil {
 				t.Errorf("new reply failed: %+v", err)
@@ -119,7 +115,7 @@ func TestDHCPHostNBPHandlerNoRace(t *testing.T) {
 				return
 			}
 		}
-	}()
+	})
 
 	close(start)
 	wg.Wait()

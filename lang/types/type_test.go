@@ -1778,7 +1778,7 @@ func TestTypeOfSkipPrivateFields(t *testing.T) {
 		private string //nolint:unused
 	}
 
-	typ := reflect.TypeOf(testStruct{})
+	typ := reflect.TypeFor[testStruct]()
 
 	// With SkipPrivateFieldsOpt(true), only exported fields should appear.
 	result, err := ConfigurableTypeOf(typ, SkipPrivateFieldsOpt(true))
@@ -1822,7 +1822,7 @@ func TestResTypeOfSkipPrivateFields(t *testing.T) {
 		secret string //nolint:unused
 	}
 
-	typ := reflect.TypeOf(resLike{})
+	typ := reflect.TypeFor[resLike]()
 	result, err := ResTypeOf(typ)
 	if err != nil {
 		t.Fatalf("func ResTypeOf failed on struct with unexported field: %v", err)

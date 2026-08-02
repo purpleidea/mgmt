@@ -55,7 +55,7 @@ func TestWatchDoesNotDescendPastLeaf(t *testing.T) {
 	}
 
 	logs := make(chan string, 16)
-	rw, err := NewRecWatcher(target, false, Debug(true), Logf(func(format string, v ...interface{}) {
+	rw, err := NewRecWatcher(target, false, Debug(true), Logf(func(format string, v ...any) {
 		logs <- fmt.Sprintf(format, v...)
 	}))
 	if err != nil {

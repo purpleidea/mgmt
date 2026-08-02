@@ -42,6 +42,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -250,8 +251,8 @@ func Reflow(filename string) error {
 	}
 
 	result := src
-	for i := len(replacements) - 1; i >= 0; i-- {
-		x := replacements[i]
+	for _, x := range slices.Backward(replacements) {
+
 		updated := make([]byte, 0, len(result)-x.end+x.start+len(x.text))
 		updated = append(updated, result[:x.start]...)
 		updated = append(updated, x.text...)
@@ -551,8 +552,8 @@ func checkCommentGroup(filename string, src []byte, fset *token.FileSet, doc *as
 			s = ""
 		}
 
-		if strings.HasPrefix(s, CommentPrefix) {
-			s = strings.TrimPrefix(s, CommentPrefix)
+		if after, ok := strings.CutPrefix(s, CommentPrefix); ok {
+			s = after
 		} else if strings.HasPrefix(s, CommentPrefixTab) {
 			s = strings.TrimPrefix(s, commentPrefixTrimmed)
 		}

@@ -34,6 +34,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/spf13/afero"
 )
@@ -61,7 +62,7 @@ func FsTree(fs afero.Fs, name string) (string, error) {
 }
 
 func stringify(fs afero.Fs, name string, indent []bool) (string, error) {
-	str := ""
+	var str strings.Builder
 	dir, err := fs.Open(name)
 	if err != nil {
 		return "", err
@@ -74,9 +75,9 @@ func stringify(fs afero.Fs, name string, indent []bool) (string, error) {
 	for i, fi := range fileinfo {
 		for _, last := range indent {
 			if last {
-				str += "    "
+				str.WriteString("    ")
 			} else {
-				str += "│   "
+				str.WriteString("│   ")
 			}
 		}
 
@@ -91,17 +92,17 @@ func stringify(fs afero.Fs, name string, indent []bool) (string, error) {
 		if fi.IsDir() {
 			p += "/" // identify as a dir
 		}
-		str += fmt.Sprintf("%s%s\n", header, p)
+		str.WriteString(fmt.Sprintf("%s%s\n", header, p))
 		if fi.IsDir() {
 			indented := append(indent, last)
 			s, err := stringify(fs, path.Join(name, p), indented)
 			if err != nil {
 				return "", err // TODO: return partial tree?
 			}
-			str += s
+			str.WriteString(s)
 		}
 	}
-	return str, nil
+	return str.String(), nil
 }
 
 // CopyFs copies a dir from the srcFs to a dir on the dstFs. It expects that the

@@ -31,6 +31,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 )
 
 // UnitData is the data struct used to build a systemd unit file. This isn't an
@@ -84,57 +85,57 @@ type UnitData struct {
 // to change, don't assume the output is stable either.
 // TODO: Should this return an error or not?
 func (obj *UnitData) Template() (string, error) {
-	data := ""
-	data += "[Unit]\n"
+	var data strings.Builder
+	data.WriteString("[Unit]\n")
 	if obj.Description != "" {
-		data += fmt.Sprintf("Description=%s\n", obj.Description)
+		data.WriteString(fmt.Sprintf("Description=%s\n", obj.Description))
 	}
 	if obj.Documentation != "" {
-		data += fmt.Sprintf("Documentation=%s\n", obj.Documentation)
+		data.WriteString(fmt.Sprintf("Documentation=%s\n", obj.Documentation))
 	}
 	for _, x := range obj.After {
 		if x == "" {
 			continue
 		}
-		data += fmt.Sprintf("After=%s\n", x)
+		data.WriteString(fmt.Sprintf("After=%s\n", x))
 	}
 
-	data += "\n"
-	data += "[Service]\n"
+	data.WriteString("\n")
+	data.WriteString("[Service]\n")
 	if obj.Type != "" {
-		data += fmt.Sprintf("Type=%s\n", obj.Type)
+		data.WriteString(fmt.Sprintf("Type=%s\n", obj.Type))
 	}
 	if obj.ExecStart != "" {
-		data += fmt.Sprintf("ExecStart=%s\n", obj.ExecStart)
+		data.WriteString(fmt.Sprintf("ExecStart=%s\n", obj.ExecStart))
 	}
 	if obj.RestartSec != "" {
-		data += fmt.Sprintf("RestartSec=%s\n", obj.RestartSec)
+		data.WriteString(fmt.Sprintf("RestartSec=%s\n", obj.RestartSec))
 	}
 	if obj.Restart != "" {
-		data += fmt.Sprintf("Restart=%s\n", obj.Restart)
+		data.WriteString(fmt.Sprintf("Restart=%s\n", obj.Restart))
 	}
 	if obj.LimitNOFILE > 0 {
-		data += fmt.Sprintf("LimitNOFILE=%d\n", obj.LimitNOFILE)
+		data.WriteString(fmt.Sprintf("LimitNOFILE=%d\n", obj.LimitNOFILE))
 	}
 
 	if obj.RemainAfterExit {
-		data += "RemainAfterExit=yes\n"
+		data.WriteString("RemainAfterExit=yes\n")
 	}
 	if obj.StandardOutput != "" {
-		data += fmt.Sprintf("StandardOutput=%s\n", obj.StandardOutput)
+		data.WriteString(fmt.Sprintf("StandardOutput=%s\n", obj.StandardOutput))
 	}
 	if obj.StandardError != "" {
-		data += fmt.Sprintf("StandardError=%s\n", obj.StandardError)
+		data.WriteString(fmt.Sprintf("StandardError=%s\n", obj.StandardError))
 	}
 
-	data += "\n"
-	data += "[Install]\n"
+	data.WriteString("\n")
+	data.WriteString("[Install]\n")
 	for _, x := range obj.WantedBy {
 		if x == "" {
 			continue
 		}
-		data += fmt.Sprintf("WantedBy=%s\n", x)
+		data.WriteString(fmt.Sprintf("WantedBy=%s\n", x))
 	}
 
-	return data, nil
+	return data.String(), nil
 }

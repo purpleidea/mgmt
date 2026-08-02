@@ -32,6 +32,7 @@ package funcs
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"runtime"
 	"strings"
@@ -233,15 +234,14 @@ func LookupPrefix(prefix string) map[string]func() interfaces.Func {
 // properly.
 func Map() map[string]func() interfaces.Func {
 	m := make(map[string]func() interfaces.Func)
-	for name, fn := range registeredFuncs { // copy
-		m[name] = fn
-	}
+	// copy
+	maps.Copy(m, registeredFuncs)
 	return m
 }
 
 // GetFunctionName reads the handle to find the underlying real function name.
 // The function can be an actual function or a struct which implements one.
-func GetFunctionName(fn interface{}) string {
+func GetFunctionName(fn any) string {
 	pc := runtime.FuncForPC(reflect.ValueOf(fn).Pointer())
 	if pc == nil {
 		// This part works for structs, the other parts work for funcs.
@@ -269,7 +269,7 @@ func GetFunctionName(fn interface{}) string {
 }
 
 // GetFunctionMetadata builds a metadata struct with everything about this func.
-func GetFunctionMetadata(fn interface{}) (*docsUtil.Metadata, error) {
+func GetFunctionMetadata(fn any) (*docsUtil.Metadata, error) {
 	nested := 1 // because this is wrapped in a function
 	// Additional metadata for documentation generation!
 	_, self, _, ok := runtime.Caller(0 + nested)

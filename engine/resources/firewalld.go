@@ -35,6 +35,7 @@ import (
 	"context"
 	"fmt"
 	"os/user"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,11 +196,8 @@ func (obj *FirewalldRes) Validate() error {
 		}
 	}
 
-	for _, x := range obj.Services {
-		// TODO: we could check services from a list
-		if x == "" {
-			return fmt.Errorf("service is empty")
-		}
+	if slices.Contains(obj.Services, "") {
+		return fmt.Errorf("service is empty")
 	}
 
 	for _, x := range obj.Ports {
@@ -303,7 +301,7 @@ func (obj *FirewalldRes) CheckApply(ctx context.Context, apply bool) (bool, erro
 
 	firewalldObject := conn.Object(firewalld1Iface, firewalld1Path) // TODO: can we reuse this?
 	var flags dbus.Flags                                            // none set
-	obj.call = func(ctx context.Context, method string, args ...interface{}) *dbus.Call {
+	obj.call = func(ctx context.Context, method string, args ...any) *dbus.Call {
 		fullMethod := firewalld1Iface + method // eg: ".getDefaultZone"
 		return firewalldObject.CallWithContext(ctx, fullMethod, flags, args...)
 	}
@@ -351,7 +349,7 @@ func (obj *FirewalldRes) CheckApply(ctx context.Context, apply bool) (bool, erro
 func (obj *FirewalldRes) serviceCheckApply(ctx context.Context, apply bool, service string) (bool, error) {
 	// .zone.getServices(s: zone) -> as
 	var services []string
-	args := []interface{}{obj.zone}
+	args := []any{obj.zone}
 	if err := obj.call(ctx, ".zone.getServices", args...).Store(&services); err != nil {
 		if parseError(err) == ErrInvalidZone {
 			obj.init.Logf("did the zone change?") // two managers!
@@ -378,7 +376,7 @@ func (obj *FirewalldRes) serviceCheckApply(ctx context.Context, apply bool, serv
 		// .zone.addService(s: zone, s: service, i: timeout) -> s
 		timeout := 0 // TODO: what should this be?
 		var output string
-		addArgs := []interface{}{obj.zone, service, timeout}
+		addArgs := []any{obj.zone, service, timeout}
 		if err := obj.call(ctx, ".zone.addService", addArgs...).Store(&output); err != nil && parseError(err) != ErrAlreadyEnabled {
 			return false, err
 		}
@@ -395,7 +393,7 @@ func (obj *FirewalldRes) serviceCheckApply(ctx context.Context, apply bool, serv
 	// .zone.removeService(s: zone, s: service) -> s
 	//timeout := 0
 	var output string
-	removeArgs := []interface{}{obj.zone, service}
+	removeArgs := []any{obj.zone, service}
 	if err := obj.call(ctx, ".zone.removeService", removeArgs...).Store(&output); err != nil && parseError(err) != ErrNotEnabled {
 		return false, err
 	}
@@ -426,7 +424,7 @@ func (obj *FirewalldRes) portCheckApply(ctx context.Context, apply bool, pp stri
 
 	// .zone.getPorts(s: zone) -> aas
 	var ports [][]string
-	args := []interface{}{obj.zone}
+	args := []any{obj.zone}
 	if err := obj.call(ctx, ".zone.getPorts", args...).Store(&ports); err != nil {
 		if parseError(err) == ErrInvalidZone {
 			obj.init.Logf("did the zone change?") // two managers!
@@ -499,7 +497,7 @@ func (obj *FirewalldRes) portCheckApply(ctx context.Context, apply bool, pp stri
 		// .zone.addPort(s: zone, s: port, s: protocol, i: timeout) -> s
 		timeout := 0 // TODO: what should this be?
 		var output string
-		addArgs := []interface{}{obj.zone, strconv.Itoa(port), protocol, timeout}
+		addArgs := []any{obj.zone, strconv.Itoa(port), protocol, timeout}
 		if err := obj.call(ctx, ".zone.addPort", addArgs...).Store(&output); err != nil && parseError(err) != ErrAlreadyEnabled {
 			return false, err
 		}
@@ -516,7 +514,7 @@ func (obj *FirewalldRes) portCheckApply(ctx context.Context, apply bool, pp stri
 	// .zone.removePort(s: zone, s: port, s: protocol) -> s
 	//timeout := 0
 	var output string
-	removeArgs := []interface{}{obj.zone, strconv.Itoa(port), protocol}
+	removeArgs := []any{obj.zone, strconv.Itoa(port), protocol}
 	if err := obj.call(ctx, ".zone.removePort", removeArgs...).Store(&output); err != nil && parseError(err) != ErrNotEnabled {
 		return false, err
 	}
@@ -572,7 +570,7 @@ func (obj *FirewalldRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *FirewalldRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *FirewalldRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes FirewalldRes // indirection to avoid infinite recursion
 
 	def := obj.Default()           // get the default
@@ -591,7 +589,7 @@ func (obj *FirewalldRes) UnmarshalYAML(unmarshal func(interface{}) error) error 
 }
 
 // callFunc is a helper func for simplifying the making of dbus calls.
-type callFunc func(ctx context.Context, method string, args ...interface{}) *dbus.Call
+type callFunc func(ctx context.Context, method string, args ...any) *dbus.Call
 
 // parseError converts a returned error into one of our error constants if it
 // matches. If it doesn't match, then it passes the data through. This is a

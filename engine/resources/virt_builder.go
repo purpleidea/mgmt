@@ -40,6 +40,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -363,15 +364,11 @@ func (obj *VirtBuilderRes) Validate() error {
 			return err
 		}
 	}
-	for _, x := range obj.RunCmd {
-		if x == "" {
-			return fmt.Errorf("empty RunCmd entry")
-		}
+	if slices.Contains(obj.RunCmd, "") {
+		return fmt.Errorf("empty RunCmd entry")
 	}
-	for _, x := range obj.FirstbootCmd {
-		if x == "" {
-			return fmt.Errorf("empty FirstbootCmd entry")
-		}
+	if slices.Contains(obj.FirstbootCmd, "") {
+		return fmt.Errorf("empty FirstbootCmd entry")
 	}
 
 	return nil
@@ -829,7 +826,7 @@ func (obj *VirtBuilderRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *VirtBuilderRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *VirtBuilderRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes VirtBuilderRes // indirection to avoid infinite recursion
 
 	def := obj.Default()             // get the default

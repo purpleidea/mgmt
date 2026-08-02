@@ -369,7 +369,7 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 			//VarDir: obj.init.VarDir, // TODO: wrap this
 
 			Debug: obj.init.Debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				obj.init.Logf(r.String()+": "+format, v...)
 			},
 		}
@@ -448,9 +448,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 
 	for _, r := range obj.GetGroup() { // grouped elements
 		res := r // optional in newer golang
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			err := res.Watch(ctx)
 			// Close this channel *before* we report the error. This
 			// is where this Watch is writing to but it is also used
@@ -463,15 +461,13 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 				case <-ctx.Done():
 				}
 			}
-		}()
+		})
 		// wait for Watch first Event() call or immediate error/exit...
 		select {
 		case <-obj.eventsChanMap[res]: // triggers on start or on err...
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for {
 				var ok bool
 				var err error
@@ -490,7 +486,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 	// we block until all the children are started first...
 
@@ -499,9 +495,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	}
 
 	shutdownChan := make(chan struct{}) // server shutdown finished signal
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case <-obj.interruptChan:
 			// TODO: should we bubble up the error from Close?
@@ -510,11 +504,9 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		case <-shutdownChan:
 			// let this exit
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 
 		err := obj.server.Serve(obj.conn) // blocks until Shutdown() is called!
 		if err == nil || err == http.ErrServerClosed {
@@ -522,7 +514,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			return
 		}
 		cancel(errwrap.Wrapf(err, "the server errored"))
-	}()
+	})
 
 	// When Shutdown is called, Serve, ListenAndServe, and ListenAndServeTLS
 	// immediately return ErrServerClosed. Make sure the program doesn't
@@ -707,7 +699,7 @@ func (obj *HTTPServerRes) Copy() engine.CopyableRes {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *HTTPServerRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *HTTPServerRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes HTTPServerRes // indirection to avoid infinite recursion
 
 	def := obj.Default()            // get the default

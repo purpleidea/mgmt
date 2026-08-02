@@ -66,6 +66,6 @@ func init() {
 
 // G is the main translation function to be exported by this package.
 // TODO: should this be L or something else instead?
-func G(msgid string, v ...interface{}) string {
+func G(msgid string, v ...any) string {
 	return locale.Get(msgid, v...)
 }

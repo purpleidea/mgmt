@@ -47,14 +47,12 @@ const (
 // WatchdogLogf runs a logf logging function when various watchdog events occur.
 // The start timer and maximum timer are defined by constants. You must cancel
 // the watchdog in time with the returned function to avoid firing the log func.
-func WatchdogLogf(logf func(format string, v ...interface{})) func() {
+func WatchdogLogf(logf func(format string, v ...any)) func() {
 	ctx, cancel := context.WithCancel(context.Background())
 	d := WatchdogMin // start
 	timer := time.NewTimer(d)
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer func() {
 			if d == WatchdogMin { // it never ran a logf
 				return
@@ -77,7 +75,7 @@ func WatchdogLogf(logf func(format string, v ...interface{})) func() {
 				return
 			}
 		}
-	}()
+	})
 
 	return func() {
 		defer wg.Wait() // wait for exited message to be printed
@@ -93,9 +91,7 @@ func WatchdogFn(fn func(string)) func() {
 	d := WatchdogMin // start
 	timer := time.NewTimer(d)
 	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		defer func() {
 			if d == WatchdogMin { // it never ran a logf
 				return
@@ -118,7 +114,7 @@ func WatchdogFn(fn func(string)) func() {
 				return
 			}
 		}
-	}()
+	})
 
 	return func() {
 		defer wg.Wait() // wait for exited message to be printed

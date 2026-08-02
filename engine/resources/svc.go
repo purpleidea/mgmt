@@ -665,7 +665,7 @@ func (obj *SvcRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *SvcRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *SvcRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes SvcRes // indirection to avoid infinite recursion
 
 	def := obj.Default()     // get the default

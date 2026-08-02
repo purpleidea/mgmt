@@ -96,7 +96,7 @@ func (obj *MockBMC) Run() error {
 	return http.ListenAndServeTLS(obj.Addr, certPemFile, keyPemFile, nil)
 }
 
-func (obj *MockBMC) template(templateText string, data interface{}) (string, error) {
+func (obj *MockBMC) template(templateText string, data any) (string, error) {
 	var err error
 	tmpl := template.New("name") // whatever name you want
 	//tmpl = tmpl.Funcs(funcMap)
@@ -195,7 +195,7 @@ func (obj *MockBMC) rpcHandler(w http.ResponseWriter, r *http.Request) {
 	case rpc.PowerSetMethod:
 		//fmt.Printf("req2: %T %+v\n", req.Params, req.Params)
 		// TODO: This is a mess, isn't there a cleaner way to unpack it?
-		m, ok := req.Params.(map[string]interface{})
+		m, ok := req.Params.(map[string]any)
 		if ok {
 			param, exists := m["state"]
 			state, ok := param.(string)

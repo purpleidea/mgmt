@@ -68,7 +68,7 @@ func TestFileAutoEdge1(t *testing.T) {
 	}
 
 	debug := testing.Verbose() // set via the -test.v flag to `go test`
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		t.Logf("test: "+format, v...)
 	}
 	// run artificially without the entire engine
@@ -86,7 +86,7 @@ func TestMiscEncodeDecode1(t *testing.T) {
 	var err error
 
 	// encode
-	var input interface{} = &FileRes{}
+	var input any = &FileRes{}
 	b1 := bytes.Buffer{}
 	e := gob.NewEncoder(&b1)
 	err = e.Encode(&input) // pass with &
@@ -96,7 +96,7 @@ func TestMiscEncodeDecode1(t *testing.T) {
 	str := base64.StdEncoding.EncodeToString(b1.Bytes())
 
 	// decode
-	var output interface{}
+	var output any
 	bb, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		t.Errorf("base64 failed to Decode: %v", err)

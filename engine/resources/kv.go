@@ -278,16 +278,14 @@ func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	defer wg.Wait() // this must be above the defer cancel() call
 	ctx, cancel := context.WithTimeout(ctx, kvCheckApplyTimeout)
 	defer cancel()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case <-obj.interruptChan:
 			cancel()
 		case <-ctx.Done():
 			// let this exit
 		}
-	}()
+	})
 
 	if val, exists := obj.init.Recv()["value"]; exists && val.Changed {
 		// if we received on Value, and it changed, wooo, nothing to do.
@@ -395,7 +393,7 @@ func (obj *KVRes) UIDs() []engine.ResUID {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *KVRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *KVRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes KVRes // indirection to avoid infinite recursion
 
 	def := obj.Default()    // get the default

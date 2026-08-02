@@ -92,11 +92,9 @@ func (obj *BackgroundPool) Background(ctx context.Context, ready chan<- struct{}
 		obj.ctx, obj.cancel = context.WithCancel(context.Background())
 		obj.running = true
 
-		obj.wg.Add(1)
-		go func() {
-			defer obj.wg.Done()
+		obj.wg.Go(func() {
 			obj.err = obj.fn(obj.ctx, ready) // first ready gets passed in
-		}()
+		})
 	} else {
 		close(ready) // already running
 	}

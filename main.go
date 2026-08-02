@@ -84,7 +84,7 @@ func main() {
 		Tagline: tagline,
 		Flags: cliUtil.Flags{
 			Debug: debug,
-			Logf: func(format string, v ...interface{}) {
+			Logf: func(format string, v ...any) {
 				log.Printf(format, v...) // the top-level log!
 			},
 		},

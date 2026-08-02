@@ -41,14 +41,14 @@ func Code(code string) string {
 	output := []string{}
 	lines := strings.Split(code, "\n")
 	var found bool
-	var strip string // prefix to remove
+	var strip strings.Builder // prefix to remove
 	for i, x := range lines {
 		if !found && len(x) > 0 {
 			for j := 0; j < len(x); j++ {
 				if x[j] != '\t' {
 					break
 				}
-				strip += "\t"
+				strip.WriteString("\t")
 			}
 			// otherwise, there's no indentation
 			found = true
@@ -57,7 +57,7 @@ func Code(code string) string {
 			continue
 		}
 
-		s := strings.TrimPrefix(x, strip)
+		s := strings.TrimPrefix(x, strip.String())
 		output = append(output, s)
 	}
 

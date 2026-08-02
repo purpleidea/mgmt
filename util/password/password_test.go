@@ -56,15 +56,13 @@ func ExampleReadPasswordCtx() {
 	// be borked!
 	ch := make(chan os.Signal, 1+1) // must have buffer for max number of signals
 	signal.Notify(ch, syscall.SIGTERM, os.Interrupt)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case <-ch:
 			cancel()
 		case <-ctx.Done():
 		}
-	}()
+	})
 
 	password, err := ReadPasswordCtx(ctx)
 	if err != nil {

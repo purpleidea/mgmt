@@ -70,7 +70,7 @@ type Generate struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 }
 
 // Main runs everything for this setup item.
@@ -687,10 +687,10 @@ func commentCleaner(g *ast.CommentGroup) string {
 		}
 
 		// Split on newlines.
-		cl := strings.Split(c, "\n")
+		cl := strings.SplitSeq(c, "\n")
 
 		// Walk lines, stripping trailing white space and adding to list.
-		for _, l := range cl {
+		for l := range cl {
 			lines = append(lines, stripTrailingWhitespace(l))
 		}
 	}
@@ -707,22 +707,22 @@ func commentCleaner(g *ast.CommentGroup) string {
 	lines = lines[0:n]
 
 	// Concatenate all of these together. Blank lines should be a newline.
-	s := ""
+	var s strings.Builder
 	for i, line := range lines {
 		if line == "" {
 			continue
 		}
-		s += line
+		s.WriteString(line)
 		if i < len(lines)-1 { // Is there another line?
 			if lines[i+1] == "" {
-				s += "\n" // Will eventually be a line break.
+				s.WriteString("\n") // Will eventually be a line break.
 			} else {
-				s += " "
+				s.WriteString(" ")
 			}
 		}
 	}
 
-	return s
+	return s.String()
 }
 
 // TODO: should we use unicode.IsSpace instead?

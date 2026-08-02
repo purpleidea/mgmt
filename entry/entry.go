@@ -80,7 +80,7 @@ type Data struct {
 	Debug bool
 
 	// Logf is a logger which should be used.
-	Logf func(format string, v ...interface{})
+	Logf func(format string, v ...any)
 
 	// Args is the CLI struct to use. This takes the format of the go-arg
 	// API. Keep in mind that these values will be added on to the normal
@@ -88,7 +88,7 @@ type Data struct {
 	// anything that would conflict with that. Of note, a new subcommand is
 	// probably not what you want. To do more complicated things, you will
 	// need to implement a different custom API with Customizable.
-	Args interface{}
+	Args any
 
 	// Frontend is the name of the GAPI to run.
 	Frontend string
@@ -255,7 +255,7 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 		return nil
 	}
 
-	var args interface{}
+	var args any
 	if cmd := runArgs.RunEmpty; cmd != nil {
 		//name = cliUtil.LookupSubcommand(runArgs, cmd) // "empty"
 		args = cmd
@@ -276,7 +276,7 @@ func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
 
 	//debug := data.Flags.Debug // this one comes from main
 	debug := obj.data.Debug // this one comes from entry
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		//data.Flags.Logf(obj.data.Program+": "+format, v...)
 		obj.data.Logf(obj.data.Program+": "+format, v...)
 	}
@@ -334,7 +334,7 @@ type Init struct {
 	Data *cliUtil.Data
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Initable lets us have a way to pass in some data and handles if the struct
@@ -353,7 +353,7 @@ type Customizable interface {
 	// Customize takes in the full parsed struct, and returns the RunArgs
 	// that we should use for the run operation.
 	// TODO: should the input type be *cli.RunArgs instead?
-	Customize(runArgs interface{}) (*cli.RunArgs, error)
+	Customize(runArgs any) (*cli.RunArgs, error)
 	//Customize(args interface{}) (*lib.Config, error)
 	//Customize(ctx context.Context, runArgs interface{}) error
 }

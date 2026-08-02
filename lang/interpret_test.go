@@ -39,6 +39,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -306,12 +307,7 @@ func TestAstFunc1(t *testing.T) {
 				expstrs[i] = strings.TrimPrefix(x, errMagic)
 			}
 			foundErr := func(s string) bool {
-				for _, x := range expstrs {
-					if x == s {
-						return true // matched!
-					}
-				}
-				return false // unexpected
+				return slices.Contains(expstrs, s) // unexpected
 			}
 
 			fail := errStr != ""
@@ -319,7 +315,7 @@ func TestAstFunc1(t *testing.T) {
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
-			logf := func(format string, v ...interface{}) {
+			logf := func(format string, v ...any) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
@@ -440,7 +436,7 @@ func TestAstFunc1(t *testing.T) {
 				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("ast: "+format, v...)
 				},
 			}
@@ -498,7 +494,7 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			// apply type unification
-			xlogf := func(format string, v ...interface{}) {
+			xlogf := func(format string, v ...any) {
 				logf("unification: "+format, v...)
 			}
 			solver, err := unification.LookupDefault()
@@ -863,12 +859,7 @@ func TestAstFunc2(t *testing.T) {
 				expstrs[i] = strings.TrimPrefix(x, errMagic)
 			}
 			foundErr := func(s string) bool {
-				for _, x := range expstrs {
-					if x == s {
-						return true // matched!
-					}
-				}
-				return false // unexpected
+				return slices.Contains(expstrs, s) // unexpected
 			}
 			foundStreamErr := func(s string) bool {
 				const nilPtr = "0x0000000000"
@@ -891,7 +882,7 @@ func TestAstFunc2(t *testing.T) {
 			expstr = strings.Trim(expstr, "\n")
 
 			logCache := "" // save for comparing logs in tests
-			logCacher := func(format string, v ...interface{}) {
+			logCacher := func(format string, v ...any) {
 				logCache += fmt.Sprintf(format, v...) + "\n"
 			}
 			expFilter := func(expstr string) string {
@@ -900,7 +891,7 @@ func TestAstFunc2(t *testing.T) {
 					return ""
 				}
 				var filtered []string
-				for _, line := range strings.Split(parts[1], "\n") {
+				for line := range strings.SplitSeq(parts[1], "\n") {
 					if !strings.HasPrefix(line, magicError) {
 						filtered = append(filtered, line)
 					}
@@ -910,7 +901,7 @@ func TestAstFunc2(t *testing.T) {
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
-			logf := func(format string, v ...interface{}) {
+			logf := func(format string, v ...any) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
@@ -921,7 +912,7 @@ func TestAstFunc2(t *testing.T) {
 			localAPI := (&local.API{
 				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
 				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("local: api: "+format, v...)
 				},
 			}).Init()
@@ -938,7 +929,7 @@ func TestAstFunc2(t *testing.T) {
 			}
 			worldInit := &engine.WorldInit{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
@@ -1068,7 +1059,7 @@ func TestAstFunc2(t *testing.T) {
 				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("ast: "+format, v...)
 					logCacher(format, v...) // cache a copy
 				},
@@ -1175,7 +1166,7 @@ func TestAstFunc2(t *testing.T) {
 
 			logCache = "" // reset
 			// apply type unification
-			xlogf := func(format string, v ...interface{}) {
+			xlogf := func(format string, v ...any) {
 				logf("unification: "+format, v...)
 				logCacher(format, v...) // cache a copy
 			}
@@ -1304,7 +1295,7 @@ func TestAstFunc2(t *testing.T) {
 				World:    world,    // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("funcs: "+format, v...)
 					logCacher(format, v...) // cache a copy
 				},
@@ -1341,9 +1332,7 @@ func TestAstFunc2(t *testing.T) {
 			defer wg.Wait()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				if err := funcs.Run(ctx); err != nil {
 					if err == context.Canceled { // normal test shutdown
 						return
@@ -1352,7 +1341,7 @@ func TestAstFunc2(t *testing.T) {
 					//t.Errorf("test #%d: FAIL", index)
 					//t.Errorf("test #%d: run error with func engine: %+v", index, err)
 				}
-			}()
+			})
 			defer func() {
 				err := errwrap.WithoutContext(funcs.Err())
 				if err == context.Canceled { // normal test shutdown
@@ -1456,7 +1445,7 @@ func TestAstFunc2(t *testing.T) {
 			// run interpret!
 			interpreter := &interpret.Interpreter{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("interpret: "+format, v...)
 				},
 			}
@@ -1799,12 +1788,7 @@ func TestAstFunc3(t *testing.T) {
 				expstrs[i] = strings.TrimPrefix(x, errMagic)
 			}
 			foundErr := func(s string) bool {
-				for _, x := range expstrs {
-					if x == s {
-						return true // matched!
-					}
-				}
-				return false // unexpected
+				return slices.Contains(expstrs, s) // unexpected
 			}
 
 			fail := errStr != ""
@@ -1812,7 +1796,7 @@ func TestAstFunc3(t *testing.T) {
 
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
-			logf := func(format string, v ...interface{}) {
+			logf := func(format string, v ...any) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
 			mmFs := afero.NewMemMapFs()
@@ -1823,7 +1807,7 @@ func TestAstFunc3(t *testing.T) {
 			localAPI := (&local.API{
 				Prefix: fmt.Sprintf("%s/", filepath.Join(tmpdir, "local")),
 				Debug:  testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("local: api: "+format, v...)
 				},
 			}).Init()
@@ -1840,7 +1824,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 			worldInit := &engine.WorldInit{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("world: etcd: "+format, v...)
 				},
 			}
@@ -1969,7 +1953,7 @@ func TestAstFunc3(t *testing.T) {
 				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("ast: "+format, v...)
 				},
 			}
@@ -2067,7 +2051,7 @@ func TestAstFunc3(t *testing.T) {
 			}
 
 			// apply type unification
-			xlogf := func(format string, v ...interface{}) {
+			xlogf := func(format string, v ...any) {
 				logf("unification: "+format, v...)
 			}
 			solver, err := unification.LookupDefault()
@@ -2166,7 +2150,7 @@ func TestAstFunc3(t *testing.T) {
 				World:    world,    // used partially in some tests
 				//Prefix:   fmt.Sprintf("%s/", filepath.Join(tmpdir, "funcs")),
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("funcs: "+format, v...)
 				},
 			}
@@ -2202,9 +2186,7 @@ func TestAstFunc3(t *testing.T) {
 			defer wg.Wait()
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				if err := funcs.Run(ctx); err != nil {
 					if err == context.Canceled { // normal test shutdown
 						return
@@ -2213,7 +2195,7 @@ func TestAstFunc3(t *testing.T) {
 					//t.Errorf("test #%d: FAIL", index)
 					//t.Errorf("test #%d: run error with func engine: %+v", index, err)
 				}
-			}()
+			})
 			defer func() {
 				err := errwrap.WithoutContext(funcs.Err())
 				if err == context.Canceled { // normal test shutdown
@@ -2321,7 +2303,7 @@ func TestAstFunc3(t *testing.T) {
 
 			interpreter := &interpret.Interpreter{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("interpret: "+format, v...)
 				},
 			}
@@ -2396,7 +2378,7 @@ func TestAstFunc3(t *testing.T) {
 				StateFns: stateFns,
 
 				Debug: testing.Verbose(),
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("converger: "+format, v...)
 				},
 			}
@@ -2406,8 +2388,7 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 
-			convergerCtx, convergerCancel := context.WithCancel(context.Background())
-			defer convergerCancel()
+			convergerCtx := t.Context()
 
 			// TODO: waitgroup ?
 			go func() {
@@ -2428,7 +2409,7 @@ func TestAstFunc3(t *testing.T) {
 				World:     world,
 				Prefix:    fmt.Sprintf("%s/", filepath.Join(tmpdir, "engine")),
 				Debug:     testing.Verbose(),
-				Logf: func(format string, v ...interface{}) {
+				Logf: func(format string, v ...any) {
 					logf("engine: "+format, v...)
 				},
 			}
@@ -2641,7 +2622,7 @@ func stringResFields(res engine.Res) (string, error) {
 
 		// add a prefix to each line?
 		s = strings.Trim(s, "\n") // trim trailing newlines
-		for _, f := range strings.Split(s, "\n") {
+		for f := range strings.SplitSeq(s, "\n") {
 			str += fmt.Sprintf("Group: %s: ", res) + f + "\n"
 		}
 		//str += s

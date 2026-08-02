@@ -1435,7 +1435,7 @@ func (obj *VirtNetworkRes) Background(handle *engine.BackgroundHandle) engine.Ba
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *VirtNetworkRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *VirtNetworkRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes VirtNetworkRes // indirection to avoid infinite recursion
 
 	def := obj.Default()             // get the default
@@ -1606,7 +1606,7 @@ func (obj *VirtNetworkHostRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *VirtNetworkHostRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *VirtNetworkHostRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes VirtNetworkHostRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                 // get the default
@@ -1761,7 +1761,7 @@ func (obj *VirtNetworkRangeRes) Cmp(r engine.Res) error {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *VirtNetworkRangeRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *VirtNetworkRangeRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes VirtNetworkRangeRes // indirection to avoid infinite recursion
 
 	def := obj.Default()                  // get the default

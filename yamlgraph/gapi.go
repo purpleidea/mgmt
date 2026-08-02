@@ -141,7 +141,7 @@ func (obj *GAPI) graph() (*pgraph.Graph, error) {
 	}
 
 	debug := obj.data.Debug
-	logf := func(format string, v ...interface{}) {
+	logf := func(format string, v ...any) {
 		// TODO: add the Name prefix in parent logger
 		obj.data.Logf(Name+": "+format, v...)
 	}
@@ -160,9 +160,7 @@ func (obj *GAPI) graph() (*pgraph.Graph, error) {
 // Next returns nil errors every time there could be a new graph.
 func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 	ch := make(chan gapi.Next)
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(ch) // this will run before the obj.wg.Done()
 		if !obj.initialized {
 			err := fmt.Errorf("%s: GAPI is not initialized", Name)
@@ -238,7 +236,7 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 				return
 			}
 		}
-	}()
+	})
 	return ch
 }
 

@@ -305,7 +305,7 @@ func TestFwupdSignalMatchesDevice(t *testing.T) {
 
 	signal = &dbus.Signal{
 		Name: fwupdDBusInterface + ".DeviceChanged",
-		Body: []interface{}{body},
+		Body: []any{body},
 	}
 	if !fwupdSignalMatchesDevice(signal, guid) {
 		t.Errorf("func fwupdSignalMatchesDevice: our device did not match")
@@ -316,7 +316,7 @@ func TestFwupdSignalMatchesDevice(t *testing.T) {
 
 	signal = &dbus.Signal{
 		Name: fwupdDBusInterface + ".DeviceChanged",
-		Body: []interface{}{"garbage"},
+		Body: []any{"garbage"},
 	}
 	if !fwupdSignalMatchesDevice(signal, guid) {
 		t.Errorf("func fwupdSignalMatchesDevice: an undecodable signal must match")

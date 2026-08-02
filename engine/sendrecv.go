@@ -46,7 +46,7 @@ type SendableRes interface {
 	Res // implement everything in Res but add the additional requirements
 
 	// Sends returns a struct containing the defaults of the type we send.
-	Sends() interface{}
+	Sends() any
 
 	// Send is used in CheckApply to send the desired data. It returns an
 	// error if the data is malformed or doesn't type check. You should use
@@ -59,7 +59,7 @@ type SendableRes interface {
 	// resource runs CheckApply again. The caller MUST NOT mutate the
 	// struct, or anything it transitively points to, after Send returns. To
 	// send updated data, construct and Send a new value instead.
-	Send(st interface{}) error
+	Send(st any) error
 
 	// Sent returns the most recently published snapshot. This is used by
 	// the engine and may be called concurrently with Send. Treat the result
@@ -67,7 +67,7 @@ type SendableRes interface {
 	// already been produced since that would violate the DAG properties. If
 	// no payload has been sent yet, a nil may be returned, but we must not
 	// rely on this behaviour as it may change.
-	Sent() interface{}
+	Sent() any
 
 	// SendActive let's the resource know if it must send a value. This is
 	// usually called during CheckApply, but it's probably safe to check it
@@ -125,8 +125,8 @@ type Send struct {
 
 // GenerateSendFunc generates the Send function using the resource of our choice
 // for use in the resource internal state handle.
-func GenerateSendFunc(res Res) func(interface{}) error {
-	return func(st interface{}) error {
+func GenerateSendFunc(res Res) func(any) error {
+	return func(st any) error {
 		//fmt.Printf("from: %+v\n", res)
 		//fmt.Printf("send: %+v\n", st)
 		r, ok := res.(SendableRes)

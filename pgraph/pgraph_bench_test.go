@@ -121,7 +121,7 @@ func buildChain(n int) *Graph {
 		return g
 	}
 	vs := make([]Vertex, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		vs[i] = NV(fmt.Sprintf("v%d", i))
 	}
 	g.AddVertex(vs[0])
@@ -169,13 +169,13 @@ func buildLayered(layers, width int) *Graph {
 		return g
 	}
 	prev := make([]Vertex, width)
-	for j := 0; j < width; j++ {
+	for j := range width {
 		prev[j] = NV(fmt.Sprintf("L0_%d", j))
 		g.AddVertex(prev[j])
 	}
 	for l := 1; l < layers; l++ {
 		curr := make([]Vertex, width)
-		for j := 0; j < width; j++ {
+		for j := range width {
 			curr[j] = NV(fmt.Sprintf("L%d_%d", l, j))
 		}
 		for _, p := range prev {
@@ -199,15 +199,12 @@ func buildRandomDAG(n, avgDeg int, seed int64) *Graph {
 	//nolint:gosec // G404: deterministic seed for reproducible benchmark data
 	r := rand.New(rand.NewSource(seed))
 	vs := make([]Vertex, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		vs[i] = NV(fmt.Sprintf("v%d", i))
 	}
 	g.AddVertex(vs[0])
 	for i := 1; i < n; i++ {
-		k := avgDeg
-		if k > i {
-			k = i
-		}
+		k := min(avgDeg, i)
 		seen := make(map[int]struct{}, k)
 		for added := 0; added < k; {
 			p := r.Intn(i)
@@ -226,9 +223,9 @@ func buildRandomDAG(n, avgDeg int, seed int64) *Graph {
 // linear chains, each of length `chainLen`. Total vertices = chains * chainLen.
 func buildDisconnectedChains(chains, chainLen int) *Graph {
 	g, _ := NewGraph("disconnected")
-	for c := 0; c < chains; c++ {
+	for c := range chains {
 		var prev Vertex
-		for i := 0; i < chainLen; i++ {
+		for i := range chainLen {
 			v := NV(fmt.Sprintf("c%d_v%d", c, i))
 			if i == 0 {
 				g.AddVertex(v)

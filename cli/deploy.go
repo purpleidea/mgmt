@@ -97,7 +97,7 @@ type DeployArgs struct {
 // the same engine.
 func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.DeployEmpty; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "empty"
 		args = cmd
@@ -126,7 +126,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	gapiObj := fn()
 
 	program, version := data.Program, data.Version
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		data.Flags.Logf("deploy: "+format, v...)
 	}
 
@@ -228,7 +228,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	worldInit := &engine.WorldInit{
 		Hostname: "", // XXX: Should we set this?
 		Debug:    data.Flags.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			Logf("world: etcd: "+format, v...)
 		},
 	}
@@ -277,7 +277,7 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 
 		Fs:    deployFs,
 		Debug: data.Flags.Debug,
-		Logf: func(format string, v ...interface{}) {
+		Logf: func(format string, v ...any) {
 			// TODO: is this a sane prefix to use here?
 			data.Flags.Logf("cli: "+format, v...)
 		},

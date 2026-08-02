@@ -33,6 +33,7 @@ package txn
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"sync"
 
@@ -82,10 +83,10 @@ type opfnFlag interface {
 	opfn
 
 	// Flag reads some misc data.
-	Flag() interface{}
+	Flag() any
 
 	// SetFlag sets some misc data.
-	SetFlag(interface{})
+	SetFlag(any)
 }
 
 // revOp returns the reversed op from an op by packing or unpacking it.
@@ -144,14 +145,14 @@ func (obj *opSkip) SetSkip(skip bool) {
 }
 
 type opFlag struct {
-	flag interface{}
+	flag any
 }
 
-func (obj *opFlag) Flag() interface{} {
+func (obj *opFlag) Flag() any {
 	return obj.flag
 }
 
-func (obj *opFlag) SetFlag(flag interface{}) {
+func (obj *opFlag) SetFlag(flag any) {
 	obj.flag = flag
 }
 
@@ -604,8 +605,8 @@ func (obj *GraphTxn) Reverse() error {
 	obj.ops = []opfn{} // clear
 
 	//for _, op := range obj.rev
-	for i := len(obj.rev) - 1; i >= 0; i-- { // copy in the rev stuff to commit!
-		op := obj.rev[i]
+	for _, op := range slices.Backward(obj.rev) { // copy in the rev stuff to commit!
+
 		// mark these as being not reversible (so skip them on reverse!)
 		if skipOp, ok := op.(opfnSkipRev); ok {
 			skipOp.SetSkip(true)

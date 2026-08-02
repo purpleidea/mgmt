@@ -76,7 +76,7 @@ type Params struct {
 	Last func(context.Context) ([]string, error)
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Register takes a func containing a strategy implementation and stores it for

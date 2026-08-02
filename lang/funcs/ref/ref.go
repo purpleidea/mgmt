@@ -33,6 +33,7 @@ package ref
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -62,16 +63,16 @@ type CountEdge struct {
 
 // String prints a representation of the references held.
 func (obj *Count) String() string {
-	s := ""
-	s += fmt.Sprintf("vertices (%d):\n", len(obj.vertices))
+	var s strings.Builder
+	s.WriteString(fmt.Sprintf("vertices (%d):\n", len(obj.vertices)))
 	for vertex, count := range obj.vertices {
-		s += fmt.Sprintf("\tvertex (%d): %p %s\n", count, vertex, vertex)
+		s.WriteString(fmt.Sprintf("\tvertex (%d): %p %s\n", count, vertex, vertex))
 	}
-	s += fmt.Sprintf("edges (%d):\n", len(obj.edges))
+	s.WriteString(fmt.Sprintf("edges (%d):\n", len(obj.edges)))
 	for edge, count := range obj.edges {
-		s += fmt.Sprintf("\tedge (%d): %p %s -> %p %s # %s\n", count, edge.f1, edge.f1, edge.f2, edge.f2, edge.arg)
+		s.WriteString(fmt.Sprintf("\tedge (%d): %p %s -> %p %s # %s\n", count, edge.f1, edge.f1, edge.f2, edge.f2, edge.arg))
 	}
-	return s
+	return s.String()
 }
 
 // Init must be called to initialized the struct before first use.

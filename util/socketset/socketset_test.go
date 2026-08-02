@@ -141,13 +141,11 @@ func TestShutdown(t *testing.T) {
 	defer close(closeChan)
 
 	// create a listener that never receives any data
-	wg.Add(1) // add a waitgroup to ensure this will block if we don't properly unblock Select
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		_, _ = ss.ReceiveBytes() // this should block
 		select {
 		case <-closeChan:
 			return
 		}
-	}()
+	})
 }

@@ -32,6 +32,7 @@ package corefmt
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -465,14 +466,14 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 // TODO: implement better format errors support
 // FIXME: add support for more types, and add tests!
 func compileFormatToString(format string, values []types.Value) (string, error) {
-	output := ""
+	var output strings.Builder
 	ix := 0
 	inType := false
 	for i := 0; i < len(format); i++ {
 
 		// some normal char...
 		if !inType && format[i] != '%' {
-			output += string(format[i])
+			output.WriteString(string(format[i]))
 			continue
 		}
 
@@ -480,7 +481,7 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 		if format[i] == '%' {
 			if inType {
 				// it's a %%
-				output += string(format[i])
+				output.WriteString(string(format[i]))
 				inType = false
 			} else {
 				// start looking for type specification!
@@ -539,12 +540,12 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 		}
 
 		if format[i] == 'T' {
-			output += values[ix].Type().String() // print the type
+			output.WriteString(values[ix].Type().String()) // print the type
 		} else {
-			output += valueToString(values[ix])
+			output.WriteString(valueToString(values[ix]))
 		}
 		ix++ // consume one value
 	}
 
-	return output, nil
+	return output.String(), nil
 }

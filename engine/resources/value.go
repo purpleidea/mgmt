@@ -65,7 +65,7 @@ type ValueRes struct {
 	// received value overwrites this value for the lifetime of the
 	// resource. It is interface{} because it can hold any type. It has
 	// pointer because it is only set if an actual value exists.
-	Any *interface{} `lang:"any" yaml:"any"`
+	Any *any `lang:"any" yaml:"any"`
 
 	// Store specifies that we should store this value locally in our cache,
 	// so that if we have a cold startup, that it comes back instantly, even
@@ -79,7 +79,7 @@ type ValueRes struct {
 	// reason why we wouldn't want it on.
 	//Store bool
 
-	cachedAny *interface{}
+	cachedAny *any
 	isSet     bool
 }
 
@@ -234,11 +234,11 @@ type ValueSends struct {
 	// Any is the generated value being sent. It is interface{} because it
 	// can hold any type. It has pointer because it is only set if an actual
 	// value is actually being sent.
-	Any *interface{} `lang:"any"`
+	Any *any `lang:"any"`
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *ValueRes) Sends() interface{} {
+func (obj *ValueRes) Sends() any {
 	return &ValueSends{
 		Any: nil,
 	}
@@ -246,7 +246,7 @@ func (obj *ValueRes) Sends() interface{} {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *ValueRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *ValueRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes ValueRes // indirection to avoid infinite recursion
 
 	def := obj.Default()       // get the default
@@ -273,7 +273,7 @@ func (obj *ValueRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // causing a data race on the shared interface{} word. Copying into a fresh
 // local var severs that alias.
 // XXX: We don't have a test case to prove this situation, so hope for the best!
-func snapshotAny(in *interface{}) *interface{} {
+func snapshotAny(in *any) *any {
 	if in == nil {
 		return nil
 	}

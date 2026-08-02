@@ -220,7 +220,7 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 	}
 
 	// Special cases:
-	if reflect.TypeOf(net.HardwareAddr{}) == typ {
+	if reflect.TypeFor[net.HardwareAddr]() == typ {
 		return &Type{
 			Kind: KindStr,
 		}, nil
@@ -1035,11 +1035,11 @@ func (obj *Type) Reflect() reflect.Type {
 	case KindBool:
 		return reflect.TypeOf(bool(false))
 	case KindStr:
-		return reflect.TypeOf(string(""))
+		return reflect.TypeFor[string]()
 	case KindInt:
-		return reflect.TypeOf(int64(0))
+		return reflect.TypeFor[int64]()
 	case KindFloat:
-		return reflect.TypeOf(float64(0))
+		return reflect.TypeFor[float64]()
 
 	case KindList:
 		if obj.Val == nil {
@@ -1115,7 +1115,7 @@ func (obj *Type) Reflect() reflect.Type {
 		return reflect.FuncOf(in, out, variadic)
 
 	case KindVariant:
-		var x interface{}
+		var x any
 		return reflect.TypeOf(x) // TODO: is this correct?
 	}
 

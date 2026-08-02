@@ -61,14 +61,14 @@ func (obj *FirstbootArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, er
 	defer cancel()
 
 	var name string
-	var args interface{}
+	var args any
 	if cmd := obj.FirstbootStart; cmd != nil {
 		name = cliUtil.LookupSubcommand(obj, cmd) // "pkg"
 		args = cmd
 	}
 	_ = name
 
-	Logf := func(format string, v ...interface{}) {
+	Logf := func(format string, v ...any) {
 		// Don't block this globally...
 		//if !data.Flags.Debug {
 		//	return

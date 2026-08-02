@@ -60,7 +60,7 @@ type Textarea struct {
 	debug bool
 
 	// logf is a logger which should be used.
-	logf func(format string, v ...interface{})
+	logf func(format string, v ...any)
 
 	// sf is the SourceFinder function implementation that maps a filename
 	// to the source.
@@ -78,7 +78,7 @@ type Textarea struct {
 	isSet bool
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
+	Bug5819 any // XXX: workaround
 }
 
 // SetTextarea copies the source position from another Textarea.
@@ -221,7 +221,7 @@ func (obj *Textarea) HighlightText() string {
 
 // HighlightHelper gives the user better file/line number feedback. Node can be
 // a Node or a Func.
-func HighlightHelper(node interface{}, logf func(format string, v ...interface{}), err error) error {
+func HighlightHelper(node any, logf func(format string, v ...any), err error) error {
 	type isSetChecker interface {
 		IsSet() bool
 	}

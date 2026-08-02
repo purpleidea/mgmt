@@ -89,13 +89,13 @@ type Formatter struct {
 	Verbose bool
 
 	Debug bool
-	Logf  func(format string, v ...interface{})
+	Logf  func(format string, v ...any)
 }
 
 // Init sets up the struct before first use.
 func (obj *Formatter) Init() {
 	if obj.Logf == nil {
-		obj.Logf = func(string, ...interface{}) {}
+		obj.Logf = func(string, ...any) {}
 	}
 }
 

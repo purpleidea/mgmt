@@ -439,9 +439,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 		}
 		defer recWatcher.Close()
 
-		obj.wg.Add(1)
-		go func() {
-			defer obj.wg.Done()
+		obj.wg.Go(func() {
 			for {
 				var files *recwatch.Event
 				var ok bool
@@ -468,7 +466,7 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	if err := obj.init.Event(ctx); err != nil {
@@ -879,16 +877,14 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, errwrap.Wrapf(err, "error starting cmd")
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		select {
 		case <-obj.interruptChan:
 			cancel()
 		case <-innerCtx.Done():
 			// let this exit
 		}
-	}()
+	})
 
 	err = cmd.Wait() // we can unblock this with the timeout
 
@@ -1363,7 +1359,7 @@ type ExecSends struct {
 }
 
 // Sends represents the default struct of values we can send using Send/Recv.
-func (obj *ExecRes) Sends() interface{} {
+func (obj *ExecRes) Sends() any {
 	return &ExecSends{
 		Output: nil,
 		Stdout: nil,
@@ -1373,7 +1369,7 @@ func (obj *ExecRes) Sends() interface{} {
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is
 // primarily useful for setting the defaults.
-func (obj *ExecRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
+func (obj *ExecRes) UnmarshalYAML(unmarshal func(any) error) error {
 	type rawRes ExecRes // indirection to avoid infinite recursion
 
 	def := obj.Default()      // get the default
@@ -1509,9 +1505,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 	}
 
 	ch := make(chan *cmdOutput)
-	obj.wg.Add(1)
-	go func() {
-		defer obj.wg.Done()
+	obj.wg.Go(func() {
 		defer close(ch)
 		waited := false
 		defer func() {
@@ -1541,7 +1535,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 				return
 			}
 		}
-	}()
+	})
 	return ch, nil
 }
 

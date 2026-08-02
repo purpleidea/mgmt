@@ -43,9 +43,10 @@ import (
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	dockerImage "github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/registry"
 	dockerClient "github.com/docker/docker/client"
 )
 
@@ -165,7 +166,7 @@ func (obj *DockerImageRes) Watch(ctx context.Context) error {
 	}
 	defer client.Close() // success, so close it later
 
-	eventChan, errChan := client.Events(ctx, types.EventsOptions{})
+	eventChan, errChan := client.Events(ctx, events.ListOptions{})
 	close(obj.ready) // tell CheckApply to start now that events are running
 
 	// notify engine that we're running
@@ -223,7 +224,7 @@ func (obj *DockerImageRes) CheckApply(ctx context.Context, apply bool) (checkOK 
 	defer client.Close()
 
 	// Validate the image.
-	resp, err := client.ImageSearch(ctx, image, types.ImageSearchOptions{Limit: 1})
+	resp, err := client.ImageSearch(ctx, image, registry.SearchOptions{Limit: 1})
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error searching for image")
 	}

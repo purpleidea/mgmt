@@ -46,8 +46,10 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	dockerImage "github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/registry"
 	dockerClient "github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
@@ -218,7 +220,7 @@ func (obj *DockerContainerRes) Watch(ctx context.Context) error {
 	}
 	defer client.Close() // success, so close it later
 
-	eventChan, errChan := client.Events(ctx, types.EventsOptions{})
+	eventChan, errChan := client.Events(ctx, events.ListOptions{})
 	close(obj.ready) // tell CheckApply to start now that events are running
 
 	// notify engine that we're running
@@ -277,7 +279,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 	defer obj.client.Close() // close the docker client
 
 	// Validate the image.
-	resp, err := obj.client.ImageSearch(ctx, obj.Image, types.ImageSearchOptions{Limit: 1})
+	resp, err := obj.client.ImageSearch(ctx, obj.Image, registry.SearchOptions{Limit: 1})
 	if err != nil {
 		return false, errwrap.Wrapf(err, "error searching for image")
 	}
@@ -407,7 +409,7 @@ func (obj *DockerContainerRes) CheckApply(ctx context.Context, apply bool) (bool
 func (obj *DockerContainerRes) containerStart(ctx context.Context, id string, opts container.StartOptions) error {
 	obj.init.Logf("starting...")
 	// Get an events channel for the container we're about to start.
-	eventOpts := types.EventsOptions{
+	eventOpts := events.ListOptions{
 		Filters: filters.NewArgs(filters.KeyValuePair{Key: "container", Value: id}),
 	}
 	eventCh, errCh := obj.client.Events(ctx, eventOpts)

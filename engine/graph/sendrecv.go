@@ -60,7 +60,10 @@ func (obj *Engine) SendRecv() error {
 	}
 
 	for _, v := range g.Vertices() {
-		res, ok := v.(engine.RecvableRes)
+		// NOTE: This must not filter on engine.RecvableRes, because a
+		// groupable parent which can't receive itself might still have
+		// something grouped inside of it which can.
+		res, ok := v.(engine.Res)
 		if !ok {
 			continue // we'll catch the error later!
 		}
@@ -134,14 +137,10 @@ type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
 // CheckApply in which to consume them. This is because we can run more than
 // once for each CheckApply, and a repeat run finds the value it already stored
 // in the receiver field and therefore doesn't see anything change.
-func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
+func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
 	updated := make(map[engine.RecvableRes]map[string]*engine.Send) // list of updated keys
 	if groupableRes, ok := res.(engine.GroupableRes); ok {
 		for _, x := range groupableRes.GetGroup() { // grouped elements
-			recvableRes, ok := x.(engine.RecvableRes)
-			if !ok {
-				continue
-			}
 			//if obj.Debug {
 			//	obj.Logf("SendRecv: %s: grouped: %s", res, x) // receiving here
 			//}
@@ -150,7 +149,13 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 			// work correctly. We just need to make sure that things
 			// are grouped in the correct order, but that is not our
 			// problem! Recurse and merge in the changed results...
-			innerUpdated, err := SendRecv(recvableRes, fn)
+			//
+			// NOTE: We must recurse even if x can't receive itself,
+			// because something grouped inside of it might, and we
+			// must recurse even if res can't receive, because a
+			// groupable parent (such as http:server) is often not
+			// recvable while its children are.
+			innerUpdated, err := SendRecv(x, fn)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "recursive SendRecv error")
 			}
@@ -178,10 +183,17 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 		}
 	}
 
+	// We might have only been called to recurse into what is grouped above.
+	// For everything after this, we need an actual RecvableRes to continue.
+	recvableRes, ok := res.(engine.RecvableRes)
+	if !ok {
+		return updated, nil
+	}
+
 	var err error
-	recv := res.Recv()
+	recv := recvableRes.Recv()
 	if fn != nil {
-		recv, err = fn(res) // use a custom Recv function
+		recv, err = fn(recvableRes) // use a custom Recv function
 		if err != nil {
 			return nil, err
 		}
@@ -198,16 +210,16 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 	for k, v := range recv { // map[string]*Send
 		// v.Res // SendableRes // a handle to the resource which is sending a value
 		// v.Key // string      // the key in the resource that we're sending
-		if _, exists := updated[res]; !exists {
-			updated[res] = make(map[string]*engine.Send)
+		if _, exists := updated[recvableRes]; !exists {
+			updated[recvableRes] = make(map[string]*engine.Send)
 		}
 
-		//updated[res][k] = false // default
+		//updated[recvableRes][k] = false // default
 		// NOTE: We don't reset v.Changed to false here. It is sticky
 		// until the engine consumes it with ClearRecv, because we might
 		// run more than once before the receiver gets a CheckApply, and
 		// the transfer below is a no-op the second time through.
-		updated[res][k] = v // default
+		updated[recvableRes][k] = v // default
 
 		var st interface{} = v.Res // old style direct send/recv
 		if true {                  // new style send/recv API
@@ -387,9 +399,9 @@ func SendRecv(res engine.RecvableRes, fn RecvFn) (map[engine.RecvableRes]map[str
 			continue
 		}
 		//dest.Set(orig)  // do it for all types that match
-		//updated[res][k] = true // we updated this key!
-		v.Changed = true    // tag this key as updated!
-		updated[res][k] = v // we updated this key!
+		//updated[recvableRes][k] = true // we updated this key!
+		v.Changed = true            // tag this key as updated!
+		updated[recvableRes][k] = v // we updated this key!
 		//obj.Logf("SendRecv: %s.%s -> %s.%s (%+v)", v.Res, v.Key, res, k, fv) // fv may be private data
 	}
 	return updated, err

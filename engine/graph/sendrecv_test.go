@@ -126,3 +126,55 @@ func TestSendRecvAnyChanged(t *testing.T) {
 		t.Errorf("the receiver has `%v`, expected `world`", v)
 	}
 }
+
+func TestSendRecvGroupedIntoNonRecvableParent(t *testing.T) {
+	sender := &sendRecvValueSource{}
+	sender.SetKind("noop")
+	sender.SetName("sender")
+
+	// The http:server res is groupable but not recvable, while the
+	// http:server:file res grouped inside of it is recvable. We must still
+	// descend into the parent, or the child would never get its value.
+	child := &resources.HTTPServerFileRes{}
+	child.SetKind("http:server:file")
+	child.SetName("/index.html")
+	child.SetRecv(map[string]*engine.Send{
+		"data": {
+			Res: sender,
+			Key: "value",
+		},
+	})
+
+	parent := &resources.HTTPServerRes{}
+	parent.SetKind("http:server")
+	parent.SetName(":8080")
+	parent.SetGroup([]engine.GroupableRes{child})
+
+	if _, ok := engine.Res(parent).(engine.RecvableRes); ok {
+		t.Fatalf("the http:server res is recvable, pick another parent")
+	}
+
+	value := "hello"
+	if err := sender.Send(&sendRecvValueSends{Value: &value}); err != nil {
+		t.Fatalf("func Send: %v", err)
+	}
+
+	updated, err := SendRecv(parent, nil)
+	if err != nil {
+		t.Fatalf("func SendRecv: %v", err)
+	}
+	if send, exists := updated[child]["data"]; !exists {
+		t.Errorf("the grouped child was never visited")
+	} else if !send.Changed {
+		t.Errorf("the grouped child did not change")
+	}
+	if child.Data != "hello" {
+		t.Errorf("the grouped child has `%v`, expected `hello`", child.Data)
+	}
+
+	// ClearRecv must descend the same way that SendRecv does.
+	ClearRecv(parent)
+	if child.Recv()["data"].Changed {
+		t.Errorf("func ClearRecv did not reach the grouped child")
+	}
+}

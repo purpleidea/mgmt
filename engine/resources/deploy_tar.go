@@ -43,10 +43,9 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
-
-	"github.com/spf13/afero"
 )
 
 func init() {
@@ -217,7 +216,7 @@ func (obj *DeployTar) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	// TODO: use standard filesystem API's when we can make them work!
 	//fsys := afero.NewIOFS(filesystem)
 
-	if err := afero.Walk(filesystem, "/", func(path string, info fs.FileInfo, err error) error {
+	if err := util.FsWalk(filesystem, "/", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -231,7 +230,7 @@ func (obj *DeployTar) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			return nil
 		}
 
-		h, err := obj.hashFileAferoFs(filesystem, path)
+		h, err := obj.hashFileFs(filesystem, path)
 		if err != nil {
 			return err
 		}
@@ -297,7 +296,7 @@ func (obj *DeployTar) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	defer tarWriter.Close()                 // Might as well always close if we error early!
 
 	// TODO: formerly tarWriter.AddFS(fsys) // buggy!
-	if err := obj.addAferoFs(tarWriter, filesystem); err != nil {
+	if err := obj.addFs(tarWriter, filesystem); err != nil {
 		return false, errwrap.Wrapf(err, "error writing fs")
 	}
 
@@ -363,10 +362,10 @@ func (obj *DeployTar) hashFile(file string) (string, error) {
 	return obj.hashContent(f)
 }
 
-// hashFileAferoFs is a helper that returns the hash of the specified file with
-// an Afero fs. If the file doesn't exist, it returns the empty string.
+// hashFileFs is a helper that returns the hash of the specified file with one
+// of our filesystems. If the file doesn't exist, it returns the empty string.
 // Otherwise it errors.
-func (obj *DeployTar) hashFileAferoFs(fsys afero.Fs, file string) (string, error) {
+func (obj *DeployTar) hashFileFs(fsys engine.Fs, file string) (string, error) {
 	f, err := fsys.Open(file) // io.Reader
 	if err != nil && !os.IsNotExist(err) {
 		// This is likely a permissions error.
@@ -447,11 +446,12 @@ func (obj *DeployTar) addFS(tw *tar.Writer, fsys fs.FS) error {
 	})
 }
 
-// addAferoFs is an edited copy of archive/tar's *Writer.AddFs function but for
-// the deprecated Afero.Fs API. This version correctly adds the directories too!
+// addFs is an edited copy of archive/tar's *Writer.AddFs function but for our
+// own filesystem API, which is not the io/fs one that it expects. This version
+// correctly adds the directories too!
 // https://github.com/golang/go/issues/69459
-func (obj *DeployTar) addAferoFs(tw *tar.Writer, fsys afero.Fs) error {
-	return afero.Walk(fsys, "/", func(name string, info fs.FileInfo, err error) error {
+func (obj *DeployTar) addFs(tw *tar.Writer, fsys engine.Fs) error {
+	return util.FsWalk(fsys, "/", func(name string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}

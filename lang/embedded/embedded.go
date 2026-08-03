@@ -41,7 +41,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util"
 
-	"github.com/spf13/afero"
 	"github.com/yalue/merged_fs"
 )
 
@@ -69,24 +68,15 @@ func ModuleRegister(module string, fs fs.ReadFileFS) {
 
 // Lookup pulls out an embedded filesystem module which will contain a valid URI
 // method. The returned fs is read-only.
-// XXX: Update the interface to remove the afero part leaving this all read-only
 func Lookup(module string) (engine.Fs, error) {
-	fs, exists := registeredEmbeds[module]
+	fsys, exists := registeredEmbeds[module]
 	if !exists {
 		return nil, fmt.Errorf("could not lookup embedded module: %s", module)
 	}
 
-	// XXX: All this horrible filesystem transformation mess happens because
-	// golang doesn't have a writeable io/fs.WriteableFS interface... We can
-	// eventually port this further away from Afero though...
-	fromIOFS := afero.FromIOFS{FS: fs}     // fulfills afero.Fs interface
-	rp := util.NewRelPathFs(fromIOFS, "/") // calls to `/foo` turn into `foo`
-	afs := &afero.Afero{Fs: rp}            // wrap so that we're implementing ioutil
-	engineFS := &util.AferoFs{             // fulfills engine.Fs interface
-		Scheme: Scheme,       // pick the scheme!
-		Path:   "/" + module, // need a leading slash
-		Afero:  afs,
-	}
+	engineFS := util.NewIOFs(fsys) // fulfills the engine.Fs interface
+	engineFS.Scheme = Scheme       // pick the scheme!
+	engineFS.Path = "/" + module   // need a leading slash
 	return engineFS, nil
 }
 

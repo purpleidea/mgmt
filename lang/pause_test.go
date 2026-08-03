@@ -47,8 +47,6 @@ import (
 	"github.com/purpleidea/mgmt/etcd"
 	etcdClient "github.com/purpleidea/mgmt/etcd/client"
 	"github.com/purpleidea/mgmt/util"
-
-	"github.com/spf13/afero"
 )
 
 func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
@@ -65,9 +63,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 		Logf:   func(format string, v ...interface{}) {},
 	}).Init()
 
-	mmFs := afero.NewMemMapFs()
-	afs := &afero.Afero{Fs: mmFs}
-	fs := &util.AferoFs{Afero: afs}
+	fs := util.NewMemFs()
 	world := &etcd.World{
 		Client:       etcdClient.NewClientFromClient(nil),
 		StandaloneFs: fs,

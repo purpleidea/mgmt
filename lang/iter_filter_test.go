@@ -41,8 +41,6 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	"github.com/spf13/afero"
 )
 
 func runLangEvents(t *testing.T, code string, events int, timeout time.Duration) error {
@@ -51,9 +49,7 @@ func runLangEvents(t *testing.T, code string, events int, timeout time.Duration)
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: lang: "+format, v...)
 	}
-	mmFs := afero.NewMemMapFs()
-	afs := &afero.Afero{Fs: mmFs}
-	fs := &util.AferoFs{Afero: afs}
+	fs := util.NewMemFs()
 
 	output, err := inputs.ParseInput(code, fs)
 	if err != nil {

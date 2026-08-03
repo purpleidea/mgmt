@@ -52,7 +52,6 @@ import (
 	"github.com/purpleidea/mgmt/util"
 
 	godiff "github.com/kylelemons/godebug/diff"
-	"github.com/spf13/afero"
 	"golang.org/x/tools/txtar"
 )
 
@@ -457,11 +456,10 @@ func TestCheckFiles(t *testing.T) {
 func sourceFiles(t *testing.T, code []byte) []*interfaces.SourceFile {
 	t.Helper()
 
-	memFs := afero.NewMemMapFs()
-	if err := afero.WriteFile(memFs, "/main.mcl", code, 0600); err != nil {
+	fs := util.NewMemFs()
+	if err := fs.WriteFile("/main.mcl", code, 0600); err != nil {
 		t.Fatalf("func WriteFile failed: %+v", err)
 	}
-	fs := &util.AferoFs{Afero: &afero.Afero{Fs: memFs}}
 
 	output, err := inputs.ParseInput("/main.mcl", fs)
 	if err != nil {

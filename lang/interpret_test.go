@@ -69,7 +69,6 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/kylelemons/godebug/pretty"
-	"github.com/spf13/afero"
 	"golang.org/x/tools/txtar"
 )
 
@@ -314,9 +313,7 @@ func TestAstFunc1(t *testing.T) {
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
-			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
-			fs := &util.AferoFs{Afero: afs}
+			fs := util.NewMemFs()
 
 			variables := map[string]interfaces.Expr{
 				"purpleidea": &ast.ExprStr{V: "hello world!"}, // james says hi
@@ -896,9 +893,7 @@ func TestAstFunc2(t *testing.T) {
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
-			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
-			fs := &util.AferoFs{Afero: afs}
+			fs := util.NewMemFs()
 
 			// implementation of the Local API (we only expect just this single one)
 			localAPI := (&local.API{
@@ -1789,9 +1784,7 @@ func TestAstFunc3(t *testing.T) {
 			logf := func(format string, v ...interface{}) {
 				t.Logf(fmt.Sprintf("test #%d", index)+": "+format, v...)
 			}
-			mmFs := afero.NewMemMapFs()
-			afs := &afero.Afero{Fs: mmFs} // wrap to implement the fs API's
-			fs := &util.AferoFs{Afero: afs}
+			fs := util.NewMemFs()
 
 			// implementation of the Local API (we only expect just this single one)
 			localAPI := (&local.API{

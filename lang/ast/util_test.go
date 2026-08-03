@@ -39,19 +39,16 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
-
-	"github.com/spf13/afero"
 )
 
 // newTestFs returns an empty filesystem with the given URI. The contents don't
 // matter here, we only need each one to be a distinct filesystem.
 func newTestFs(t *testing.T, scheme, path string) engine.Fs {
 	t.Helper()
-	return &util.AferoFs{
-		Scheme: scheme,
-		Path:   path,
-		Afero:  &afero.Afero{Fs: afero.NewMemMapFs()},
-	}
+	fs := util.NewMemFs()
+	fs.Scheme = scheme
+	fs.Path = path
+	return fs
 }
 
 func TestCollectPrograms(t *testing.T) {

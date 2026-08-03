@@ -45,8 +45,6 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	"github.com/spf13/afero"
 )
 
 // TODO: unify with the other function like this...
@@ -108,9 +106,7 @@ func runInterpret(t *testing.T, code string) (_ *pgraph.Graph, reterr error) {
 	logf := func(format string, v ...interface{}) {
 		t.Logf("test: lang: "+format, v...)
 	}
-	mmFs := afero.NewMemMapFs()
-	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	fs := &util.AferoFs{Afero: afs}
+	fs := util.NewMemFs()
 
 	output, err := inputs.ParseInput(code, fs) // raw code can be passed in
 	if err != nil {

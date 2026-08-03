@@ -58,8 +58,6 @@ import (
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-
-	"github.com/spf13/afero"
 )
 
 const (
@@ -145,13 +143,8 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	// TODO: while reading through trees of metadata files, we could also
 	// check the license compatibility of deps...
 
-	osFs := afero.NewOsFs()
-	readOnlyOsFs := afero.NewReadOnlyFs(osFs) // can't be readonly to dl!
-	//bp := afero.NewBasePathFs(osFs, base) // TODO: can this prevent parent dir access?
-	afs := &afero.Afero{Fs: readOnlyOsFs} // wrap so that we're implementing ioutil
-	localFs := &util.AferoFs{Afero: afs}  // always the local fs
-	downloadAfs := &afero.Afero{Fs: osFs}
-	downloadFs := &util.AferoFs{Afero: downloadAfs} // TODO: use with a parent path preventer?
+	localFs := util.NewReadOnlyOsFs() // always the local fs
+	downloadFs := util.NewOsFs()      // can't be readonly to dl!
 
 	// the fs input here is the local fs we're reading to get the files from
 	// this is different from the fs variable which is our output dest!!!

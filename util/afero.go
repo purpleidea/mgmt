@@ -34,9 +34,20 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/spf13/afero"
 )
+
+// FsWalk walks the file tree rooted at the named root, calling walkFn for each
+// file or directory in the tree, including the root. It is a thin wrapper, and
+// it exists so that a caller which already has one of our filesystems doesn't
+// have to name the underlying implementation to walk it. The standard library
+// io/fs.WalkDir is only usable on a read-only filesystem, so we can't use that
+// here.
+func FsWalk(fs afero.Fs, root string, walkFn filepath.WalkFunc) error {
+	return afero.Walk(fs, root, walkFn)
+}
 
 // FsTree returns a string representation of the file system tree similar to the
 // well-known `tree` command.

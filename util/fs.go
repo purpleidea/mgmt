@@ -31,6 +31,7 @@ package util
 
 import (
 	"fmt"
+	"io/fs"
 
 	"github.com/spf13/afero"
 )
@@ -55,4 +56,51 @@ func (obj *AferoFs) URI() string {
 		return obj.Scheme + "://" + obj.Path
 	}
 	return fmt.Sprintf("%s://"+"/", obj.Name()) // old
+}
+
+// The constructors below are the only places where we're supposed to build one
+// of our filesystems. They all return the same wrapper struct, which fulfills
+// the engine.Fs interface, so that the rest of the code base never has to name
+// the underlying implementation. This keeps the number of places which would
+// need to change if we ever swap that out down to this one file. Set the Scheme
+// and Path fields afterwards if this filesystem needs a specific URI.
+
+// NewMemFs returns a new, empty filesystem which is stored in memory. It is
+// used for tests, and to stage the files of a deploy before they get copied
+// into the cluster.
+func NewMemFs() *AferoFs {
+	return &AferoFs{
+		Afero: &afero.Afero{Fs: afero.NewMemMapFs()},
+	}
+}
+
+// NewOsFs returns a filesystem which reads and writes to the local disk.
+func NewOsFs() *AferoFs {
+	return &AferoFs{
+		Afero: &afero.Afero{Fs: afero.NewOsFs()},
+	}
+}
+
+// NewReadOnlyOsFs returns a filesystem which reads from the local disk, and
+// which errors on any attempt to write to it.
+// TODO: Can we prevent access to any parent directory of a given base path?
+func NewReadOnlyOsFs() *AferoFs {
+	return &AferoFs{
+		Afero: &afero.Afero{Fs: afero.NewReadOnlyFs(afero.NewOsFs())},
+	}
+}
+
+// NewIOFs returns a read-only filesystem which reads from a standard library
+// io/fs filesystem. This is how the mcl modules which are embedded into our
+// binary get read. The paths in an io/fs are relative, so this re-roots them,
+// which lets the caller use the absolute paths that we use everywhere else.
+// XXX: All this horrible filesystem transformation mess happens because golang
+// doesn't have a writeable io/fs.WriteableFS interface... We can eventually
+// port this further away from Afero though...
+func NewIOFs(fsys fs.ReadFileFS) *AferoFs {
+	fromIOFS := afero.FromIOFS{FS: fsys}     // fulfills afero.Fs interface
+	relPathFs := NewRelPathFs(fromIOFS, "/") // calls to `/foo` turn into `foo`
+	return &AferoFs{
+		Afero: &afero.Afero{Fs: relPathFs},
+	}
 }

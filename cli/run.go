@@ -46,7 +46,6 @@ import (
 	. "github.com/purpleidea/mgmt/util/gettext"
 
 	"github.com/google/uuid"
-	"github.com/spf13/afero"
 )
 
 // RunArgs is the CLI parsing structure and type of the parsed result. This
@@ -129,13 +128,9 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 	// copied to in the cluster fs, so that our initial deploy is a true
 	// deploy, which is identical to what the `deploy` command produces, and
 	// which any other cluster member can therefore find and run as well.
-	mmFs := afero.NewMemMapFs()
-	afs := &afero.Afero{Fs: mmFs} // wrap so that we're implementing ioutil
-	standaloneFs := &util.AferoFs{
-		Afero:  afs,
-		Scheme: etcdfs.Scheme,
-		Path:   metadata,
-	}
+	standaloneFs := util.NewMemFs()
+	standaloneFs.Scheme = etcdfs.Scheme
+	standaloneFs.Path = metadata
 	main.DeployFs = standaloneFs
 
 	info := &gapi.Info{

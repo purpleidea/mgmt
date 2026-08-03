@@ -32,7 +32,7 @@ lang {{ index .Lang 0 }}
 keyboard us
 {{ if .Timezone -}}
 # System timezone
-timezone {{ .Timezone }} --isUtc
+timezone {{ .Timezone }} --utc
 {{- if .Ntp_servers }} --ntpservers={{ golang_strings_join .Ntp_servers "," }}{{ end -}}
 {{- end }}
 

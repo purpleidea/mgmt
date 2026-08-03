@@ -983,7 +983,7 @@ class base:host($name, $config) {
 			"fr_CA.UTF-8",
 			"en_US.UTF-8",
 		],
-		timezone => "", # XXX: not implemented
+		timezone => "UTC", # real servers all run in UTC
 		password => $password, # salted
 		bios => $bios,
 		part => $part,

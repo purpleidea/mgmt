@@ -1,0 +1,8 @@
+# An embedded module is compiled into the binary and it lives in its own
+# filesystem, which is rooted at its own directory. As a result, its main file
+# is found at /main.mcl in that filesystem, and there is usually no such file on
+# the local disk. If we ever lose track of which filesystem a source file came
+# from, then reading it back errors, and the format check of any program which
+# imports an embedded module breaks. Keep an embedded import in the tests.
+import "embedded/provisioner"
+$x = 42

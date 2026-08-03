@@ -35,13 +35,35 @@ import (
 	"github.com/spf13/afero"
 )
 
+// ReadFS is the minimal, read-only portion of our filesystem API. It is
+// deliberately tiny, and it only contains methods which mimic the ones from the
+// io/fs package, or which are entirely our own. As a result, it does not depend
+// on the legacy afero implementation, and it is not expected to change if that
+// ever gets replaced. Consumers which only need to read a file should ask for
+// this instead of the full Fs, so that they stay decoupled from that decision.
+type ReadFS interface {
+	// URI returns a unique string handle to access this filesystem.
+	URI() string // returns the URI for this file system
+
+	// ReadFile reads the named file and returns its contents. A successful
+	// call returns a nil error, not io.EOF. (Because ReadFile reads the
+	// whole file, the expected EOF from the final Read is not treated as an
+	// error to be reported.)
+	//
+	// The caller is permitted to modify the returned byte slice. This
+	// method should return a copy of the underlying data.
+	//
+	// This mimics the signature from io/fs.ReadFileFS and has the same
+	// docs.
+	ReadFile(name string) ([]byte, error) // io/fs.ReadFileFS
+}
+
 // Fs is an interface that represents the file system API that we support.
 // TODO: rename this to FS for consistency with the io/fs.FS naming scheme
 type Fs interface {
 	//fmt.Stringer // TODO: add this method?
 
-	// URI returns a unique string handle to access this filesystem.
-	URI() string // returns the URI for this file system
+	ReadFS // URI and ReadFile
 
 	afero.Fs // TODO: why doesn't this interface exist in the os pkg?
 
@@ -55,18 +77,6 @@ type Fs interface {
 	//
 	// XXX: Not currently implemented because of legacy Afero.Fs above
 	//ReadDir(name string) ([]fs.DirEntry, error) // io/fs.ReadDirFS
-
-	// ReadFile reads the named file and returns its contents. A successful
-	// call returns a nil error, not io.EOF. (Because ReadFile reads the
-	// whole file, the expected EOF from the final Read is not treated as an
-	// error to be reported.)
-	//
-	// The caller is permitted to modify the returned byte slice. This
-	// method should return a copy of the underlying data.
-	//
-	// This mimics the signature from io/fs.ReadFileFS and has the same
-	// docs.
-	ReadFile(name string) ([]byte, error) // io/fs.ReadFileFS
 
 	// Stat returns a FileInfo describing the file. If there is an error, it
 	// should be of type *fs.PathError.

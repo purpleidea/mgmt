@@ -35,13 +35,31 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
+
+	"github.com/spf13/afero"
 )
 
+// newTestFs returns an empty filesystem with the given URI. The contents don't
+// matter here, we only need each one to be a distinct filesystem.
+func newTestFs(t *testing.T, scheme, path string) engine.Fs {
+	t.Helper()
+	return &util.AferoFs{
+		Scheme: scheme,
+		Path:   path,
+		Afero:  &afero.Afero{Fs: afero.NewMemMapFs()},
+	}
+}
+
 func TestCollectPrograms(t *testing.T) {
+	fs := newTestFs(t, "", "")
+
 	main := &StmtProg{}
 	if err := main.Init(&interfaces.Data{
+		Fs:       fs,
 		Base:     "/tmp/main/",
 		Metadata: &interfaces.Metadata{Main: "main.mcl"},
 	}); err != nil {
@@ -50,6 +68,7 @@ func TestCollectPrograms(t *testing.T) {
 
 	imported := &StmtProg{}
 	if err := imported.Init(&interfaces.Data{
+		Fs:       fs,
 		Base:     "/tmp/imported/",
 		Metadata: &interfaces.Metadata{Main: "main.mcl"},
 	}); err != nil {
@@ -68,11 +87,64 @@ func TestCollectPrograms(t *testing.T) {
 	if len(programs) != 2 {
 		t.Fatalf("unexpected program count: %d", len(programs))
 	}
-	if programs[0].Path != "/tmp/main/main.mcl" {
-		t.Fatalf("unexpected main path: %s", programs[0].Path)
+	if programs[0].File.Path != "/tmp/main/main.mcl" {
+		t.Fatalf("unexpected main path: %s", programs[0].File.Path)
 	}
-	if programs[1].Path != "/tmp/imported/main.mcl" {
-		t.Fatalf("unexpected imported path: %s", programs[1].Path)
+	if programs[1].File.Path != "/tmp/imported/main.mcl" {
+		t.Fatalf("unexpected imported path: %s", programs[1].File.Path)
+	}
+	for i, program := range programs {
+		if program.File.FS != fs {
+			t.Errorf("program %d lost its filesystem", i)
+		}
+	}
+}
+
+// TestCollectProgramsDistinctFs makes sure that two files which have the same
+// path, but which live in two different filesystems, are both collected. This
+// happens when we import more than one embedded module, since each of those has
+// its own root, and therefore its own /main.mcl file.
+func TestCollectProgramsDistinctFs(t *testing.T) {
+	metadata := &interfaces.Metadata{Main: "main.mcl"}
+
+	main := &StmtProg{}
+	if err := main.Init(&interfaces.Data{
+		Fs:       newTestFs(t, "", ""),
+		Base:     "/tmp/main/",
+		Metadata: metadata,
+	}); err != nil {
+		t.Fatalf("func Init failed: %+v", err)
+	}
+
+	for _, name := range []string{"one", "two"} {
+		imported := &StmtProg{}
+		if err := imported.Init(&interfaces.Data{
+			Fs:       newTestFs(t, "embeddedfs", "/"+name),
+			Base:     "/", // each embedded module has its own root
+			Metadata: metadata,
+		}); err != nil {
+			t.Fatalf("func Init failed: %+v", err)
+		}
+		main.importProgs = append(main.importProgs, imported)
+	}
+
+	programs, err := CollectPrograms(main)
+	if err != nil {
+		t.Fatalf("func CollectPrograms failed: %+v", err)
+	}
+	if len(programs) != 3 {
+		t.Fatalf("unexpected program count: %d", len(programs))
+	}
+
+	expected := []string{
+		"MemMapFS:///tmp/main/main.mcl",
+		"embeddedfs:///one/main.mcl",
+		"embeddedfs:///two/main.mcl",
+	}
+	for i, program := range programs {
+		if uri := program.File.URI(); uri != expected[i] {
+			t.Errorf("program %d is %s, expected %s", i, uri, expected[i])
+		}
 	}
 }
 

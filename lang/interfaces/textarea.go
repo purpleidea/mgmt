@@ -62,12 +62,10 @@ type Textarea struct {
 	// logf is a logger which should be used.
 	logf func(format string, v ...interface{})
 
-	// sf is the SourceFinder function implementation that maps a filename
-	// to the source.
-	sf SourceFinderFunc
-
-	// path is the full path/filename where this text area exists.
-	path string
+	// file is the source file where this text area exists. It knows about
+	// the filesystem it came from, and not only the path, because that is
+	// what is needed to read the source back.
+	file *SourceFile
 
 	// This data is zero-based. (Eg: first line of file is 0)
 	startLine   int // first
@@ -91,8 +89,7 @@ func (obj *Textarea) SetTextarea(t Textarea) {
 func (obj *Textarea) Setup(data *Data) {
 	obj.debug = data.Debug
 	obj.logf = data.Logf
-	obj.sf = data.SourceFinder
-	obj.path = data.AbsFilename()
+	obj.file = data.SourceFile()
 }
 
 // IsSet returns if the position was already set with Locate already.
@@ -121,25 +118,35 @@ func (obj *Textarea) End() (int, int) {
 	return obj.endLine, obj.endColumn
 }
 
+// SourceFile returns the source file that holds the code for an AST node. This
+// never returns nil, but it can return an empty one if it was never set up.
+func (obj *Textarea) SourceFile() *SourceFile {
+	if obj.file == nil { // it's not always set up, eg: in some tests
+		return &SourceFile{}
+	}
+	return obj.file
+}
+
 // Path returns the name of the source file that holds the code for an AST node.
 func (obj *Textarea) Path() string {
-	return obj.path
+	return obj.SourceFile().Path
 }
 
 // Filename returns the printable filename that we'd like to display. It tries
 // to return a relative version if possible.
 func (obj *Textarea) Filename() string {
-	if obj.path == "" {
+	path := obj.Path()
+	if path == "" {
 		return "<unknown>" // TODO: should this be <stdin> ?
 	}
 
 	wd, _ := os.Getwd() // ignore error since "" would just pass through
 	wd += "/"           // it's a dir
-	if s, err := util.RemoveBasePath(obj.path, wd); err == nil {
+	if s, err := util.RemoveBasePath(path, wd); err == nil {
 		return s
 	}
 
-	return obj.path
+	return path
 }
 
 // Byline gives a succinct representation of the Textarea, but is useful only in
@@ -154,15 +161,10 @@ func (obj *Textarea) Byline() string {
 // span multiple lines, don't show those lines, but just a description of the
 // area. If it can't generate a valid snippet, then it returns the empty string.
 func (obj *Textarea) HighlightText() string {
-	if obj.sf == nil {
-		// XXX: when all functions are ported over to use ast.Textarea,
-		// then uncomment this return and add in the panic below.
-		return "" // XXX: temporary
-		// programming error
-		//panic("nil SourceFinderFunc")
-	}
-	b, err := obj.sf(obj.path) // source finder!
+	b, err := obj.SourceFile().Source() // read it back from its own fs!
 	if err != nil {
+		// XXX: when all functions are ported over to use ast.Textarea,
+		// then we could panic here instead.
 		return ""
 	}
 	contents := string(b)

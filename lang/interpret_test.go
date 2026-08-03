@@ -185,19 +185,11 @@ func TestAstFunc1(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
-			sources := map[string][]byte{}
-			sourceFinder := func(path string) ([]byte, error) {
-				if b, exists := sources[path]; exists {
-					return b, nil
-				}
-				return nil, os.ErrNotExist
-			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
-				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -437,7 +429,6 @@ func TestAstFunc1(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
-				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -715,19 +706,11 @@ func TestAstFunc2(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
-			sources := map[string][]byte{}
-			sourceFinder := func(path string) ([]byte, error) {
-				if b, exists := sources[path]; exists {
-					return b, nil
-				}
-				return nil, os.ErrNotExist
-			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
-				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -1065,7 +1048,6 @@ func TestAstFunc2(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
-				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {
@@ -1651,19 +1633,11 @@ func TestAstFunc3(t *testing.T) {
 				t.Logf("comment: %s\n", comment)
 			}
 
-			sources := map[string][]byte{}
-			sourceFinder := func(path string) ([]byte, error) {
-				if b, exists := sources[path]; exists {
-					return b, nil
-				}
-				return nil, os.ErrNotExist
-			}
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
 			found := false
 			for _, file := range archive.Files {
-				sources["/"+file.Name] = file.Data // store!
 				if file.Name == "OUTPUT" {
 					testOutput = file.Data
 					found = true
@@ -1966,7 +1940,6 @@ func TestAstFunc3(t *testing.T) {
 
 				LexParser:       parser.LexParse,
 				StrInterpolater: interpolate.StrInterpolate,
-				SourceFinder:    sourceFinder,
 
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

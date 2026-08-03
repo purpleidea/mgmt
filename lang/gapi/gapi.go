@@ -226,7 +226,6 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		LexParser:       parser.LexParse,
 		Downloader:      downloader,
 		StrInterpolater: interpolate.StrInterpolate,
-		SourceFinder:    os.ReadFile,
 		//Local: obj.Local, // TODO: do we need this?
 		//World: obj.World, // TODO: do we need this?
 
@@ -349,9 +348,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not collect AST programs")
 		}
-		paths := []string{}
+		files := []*interfaces.SourceFile{}
 		for _, program := range programs {
-			paths = append(paths, program.Path)
+			files = append(files, program.File)
 		}
 
 		formatter := obj.Formatter()
@@ -359,7 +358,7 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 		formatter.Debug = debug
 		formatter.Logf = logf
 		formatter.Init()
-		checkOK, err := formatter.CheckFiles(context.TODO(), paths, os.ReadFile)
+		checkOK, err := formatter.CheckFiles(context.TODO(), files)
 		if err != nil {
 			err = errwrap.Wrapf(err, "could not check mcl formatting")
 			if args.CheckOnly {

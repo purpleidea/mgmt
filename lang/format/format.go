@@ -318,41 +318,40 @@ func (obj *Formatter) FormatData(ctx context.Context, input io.Reader) ([]byte, 
 	return formatted, nil
 }
 
-// CheckFiles runs the mcl formatter against the contents of each named source
-// file and checks that the formatted output matches the original source. The
-// contents are looked up with the given source finder function. It returns
-// false if at least one file is not formatted.
-func (obj *Formatter) CheckFiles(ctx context.Context, paths []string, sourceFinder interfaces.SourceFinderFunc) (bool, error) {
+// CheckFiles runs the mcl formatter against the contents of each source file
+// and checks that the formatted output matches the original source. Each file
+// is read from the filesystem that it came from, which is not necessarily the
+// local disk, since an imported module can be embedded in the binary. It
+// returns false if at least one file is not formatted.
+func (obj *Formatter) CheckFiles(ctx context.Context, files []*interfaces.SourceFile) (bool, error) {
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
 	default:
 	}
 
-	if sourceFinder == nil {
-		return false, fmt.Errorf("nil source finder")
-	}
-
 	checkOK := true
-	for _, path := range paths {
+	for _, file := range files {
 		select {
 		case <-ctx.Done():
 			return false, ctx.Err()
 		default:
 		}
 
-		if path == "" {
+		if file == nil || file.Path == "" {
 			return false, fmt.Errorf("empty check path")
 		}
 
-		source, err := sourceFinder(path)
+		source, err := file.Source()
 		if err != nil {
-			return false, errwrap.Wrapf(err, "could not read: %s", path)
+			// Show the URI here, since knowing which filesystem we
+			// looked in is the whole point when a read fails.
+			return false, errwrap.Wrapf(err, "could not read: %s", file.URI())
 		}
 
 		formatted, err := obj.FormatData(ctx, bytes.NewReader(source))
 		if err != nil {
-			return false, errwrap.Wrapf(err, "could not format: %s", path)
+			return false, errwrap.Wrapf(err, "could not format: %s", file)
 		}
 		if bytes.Equal(formatted, source) {
 			continue
@@ -360,7 +359,7 @@ func (obj *Formatter) CheckFiles(ctx context.Context, paths []string, sourceFind
 
 		checkOK = false
 		if obj.Verbose {
-			obj.Logf("not formatted: %s", path)
+			obj.Logf("not formatted: %s", file)
 		}
 	}
 

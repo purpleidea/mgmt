@@ -163,7 +163,6 @@ func HilInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.
 		LexParser:       data.LexParser,
 		Downloader:      data.Downloader,
 		StrInterpolater: data.StrInterpolater,
-		SourceFinder:    data.SourceFinder,
 		//World: data.World, // TODO: do we need this?
 
 		Prefix: data.Prefix,

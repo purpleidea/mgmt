@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -233,15 +234,6 @@ type Data struct {
 	// cycles.
 	StrInterpolater func(string, *Textarea, *Data) (Expr, error)
 
-	// SourceFinder is a function that returns the contents of a source file
-	// when requested by filename. This data is used to annotate error
-	// messages with some context from the source, and as a result is
-	// optional. This function is passed in this way so that the different
-	// consumers of this can use different methods to find the source. The
-	// three main users are: (1) normal GAPI CLI, before the bundle is
-	// created, (2) the main bundled execution, and (3) the tests.
-	SourceFinder SourceFinderFunc
-
 	//World engine.World // TODO: do we need this?
 
 	// Prefix provides a unique path prefix that we can namespace in. It is
@@ -264,6 +256,19 @@ func (obj *Data) AbsFilename() string {
 		return ""
 	}
 	return obj.Base + obj.Metadata.Main
+}
+
+// SourceFile returns the source file which holds the code that this Data struct
+// is running. Every import produces a new Data struct, and as a result, each
+// one of these represents exactly one file. This never returns nil.
+func (obj *Data) SourceFile() *SourceFile {
+	if obj == nil { // for tests
+		return &SourceFile{}
+	}
+	return &SourceFile{
+		FS:   obj.Fs,
+		Path: obj.AbsFilename(),
+	}
 }
 
 // Scope represents a mapping between a variables identifier and the
@@ -624,7 +629,59 @@ type TextDisplayer interface {
 	HighlightText() string
 }
 
-// SourceFinderFunc is the function signature used to return the contents of a
-// source file when requested by filename. This data is used to annotate error
-// messages with some context from the source, and as a result is optional.
-type SourceFinderFunc = func(string) ([]byte, error)
+// SourceFile is a single file of source code. It pairs the path of that file
+// with the filesystem which contains it, because a path on its own is not
+// enough to find a file: the same path can exist in more than one filesystem.
+// For example, a module which is imported from an embedded filesystem has its
+// own root, and so its main file lives at /main.mcl inside of that filesystem,
+// and not on the local disk. Pass one of these around instead of a bare path so
+// that the two halves can never get separated.
+type SourceFile struct {
+	// FS is the filesystem which contains this file. It is optional, since
+	// some consumers (mainly tests) don't have one, in which case the
+	// contents of this file are simply not available.
+	FS engine.ReadFS
+
+	// Path is the absolute path of this file within the above filesystem.
+	Path string
+}
+
+// String returns a friendly representation of this source file. This is the
+// path on its own, since that is what a user wants to read. Use the URI method
+// instead when it matters which filesystem the file came from.
+func (obj *SourceFile) String() string {
+	if obj == nil {
+		return ""
+	}
+	return obj.Path
+}
+
+// URI returns a unique handle for this file. It is the URI of the filesystem
+// which contains it, joined with the path of the file inside of that. We need
+// the filesystem portion to tell two files apart, since two distinct embedded
+// modules can each contain their own /main.mcl file.
+func (obj *SourceFile) URI() string {
+	if obj == nil {
+		return ""
+	}
+	if obj.FS == nil {
+		return obj.Path
+	}
+	// The fs URI ends with the root path of that fs, and our path always
+	// starts with a slash, so drop one of the two adjacent slashes here.
+	return strings.TrimSuffix(obj.FS.URI(), "/") + obj.Path
+}
+
+// Source returns the contents of this file. It reads it from the filesystem
+// which contains it, since that is the only place it is guaranteed to exist.
+// This data is used to annotate error messages with some context from the
+// source, and as a result it is optional and it can error.
+func (obj *SourceFile) Source() ([]byte, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("nil source file")
+	}
+	if obj.FS == nil {
+		return nil, fmt.Errorf("no filesystem for: %s", obj.Path)
+	}
+	return obj.FS.ReadFile(obj.Path)
+}

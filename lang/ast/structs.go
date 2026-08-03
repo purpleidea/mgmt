@@ -5499,7 +5499,6 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 		LexParser:       obj.data.LexParser,
 		Downloader:      obj.data.Downloader,
 		StrInterpolater: obj.data.StrInterpolater,
-		SourceFinder:    obj.data.SourceFinder,
 		//World: obj.data.World, // TODO: do we need this?
 
 		//Prefix: obj.Prefix, // TODO: add a path on?
@@ -7626,7 +7625,6 @@ func (obj *ExprStr) Interpolate() (interfaces.Expr, error) {
 		LexParser:       obj.data.LexParser,
 		Downloader:      obj.data.Downloader,
 		StrInterpolater: obj.data.StrInterpolater,
-		SourceFinder:    obj.data.SourceFinder,
 		//World: obj.data.World, // TODO: do we need this?
 
 		Prefix: obj.data.Prefix,

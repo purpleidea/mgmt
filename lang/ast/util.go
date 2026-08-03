@@ -290,8 +290,11 @@ func CollectFiles(ast interfaces.Stmt) ([]string, error) {
 
 // Program is a source file program in the AST.
 type Program struct {
-	Path string
-	AST  interfaces.Stmt
+	// File is the source file that this program was parsed from.
+	File *interfaces.SourceFile
+
+	// AST is the root of this program.
+	AST interfaces.Stmt
 }
 
 // CollectPrograms collects all the source file programs used in the AST.
@@ -305,11 +308,16 @@ func CollectPrograms(stmt interfaces.Stmt) ([]*Program, error) {
 	programs := []*Program{}
 	var collect func(*StmtProg)
 	collect = func(prog *StmtProg) {
-		path := prog.Path()
-		if _, exists := seen[path]; path != "" && !exists {
-			seen[path] = struct{}{}
+		file := prog.data.SourceFile()
+		// We can't tell two files apart by path alone, because each
+		// import can come from a different filesystem, and two of those
+		// can each contain their own /main.mcl file. Use the full URI so
+		// that we don't drop one of them here.
+		uri := file.URI()
+		if _, exists := seen[uri]; file.Path != "" && !exists {
+			seen[uri] = struct{}{}
 			programs = append(programs, &Program{
-				Path: path,
+				File: file,
 				AST:  prog,
 			})
 		}

@@ -32,10 +32,14 @@ cd `basename "$linkto"`
 
 # loop through individual *.go files in working dir
 for file in `find . -maxdepth 9 \( -type f -o -type l \) -name '*.go'`; do
+	# skip broken reference examples; they have this tag we can search for
+	if grep -q '^//go:build ignore$' "$file"; then
+		continue
+	fi
 	#echo "running test on: $file"
 	run-test go build -o "$buildout" "$file" || fail_test "could not build: $file"
 done
-rm "$buildout" || true	# clean up build mess
+rm -f "$buildout"	# clean up build mess
 
 cd - >/dev/null	# back to tmp dir
 rm `basename "$linkto"`

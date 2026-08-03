@@ -1,3 +1,5 @@
+//go:build ignore
+
 // libmgmt example of send->recv
 package main
 

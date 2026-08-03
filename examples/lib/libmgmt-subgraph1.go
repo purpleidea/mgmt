@@ -1,3 +1,5 @@
+//go:build ignore
+
 // libmgmt example of graph resource
 package main
 

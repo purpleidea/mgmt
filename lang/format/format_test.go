@@ -41,7 +41,6 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/ast"
-	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/format"
 	"github.com/purpleidea/mgmt/lang/format/astfmt"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -564,7 +563,7 @@ func TestCheckFilesEmbeddedImport(t *testing.T) {
 	// The main file comes from the fs we made, everything else is embedded.
 	embeds := 0
 	for _, file := range files[1:] {
-		if !strings.HasPrefix(file.URI(), embedded.Scheme+"://") {
+		if !strings.HasPrefix(file.URI(), interfaces.EmbeddedScheme+"://") {
 			continue
 		}
 		embeds++

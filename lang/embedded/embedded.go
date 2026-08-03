@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/util"
 
 	"github.com/spf13/afero"
@@ -46,8 +47,10 @@ import (
 
 const (
 	// Scheme is the string used to represent the scheme used by the
-	// embedded filesystem URI.
-	Scheme = "embeddedfs"
+	// embedded filesystem URI. It is defined with the other language
+	// constants, so that anyone who needs to recognize one of these
+	// filesystems doesn't have to import this package to do it.
+	Scheme = interfaces.EmbeddedScheme
 )
 
 var registeredEmbeds = make(map[string]fs.ReadFileFS) // must initialize

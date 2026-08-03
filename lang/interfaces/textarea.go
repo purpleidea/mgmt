@@ -135,18 +135,18 @@ func (obj *Textarea) Path() string {
 // Filename returns the printable filename that we'd like to display. It tries
 // to return a relative version if possible.
 func (obj *Textarea) Filename() string {
-	path := obj.Path()
-	if path == "" {
+	filename := obj.SourceFile().Filename()
+	if filename == "" {
 		return "<unknown>" // TODO: should this be <stdin> ?
 	}
 
 	wd, _ := os.Getwd() // ignore error since "" would just pass through
 	wd += "/"           // it's a dir
-	if s, err := util.RemoveBasePath(path, wd); err == nil {
+	if s, err := util.RemoveBasePath(filename, wd); err == nil {
 		return s
 	}
 
-	return path
+	return filename
 }
 
 // Byline gives a succinct representation of the Textarea, but is useful only in

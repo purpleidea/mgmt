@@ -52,4 +52,10 @@ const (
 
 	// PanicResKind is the kind string used for the panic resource.
 	PanicResKind = "_panic"
+
+	// EmbeddedScheme is the scheme used in the URI of a filesystem which
+	// holds an mcl module that is embedded in our binary. It lives here so
+	// that the consumers which need to recognize one of those filesystems
+	// don't all have to depend on the package which builds them.
+	EmbeddedScheme = "embeddedfs"
 )

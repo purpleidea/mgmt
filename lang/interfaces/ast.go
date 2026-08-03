@@ -32,6 +32,7 @@ package interfaces
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -654,6 +655,27 @@ func (obj *SourceFile) String() string {
 		return ""
 	}
 	return obj.Path
+}
+
+// Filename returns the printable name of this file. This is almost always just
+// the path, since that is what the user knows the file as. The exception is a
+// file which comes from an embedded filesystem, because each of those is rooted
+// at its own module, and as a result the path on its own is ambiguous: every
+// embedded module has its own /main.mcl file. Those get the full URI instead,
+// which names the module, and which can't be confused with a file on disk,
+// since a path never starts with a scheme.
+func (obj *SourceFile) Filename() string {
+	if obj == nil {
+		return ""
+	}
+	if obj.FS == nil {
+		return obj.Path
+	}
+	u, err := url.Parse(obj.FS.URI())
+	if err != nil || u.Scheme != EmbeddedScheme {
+		return obj.Path // the common case, don't dress it up
+	}
+	return obj.URI() // eg: embeddedfs:///embedded/provisioner/main.mcl
 }
 
 // URI returns a unique handle for this file. It is the URI of the filesystem

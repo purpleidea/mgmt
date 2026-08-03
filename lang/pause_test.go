@@ -134,7 +134,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 	if err := ge.Validate(); err != nil {
 		t.Fatalf("could not validate graph: %+v", err)
 	}
-	if err := ge.Pause(false); err != nil {
+	if err := ge.Pause(); err != nil {
 		t.Fatalf("could not pause empty graph: %+v", err)
 	}
 	if err := ge.Commit(context.Background()); err != nil {
@@ -150,7 +150,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 		t.Fatalf("resource did not start CheckApply")
 	}
 
-	if err := ge.Pause(false); err != nil {
+	if err := ge.Pause(); err != nil {
 		t.Fatalf("could not pause failing graph: %+v", err)
 	}
 	if err := ge.Resume(); err != nil {
@@ -166,7 +166,7 @@ func TestEnginePauseAfterCheckApplyFailure(t *testing.T) {
 		defer func() {
 			pausePanic = recover()
 		}()
-		pauseErr = ge.Pause(false)
+		pauseErr = ge.Pause()
 	}()
 	if pausePanic != nil {
 		err := ge.Shutdown()

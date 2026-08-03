@@ -97,6 +97,17 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		return fmt.Errorf("vertex is not a Res")
 	}
 
+	// The user asked us to stop waiting, so don't start any new work. Watch
+	// keeps running until we're paused, and every event it sends would
+	// otherwise start a fresh CheckApply that we'd then have to wait for.
+	// We leave the state dirty, since we didn't converge it.
+	if obj.interrupt.Load() {
+		if obj.Debug {
+			obj.Logf("%s: interrupted, skipping Process", vertex)
+		}
+		return ctx.Err()
+	}
+
 	obj.tlock.RLock()
 	state := obj.state[vertex]
 	obj.tlock.RUnlock()
@@ -554,8 +565,8 @@ func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 			// Interrupt any running Process, and then synchronize
 			// with the process loop through this sentinel, which it
 			// can only consume when no Process is running.
-			state.interruptProcess() // cancel any running Process
-			if retry != 0 {          // we're going to retry Watch
+			state.cancelProcess() // cancel any running Process
+			if retry != 0 {       // we're going to retry Watch
 				select {
 				case state.eventsChan <- errWatchRestart:
 				case <-state.doneCtx.Done():
@@ -907,11 +918,14 @@ Loop:
 				break RetryLoop
 			}
 			if interrupted {
-				// A restarting Watch interrupted this Process.
-				// That is not a CheckApply failure, so it must
-				// not count against the retry limit. The first
-				// event from the replacement Watch re-runs it.
-				state.init.Logf("process interrupted for watch restart")
+				// Either a restarting Watch interrupted this
+				// Process, or the user asked us to stop waiting
+				// on it. Neither is a CheckApply failure, so it
+				// must not count against the retry limit. In
+				// the first case the initial event from the
+				// replacement Watch re-runs it, and in the
+				// second we're on our way out anyway.
+				state.init.Logf("process interrupted")
 				break RetryLoop
 			}
 			// we've got an error...

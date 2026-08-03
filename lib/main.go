@@ -882,7 +882,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 					if started {
 						converger.Pause()
-						if err := obj.ge.Pause(false); err != nil {
+						if err := obj.ge.Pause(); err != nil {
 							// programming error
 							Logf("programming error exiting graph: %+v", err)
 							cancelCause(err) // trigger an exit!
@@ -1100,12 +1100,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			converger.Pause()
-			if err := obj.ge.Pause(fastPause); err != nil { // sync
+			obj.ge.SetFastPause(fastPause)         // XXX: nuke it?
+			if err := obj.ge.Pause(); err != nil { // sync
 				// programming error
 				Logf("programming error pausing graph: %+v", err)
 				cancelCause(err) // trigger an exit!
 				continue         // wait for deployChan to exit
 			}
+			obj.ge.SetFastPause(false) // reset
 			started = false
 
 			// run Send/Recv on the new graph with data from the old
@@ -1486,17 +1488,29 @@ func (obj *Main) Cleanup() error {
 	return err
 }
 
-// FastExit causes a faster shutdown. This is often activated on the second ^C.
-func (obj *Main) FastExit(err error) {
-	if obj.ge != nil {
-		obj.ge.SetFastPause()
+// SoftInterrupt causes a fast exir. This is often activated on the second ^C.
+// It stops the engine from scheduling any new work, and it cancels the context
+// of whatever CheckApply is running right now, so that we stop waiting on it.
+// Every resource is required to return promptly when its context is cancelled,
+// so this is all that a well behaved resource needs.
+func (obj *Main) SoftInterrupt() {
+	if obj.ge == nil {
+		return
 	}
+	obj.ge.SoftInterrupt()
 }
 
-// Interrupt causes the fastest shutdown. The only faster method is a kill -9
+// HardInterrupt causes the fastest exit. The only faster method is a kill -9
 // which could cause corruption. This is often activated on the third ^C. This
-// might leave some of your resources in a partial or unknown state.
-func (obj *Main) Interrupt(err error) {
-	// XXX: implement and run Interrupt API for supported resources
-	obj.FastExit(err)
+// might leave some of your resources in a partial or unknown state. It is only
+// needed for the resources which block on something that a cancelled context
+// can't reach, since SoftInterrupt already handles the rest.
+func (obj *Main) HardInterrupt() {
+	obj.SoftInterrupt()
+	if obj.ge == nil {
+		return
+	}
+	if err := obj.ge.HardInterrupt(); err != nil {
+		obj.Logf("hard interrupt error: %+v", err)
+	}
 }

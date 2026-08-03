@@ -102,7 +102,8 @@ type Engine struct {
 
 	paused    bool // are we paused?
 	fastPause *atomic.Bool
-	isClosing bool // are we shutting down?
+	interrupt *atomic.Bool // has the user asked us to stop waiting?
+	isClosing bool         // are we shutting down?
 
 	errMutex *sync.Mutex // wraps the *state workerErr (one mutex for all)
 }
@@ -149,6 +150,7 @@ func (obj *Engine) Init() error {
 
 	//obj.paused = false // start off running (but empty)
 	obj.fastPause = &atomic.Bool{}
+	obj.interrupt = &atomic.Bool{}
 
 	obj.errMutex = &sync.Mutex{}
 
@@ -582,20 +584,77 @@ func (obj *Engine) Resume() error {
 	return nil
 }
 
-// SetFastPause puts the graph into fast pause mode. This is usually done via
-// the argument to the Pause command, but this method can be used if a pause was
-// already started, and you'd like subsequent parts to pause quickly. Once in
-// fast pause mode for a given pause action, you cannot switch to regular pause.
-// This is because once you've started a fast pause, some dependencies might
-// have been skipped when fast pausing, and future resources might have missed a
-// poke. In general this is only called when you're trying to hurry up the exit.
-// XXX: Not implemented
-func (obj *Engine) SetFastPause() {
-	obj.fastPause.Store(true)
+// SetFastPause puts the graph into fast pause mode. Once in fast pause mode for
+// a given pause action, you cannot switch to regular pause. This is because
+// once you've started a fast pause, some dependencies might have been skipped
+// when fast pausing, and future resources might have missed a poke. In general
+// this is only called when you're trying to hurry up the exit.
+// XXX: consider moving this into SoftInterrupt and nuking it from the API.
+func (obj *Engine) SetFastPause(b bool) {
+	obj.fastPause.Store(b)
+}
+
+// SoftInterrupt cancels the context of every Process which is currently
+// running, and stops any new ones from starting. It is usually run on the
+// second ^C, once a pause has been requested and is taking longer than the user
+// is willing to wait for. A pause can only complete between two Process runs,
+// so without this the exit is at the mercy of whichever CheckApply happens to
+// be in flight, and the context that one received is not otherwise cancelled
+// until after that same pause has finished. Every resource is required to
+// return promptly when its context is cancelled, so this is enough for all of
+// the well behaved ones. See the Interrupt method for those which aren't, or
+// which block on something a context can't reach. This also flips the fast
+// pause to true which should hopefully prevent poke's from propagating.
+//
+// This is a one-way latch, since it is only ever used on the way out.
+func (obj *Engine) SoftInterrupt() {
+	// XXX: Should these two be used here at all? Can we save them for below?
+	obj.fastPause.Store(true) // stop any pending poke's from running
+	obj.interrupt.Store(true) // no new Process runs from here on
+
+	obj.tlock.RLock()
+	defer obj.tlock.RUnlock()
+	for _, state := range obj.state {
+		state.cancelProcess() // nil-safe if none is running
+	}
+}
+
+// Interrupt asks every resource which supports it to unblock whatever long
+// running operation it might be in the middle of. It is the last resort before
+// a kill -9, and it is usually run on the third ^C, after SoftInterrupt already
+// cancelled the contexts and something still hasn't let go. It only helps for
+// resources which block on something their context can't reach, such as a child
+// process, so most resources don't implement it. It may leave those which do in
+// a partial or unknown state, which is why it's the final rung and not an
+// earlier one. This never blocks: a resource which can't be interrupted returns
+// an error, which we log and step past.
+func (obj *Engine) HardInterrupt() error {
+	obj.fastPause.Store(true) // in case we got here without the above
+	obj.interrupt.Store(true) // in case we got here without the above
+
+	obj.tlock.RLock()
+	defer obj.tlock.RUnlock()
+
+	var reterr error
+	for vertex, state := range obj.state {
+		// in case we got here without the above
+		state.cancelProcess() // nil-safe if none is running
+
+		res, ok := vertex.(engine.InterruptableRes)
+		if !ok {
+			continue
+		}
+		if err := res.Interrupt(); err != nil {
+			obj.Logf("%s: could not interrupt: %s", vertex, engineUtil.CleanError(err))
+			reterr = errwrap.Append(reterr, err)
+		}
+	}
+
+	return reterr
 }
 
 // Pause the active, running graph.
-func (obj *Engine) Pause(fastPause bool) error {
+func (obj *Engine) Pause() error {
 	// It would be safer to lock this, but it would be slower and mask bugs.
 	//obj.mutex.Lock()
 	//defer obj.mutex.Unlock()
@@ -605,7 +664,6 @@ func (obj *Engine) Pause(fastPause bool) error {
 		return fmt.Errorf("already paused")
 	}
 
-	obj.fastPause.Store(fastPause)
 	topoSort, _ := obj.graph.TopologicalSort()
 	for _, vertex := range topoSort { // squeeze out the events...
 		// The Event is sent to an unbuffered channel, so this event is
@@ -618,7 +676,6 @@ func (obj *Engine) Pause(fastPause bool) error {
 	obj.paused = true
 
 	// we are now completely paused...
-	obj.fastPause.Store(false) // reset
 	return nil
 }
 

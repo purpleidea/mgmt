@@ -32,10 +32,7 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
+	"time"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	etcdfs "github.com/purpleidea/mgmt/etcd/fs"
@@ -44,9 +41,20 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	. "github.com/purpleidea/mgmt/util/gettext"
+	"github.com/purpleidea/mgmt/util/signals"
 
 	"github.com/google/uuid"
 )
+
+// sigtermGraceTimeout is how long each rung of the exit sequence gets when a
+// service manager signalled us instead of a user at a terminal. A user presses
+// ^C again when we're taking too long, but systemd signals exactly once and
+// then waits on a stopwatch of its own (TimeoutStopSec, which defaults to 90
+// seconds) before it sends an unstoppable SIGKILL. So nothing would ever
+// escalate us, and we'd be killed mid-operation instead of exiting cleanly. Two
+// of these puts us on the last rung after 30 seconds, which leaves plenty of
+// that budget for the shutdown which follows.
+const sigtermGraceTimeout = 15 * time.Second
 
 // RunArgs is the CLI parsing structure and type of the parsed result. This
 // particular one contains all the common flags for the `run` subcommand which
@@ -178,52 +186,41 @@ func (obj *RunArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error) {
 		return false, err
 	}
 
-	// install the exit signal handler
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		// must have buffer for max number of signals
-		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
-		signal.Notify(signals, os.Interrupt) // catch ^C
-		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
-		var count uint8
-		for {
-			select {
-			case sig := <-signals: // any signal will do
-				if sig != os.Interrupt {
-					data.Flags.Logf("interrupted by signal")
-					cancel()
-					main.Interrupt(fmt.Errorf("killed by %v", sig))
-					return
-				}
 
-				// XXX: do we want to keep the fast exit stuff?
-				switch count {
-				case 0:
-					data.Flags.Logf("interrupted by ^C")
+	// install the exit signal handler
+	ladder := &signals.Ladder{
+		Rungs: []*signals.Rung{
+			{
+				Func: func() {
 					cancel()
 					//main.Exit(nil)
-				case 1:
-					data.Flags.Logf("interrupted by ^C (fast pause)")
+				},
+			},
+			{
+				Name: "soft interrupt",
+				Func: func() {
 					cancel()
-					main.FastExit(nil)
-				case 2:
-					data.Flags.Logf("interrupted by ^C (hard interrupt)")
+					main.SoftInterrupt()
+				},
+			},
+			{
+				Name: "hard interrupt",
+				Func: func() {
 					cancel()
-					main.Interrupt(nil)
-				}
-				count++
-
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+					main.HardInterrupt()
+				},
+			},
+		},
+		GraceTimeout: sigtermGraceTimeout,
+		Logf:         data.Flags.Logf,
+	}
+	// The handler has to outlive the context that it cancels. If it stopped
+	// when that context was done, then the first signal would end it, and
+	// none of the escalation could ever run. This stops when Run returns,
+	// which is the only thing that should stop us listening.
+	defer ladder.Start()()
 
 	reterr := main.Run(ctx)
 	if reterr != nil {

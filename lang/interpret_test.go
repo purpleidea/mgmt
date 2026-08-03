@@ -2453,8 +2453,7 @@ func TestAstFunc3(t *testing.T) {
 				return
 			}
 
-			fastPause := false
-			if err := ge.Pause(fastPause); err != nil { // sync
+			if err := ge.Pause(); err != nil { // sync
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: error pausing: %+v", index, err)
 				return

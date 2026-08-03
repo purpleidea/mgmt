@@ -207,7 +207,7 @@ func TestNoCheckApplyBeforeWatchStartup(t *testing.T) {
 	if err := ge.Validate(); err != nil {
 		t.Fatalf("engine Validate: %v", err)
 	}
-	if err := ge.Pause(false); err != nil { // see the main loop in lib
+	if err := ge.Pause(); err != nil { // see the main loop in lib
 		t.Fatalf("engine Pause: %v", err)
 	}
 	if err := ge.Commit(context.Background()); err != nil {
@@ -222,7 +222,7 @@ func TestNoCheckApplyBeforeWatchStartup(t *testing.T) {
 		}
 	}()
 	defer func() {
-		if err := ge.Pause(false); err != nil {
+		if err := ge.Pause(); err != nil {
 			t.Errorf("engine Pause: %v", err)
 		}
 	}()
@@ -378,7 +378,7 @@ func TestWatchRestartSerializesCheckApply(t *testing.T) {
 	if err := ge.Validate(); err != nil {
 		t.Fatalf("engine Validate: %v", err)
 	}
-	if err := ge.Pause(false); err != nil { // see the main loop in lib
+	if err := ge.Pause(); err != nil { // see the main loop in lib
 		t.Fatalf("engine Pause: %v", err)
 	}
 	if err := ge.Commit(context.Background()); err != nil {
@@ -393,7 +393,7 @@ func TestWatchRestartSerializesCheckApply(t *testing.T) {
 		}
 	}()
 	defer func() {
-		if err := ge.Pause(false); err != nil {
+		if err := ge.Pause(); err != nil {
 			t.Errorf("engine Pause: %v", err)
 		}
 	}()
@@ -544,7 +544,7 @@ func TestEventDuringCheckApplyNotSwallowed(t *testing.T) {
 	if err := ge.Validate(); err != nil {
 		t.Fatalf("engine Validate: %v", err)
 	}
-	if err := ge.Pause(false); err != nil { // see the main loop in lib
+	if err := ge.Pause(); err != nil { // see the main loop in lib
 		t.Fatalf("engine Pause: %v", err)
 	}
 	if err := ge.Commit(context.Background()); err != nil {
@@ -559,7 +559,7 @@ func TestEventDuringCheckApplyNotSwallowed(t *testing.T) {
 		}
 	}()
 	defer func() {
-		if err := ge.Pause(false); err != nil {
+		if err := ge.Pause(); err != nil {
 			t.Errorf("engine Pause: %v", err)
 		}
 	}()
@@ -700,7 +700,7 @@ func TestPauseDuringRetryLoop(t *testing.T) {
 	if err := ge.Validate(); err != nil {
 		t.Fatalf("engine Validate: %v", err)
 	}
-	if err := ge.Pause(false); err != nil { // see the main loop in lib
+	if err := ge.Pause(); err != nil { // see the main loop in lib
 		t.Fatalf("engine Pause: %v", err)
 	}
 	if err := ge.Commit(context.Background()); err != nil {
@@ -729,7 +729,7 @@ func TestPauseDuringRetryLoop(t *testing.T) {
 	// shutdown, because it requires a successful pause first.
 	done := make(chan error, 1)
 	go func() {
-		done <- ge.Pause(false)
+		done <- ge.Pause()
 	}()
 	select {
 	case err := <-done:

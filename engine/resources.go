@@ -374,7 +374,6 @@ type InterruptableRes interface {
 	// probably have this close a channel to multicast that signal around to
 	// anyone who can detect it in a select. If you are in a situation which
 	// cannot interrupt, then you can return an error.
-	// FIXME: implement, and check the above description is what we expect!
 	Interrupt() error
 }
 

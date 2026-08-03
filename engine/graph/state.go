@@ -509,10 +509,10 @@ func (obj *State) registerProcessCancel(cancel context.CancelFunc) {
 	obj.pCancel = cancel
 }
 
-// interruptProcess cancels the currently running Process if there is one. It is
+// cancelProcess cancels the currently running Process if there is one. It is
 // used when Watch fails, because a restarting Watch must never overlap with a
 // running Process.
-func (obj *State) interruptProcess() {
+func (obj *State) cancelProcess() {
 	obj.pMutex.Lock()
 	defer obj.pMutex.Unlock()
 	if obj.pCancel != nil {

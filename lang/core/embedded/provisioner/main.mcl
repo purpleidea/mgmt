@@ -984,6 +984,7 @@ class base:host($name, $config) {
 			"en_US.UTF-8",
 		],
 		timezone => "UTC", # real servers all run in UTC
+		ntp_servers => ["0.pool.ntp.org", "1.pool.ntp.org"], # TODO: set your own?
 		password => $password, # salted
 		bios => $bios,
 		part => $part,

@@ -39,26 +39,45 @@ import (
 )
 
 func TestSlowTest1(t *testing.T) {
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 }
 
 func TestDeadlineTimeout1(t *testing.T) {
+	const timeout = 1 * time.Second // how long we'd like to wait for work
+	const cleanup = 1 * time.Second // approx time needed to clean up after
+	const safety = 1 * time.Second  // extra safety margin, just in case
+
+	// We'd like to wait for our work for `timeout`, but if the test binary
+	// is going to give up before that, then we must wake up early enough to
+	// still have time to clean up before it panics. Never wait on the test
+	// deadline alone, since it might not exist (with -timeout 0) and since
+	// it's usually many minutes away, which would stall the whole package.
 	now := time.Now()
-	min := time.Second * 3 // approx min time needed for the test
-	ctx := context.Background()
+	d := now.Add(timeout)
 	if deadline, ok := t.Deadline(); ok {
-		d := deadline.Add(-min)
-		t.Logf("  now: %+v", now)
-		t.Logf("    d: %+v", d)
-		newCtx, cancel := context.WithDeadline(ctx, d)
-		ctx = newCtx
-		defer cancel()
+		if x := deadline.Add(-(cleanup + safety)); x.Before(d) {
+			d = x
+		}
 	}
+	t.Logf("  now: %+v", now)
+	t.Logf("    d: %+v", d)
+	ctx, cancel := context.WithDeadline(context.Background(), d)
+	defer cancel()
+
+	work := make(chan struct{}) // pretend this is some long-running work
 
 	select {
+	case <-work:
+		t.Errorf("work finished unexpectedly")
+		return
+
 	case <-ctx.Done():
 		t.Logf("  ctx: %+v", time.Now())
-		time.Sleep(min - (1 * time.Second)) // one second less for safety
+		time.Sleep(cleanup) // pretend we're cleaning up after ourselves
 		t.Logf("sleep: %+v", time.Now())
+	}
+
+	if deadline, ok := t.Deadline(); ok && !time.Now().Before(deadline) {
+		t.Errorf("test ran past its deadline")
 	}
 }

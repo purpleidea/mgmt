@@ -837,6 +837,39 @@ Loop:
 				delay = 0    // reset
 				state.init.Logf("the CheckApply delay expired!")
 			}
+
+			// Without a retry delay the satellite select above
+			// doesn't run at all, so a retry loop would spin
+			// through Process without ever returning to a select
+			// which reads the pause signal, and a Pause which
+			// arrives while we retry would block until the retries
+			// ran out. With Meta:retry set to -1 that is never.
+			// Since Pause blocks on an unbuffered send, this
+			// non-blocking receive catches one which is already
+			// waiting for us, and costs nothing when there isn't
+			// one. Between two Process runs is the only place
+			// where a pause is allowed to land anyway, which is
+			// exactly what the delay case above does too.
+			select {
+			case _, ok := <-state.pauseSignal:
+				if !ok {
+					// not a new pause
+					state.pauseSignal = nil
+					break // break out of our select
+				}
+				// we are paused now, and waiting for resume...
+				select {
+				case _, ok := <-state.resumeSignal: // channel closes
+					if !ok {
+						closed = true
+					}
+					// resumed!
+				}
+
+			default:
+				// nobody is waiting on us, so carry on...
+			}
+
 			// don't Process anymore if we've already failed or shutdown...
 			if failed || closed {
 				continue Loop

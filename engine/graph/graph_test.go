@@ -583,3 +583,164 @@ func TestStatePauseClosed(t *testing.T) {
 		t.Fatalf("expected closed error, got: %v", err)
 	}
 }
+
+// failCheckApplyRes is a noop-like resource whose CheckApply always errors, so
+// that the engine keeps retrying it. It counts the attempts, so that a test can
+// wait until the retry loop is definitely spinning.
+type failCheckApplyRes struct {
+	resources.NoopRes
+
+	init *engine.Init
+
+	checkApplyCount atomic.Int32
+
+	checkApplyOnce sync.Once
+	checkApplyDone chan struct{} // closed on the first CheckApply
+}
+
+// Init runs some startup code for this resource.
+func (obj *failCheckApplyRes) Init(init *engine.Init) error {
+	obj.init = init // save for later
+	return obj.NoopRes.Init(init)
+}
+
+// Watch is the primary listener for this resource and it outputs events.
+func (obj *failCheckApplyRes) Watch(ctx context.Context) error {
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+
+	select {
+	case <-ctx.Done(): // closed by the engine to signal shutdown
+	}
+	return ctx.Err()
+}
+
+// CheckApply always fails, which is what puts us into the retry loop. The short
+// sleep only stops this from pegging a core for the duration of the test, since
+// what we're testing has nothing to do with how fast the loop spins.
+func (obj *failCheckApplyRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	obj.checkApplyCount.Add(1)
+	obj.checkApplyOnce.Do(func() {
+		close(obj.checkApplyDone)
+	})
+
+	select {
+	case <-time.After(10 * time.Millisecond):
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+
+	return false, fmt.Errorf("this always fails")
+}
+
+// TestPauseDuringRetryLoop checks that a Pause can still land while a resource
+// is retrying a failing CheckApply. The pause and resume handshake used to live
+// only in the retry delay path, so a resource with a retry and no delay would
+// spin through Process forever without ever reading the pause signal, and the
+// exit would block for good. The mcl equivalent of this resource is:
+//
+//	exec "boom" {
+//		cmd => "/bin/false",
+//		Meta:retry => -1,
+//	}
+func TestPauseDuringRetryLoop(t *testing.T) {
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+
+	conv := &converger.Coordinator{
+		Timeout: -1, // disabled
+		Logf: func(format string, v ...interface{}) {
+			logf("converger: "+format, v...)
+		},
+	}
+	if err := conv.Init(); err != nil {
+		t.Fatalf("converger Init: %v", err)
+	}
+	convCtx, convCancel := context.WithCancel(context.Background())
+	convWg := &sync.WaitGroup{}
+	defer convWg.Wait()
+	defer convCancel()
+	convWg.Add(1)
+	go func() {
+		defer convWg.Done()
+		_ = conv.Run(convCtx, false) // errors on context cancel
+	}()
+
+	ge := &Engine{
+		Program:   "mgmt",
+		Version:   "0.0.1",
+		Hostname:  "localhost",
+		Converger: conv,
+		Prefix:    t.TempDir(),
+		Logf:      logf,
+	}
+	if err := ge.Init(); err != nil {
+		t.Fatalf("engine Init: %v", err)
+	}
+
+	res := &failCheckApplyRes{
+		checkApplyDone: make(chan struct{}),
+	}
+	res.SetKind("noop")
+	res.SetName("failer")
+	res.MetaParams().Retry = -1 // retry the failing CheckApply forever
+	res.MetaParams().Delay = 0  // with no delay in between (the default)
+
+	g, err := pgraph.NewGraph("test")
+	if err != nil {
+		t.Fatalf("pgraph NewGraph: %v", err)
+	}
+	g.AddVertex(res)
+
+	if err := ge.Load(g); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+	if err := ge.Validate(); err != nil {
+		t.Fatalf("engine Validate: %v", err)
+	}
+	if err := ge.Pause(false); err != nil { // see the main loop in lib
+		t.Fatalf("engine Pause: %v", err)
+	}
+	if err := ge.Commit(context.Background()); err != nil {
+		t.Fatalf("engine Commit: %v", err)
+	}
+	if err := ge.Resume(); err != nil {
+		t.Fatalf("engine Resume: %v", err)
+	}
+
+	select {
+	case <-res.checkApplyDone:
+	case <-time.After(10 * time.Second):
+		t.Fatalf("func CheckApply never ran")
+	}
+
+	// Wait until it has looped a few times, so that we're definitely
+	// inside the retry loop and not merely on the first attempt.
+	for i := 0; res.checkApplyCount.Load() < 3; i++ {
+		if i > 1000 {
+			t.Fatalf("the retry loop never ran again")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// This is the part that used to block forever. We don't defer the
+	// shutdown, because it requires a successful pause first.
+	done := make(chan error, 1)
+	go func() {
+		done <- ge.Pause(false)
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("engine Pause: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatalf("engine Pause blocked while the resource was retrying")
+	}
+
+	if err := ge.Shutdown(); err != nil {
+		t.Errorf("engine Shutdown: %v", err)
+	}
+}

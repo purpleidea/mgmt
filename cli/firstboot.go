@@ -31,14 +31,11 @@ package cli
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/firstboot"
 	. "github.com/purpleidea/mgmt/util/gettext"
+	"github.com/purpleidea/mgmt/util/signals"
 )
 
 // FirstbootArgs is the CLI parsing structure and type of the parsed result.
@@ -100,46 +97,13 @@ func (obj *FirstbootArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, er
 	}
 
 	// install the exit signal handler
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
-	exit := make(chan struct{})
-	defer close(exit)
-	wg.Add(1)
-	go func() {
-		defer cancel()
-		defer wg.Done()
-		// must have buffer for max number of signals
-		signals := make(chan os.Signal, 3+1) // 3 * ^C + 1 * SIGTERM
-		signal.Notify(signals, os.Interrupt) // catch ^C
-		//signal.Notify(signals, os.Kill) // catch signals
-		signal.Notify(signals, syscall.SIGTERM)
-		var count uint8
-		for {
-			select {
-			case sig := <-signals: // any signal will do
-				if sig != os.Interrupt {
-					data.Flags.Logf("interrupted by signal")
-					return
-				}
-
-				switch count {
-				case 0:
-					data.Flags.Logf("interrupted by ^C")
-					cancel()
-				case 1:
-					data.Flags.Logf("interrupted by ^C (fast pause)")
-					cancel()
-				case 2:
-					data.Flags.Logf("interrupted by ^C (hard interrupt)")
-					cancel()
-				}
-				count++
-
-			case <-exit:
-				return
-			}
-		}
-	}()
+	ladder := &signals.Ladder{
+		Rungs: []*signals.Rung{
+			{Func: cancel},
+		},
+		Logf: data.Flags.Logf,
+	}
+	defer ladder.Start()()
 
 	if err := api.Main(ctx); err != nil {
 		if data.Flags.Debug {

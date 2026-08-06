@@ -33,7 +33,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 
 	cliUtil "github.com/purpleidea/mgmt/cli/util"
 	"github.com/purpleidea/mgmt/engine"
@@ -45,6 +44,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	. "github.com/purpleidea/mgmt/util/gettext"
+	"github.com/purpleidea/mgmt/util/signals"
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
@@ -131,8 +131,17 @@ func (obj *DeployArgs) Run(ctx context.Context, data *cliUtil.Data) (bool, error
 	}
 
 	// TODO: consider adding a timeout based on an args.Timeout flag ?
-	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// install the exit signal handler
+	ladder := &signals.Ladder{
+		Rungs: []*signals.Rung{
+			{Func: cancel},
+		},
+		Logf: data.Flags.Logf,
+	}
+	defer ladder.Start()()
 
 	cliUtil.Hello(program, version, data.Flags) // say hello!
 	defer Logf(G("goodbye!"))

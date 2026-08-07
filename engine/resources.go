@@ -373,7 +373,8 @@ type InterruptableRes interface {
 	// able to read from a channel to satisfy your request.) It is best to
 	// probably have this close a channel to multicast that signal around to
 	// anyone who can detect it in a select. If you are in a situation which
-	// cannot interrupt, then you can return an error.
+	// cannot interrupt, then you can return an error. This will only get
+	// called a maximum of one time per resource.
 	Interrupt() error
 }
 

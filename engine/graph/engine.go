@@ -648,12 +648,36 @@ func (obj *Engine) HardInterrupt() error {
 		// in case we got here without the above
 		state.cancelProcess() // nil-safe if none is running
 
-		res, ok := vertex.(engine.InterruptableRes)
+		res, ok := vertex.(engine.Res)
 		if !ok {
 			continue
 		}
-		if err := res.Interrupt(); err != nil {
-			obj.Logf("%s: could not interrupt: %s", vertex, engineUtil.CleanError(err))
+		if err := obj.interruptRes(res); err != nil {
+			reterr = errwrap.Append(reterr, err)
+		}
+	}
+
+	return reterr
+}
+
+// interruptRes runs Interrupt recursively into autogrouped resources. We
+// recurse, because a grouped resource since a parent may not be interruptable
+// while its children are.
+func (obj *Engine) interruptRes(res engine.Res) error {
+	var reterr error
+	if interruptableRes, ok := res.(engine.InterruptableRes); ok {
+		if err := interruptableRes.Interrupt(); err != nil {
+			obj.Logf("%s: could not interrupt: %s", res, engineUtil.CleanError(err))
+			reterr = errwrap.Append(reterr, err)
+		}
+	}
+
+	groupableRes, ok := res.(engine.GroupableRes)
+	if !ok {
+		return reterr
+	}
+	for _, x := range groupableRes.GetGroup() { // grouped elements
+		if err := obj.interruptRes(x); err != nil { // recurse
 			reterr = errwrap.Append(reterr, err)
 		}
 	}

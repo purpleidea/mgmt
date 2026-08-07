@@ -84,11 +84,11 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		edgeCmpFn = strEdgeCmpFn // use simple string cmp version
 	}
 
-	var lookup = make(map[Vertex]Vertex, len(newGraph.adjacency))
-	var vertexDels []Vertex                                          // list of vertices which are to be removed
-	var vertexAdds []Vertex                                          // list of vertices which are to be added
-	vertexKeep := make(map[Vertex]struct{}, len(newGraph.adjacency)) // set of vertices which are the same in new graph
-	edgeKeep := make(map[Edge]struct{})                              // set of edges which are the same in new graph
+	clear(oldGraph.lookup)
+	clear(oldGraph.vertexDels)
+	clear(oldGraph.vertexAdds)
+	clear(oldGraph.vertexKeep)
+	clear(oldGraph.edgeKeep)
 
 	// index the old graph by String() so each new vertex only gets compared
 	// against the candidates which could possibly match; see contract above
@@ -121,37 +121,37 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 
 		// run the removes BEFORE the adds, so don't do the add here...
 		if vertex == nil { // no match found yet
-			vertexAdds = append(vertexAdds, v) // append
+			oldGraph.vertexAdds = append(oldGraph.vertexAdds, v) // append
 			vertex = v
 		}
-		lookup[v] = vertex              // used for constructing edges
-		vertexKeep[vertex] = struct{}{} // mark as kept
+		oldGraph.lookup[v] = vertex              // used for constructing edges
+		oldGraph.vertexKeep[vertex] = struct{}{} // mark as kept
 	}
 	// get rid of any vertices we shouldn't keep (that aren't in new graph)
 	for v := range oldGraph.adjacency {
-		if _, exists := vertexKeep[v]; !exists {
-			vertexDels = append(vertexDels, v) // append
+		if _, exists := oldGraph.vertexKeep[v]; !exists {
+			oldGraph.vertexDels = append(oldGraph.vertexDels, v) // append
 		}
 	}
 
 	// see if any of the add/remove functions actually fail first
 	// XXX: run this as a reverse topological sort or topological sort?
-	for _, vertex := range vertexDels {
+	for _, vertex := range oldGraph.vertexDels {
 		if err := vertexRemoveFn(vertex); err != nil {
 			return errwrap.Wrapf(err, "vertexRemoveFn failed")
 		}
 	}
-	for _, vertex := range vertexAdds {
+	for _, vertex := range oldGraph.vertexAdds {
 		if err := vertexAddFn(vertex); err != nil {
 			return errwrap.Wrapf(err, "vertexAddFn failed")
 		}
 	}
 
 	// no add/remove functions failed, so we can actually modify the graph!
-	for _, vertex := range vertexDels {
+	for _, vertex := range oldGraph.vertexDels {
 		oldGraph.DeleteVertex(vertex)
 	}
-	for _, vertex := range vertexAdds {
+	for _, vertex := range oldGraph.vertexAdds {
 		oldGraph.AddVertex(vertex) // call standalone in case not part of an edge
 	}
 
@@ -162,8 +162,8 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 		for v2, e := range newGraph.adjacency[v1] {
 			// we have an edge!
 			// lookup vertices (these should exist now)
-			vertex1, exists1 := lookup[v1]
-			vertex2, exists2 := lookup[v2]
+			vertex1, exists1 := oldGraph.lookup[v1]
+			vertex2, exists2 := oldGraph.lookup[v2]
 			if !exists1 || !exists2 { // no match found, bug?
 				//if vertex1 == nil || vertex2 == nil { // no match found
 				return fmt.Errorf("new vertices weren't found") // programming error
@@ -179,14 +179,14 @@ func (obj *Graph) GraphSync(newGraph *Graph, vertexCmpFn func(Vertex, Vertex) (b
 			}
 
 			oldGraph.AddEdge(vertex1, vertex2, edge) // store it
-			edgeKeep[edge] = struct{}{}              // mark as saved
+			oldGraph.edgeKeep[edge] = struct{}{}     // mark as saved
 		}
 	}
 
 	// delete unused edges in a single pass over adjacency
 	for v1 := range oldGraph.adjacency {
 		for v2, e := range oldGraph.adjacency[v1] {
-			if _, ok := edgeKeep[e]; !ok {
+			if _, ok := oldGraph.edgeKeep[e]; !ok {
 				oldGraph.DeleteEdgeBetween(v1, v2)
 			}
 		}

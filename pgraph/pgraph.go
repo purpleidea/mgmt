@@ -62,6 +62,17 @@ type Graph struct {
 	adjacency map[Vertex]map[Vertex]Edge // Vertex -> Vertex (edge)
 	revadjmap map[Vertex]map[Vertex]Edge // Vertex <- Vertex (edge) mirror index
 	kv        map[string]interface{}     // some values associated with the graph
+
+	// administration for GraphSync
+	lookup     map[Vertex]Vertex
+	vertexDels []Vertex            // list of vertices which are to be removed
+	vertexAdds []Vertex            // list of vertices which are to be added
+	vertexKeep map[Vertex]struct{} // set of vertices which are the same in new graph
+	edgeKeep   map[Edge]struct{}   // set of edges which are the same in new graph
+
+	// administration for GraphCmp
+	index map[string][]Vertex
+	seen  map[Vertex]Vertex
 }
 
 // Vertex is the primary vertex struct in this library. It can be anything that
@@ -96,6 +107,15 @@ func (obj *Graph) Init() error {
 func NewGraph(name string) (*Graph, error) {
 	g := &Graph{
 		Name: name,
+
+		lookup:     map[Vertex]Vertex{},
+		vertexDels: []Vertex{},
+		vertexAdds: []Vertex{},
+		vertexKeep: map[Vertex]struct{}{},
+		edgeKeep:   map[Edge]struct{}{},
+
+		index: map[string][]Vertex{},
+		seen:  map[Vertex]Vertex{},
 	}
 	return g, g.Init()
 }
@@ -127,6 +147,12 @@ func (obj *Graph) Copy() *Graph {
 		adjacency: make(map[Vertex]map[Vertex]Edge, len(obj.adjacency)),
 		revadjmap: make(map[Vertex]map[Vertex]Edge, len(obj.revadjmap)),
 		kv:        obj.kv,
+
+		lookup:     obj.lookup,
+		vertexDels: obj.vertexDels,
+		vertexAdds: obj.vertexAdds,
+		vertexKeep: obj.vertexKeep,
+		edgeKeep:   obj.edgeKeep,
 	}
 	for v1, m := range obj.adjacency {
 		newGraph.adjacency[v1] = nil // preserve any lazy (nil) maps
@@ -1054,20 +1080,22 @@ func (obj *Graph) GraphCmp(graph *Graph, vertexCmpFn func(Vertex, Vertex) (bool,
 		return fmt.Errorf("base graph has %d edges, while input graph has %d", e1, e2)
 	}
 
+	clear(obj.index)
+	clear(obj.seen)
+
 	// index the input graph by String() since most comparison functions
 	// only ever match vertices with equal String() values, so probing the
 	// same-String candidates first usually avoids the full quadratic scan
-	index := make(map[string][]Vertex, len(graph.adjacency))
 	for v2 := range graph.adjacency {
 		s := v2.String()
-		index[s] = append(index[s], v2)
+		obj.index[s] = append(obj.index[s], v2)
 	}
 
 	var m = make(map[Vertex]Vertex) // obj to graph vertex correspondence
 Loop:
 	// check vertices
 	for v1 := range obj.adjacency { // for each vertex in g
-		for _, v2 := range index[v1.String()] { // probe the candidates
+		for _, v2 := range obj.index[v1.String()] { // probe the candidates
 			b, err := vertexCmpFn(v1, v2)
 			if err != nil {
 				return errwrap.Wrapf(err, "could not run vertexCmpFn() properly")
@@ -1102,12 +1130,11 @@ Loop:
 
 	// check if mapping is unique (are there duplicates?)
 	// (check values only, the keys are unique by virtue of m being a map)
-	seen := make(map[Vertex]Vertex, len(m))
 	for k, v := range m {
-		if prev, exists := seen[v]; exists {
+		if prev, exists := obj.seen[v]; exists {
 			return fmt.Errorf("mapping to %s is used more than once from: %s and %s", v, prev, k)
 		}
-		seen[v] = k
+		obj.seen[v] = k
 	}
 
 	// check edges

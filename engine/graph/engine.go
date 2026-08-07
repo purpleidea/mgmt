@@ -287,7 +287,7 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		//}
 
 		obj.waits[vertex] = &sync.WaitGroup{}
-		obj.state[vertex] = &State{
+		state := &State{
 			// XXX: We are building a new node but it's getting the
 			// old graph right away? We do set it at the end of the
 			// commit, maybe make it nil right now and avoid that?
@@ -311,9 +311,17 @@ func (obj *Engine) Commit(ctx context.Context) error {
 
 			//paused: true, // start paused (set in Init)
 		}
-		if err := obj.state[vertex].Init(); err != nil {
+		if err := state.Init(); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Init")
 		}
+
+		// Only add it to the map once it's initialized, since the
+		// interrupt methods can read this map at any time, and they
+		// expect every state in here to be usable. The lock is needed
+		// for the same reason, since they run in another goroutine.
+		obj.tlock.Lock()
+		obj.state[vertex] = state
+		obj.tlock.Unlock()
 
 		fn := func() error {
 			// start the Worker

@@ -95,3 +95,23 @@ func StrSetCmp(x, y []string) error {
 	}
 	return nil
 }
+
+// StrMapCmp compares two maps of string to string. If they are not the same
+// length or do not contain identical keys and values, then this errors.
+func StrMapCmp(x, y map[string]string) error {
+	if len(x) != len(y) {
+		return fmt.Errorf("the length differs")
+	}
+	for k, v1 := range x {
+		v2, exists := y[k]
+		if !exists {
+			return fmt.Errorf("the key %s doesn't exist", k)
+		}
+
+		if v1 != v2 {
+			return fmt.Errorf("the value with key %s differs", k)
+		}
+	}
+
+	return nil
+}

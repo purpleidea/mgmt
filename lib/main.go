@@ -237,7 +237,20 @@ type Main struct {
 	pgpKeys *pgp.PGP // agent key pair
 
 	embdEtcd *etcd.EmbdEtcd // TODO: can be an interface in the future...
-	ge       *graph.Engine
+
+	// softInterruptCtx is cancelled when a soft interrupt is requested. The
+	// interrupt methods run in a signal handler goroutine, so they don't
+	// touch the engine themselves, they only ask here. Run owns the engine,
+	// and it does the actual interrupting. We use a context instead of a
+	// channel since cancelling one is idempotent, and a user is free to
+	// press ^C as many times as they like.
+	softInterruptCtx    context.Context
+	softInterruptCancel func()
+
+	// hardInterruptCtx is cancelled when a hard interrupt is requested. See
+	// the softInterruptCtx documentation above for the rest of the story.
+	hardInterruptCtx    context.Context
+	hardInterruptCancel func()
 
 	cleanup []func() error // list of functions to run on close
 }
@@ -264,6 +277,13 @@ func (obj *Main) Validate() error {
 
 // Init initializes the main struct after it performs some validation.
 func (obj *Main) Init() error {
+	// These must exist before we can be signalled, and they come first so
+	// that the interrupt methods work even if we fail somewhere below.
+	// Nothing watches them until Run builds the engine, so an early request
+	// just waits there until there's an engine to use it on.
+	obj.softInterruptCtx, obj.softInterruptCancel = context.WithCancel(context.Background())
+	obj.hardInterruptCtx, obj.hardInterruptCancel = context.WithCancel(context.Background())
+
 	// if we've turned off watching, then be explicit and disable them all!
 	// if all the watches are disabled, then it's equivalent to no watching
 	if obj.NoWatch {
@@ -808,7 +828,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	defer geCancel()
 
 	// TODO: remove Cancel from here since it's part of Local now?
-	obj.ge = &graph.Engine{
+	ge := &graph.Engine{
 		Program:   obj.Program,
 		Version:   obj.Version,
 		Hostname:  hostname,
@@ -824,9 +844,35 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		},
 	}
 
-	if err := obj.ge.Init(); err != nil {
+	if err := ge.Init(); err != nil {
 		return errwrap.Wrapf(err, "engine Init failed")
 	}
+
+	// This is where the interrupt requests land, since we own the engine.
+	// It needs a goroutine of its own, because the main loop below can be
+	// sitting in Pause, waiting on the very CheckApply that we're being
+	// asked to interrupt. If a request came in before we got here, then we
+	// interrupt the engine at once, before it ever starts a resource.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		select {
+		case <-obj.softInterruptCtx.Done():
+		case <-geCtx.Done(): // the engine is going away anyways
+			return
+		}
+		ge.SoftInterrupt()
+
+		select {
+		case <-obj.hardInterruptCtx.Done():
+		case <-geCtx.Done(): // the engine is going away anyways
+			return
+		}
+		if err := ge.HardInterrupt(); err != nil {
+			Logf("hard interrupt error: %+v", err)
+		}
+	}()
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -834,7 +880,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 		select {
 		case <-geCtx.Done():
 		}
-		err := errwrap.Wrapf(obj.ge.Shutdown(), "engine Shutdown failed")
+		err := errwrap.Wrapf(ge.Shutdown(), "engine Shutdown failed")
 		if err == nil {
 			return
 		}
@@ -882,7 +928,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 					if started {
 						converger.Pause()
-						if err := obj.ge.Pause(); err != nil {
+						if err := ge.Pause(); err != nil {
 							// programming error
 							Logf("programming error exiting graph: %+v", err)
 							cancelCause(err) // trigger an exit!
@@ -890,7 +936,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 						}
 					}
 					// must be paused before this is run
-					//obj.ge.Shutdown() // run in defer instead
+					//ge.Shutdown() // run in defer instead
 
 					return // this is the only place we exit
 				}
@@ -994,13 +1040,13 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("new graph: %+v", newGraph)
 			}
 
-			if err := obj.ge.Load(newGraph); err != nil { // copy in new graph
+			if err := ge.Load(newGraph); err != nil { // copy in new graph
 				Logf("error copying in new graph: %+v", err)
 				continue
 			}
 
-			if err := obj.ge.Validate(); err != nil { // validate the new graph
-				_ = obj.ge.Abort() // delete graph
+			if err := ge.Validate(); err != nil { // validate the new graph
+				_ = ge.Abort() // delete graph
 				Logf("graph validate failed: %+v", err)
 				continue
 			}
@@ -1009,7 +1055,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// engine in the future if we decide we need to do that!
 
 			// apply the global metaparams to the graph
-			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {
+			if err := ge.Apply(func(graph *pgraph.Graph) error {
 				var err error
 				for _, v := range graph.Vertices() {
 					res, ok := v.(engine.Res)
@@ -1033,7 +1079,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				}
 				return err
 			}); err != nil { // apply an operation to the new graph
-				_ = obj.ge.Abort() // delete graph
+				_ = ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
 				continue
 			}
@@ -1044,8 +1090,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("skipping auto edges...")
 			} else {
 				timing = time.Now()
-				if err := obj.ge.AutoEdge(deployCtx); err != nil {
-					_ = obj.ge.Abort() // delete graph
+				if err := ge.AutoEdge(deployCtx); err != nil {
+					_ = ge.Abort() // delete graph
 					Logf("error running auto edges: %+v", err)
 					continue
 				}
@@ -1058,8 +1104,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 				Logf("skipping auto grouping...")
 			} else {
 				timing = time.Now()
-				if err := obj.ge.AutoGroup(deployCtx, &autogroup.CachedNonReachabilityGrouper{}); err != nil {
-					_ = obj.ge.Abort() // delete graph
+				if err := ge.AutoGroup(deployCtx, &autogroup.CachedNonReachabilityGrouper{}); err != nil {
+					_ = ge.Abort() // delete graph
 					Logf("error running auto grouping: %+v", err)
 					continue
 				}
@@ -1069,8 +1115,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// XXX: can we change this into a ge.Apply operation?
 			// XXX: shouldn't this run before autoedge/autogroup?
 			// run reversals; modifies the graph
-			if err := obj.ge.Reversals(deployCtx); err != nil {
-				_ = obj.ge.Abort() // delete graph
+			if err := ge.Reversals(deployCtx); err != nil {
+				_ = ge.Abort() // delete graph
 				Logf("error running the reversals: %+v", err)
 				continue
 			}
@@ -1084,11 +1130,11 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 			// Double check before we commit.
 			timing = time.Now()
-			if err := obj.ge.Apply(func(graph *pgraph.Graph) error {
+			if err := ge.Apply(func(graph *pgraph.Graph) error {
 				_, e := graph.TopologicalSort() // am i a dag or not?
 				return e
 			}); err != nil { // apply an operation to the new graph
-				_ = obj.ge.Abort() // delete graph
+				_ = ge.Abort() // delete graph
 				Logf("error running the TopologicalSort: %+v", err)
 				continue
 			}
@@ -1100,14 +1146,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// we need the vertices to be paused to work on them, so
 			// run graph vertex LOCK...
 			converger.Pause()
-			obj.ge.SetFastPause(fastPause)         // XXX: nuke it?
-			if err := obj.ge.Pause(); err != nil { // sync
+			ge.SetFastPause(fastPause)         // XXX: nuke it?
+			if err := ge.Pause(); err != nil { // sync
 				// programming error
 				Logf("programming error pausing graph: %+v", err)
 				cancelCause(err) // trigger an exit!
 				continue         // wait for deployChan to exit
 			}
-			obj.ge.SetFastPause(false) // reset
+			ge.SetFastPause(false) // reset
 			started = false
 
 			// run Send/Recv on the new graph with data from the old
@@ -1116,21 +1162,21 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// is now different than the equivalent resource in this
 			// new incoming graph!
 			timing = time.Now()
-			if err := obj.ge.SendRecv(); err != nil { // apply an operation to the new graph
-				_ = obj.ge.Abort() // delete graph
+			if err := ge.SendRecv(); err != nil { // apply an operation to the new graph
+				_ = ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
 				continue
 			}
 			Logf("send/recv building took: %s", time.Since(timing))
 
 			Logf("commit...")
-			if err := obj.ge.Commit(deployCtx); err != nil {
+			if err := ge.Commit(deployCtx); err != nil {
 				// If we fail on commit, we have destructively
 				// destroyed the graph, so we must not run it.
 				// This graph isn't necessarily destroyed, but
 				// since an error is not expected here, we can
 				// either shutdown or wait for the next deploy.
-				_ = obj.ge.Abort() // delete graph
+				_ = ge.Abort() // delete graph
 				Logf("error running commit: %+v", err)
 				// block gapi until a newDeploy comes in...
 				if gapiImpl != nil { // currently running...
@@ -1140,19 +1186,19 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			}
 
 			// XXX: Should we do this right before Commit?
-			// Don't obj.ge.Apply(...), that works on the old graph!
+			// Don't ge.Apply(...), that works on the old graph!
 			timing = time.Now()
-			//if !obj.ge.IsClosing() { // XXX: do we need to do this?
+			//if !ge.IsClosing() { // XXX: do we need to do this?
 			// skip prune when we're closing
 			//}
 
 			// We use a timeout only when the parent ctx is closing.
 			// XXX: Instead of a timeout, use the second ^C signal?
 			pruneCtx, pruneCancel := util.WithPostCancelTimeout(deployCtx, 5*time.Second)
-			if err := obj.ge.Exporter.Prune(pruneCtx, obj.ge.Graph()); err != nil {
+			if err := ge.Exporter.Prune(pruneCtx, ge.Graph()); err != nil {
 				// This should just cause a permanent error here
 				// which turns into a shutdown.
-				_ = obj.ge.Abort() // delete graph
+				_ = ge.Abort() // delete graph
 				Logf("error running the exporter Prune: %+v", err)
 				pruneCancel()
 				cancelCause(err) // trigger an exit!
@@ -1165,7 +1211,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// to loop around and cause a pause before we unpaused.
 			// Commit already starts things, but we still need to
 			// resume anything that was pre-existing and was paused.
-			if err := obj.ge.Resume(); err != nil { // sync
+			if err := ge.Resume(); err != nil { // sync
 				// programming error
 				Logf("programming error resuming graph: %+v", err)
 				cancelCause(err) // trigger an exit!
@@ -1174,14 +1220,14 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			converger.Resume() // after Start()
 			started = true
 
-			Logf("graph: %+v", obj.ge.Graph()) // show graph
+			Logf("graph: %+v", ge.Graph()) // show graph
 			if obj.Graphviz != "" {
 				gv := &pgraph.Graphviz{
 					Filter:   obj.GraphvizFilter,
 					Filename: obj.Graphviz,
 					Hostname: hostname,
 					Graphs: map[*pgraph.Graph]*pgraph.GraphvizOpts{
-						obj.ge.Graph(): nil,
+						ge.Graph(): nil,
 					},
 				}
 				// FIXME: is this the right ctx?
@@ -1493,11 +1539,12 @@ func (obj *Main) Cleanup() error {
 // of whatever CheckApply is running right now, so that we stop waiting on it.
 // Every resource is required to return promptly when its context is cancelled,
 // so this is all that a well behaved resource needs.
+//
+// This only asks for the interrupt, and Run performs it, since it owns the
+// engine. It never blocks, it may be called more than once, and it may be
+// called from any goroutine, but it must not be called before Init.
 func (obj *Main) SoftInterrupt() {
-	if obj.ge == nil {
-		return
-	}
-	obj.ge.SoftInterrupt()
+	obj.softInterruptCancel()
 }
 
 // HardInterrupt causes the fastest exit. The only faster method is a kill -9
@@ -1505,12 +1552,10 @@ func (obj *Main) SoftInterrupt() {
 // might leave some of your resources in a partial or unknown state. It is only
 // needed for the resources which block on something that a cancelled context
 // can't reach, since SoftInterrupt already handles the rest.
+//
+// The same rules as SoftInterrupt apply, which this also asks for, in case we
+// somehow got here without it.
 func (obj *Main) HardInterrupt() {
-	obj.SoftInterrupt()
-	if obj.ge == nil {
-		return
-	}
-	if err := obj.ge.HardInterrupt(); err != nil {
-		obj.Logf("hard interrupt error: %+v", err)
-	}
+	obj.softInterruptCancel()
+	obj.hardInterruptCancel()
 }

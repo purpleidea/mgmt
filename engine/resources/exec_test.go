@@ -34,6 +34,7 @@ package resources
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"os/user"
 	"path"
@@ -567,5 +568,385 @@ func TestExecAutoEdge1(t *testing.T) {
 	if err := expected.GraphCmp(g, vertexCmp, edgeCmp); err != nil {
 		t.Errorf("graph doesn't match expected: %s", err)
 		return
+	}
+}
+
+func TestExecGetSig(t *testing.T) {
+	testCases := []struct {
+		name   string
+		signal string
+		expect syscall.Signal
+		fail   bool
+		hint   string // the spelling we should suggest in the error
+	}{
+		{
+			name:   "empty is the default",
+			signal: "",
+			expect: syscall.SIGTERM,
+		},
+		{
+			name:   "full name",
+			signal: "SIGINT",
+			expect: syscall.SIGINT,
+		},
+		{
+			name:   "an immediate kill is allowed",
+			signal: "SIGKILL",
+			expect: syscall.SIGKILL,
+		},
+		{
+			name:   "not a signal",
+			signal: "banana",
+			fail:   true,
+		},
+		{
+			// we only accept one spelling of a signal
+			name:   "without the prefix",
+			signal: "INT",
+			fail:   true,
+			hint:   "SIGINT",
+		},
+		{
+			name:   "lower case",
+			signal: "sigint",
+			fail:   true,
+			hint:   "SIGINT",
+		},
+		{
+			name:   "mixed case",
+			signal: "SigInt",
+			fail:   true,
+			hint:   "SIGINT",
+		},
+		{
+			name:   "not a signal number either",
+			signal: "15",
+			fail:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := &ExecRes{
+				Cmd: "true",
+				Sig: tc.signal,
+			}
+			signal, err := obj.getSig()
+			if tc.fail {
+				if err == nil {
+					t.Fatalf("func getSig: expected error, got signal: %v", signal)
+				}
+				if tc.hint != "" && !strings.Contains(err.Error(), tc.hint) {
+					t.Errorf("func getSig: got error: %v, expected hint: %s", err, tc.hint)
+				}
+				// This must not need an init, since the engine
+				// validates long before it inits anything.
+				if err := obj.Validate(); err == nil {
+					t.Errorf("func Validate: expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("func getSig: %v", err)
+			}
+			if signal != tc.expect {
+				t.Errorf("got signal: %v, expected: %v", signal, tc.expect)
+			}
+			if err := obj.Validate(); err != nil {
+				t.Errorf("func Validate: %v", err)
+			}
+		})
+	}
+}
+
+// execTestRes is a small helper which builds and initializes a res for the exec
+// tests below, and which returns the res and its sent values.
+func execTestRes(t *testing.T, res *ExecRes) (*ExecRes, *ExecSends) {
+	t.Helper()
+	if err := res.Validate(); err != nil {
+		t.Fatalf("func Validate: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := res.Cleanup(); err != nil {
+			t.Errorf("func Cleanup: %v", err)
+		}
+	})
+	init, execSends := fakeExecInit(t)
+	if err := res.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+	return res, execSends
+}
+
+// TestExecSig tests that cancelling the context asks the command to stop with a
+// signal it can catch, and that a command which catches it and then exits with
+// a zero status is still an error, because it never did the work that we asked
+// it to do.
+func TestExecSig(t *testing.T) {
+	testCases := []struct {
+		name   string
+		signal string // the Sig param
+		trap   string // what the command traps
+	}{
+		{
+			name: "the default is a sigterm",
+			trap: "TERM",
+		},
+		{
+			name:   "a chosen signal",
+			signal: "SIGINT",
+			trap:   "INT",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The sleep is in the foreground, so it gets the signal
+			// as well, and the trap runs once it has died. This
+			// leaves nothing behind holding our output pipe.
+			cmd := fmt.Sprintf("trap 'echo caught; exit 0' %s; sleep 300", tc.trap)
+			res, _ := execTestRes(t, &ExecRes{
+				Cmd:   cmd,
+				Shell: "/bin/bash",
+				Sig:   tc.signal,
+			})
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			errChan := make(chan error)
+			go func() {
+				_, err := res.CheckApply(ctx, true)
+				errChan <- err
+			}()
+
+			// give it a moment to get as far as the sleep
+			time.Sleep(500 * time.Millisecond)
+			cancel()
+
+			var err error
+			select {
+			case err = <-errChan:
+			case <-time.After(30 * time.Second):
+				t.Fatalf("func CheckApply: did not return")
+			}
+
+			// The command exited with a zero status, but we're the
+			// ones who stopped it, so this must not look like a
+			// success to the engine.
+			if err == nil {
+				t.Fatalf("func CheckApply: expected error, got nil")
+			}
+			if err != context.Canceled {
+				t.Errorf("func CheckApply: got error: %v, expected: %v", err, context.Canceled)
+			}
+
+			// The trap only runs if the command got the signal that
+			// we said we'd send, and it can only run if we didn't
+			// send something uncatchable instead.
+			if res.stdout == nil {
+				t.Fatalf("got no stdout, so the trap never ran")
+			}
+			if out := *res.stdout; out != "caught\n" {
+				t.Errorf("got stdout(%d): %s", len(out), out)
+			}
+		})
+	}
+}
+
+// TestExecInterrupt tests that interrupting the resource ends a command which
+// ignores the signal that we politely asked it to stop with.
+func TestExecInterrupt(t *testing.T) {
+	// This ignores the signal we send when the context is cancelled, and it
+	// doesn't sit in a single sleep, so that killing its children doesn't
+	// end it either. Only an uncatchable signal stops this.
+	cmd := "trap '' TERM; while true; do sleep 0.1; done"
+	res, _ := execTestRes(t, &ExecRes{
+		Cmd:   cmd,
+		Shell: "/bin/bash",
+	})
+
+	// We deliberately don't cancel the context here, so that this only
+	// tests the interrupt. The engine does both, one rung after the other.
+	ctx := context.Background()
+
+	errChan := make(chan error)
+	go func() {
+		_, err := res.CheckApply(ctx, true)
+		errChan <- err
+	}()
+
+	time.Sleep(500 * time.Millisecond) // let it get going
+	// The engine only ever calls this once per resource.
+	if err := res.Interrupt(); err != nil {
+		t.Errorf("func Interrupt: %v", err)
+	}
+
+	var err error
+	select {
+	case err = <-errChan:
+	case <-time.After(30 * time.Second):
+		t.Fatalf("func CheckApply: did not return, so the interrupt didn't work")
+	}
+
+	if err == nil {
+		t.Fatalf("func CheckApply: expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "interrupted") {
+		t.Errorf("func CheckApply: got error: %v", err)
+	}
+}
+
+// TestExecCmdStopped tests that we only call a command stopped when we're the
+// ones who stopped it. A context which is cancelled once a command has already
+// finished tells us nothing about that command, and if we read one as if it did
+// then a run which raced with the shutdown would throw away work that was
+// really done, and would skip the donecmd and the mtime that go with it.
+func TestExecCmdStopped(t *testing.T) {
+	logf := func(format string, v ...interface{}) {
+		t.Logf("test: "+format, v...)
+	}
+
+	t.Run("cancelled after it finished", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		cmd := &execCmd{
+			Name:    "cmd",
+			Command: "/usr/bin/true",
+			Logf:    logf,
+		}
+		if err := cmd.Init(ctx); err != nil {
+			t.Fatalf("func Init: %v", err)
+		}
+		if err := cmd.run(); err != nil {
+			t.Fatalf("func run: %v", err)
+		}
+
+		cancel() // it already did the work, so this isn't about it
+
+		if err := cmd.stopped(); err != nil {
+			t.Errorf("func stopped: %v", err)
+		}
+	})
+
+	t.Run("cancelled before it started", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel() // we're on our way out before this ever gets going
+
+		cmd := &execCmd{
+			Name:    "cmd",
+			Command: "/usr/bin/true",
+			Logf:    logf,
+		}
+		if err := cmd.Init(ctx); err != nil {
+			t.Fatalf("func Init: %v", err)
+		}
+		if err := cmd.run(); err == nil {
+			t.Errorf("func run: expected error, got nil")
+		}
+
+		if err := cmd.stopped(); err != context.Canceled {
+			t.Errorf("func stopped: got error: %v, expected: %v", err, context.Canceled)
+		}
+	})
+}
+
+// TestExecSignaledCmd tests that a command which something else in the system
+// killed is an error, and in particular that it never looks like an ordinary
+// non-zero exit. A guard command that gets killed didn't decide anything, and
+// if we read the -1 that a signalled command has instead of an exit status as
+// if it were an answer, then an ifcmd which the OOM killer got to would tell us
+// that everything is fine and that the real command needn't run at all.
+func TestExecSignaledCmd(t *testing.T) {
+	// This kills the shell itself, and not some child of it, so what we get
+	// back is a signalled command and not an ordinary non-zero exit.
+	suicide := "kill -9 $$"
+
+	testCases := []struct {
+		name string
+		res  *ExecRes
+	}{
+		{
+			name: "the cmd itself",
+			res: &ExecRes{
+				Cmd:   suicide,
+				Shell: "/bin/bash",
+			},
+		},
+		{
+			name: "the ifcmd",
+			res: &ExecRes{
+				Cmd:     "/usr/bin/true",
+				IfCmd:   suicide,
+				IfShell: "/bin/bash",
+			},
+		},
+		{
+			name: "the nifcmd",
+			res: &ExecRes{
+				Cmd:      "/usr/bin/true",
+				NIfCmd:   suicide,
+				NIfShell: "/bin/bash",
+			},
+		},
+		{
+			name: "the donecmd",
+			res: &ExecRes{
+				Cmd:       "/usr/bin/true",
+				DoneCmd:   suicide,
+				DoneShell: "/bin/bash",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, _ := execTestRes(t, tc.res)
+
+			checkOK, err := res.CheckApply(context.Background(), true)
+			if err == nil {
+				t.Fatalf("func CheckApply: expected error, got checkOK: %t", checkOK)
+			}
+			if !strings.Contains(err.Error(), "killed by signal") {
+				t.Errorf("func CheckApply: got error: %v", err)
+			}
+		})
+	}
+}
+
+// TestExecLeakedDescendant tests that a command which leaves something behind
+// holding its output pipe doesn't block us once the command itself has exited.
+// We have no timer which could break us out of that, so we must not wait on an
+// output which may never end.
+func TestExecLeakedDescendant(t *testing.T) {
+	dir := t.TempDir()
+	file := path.Join(dir, "done")
+
+	// The sleep inherits our stdout and outlives the command which started
+	// it. The file tells us that the command really did get that far.
+	cmd := fmt.Sprintf("sleep 300 & touch %s; exit 0", file)
+	res, _ := execTestRes(t, &ExecRes{
+		Cmd:   cmd,
+		Shell: "/bin/bash",
+	})
+
+	errChan := make(chan error)
+	go func() {
+		_, err := res.CheckApply(context.Background(), true)
+		errChan <- err
+	}()
+
+	select {
+	case err := <-errChan:
+		if err != nil {
+			t.Errorf("func CheckApply: %v", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatalf("func CheckApply: did not return, we're stuck on a pipe")
+	}
+
+	if _, err := os.Stat(file); err != nil {
+		t.Errorf("the command did not run: %v", err)
 	}
 }

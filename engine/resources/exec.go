@@ -51,6 +51,8 @@ import (
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
+
+	"golang.org/x/sys/unix"
 )
 
 func init() {
@@ -60,9 +62,16 @@ func init() {
 var _ engine.EdgeableRes = &ExecRes{} // compile time check
 
 const (
-	// execCmdWaitDelay is how long we give a cancelled command to close its
-	// I/O pipes before we stop waiting for it.
-	execCmdWaitDelay = 10 * time.Second // TODO: is this too long?
+	// execCmdSignal is the default signal we send to a running command when
+	// its context is cancelled. This is more correct since we're more of a
+	// "service manager" than interactive tool, which would send SIGINT.
+	execCmdSignal = syscall.SIGTERM
+
+	// execCmdInterruptSignal is the signal we send to a running command
+	// when the engine interrupts us. It's the last rung of the exit
+	// sequence and the last thing we can do before a kill -9 of mgmt
+	// itself, so it should be the one that a command can't catch or ignore.
+	execCmdInterruptSignal = syscall.SIGKILL
 )
 
 // ExecRes is an exec resource for running commands.
@@ -70,8 +79,8 @@ const (
 // This resource attempts to minimise the effects of the execution environment,
 // and, in particular, will start the new process with an empty environment (as
 // would `execve` with an empty `envp` array). If you want the environment to
-// inherit the mgmt process' environment, you can import it from "sys" and use
-// it with `env => sys.env()` in your exec resource.
+// inherit the mgmt process environment, you can import it from "sys" and use it
+// with `env => sys.env()` in your exec resource.
 type ExecRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Edgeable
@@ -118,6 +127,17 @@ type ExecRes struct {
 	// for every command. If there's a legitimate need to have different
 	// environments for each command, then we'll split that out eventually.
 	Env map[string]string `lang:"env" yaml:"env"`
+
+	// Sig is the signal to send to a running command to tell it to stop.
+	// That happens when our context is cancelled via the second ^C but it
+	// can also happen when the Meta:timeout expires. We default to SIGTERM,
+	// but you may choose a different signal if you prefer such as SIGINT.
+	//
+	// It is sent to every command that this resource runs, and to the whole
+	// process group, so that a shell passes it on to its children. This
+	// does not change what happens when the engine interrupts us, which is
+	// always a SIGKILL.
+	Sig string `lang:"sig" yaml:"sig"`
 
 	// WatchCmd is the command to run to detect event changes. Each line of
 	// output from this command is treated as an event.
@@ -259,6 +279,33 @@ func (obj *ExecRes) getCmd() string {
 	return obj.Name()
 }
 
+// getSig returns the signal that we send to a running command when its context
+// is cancelled.
+func (obj *ExecRes) getSig() (syscall.Signal, error) {
+	if obj.Sig == "" {
+		return execCmdSignal, nil // the default
+	}
+
+	s := obj.Sig
+	signal := unix.SignalNum(s)
+	if signal != 0 {
+		return signal, nil // success!
+	}
+	// it's not a signal that we know about, but be helpful in the error...
+
+	s = strings.ToUpper(s) // did they forget to capitalize?
+	if unix.SignalNum(s) != 0 {
+		return 0, fmt.Errorf("invalid Sig of: %q, did you mean: %q ?", obj.Sig, s)
+	}
+
+	s = "SIG" + s // did they forget the prefix?
+	if unix.SignalNum(s) != 0 {
+		return 0, fmt.Errorf("invalid Sig of: %q, did you mean: %q ?", obj.Sig, s)
+	}
+
+	return 0, fmt.Errorf("invalid Sig of: %q", obj.Sig)
+}
+
 // validateUserGroup is just a small helper that is used by Validate().
 func (obj *ExecRes) validateUserGroup() error {
 
@@ -316,6 +363,16 @@ func (obj *ExecRes) Validate() error {
 		return fmt.Errorf("the Args param can't be used when Cmd has args")
 	}
 
+	for key := range obj.Env {
+		if err := isNameValid(key); err != nil {
+			return errwrap.Wrapf(err, "invalid variable name")
+		}
+	}
+
+	if _, err := obj.getSig(); err != nil {
+		return err
+	}
+
 	for _, file := range obj.WatchFiles {
 		if !strings.HasPrefix(file, "/") {
 			return fmt.Errorf("the path (`%s`) in WatchFiles must be absolute", file)
@@ -336,12 +393,6 @@ func (obj *ExecRes) Validate() error {
 		return err
 	}
 
-	// check that environment variables' format is valid
-	for key := range obj.Env {
-		if err := isNameValid(key); err != nil {
-			return errwrap.Wrapf(err, "invalid variable name")
-		}
-	}
 	return nil
 }
 
@@ -373,49 +424,31 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 	ioChan := make(chan *cmdOutput)
 	filesChan := make(chan *recwatch.Event)
 
-	var watchCmd *exec.Cmd
+	var watchCmd *execCmd
 	if obj.WatchCmd != "" {
-		var cmdName string
-		var cmdArgs []string
-		if obj.WatchShell == "" {
-			// call without a shell
-			// FIXME: are there still whitespace splitting issues?
-			split := strings.Fields(obj.WatchCmd)
-			cmdName = split[0]
-			//d, _ := os.Getwd() // TODO: how does this ever error ?
-			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:]
-		} else {
-			cmdName = obj.WatchShell // usually bash, or sh
-			cmdArgs = []string{"-c", obj.WatchCmd}
-		}
-
 		innerCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
+
+		cmd := &execCmd{
+			Name:      "watchcmd",
+			Command:   obj.WatchCmd,
+			Shell:     obj.WatchShell,
+			Env:       obj.Env,
+			Interrupt: obj.interruptChan,
+			Logf:      obj.init.Logf,
+		}
+		if err := cmd.Init(innerCtx); err != nil {
+			return err
+		}
 		cmd.Dir = obj.WatchCwd // run program in pwd if ""
 
-		envKeys := []string{}
-		for key := range obj.Env {
-			envKeys = append(envKeys, key)
-		}
-		sort.Strings(envKeys)
-		cmdEnv := []string{}
-		for _, k := range envKeys {
-			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
-		}
-		cmd.Env = cmdEnv
-
-		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Pgid:    0,
-		}
-		cmdSetupCancel(cmd)
 		watchCmd = cmd // store for errors
 
 		// if we have a user and group, use them
 		var err error
+		if cmd.Sig, err = obj.getSig(); err != nil {
+			return err
+		}
 		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
 			return errwrap.Wrapf(err, "error while setting credential")
 		}
@@ -484,24 +517,19 @@ func (obj *ExecRes) Watch(ctx context.Context) error {
 				return fmt.Errorf("reached EOF")
 			}
 			if err := data.err; err != nil {
-				// error reading input or cmd failure
-				exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-				if !ok {
-					// command failed in some bad way
-					return errwrap.Wrapf(err, "watchcmd failed in some bad way")
-				}
-				pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-				wStatus, ok := pStateSys.(syscall.WaitStatus)
-				if !ok {
-					return errwrap.Wrapf(err, "could not get exit status of watchcmd")
-				}
-				exitStatus := wStatus.ExitStatus()
-				if exitStatus == 0 {
-					// i'm not sure if this could happen
-					return errwrap.Wrapf(err, "unexpected watchcmd exit status of zero")
+				// We're the ones who stopped it, so how it died
+				// isn't news that anyone needs to hear about.
+				if e := watchCmd.stopped(); e != nil {
+					return e
 				}
 
-				obj.init.Logf("watchcmd: %s", strings.Join(watchCmd.Args, " "))
+				// error reading input or cmd failure
+				exitStatus, e := watchCmd.exitStatus(err)
+				if e != nil {
+					return e
+				}
+
+				obj.init.Logf("watchcmd: %s", watchCmd)
 				obj.init.Logf("watchcmd exited with: %d", exitStatus)
 				return errwrap.Wrapf(err, "watchcmd errored")
 			}
@@ -581,70 +609,46 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if obj.IfCmd != "" && !forceRun { // if there is no onlyif check, we should just run
-		var cmdName string
-		var cmdArgs []string
-		if obj.IfShell == "" {
-			// call without a shell
-			// FIXME: are there still whitespace splitting issues?
-			split := strings.Fields(obj.IfCmd)
-			cmdName = split[0]
-			//d, _ := os.Getwd() // TODO: how does this ever error ?
-			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:]
-		} else {
-			cmdName = obj.IfShell // usually bash, or sh
-			cmdArgs = []string{"-c", obj.IfCmd}
+		cmd := &execCmd{
+			Name:      "ifcmd",
+			Command:   obj.IfCmd,
+			Shell:     obj.IfShell,
+			Env:       obj.Env,
+			Interrupt: obj.interruptChan,
+			Logf:      obj.init.Logf,
 		}
-		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+		if err := cmd.Init(ctx); err != nil {
+			return false, err
+		}
 		cmd.Dir = obj.IfCwd // run program in pwd if ""
-
-		envKeys := []string{}
-		for key := range obj.Env {
-			envKeys = append(envKeys, key)
-		}
-		sort.Strings(envKeys)
-		cmdEnv := []string{}
-		for _, k := range envKeys {
-			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
-		}
-		cmd.Env = cmdEnv
-
-		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Pgid:    0,
-		}
-		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
+		if cmd.Sig, err = obj.getSig(); err != nil {
+			return false, err
+		}
 		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
 			return false, errwrap.Wrapf(err, "error while setting credential")
 		}
 
-		var out splitWriter
-		out.Init()
-		cmd.Stdout = out.Stdout
-		cmd.Stderr = out.Stderr
+		if err := cmd.capture(); err != nil {
+			return false, err
+		}
 
-		if err := cmd.Run(); err != nil {
-			exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-			if !ok {
-				// command failed in some bad way
-				return false, errwrap.Wrapf(err, "ifcmd failed in some bad way")
-			}
-			pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-			wStatus, ok := pStateSys.(syscall.WaitStatus)
-			if !ok {
-				return false, errwrap.Wrapf(err, "could not get exit status of ifcmd")
-			}
-			exitStatus := wStatus.ExitStatus()
-			if exitStatus == 0 {
-				// i'm not sure if this could happen
-				return false, errwrap.Wrapf(err, "unexpected ifcmd exit status of zero")
+		if err := cmd.run(); err != nil {
+			// A command that we stopped never got to tell us
+			// anything, so we must not read a decision into it.
+			if e := cmd.stopped(); e != nil {
+				return false, e
 			}
 
-			obj.init.Logf("ifcmd: %s", strings.Join(cmd.Args, " "))
+			exitStatus, e := cmd.exitStatus(err)
+			if e != nil {
+				return false, e
+			}
+			out := cmd.output()
+
+			obj.init.Logf("ifcmd: %s", cmd)
 			obj.init.Logf("ifcmd exited with: %d, skipping cmd", exitStatus)
 			if s := out.String(); s == "" {
 				obj.init.Logf("ifcmd out empty!")
@@ -661,6 +665,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			}
 			return true, nil // don't run
 		}
+		out := cmd.output()
 		s := out.String()
 		if s == "" {
 			obj.init.Logf("ifcmd out empty!")
@@ -687,55 +692,36 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if obj.NIfCmd != "" && !forceRun { // opposite of the ifcmd check
-		var cmdName string
-		var cmdArgs []string
-		if obj.NIfShell == "" {
-			// call without a shell
-			// FIXME: are there still whitespace splitting issues?
-			split := strings.Fields(obj.NIfCmd)
-			cmdName = split[0]
-			//d, _ := os.Getwd() // TODO: how does this ever error ?
-			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:]
-		} else {
-			cmdName = obj.NIfShell // usually bash, or sh
-			cmdArgs = []string{"-c", obj.NIfCmd}
+		cmd := &execCmd{
+			Name:      "nifcmd",
+			Command:   obj.NIfCmd,
+			Shell:     obj.NIfShell,
+			Env:       obj.Env,
+			Interrupt: obj.interruptChan,
+			Logf:      obj.init.Logf,
 		}
-		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+		if err := cmd.Init(ctx); err != nil {
+			return false, err
+		}
 		cmd.Dir = obj.NIfCwd // run program in pwd if ""
-
-		envKeys := []string{}
-		for key := range obj.Env {
-			envKeys = append(envKeys, key)
-		}
-		sort.Strings(envKeys)
-		cmdEnv := []string{}
-		for _, k := range envKeys {
-			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
-		}
-		cmd.Env = cmdEnv
-
-		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Pgid:    0,
-		}
-		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
+		if cmd.Sig, err = obj.getSig(); err != nil {
+			return false, err
+		}
 		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
 			return false, errwrap.Wrapf(err, "error while setting credential")
 		}
 
-		var out splitWriter
-		out.Init()
-		cmd.Stdout = out.Stdout
-		cmd.Stderr = out.Stderr
+		if err := cmd.capture(); err != nil {
+			return false, err
+		}
 
-		err = cmd.Run()
+		err = cmd.run()
+		out := cmd.output()
 		if err == nil {
-			obj.init.Logf("nifcmd: %s", strings.Join(cmd.Args, " "))
+			obj.init.Logf("nifcmd: %s", cmd)
 			obj.init.Logf("nifcmd exited with: %d, skipping cmd", 0)
 			s := out.String()
 			if s == "" {
@@ -755,23 +741,18 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return true, nil // don't run
 		}
 
-		exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-		if !ok {
-			// command failed in some bad way
-			return false, errwrap.Wrapf(err, "nifcmd failed in some bad way")
-		}
-		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-		wStatus, ok := pStateSys.(syscall.WaitStatus)
-		if !ok {
-			return false, errwrap.Wrapf(err, "could not get exit status of nifcmd")
-		}
-		exitStatus := wStatus.ExitStatus()
-		if exitStatus == 0 {
-			// i'm not sure if this could happen
-			return false, errwrap.Wrapf(err, "unexpected nifcmd exit status of zero")
+		// A command that we stopped never got to tell us anything, so
+		// we must not read a decision into it.
+		if e := cmd.stopped(); e != nil {
+			return false, e
 		}
 
-		obj.init.Logf("nifcmd: %s", strings.Join(cmd.Args, " "))
+		exitStatus, e := cmd.exitStatus(err)
+		if e != nil {
+			return false, e
+		}
+
+		obj.init.Logf("nifcmd: %s", cmd)
 		obj.init.Logf("nifcmd exited with: %d, not skipping cmd", exitStatus)
 		if s := out.String(); s == "" {
 			obj.init.Logf("nifcmd out empty!")
@@ -813,84 +794,43 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	// apply portion
-	var cmdName string
-	var cmdArgs []string
-	if obj.Shell == "" {
-		// call without a shell
-		// FIXME: are there still whitespace splitting issues?
-		// TODO: we could make the split character user selectable...!
-		split := strings.Fields(obj.getCmd())
-		cmdName = split[0]
-		//d, _ := os.Getwd() // TODO: how does this ever error ?
-		//cmdName = path.Join(d, cmdName)
-		cmdArgs = split[1:]
-		if len(obj.Args) > 0 {
-			if len(split) != 1 { // should not happen
-				return false, fmt.Errorf("validation error")
-			}
-			cmdArgs = obj.Args
-		}
-	} else {
-		cmdName = obj.Shell // usually bash, or sh
-		cmdArgs = []string{"-c", obj.getCmd()}
+	cmd := &execCmd{
+		Name:      "cmd",
+		Command:   obj.getCmd(),
+		Shell:     obj.Shell,
+		Args:      obj.Args,
+		Env:       obj.Env,
+		Interrupt: obj.interruptChan,
+		Logf:      obj.init.Logf,
 	}
-
-	wg := &sync.WaitGroup{}
-	defer wg.Wait() // this must be above the defer cancel() call
-	// cmd.Process.Kill() is called on timeout
-	innerCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	cmd := exec.CommandContext(innerCtx, cmdName, cmdArgs...)
+	if err := cmd.Init(ctx); err != nil {
+		return false, err
+	}
 	cmd.Dir = obj.Cwd // run program in pwd if ""
-
-	envKeys := []string{}
-	for key := range obj.Env {
-		envKeys = append(envKeys, key)
-	}
-	sort.Strings(envKeys)
-	cmdEnv := []string{}
-	for _, k := range envKeys {
-		cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
-	}
-	cmd.Env = cmdEnv
-
-	// ignore signals sent to parent process (we're in our own group)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
-		Pgid:    0,
-	}
-	cmdSetupCancel(cmd)
 
 	// if we have a user and group, use them
 	var err error
+	if cmd.Sig, err = obj.getSig(); err != nil {
+		return false, err
+	}
 	if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
 		return false, errwrap.Wrapf(err, "error while setting credential")
 	}
 
-	var out splitWriter
-	out.Init()
-	// from the docs: "If Stdout and Stderr are the same writer, at most one
-	// goroutine at a time will call Write." so we trick it here!
-	cmd.Stdout = out.Stdout
-	cmd.Stderr = out.Stderr
-
-	obj.init.Logf("cmd: %s", strings.Join(cmd.Args, " "))
-	if err := cmd.Start(); err != nil {
-		return false, errwrap.Wrapf(err, "error starting cmd")
+	if err := cmd.capture(); err != nil {
+		return false, err
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		select {
-		case <-obj.interruptChan:
-			cancel()
-		case <-innerCtx.Done():
-			// let this exit
+	obj.init.Logf("cmd: %s", cmd)
+	if err := cmd.start(); err != nil {
+		// We were already on our way out before this ever got going.
+		if e := cmd.stopped(); e != nil {
+			return false, e
 		}
-	}()
-
-	err = cmd.Wait() // we can unblock this with the timeout
+		return false, errwrap.Wrapf(err, "error starting cmd")
+	}
+	err = cmd.wait()
+	out := cmd.output()
 
 	// save in memory for send/recv
 	// we use pointers to strings to indicate if used or not
@@ -907,45 +847,35 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		obj.stderr = &str
 	}
 
+	// We stopped this command, so whatever it did in response doesn't tell
+	// us that the resource is in the state that we wanted. This must come
+	// before we look at how it exited, because a command which handles the
+	// signal we sent is free to exit with a zero status, and if we took
+	// that at face value we'd go on to run the DoneCmd and to save the
+	// mtime and the cached output as if the work had actually been done. If
+	// we ever want a command to be able to say that a graceful stop counts
+	// as a success, then this is the place where that option would go.
+	if e := cmd.stopped(); e != nil {
+		return false, e
+	}
+
 	// process the err result from cmd, we process non-zero exits here too!
-	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-	if err == context.DeadlineExceeded {
-		return false, err
-	}
-	if err != nil && ok {
-		pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-		wStatus, ok := pStateSys.(syscall.WaitStatus)
-		if !ok {
-			return false, errwrap.Wrapf(err, "error running cmd")
-		}
-		exitStatus := wStatus.ExitStatus()
-		//nolint:misspell // golang stdlib name (Signaled)
-		if !wStatus.Signaled() { // not a timeout or cancel (no signal)
-			// most commands error in this way
-			if s := out.String(); s == "" {
-				obj.init.Logf("exit status %d", exitStatus)
-			} else {
-				obj.init.Logf("cmd error: %s", s)
-			}
-
-			return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
-		}
-		sig := wStatus.Signal()
-
-		// we get this on timeout, because ctx calls cmd.Process.Kill()
-		if sig == syscall.SIGKILL {
-			// Don't do this, since we may wish to know how it died.
-			//if innerCtx.Err() == context.DeadlineExceeded {
-			//	return false, context.DeadlineExceeded
-			//}
-			return false, errwrap.Wrapf(err, "cmd timeout, exit status: %d", exitStatus)
-		}
-
-		return false, errwrap.Wrapf(err, "unknown cmd error, signal: %s, exit status: %d", sig, exitStatus)
-
-	}
 	if err != nil {
-		return false, errwrap.Wrapf(err, "general cmd error")
+		// A command which something else in the system killed errors in
+		// here, since we checked above that it wasn't us who did it.
+		exitStatus, e := cmd.exitStatus(err)
+		if e != nil {
+			return false, e
+		}
+
+		// most commands error in this way
+		if s := out.String(); s == "" {
+			obj.init.Logf("exit status %d", exitStatus)
+		} else {
+			obj.init.Logf("cmd error: %s", s)
+		}
+
+		return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
 	}
 
 	// TODO: if we printed the stdout while the command is running, this
@@ -959,70 +889,46 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	if obj.DoneCmd != "" {
-		var cmdName string
-		var cmdArgs []string
-		if obj.DoneShell == "" {
-			// call without a shell
-			// FIXME: are there still whitespace splitting issues?
-			split := strings.Fields(obj.DoneCmd)
-			cmdName = split[0]
-			//d, _ := os.Getwd() // TODO: how does this ever error ?
-			//cmdName = path.Join(d, cmdName)
-			cmdArgs = split[1:]
-		} else {
-			cmdName = obj.DoneShell // usually bash, or sh
-			cmdArgs = []string{"-c", obj.DoneCmd}
+		cmd := &execCmd{
+			Name:      "donecmd",
+			Command:   obj.DoneCmd,
+			Shell:     obj.DoneShell,
+			Env:       obj.Env,
+			Interrupt: obj.interruptChan,
+			Logf:      obj.init.Logf,
 		}
-		cmd := exec.CommandContext(ctx, cmdName, cmdArgs...)
+		if err := cmd.Init(ctx); err != nil {
+			return false, err
+		}
 		cmd.Dir = obj.DoneCwd // run program in pwd if ""
-
-		envKeys := []string{}
-		for key := range obj.Env {
-			envKeys = append(envKeys, key)
-		}
-		sort.Strings(envKeys)
-		cmdEnv := []string{}
-		for _, k := range envKeys {
-			cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
-		}
-		cmd.Env = cmdEnv
-
-		// ignore signals sent to parent process (we're in our own group)
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Setpgid: true,
-			Pgid:    0,
-		}
-		cmdSetupCancel(cmd)
 
 		// if we have an user and group, use them
 		var err error
+		if cmd.Sig, err = obj.getSig(); err != nil {
+			return false, err
+		}
 		if cmd.SysProcAttr.Credential, err = obj.getCredential(); err != nil {
 			return false, errwrap.Wrapf(err, "error while setting credential")
 		}
 
-		var out splitWriter
-		out.Init()
-		cmd.Stdout = out.Stdout
-		cmd.Stderr = out.Stderr
+		if err := cmd.capture(); err != nil {
+			return false, err
+		}
 
-		if err := cmd.Run(); err != nil {
-			exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
-			if !ok {
-				// command failed in some bad way
-				return false, errwrap.Wrapf(err, "donecmd failed in some bad way")
-			}
-			pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
-			wStatus, ok := pStateSys.(syscall.WaitStatus)
-			if !ok {
-				return false, errwrap.Wrapf(err, "could not get exit status of donecmd")
-			}
-			exitStatus := wStatus.ExitStatus()
-			if exitStatus == 0 {
-				// i'm not sure if this could happen
-				return false, errwrap.Wrapf(err, "unexpected donecmd exit status of zero")
+		if err := cmd.run(); err != nil {
+			// A command that we stopped never got to tell us
+			// anything, so we must not read a decision into it.
+			if e := cmd.stopped(); e != nil {
+				return false, e
 			}
 
-			obj.init.Logf("donecmd: %s", strings.Join(cmd.Args, " "))
+			exitStatus, e := cmd.exitStatus(err)
+			if e != nil {
+				return false, e
+			}
+			out := cmd.output()
+
+			obj.init.Logf("donecmd: %s", cmd)
 			if s := out.String(); s == "" {
 				obj.init.Logf("donecmd exit status %d", exitStatus)
 			} else {
@@ -1030,7 +936,7 @@ func (obj *ExecRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			}
 			return false, errwrap.Wrapf(err, "cmd error") // exit status will be in the error
 		}
-		if s := out.String(); s == "" {
+		if s := cmd.output().String(); s == "" {
 			obj.init.Logf("donecmd out empty!")
 		} else {
 			obj.init.Logf("donecmd out:")
@@ -1167,6 +1073,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	}
 	if err := engineUtil.StrMapCmp(obj.Env, res.Env); err != nil {
 		return errwrap.Wrapf(err, "the Env differs")
+	}
+	if obj.Sig != res.Sig {
+		return fmt.Errorf("the Sig differs")
 	}
 
 	if obj.WatchCmd != res.WatchCmd {
@@ -1494,7 +1403,7 @@ type cmdOutput struct {
 // always reaps the process before the wg is done, so as to never leave a zombie
 // behind, but keep in mind that reaping blocks until the process exits, so
 // whoever kills it must not wait on the wg before doing the killing.
-func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *cmdOutput, error) {
+func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *execCmd) (chan *cmdOutput, error) {
 	stdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error creating StdoutPipe for Cmd")
@@ -1507,7 +1416,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 	// issue or race here about calling cmd.Wait() if only one of them dies?
 	cmdReader := io.MultiReader(stdoutReader, stderrReader)
 	scanner := bufio.NewScanner(cmdReader)
-	if err := cmd.Start(); err != nil {
+	if err := cmd.start(); err != nil {
 		return nil, errwrap.Wrapf(err, "error starting Cmd")
 	}
 
@@ -1522,7 +1431,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 				return
 			}
 			// always reap so we don't leave a zombie
-			_ = cmd.Wait()
+			_ = cmd.wait()
 		}()
 		for scanner.Scan() {
 			select {
@@ -1535,7 +1444,7 @@ func (obj *ExecRes) cmdOutputRunner(ctx context.Context, cmd *exec.Cmd) (chan *c
 		// on EOF, scanner.Err() will be nil
 		reterr := scanner.Err()
 		waited = true
-		reterr = errwrap.Append(reterr, cmd.Wait()) // always run Wait()
+		reterr = errwrap.Append(reterr, cmd.wait()) // always run Wait()
 		// send any misc errors we encounter on the channel
 		if reterr != nil {
 			select {
@@ -1616,22 +1525,521 @@ func (obj *wrapWriter) String() string {
 	return obj.Buffer.String()
 }
 
-// cmdSetupCancel configures cmd so that cancelling its context kills the entire
-// process group, instead of only the direct child process. Since we run
-// commands with Setpgid, a shell child would otherwise leave orphaned
-// grandchildren behind when killed. It also sets a WaitDelay so that Wait can't
-// block forever on I/O that some grandchild might hold open. This must be
-// called before the command is started.
-func cmdSetupCancel(cmd *exec.Cmd) {
-	cmd.Cancel = func() error {
-		// The negative pid signals the whole process group instead.
-		err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+// execCmd is one command that this resource runs, and everything we need to
+// signal it and to collect its output. Every command goes through here, so that
+// they all behave the same way when we're asked to stop.
+type execCmd struct {
+	// Cmd is the underlying command, and it's built by Init. We embed it so
+	// that the caller can set whatever we don't set for it, such as the dir
+	// and the credential, exactly as it would on a bare command.
+	*exec.Cmd
+
+	// Name is what we call this command in log and error messages, eg the
+	// "ifcmd" in "ifcmd exited with: 1".
+	Name string
+
+	// Command is the command to run.
+	Command string
+
+	// Shell is the shell to run Command with if we want one.
+	Shell string
+
+	// Args are the args for the command, and they may only be used when
+	// there's no shell.
+	Args []string
+
+	// Env is the environment to run the command with.
+	Env map[string]string
+
+	// Sig is the signal we send when the context is cancelled.
+	Sig syscall.Signal
+
+	// Interrupt is closed when we must end right now. It's the last thing
+	// that can happen before mgmt itself gets killed, so we kill the
+	// command with a signal it can't catch, and it may well be left in a
+	// partial state.
+	Interrupt chan struct{}
+
+	// Logf is used for logging.
+	Logf func(format string, v ...interface{})
+
+	// ctx is the context which cancels this command. We keep it so that we
+	// can tell a command which we stopped from one which stopped on its
+	// own.
+	ctx context.Context
+
+	// out is where we collect the output, if we were asked to collect it.
+	out *splitWriter
+
+	// pipes are the pipes which feed the above.
+	pipes []*execPipe
+
+	// mutex guards the three fields below it.
+	mutex *sync.Mutex
+
+	// started is true once the process exists, and finished is true once it
+	// has been reaped. We may only signal it in between those two.
+	started  bool
+	finished bool
+
+	// interrupted is true if we interrupted this command, and cancelled is
+	// true if we signalled it because our context was cancelled. Either one
+	// means that we're the reason it ended, which is the only thing that
+	// tells us apart from a command which finished on its own.
+	interrupted bool
+	cancelled   bool
+
+	// done is closed once the command has been reaped, and wg waits for the
+	// goroutine which watches for an interrupt until then.
+	done chan struct{}
+	wg   *sync.WaitGroup
+}
+
+// Init builds the command from the params: the shell or the bare argv split,
+// the sorted environment, its own process group, and the cancel behaviour.
+// Nothing is started here, so the command must either be run or thrown away.
+func (obj *execCmd) Init(ctx context.Context) error {
+	var cmdName string
+	var cmdArgs []string
+	if obj.Shell == "" {
+		// call without a shell
+		// FIXME: are there still whitespace splitting issues?
+		// TODO: we could make the split character user selectable...!
+		split := strings.Fields(obj.Command)
+		if len(split) == 0 { // avoid a panic on an all whitespace cmd
+			return fmt.Errorf("the %s is empty", obj.Name)
+		}
+		cmdName = split[0]
+		//d, _ := os.Getwd() // TODO: how does this ever error ?
+		//cmdName = path.Join(d, cmdName)
+		cmdArgs = split[1:]
+		if len(obj.Args) > 0 {
+			if len(split) != 1 { // should not happen
+				return fmt.Errorf("validation error")
+			}
+			cmdArgs = obj.Args
+		}
+	} else {
+		cmdName = obj.Shell // usually bash, or sh
+		cmdArgs = []string{"-c", obj.Command}
+	}
+
+	obj.ctx = ctx
+	obj.mutex = &sync.Mutex{}
+	obj.done = make(chan struct{})
+	obj.wg = &sync.WaitGroup{}
+
+	obj.Cmd = exec.CommandContext(ctx, cmdName, cmdArgs...)
+
+	envKeys := []string{}
+	for key := range obj.Env {
+		envKeys = append(envKeys, key)
+	}
+	sort.Strings(envKeys)
+	cmdEnv := []string{}
+	for _, k := range envKeys {
+		cmdEnv = append(cmdEnv, k+"="+obj.Env[k])
+	}
+	obj.Cmd.Env = cmdEnv
+
+	// ignore signals sent to parent process (we're in our own group)
+	obj.Cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	// This runs when the context is cancelled. Returning nil from here is
+	// how we tell os/exec that we did interrupt the command, which makes
+	// Wait report the context error even if the command went on to exit
+	// with a zero status.
+	obj.Cmd.Cancel = func() error {
+		err := obj.signal(obj.Sig)
+		if err != nil { // it was already gone, or we couldn't signal it
+			return err
+		}
+
+		// We really did stop this one. Wait blocks until this has run,
+		// so anyone who looks at this after it has returned sees this.
+		obj.mutex.Lock()
+		obj.cancelled = true
+		obj.mutex.Unlock()
+
+		return nil
+	}
+
+	return nil
+}
+
+// String returns the command and its args, for logging.
+func (obj *execCmd) String() string {
+	return strings.Join(obj.Cmd.Args, " ")
+}
+
+// capture collects the stdout and stderr of this command, so that we can look
+// at them once it has finished. It must be called before the command is run.
+//
+// We make the pipes ourselves instead of handing os/exec an io.Writer and
+// letting it do it, because when os/exec owns the pipes it makes Wait block
+// until every write end has been closed. That includes the ones inherited by
+// any descendant of our command which outlived it, so a command which
+// backgrounds something and exits cleanly would block us forever. Since we have
+// no timer which could break out of that, we do the copying ourselves, and we
+// stop as soon as the command has been reaped.
+func (obj *execCmd) capture() error {
+	out := &splitWriter{}
+	out.Init()
+
+	// Since we hand os/exec two files, it hands them straight to the child
+	// and does no copying of its own, which means none of what it documents
+	// about the goroutines it would otherwise run applies to us. The two
+	// which do the copying are ours, and what keeps the combined output
+	// from interleaving badly is that the writers they feed share a lock.
+	stdout, err := newExecPipe(out.Stdout)
+	if err != nil {
+		return err
+	}
+	stderr, err := newExecPipe(out.Stderr)
+	if err != nil {
+		stdout.cleanup()
+		return err
+	}
+
+	obj.Cmd.Stdout = stdout.write
+	obj.Cmd.Stderr = stderr.write
+	obj.out = out
+	obj.pipes = []*execPipe{stdout, stderr}
+
+	return nil
+}
+
+// output returns the collected output. It's only valid after the command ran,
+// and only if we asked to capture it.
+func (obj *execCmd) output() *splitWriter {
+	return obj.out
+}
+
+// run starts the command and waits for it to finish.
+func (obj *execCmd) run() error {
+	if err := obj.start(); err != nil {
+		return err
+	}
+	return obj.wait()
+}
+
+// start starts the command. It refuses to start anything once we've been
+// interrupted, since at that point we're on our way out and a new process is
+// the last thing that anyone wants.
+func (obj *execCmd) start() error {
+	select {
+	case <-obj.Interrupt:
+		// We're the reason this never ran, so record it the same way we
+		// would if we'd had to signal it and let stopped() do the rest.
+		obj.mutex.Lock()
+		obj.interrupted = true
+		obj.mutex.Unlock()
+		obj.cleanup()
+		return fmt.Errorf("the resource was interrupted")
+	default:
+	}
+
+	// We hold the lock across the start, because os/exec watches the
+	// context from a goroutine which it launches in here, and that
+	// goroutine could otherwise run our cancel before we've recorded that
+	// there's something to signal, which would swallow the signal entirely.
+	obj.mutex.Lock()
+	err := obj.Cmd.Start()
+	obj.started = err == nil
+	obj.mutex.Unlock()
+	if err != nil {
+		obj.cleanup()
+		return err
+	}
+
+	// An interrupt which arrived while we were starting is caught here too,
+	// since the channel stays closed once it has been closed.
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		select {
+		case <-obj.Interrupt:
+			if err := obj.interrupt(); err != nil {
+				obj.Logf("%s: error interrupting: %s", obj.Name, err)
+			}
+		case <-obj.done: // it finished on its own
+		}
+	}()
+
+	// The child has its own copies of the write ends now, and ours have to
+	// go, or the copying would never see the EOF which ends it.
+	for _, pipe := range obj.pipes {
+		pipe.closeWrite()
+	}
+
+	return nil
+}
+
+// wait waits for the command to finish, and it collects whatever output it
+// produced. After this returns, the command is reaped and we must never signal
+// it again.
+func (obj *execCmd) wait() error {
+	err := obj.Cmd.Wait()
+
+	// The pid may be recycled from here on, so shut the door on signalling
+	// before we do anything else.
+	obj.mutex.Lock()
+	obj.finished = true
+	obj.mutex.Unlock()
+
+	close(obj.done) // the interrupt watcher can stop now
+	obj.wg.Wait()
+
+	for _, pipe := range obj.pipes {
+		if e := pipe.close(); e != nil {
+			obj.Logf("%s: error closing pipe: %s", obj.Name, e)
+		}
+	}
+
+	return err // this is what the caller has to classify
+}
+
+// signal sends a signal to the whole process group of this command, and not
+// just to the command itself, because we start every command in its own group
+// and a shell would otherwise leave its children running when it dies. It does
+// nothing if the command hasn't started, or if it has already been reaped.
+//
+// This has to use the raw negative pid, because there is no pidfd for a process
+// group: pidfd_send_signal addresses exactly one process, and the os.Process
+// methods which do use a pidfd under the hood can't reach any of the
+// descendants that we're aiming at here.
+//
+// TODO: A reaped pid can be recycled, so we could signal a stranger. The
+// finished flag isn't enough, since os/exec reaps before it sets that.
+func (obj *execCmd) signal(signal syscall.Signal) error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	if !obj.started || obj.finished {
+		return os.ErrProcessDone // tells os/exec to ignore this
+	}
+
+	// The negative pid signals the whole process group instead.
+	if err := syscall.Kill(-obj.Cmd.Process.Pid, signal); err != nil {
 		if err == syscall.ESRCH { // it's already dead
 			return os.ErrProcessDone // tells os/exec to ignore this
 		}
 		return err
 	}
-	cmd.WaitDelay = execCmdWaitDelay
+
+	return nil
+}
+
+// interrupt asks this command to end right now. It's the last thing we can do
+// before mgmt itself gets killed, so the signal it sends is one that can't be
+// caught or ignored, and the command may well be left in a partial state.
+func (obj *execCmd) interrupt() error {
+	err := obj.signal(execCmdInterruptSignal)
+	if err == os.ErrProcessDone { // it finished on its own, nothing to do
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// We really did kill this one, and we only record it now that we know
+	// that, since a command which had already finished did all of its work
+	// and must not be reported as one which we cut short.
+	obj.mutex.Lock()
+	obj.interrupted = true
+	obj.mutex.Unlock()
+
+	return nil
+}
+
+// stopped returns an error if this command didn't get to finish on its own,
+// because we cancelled it, or interrupted it, or never let it start. It's
+// important to check this before looking at how a command exited, since a
+// command which handles our signal can exit with a zero status, and that must
+// not be mistaken for the command having done what it was asked to do.
+//
+// We go by whether we actually signalled it, and not by whether our context is
+// done, because a context which was cancelled once the command had already
+// finished says nothing about that command: it did the work, and all the
+// cancellation means is that we're on our way out now. Asking the context would
+// throw away a completed run every time the two raced, and for the main command
+// that would mean skipping the donecmd and the mtime for work that was done.
+func (obj *execCmd) stopped() error {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	if obj.interrupted {
+		return fmt.Errorf("%s was interrupted", obj.Name)
+	}
+
+	if obj.cancelled {
+		if err := obj.ctx.Err(); err != nil {
+			return err // the engine knows what this means
+		}
+		// Nothing but a done context can get us here, but we must never
+		// report a command that we stopped as one which had its say.
+		return fmt.Errorf("%s was cancelled", obj.Name)
+	}
+
+	if !obj.started {
+		// It never ran, so whether that's a problem is the context's to
+		// say. This is nil when we simply weren't asked to stop, which
+		// leaves the real reason it wouldn't start to the caller.
+		return obj.ctx.Err()
+	}
+
+	return nil
+}
+
+// exitStatus digs the exit status out of the error that running this command
+// returned, so that the caller can tell an ordinary non-zero exit, which is an
+// answer that some of our commands are allowed to give us, from the ways of
+// dying which aren't an answer at all.
+//
+// A command which was killed by a signal has no exit status to speak of, and
+// the -1 that we'd get for one must never reach a caller which is looking at
+// this to decide something, since it would read exactly like an ordinary
+// non-zero exit. It wasn't us who signalled it either, because that's checked
+// before we get here, so it was something else in the system, such as the OOM
+// killer or a segfault of its own making. We're only ever called after
+// something went wrong, so a zero status would mean we misread things.
+func (obj *execCmd) exitStatus(err error) (int, error) {
+	exitErr, ok := err.(*exec.ExitError) // embeds an os.ProcessState
+	if !ok {
+		// command failed in some bad way
+		return 0, errwrap.Wrapf(err, "%s failed in some bad way", obj.Name)
+	}
+	pStateSys := exitErr.Sys() // (*os.ProcessState) Sys
+	wStatus, ok := pStateSys.(syscall.WaitStatus)
+	if !ok {
+		return 0, errwrap.Wrapf(err, "could not get exit status of %s", obj.Name)
+	}
+
+	//nolint:misspell // golang stdlib name (Signaled)
+	if wStatus.Signaled() {
+		return 0, errwrap.Wrapf(err, "%s was killed by signal: %s", obj.Name, wStatus.Signal())
+	}
+
+	exitStatus := wStatus.ExitStatus()
+	if exitStatus == 0 {
+		// i'm not sure if this could happen
+		return 0, errwrap.Wrapf(err, "unexpected %s exit status of zero", obj.Name)
+	}
+	return exitStatus, nil
+}
+
+// cleanup throws away anything we built but never got to use. It must only be
+// called if the command didn't start.
+func (obj *execCmd) cleanup() {
+	for _, pipe := range obj.pipes {
+		pipe.cleanup()
+	}
+	obj.pipes = nil
+}
+
+// execPipe is one pipe which carries the output of a command back to us. We
+// read from one end while the command writes into the other, because a command
+// which produces more output than a pipe can hold would otherwise block forever
+// waiting for someone to read it.
+type execPipe struct {
+	// read is our end of the pipe, and write is the end that we hand to the
+	// command before closing our own copy of it.
+	read  *os.File
+	write *os.File
+
+	// done is closed once the copying has finished, either because we hit
+	// the EOF, or because we closed our end.
+	done chan struct{}
+}
+
+// newExecPipe builds a pipe which copies everything it receives into w.
+func newExecPipe(w io.Writer) (*execPipe, error) {
+	read, write, err := os.Pipe()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "error creating pipe")
+	}
+
+	obj := &execPipe{
+		read:  read,
+		write: write,
+		done:  make(chan struct{}),
+	}
+
+	go func() {
+		defer close(obj.done)
+		_, _ = io.Copy(w, obj.read) // ends on EOF or on our close
+	}()
+
+	return obj, nil
+}
+
+// closeWrite closes our copy of the end that we gave to the command. Until this
+// happens we're a writer on our own pipe, and the copying could never end.
+func (obj *execPipe) closeWrite() {
+	_ = obj.write.Close() // there's nothing useful we could do with this
+}
+
+// close finishes with this pipe, and it must only be called once the command
+// has been reaped.
+func (obj *execPipe) close() error {
+	// If every write end of this pipe is closed, then the copying is
+	// guaranteed to drain whatever is left and then stop on its own, so we
+	// wait for it and we get all of the output. If some descendant of the
+	// command outlived it and is still holding the write end, then waiting
+	// would never end, and we take what we got instead. That case is
+	// already a lost cause: the output we're missing belongs to a process
+	// which escaped both the command and the process group we would have
+	// killed it with.
+	if hup, err := pipeHUP(obj.read); err == nil && hup {
+		<-obj.done
+	}
+
+	err := obj.read.Close() // this unblocks the copying if it's still going
+	<-obj.done              // now it's certainly over
+
+	return err
+}
+
+// cleanup closes both ends of a pipe which never got used.
+func (obj *execPipe) cleanup() {
+	obj.closeWrite()
+	_ = obj.read.Close()
+	<-obj.done
+}
+
+// pipeHUP returns whether every write end of this pipe has been closed. When
+// that's true, a read can't block on a writer which might never come back, so
+// whatever is left to read is all that there will ever be.
+func pipeHUP(file *os.File) (bool, error) {
+	conn, err := file.SyscallConn()
+	if err != nil {
+		return false, err
+	}
+
+	var hup bool
+	var reterr error
+	if err := conn.Control(func(fd uintptr) {
+		//nolint:gosec // G115: a file descriptor always fits in an int32
+		fds := []unix.PollFd{{Fd: int32(fd)}}
+		for {
+			// POLLHUP is reported even though we ask for nothing.
+			if _, err := unix.Poll(fds, 0); err != nil {
+				if err == unix.EINTR {
+					continue
+				}
+				reterr = err
+				return
+			}
+			break
+		}
+		hup = fds[0].Revents&unix.POLLHUP != 0
+	}); err != nil {
+		return false, err
+	}
+
+	return hup, reterr
 }
 
 // isNameValid checks that environment variable name is valid.

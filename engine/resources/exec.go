@@ -126,11 +126,11 @@ type ExecRes struct {
 	// WatchCwd is the Cwd for the WatchCmd. See the docs for Cwd.
 	WatchCwd string `lang:"watchcwd" yaml:"watchcwd"`
 
-	// WatchFiles is a list of files that will be kept track of.
-	WatchFiles []string `lang:"watchfiles" yaml:"watchfiles"`
-
 	// WatchShell is the Shell for the WatchCmd. See the docs for Shell.
 	WatchShell string `lang:"watchshell" yaml:"watchshell"`
+
+	// WatchFiles is a list of files that will be kept track of.
+	WatchFiles []string `lang:"watchfiles" yaml:"watchfiles"`
 
 	// IfCmd is the command that runs to guard against running the Cmd. If
 	// this command succeeds, then Cmd *will not* be blocked from running.
@@ -1165,6 +1165,9 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	if obj.Shell != res.Shell {
 		return fmt.Errorf("the Shell differs")
 	}
+	if err := engineUtil.StrMapCmp(obj.Env, res.Env); err != nil {
+		return errwrap.Wrapf(err, "the Env differs")
+	}
 
 	if obj.WatchCmd != res.WatchCmd {
 		return fmt.Errorf("the WatchCmd differs")
@@ -1208,10 +1211,10 @@ func (obj *ExecRes) Cmp(r engine.Res) error {
 	if obj.Creates != res.Creates {
 		return fmt.Errorf("the Creates differs")
 	}
-
 	if err := engineUtil.StrListCmp(obj.Mtimes, res.Mtimes); err != nil {
 		return errwrap.Wrapf(err, "the Mtimes differ")
 	}
+
 	if obj.DoneCmd != res.DoneCmd {
 		return fmt.Errorf("the DoneCmd differs")
 	}

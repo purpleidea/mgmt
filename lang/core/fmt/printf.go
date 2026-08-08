@@ -32,6 +32,7 @@ package corefmt
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
@@ -427,6 +428,8 @@ func parseFormatToTypeList(format string) ([]*types.Type, error) {
 			typList = append(typList, types.TypeBool)
 		case 's':
 			typList = append(typList, types.TypeStr)
+		case 'q':
+			typList = append(typList, types.TypeStr)
 		case 'd':
 			typList = append(typList, types.TypeInt)
 
@@ -496,6 +499,8 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 			typ = types.TypeBool
 		case 's':
 			typ = types.TypeStr
+		case 'q':
+			typ = types.TypeStr
 		case 'd':
 			typ = types.TypeInt
 
@@ -540,6 +545,8 @@ func compileFormatToString(format string, values []types.Value) (string, error) 
 
 		if format[i] == 'T' {
 			output += values[ix].Type().String() // print the type
+		} else if format[i] == 'q' {
+			output += strconv.Quote(values[ix].Str())
 		} else {
 			output += valueToString(values[ix])
 		}

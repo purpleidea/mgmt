@@ -19,6 +19,10 @@ exec "post-flag1" {
 }
 
 Http:Server:Flag["/flag1"].value -> Print["print1"].msg
+-- CONFIG --
+{
+	"needs-loopback": true
+}
 -- OUTPUT --
 Edge: http:server[issue-926] -> exec[post-flag1] # http:server[issue-926] -> exec[post-flag1]
 Edge: http:server[issue-926] -> print[print1] # http:server:flag[/flag1] -> print[print1]

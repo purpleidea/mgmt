@@ -35,7 +35,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -96,6 +98,31 @@ type ConfigProperties struct {
 	// MaximumCount specifies how many times this test can run safely in a
 	// single iteration. If zero then this means infinite.
 	MaximumCount uint `json:"maximum-count"`
+
+	// NeedsLoopback specifies that this test needs to open a loopback TCP
+	// listener. If the environment forbids this, the test is skipped. This
+	// is often needed for tests that may run in a container sandbox.
+	NeedsLoopback bool `json:"needs-loopback"`
+}
+
+// checkPrerequisites skips a test when its required infrastructure is not
+// available in the current environment.
+func (obj *ConfigProperties) checkPrerequisites(t *testing.T) {
+	t.Helper()
+	if !obj.NeedsLoopback {
+		return
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		if errors.Is(err, os.ErrPermission) {
+			t.Skipf("loopback TCP listeners are unavailable: %v", err)
+		}
+		t.Fatalf("could not test loopback TCP listener: %v", err)
+	}
+	if err := listener.Close(); err != nil {
+		t.Fatalf("could not close loopback TCP listener: %v", err)
+	}
 }
 
 // TestAstFunc1 is a more advanced version which pulls code from physical dirs.
@@ -221,6 +248,7 @@ func TestAstFunc1(t *testing.T) {
 			if testing.Verbose() {
 				t.Logf("config: %+v", c)
 			}
+			c.checkPrerequisites(t)
 
 			testMutex.Lock()               // global
 			count := testCounter[t.Name()] // global
@@ -740,6 +768,7 @@ func TestAstFunc2(t *testing.T) {
 			if testing.Verbose() {
 				t.Logf("config: %+v", c)
 			}
+			c.checkPrerequisites(t)
 
 			testMutex.Lock()               // global
 			count := testCounter[t.Name()] // global
@@ -1665,6 +1694,7 @@ func TestAstFunc3(t *testing.T) {
 			if testing.Verbose() {
 				t.Logf("config: %+v", c)
 			}
+			c.checkPrerequisites(t)
 
 			testMutex.Lock()               // global
 			count := testCounter[t.Name()] // global

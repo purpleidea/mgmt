@@ -117,7 +117,7 @@ func RagelInterpolate(str string, textarea *interfaces.Textarea, data *interface
 		return nil, errwrap.Wrapf(err, "expr list simplify failed")
 	}
 
-	result, err := concatExprListIntoCall(simplified)
+	result, err := concatExprListIntoCall(simplified, textarea)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "concat expr list failed")
 	}
@@ -210,7 +210,7 @@ func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, err
 
 		// XXX: i think we should be adding these args together, instead
 		// of grouping for example...
-		result, err := concatExprListIntoCall(args)
+		result, err := concatExprListIntoCall(args, nil)
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "function grouping failed")
 		}
@@ -303,7 +303,7 @@ func hilTransform(root hilast.Node, data *interfaces.Data) (interfaces.Expr, err
 // concatExprListIntoCall takes a list of expressions, and combines them into an
 // expression which ultimately concatenates them all together with a + operator.
 // TODO: this assumes they're all strings, do we need to watch out for int's?
-func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
+func concatExprListIntoCall(exprs []interfaces.Expr, textarea *interfaces.Textarea) (interfaces.Expr, error) {
 	if len(exprs) == 0 {
 		return nil, fmt.Errorf("empty list")
 	}
@@ -332,7 +332,7 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 
 	head, tail := exprs[0], exprs[1:]
 
-	grouped, err := concatExprListIntoCall(tail)
+	grouped, err := concatExprListIntoCall(tail, textarea)
 	if err != nil {
 		return nil, err
 	}
@@ -341,17 +341,21 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 	// interpolation which would need a more expressive plus operator. I do
 	// not think we'll ever need that, but leave it in for now as a const.
 	if UseOptimizedConcat {
-		return &ast.ExprCall{
+		expr := &ast.ExprCall{
 			// NOTE: if we don't set the data field we need Init() called on it!
 			Name: funcs.ConcatFuncName, // concatenate the two strings with concat function
 			Args: []interfaces.Expr{
 				head,    // string arg
 				grouped, // nested function call which returns a string
 			},
-		}, nil
+		}
+		if textarea != nil {
+			expr.Textarea = *textarea
+		}
+		return expr, nil
 	}
 
-	return &ast.ExprCall{
+	expr := &ast.ExprCall{
 		// NOTE: if we don't set the data field we need Init() called on it!
 		Name: operators.OperatorFuncName, // concatenate the two strings with + operator
 		Args: []interfaces.Expr{
@@ -359,7 +363,11 @@ func concatExprListIntoCall(exprs []interfaces.Expr) (interfaces.Expr, error) {
 			head,     // string arg
 			grouped,  // nested function call which returns a string
 		},
-	}, nil
+	}
+	if textarea != nil {
+		expr.Textarea = *textarea
+	}
+	return expr, nil
 }
 
 // simplifyExprList takes a list of *ExprStr and *ExprVar and groups the

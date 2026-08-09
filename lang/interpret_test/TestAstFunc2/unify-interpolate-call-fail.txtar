@@ -1,0 +1,12 @@
+-- main.mcl --
+$b = true
+
+print "state" {
+	msg => "some_bool: ${b}\n",
+}
+-- OUTPUT --
+# err: errUnify: type error: bool != str: /main.mcl @ 4:9-4:28
+type error: bool != str: /main.mcl @ 4:9-4:28
+
+	msg => "some_bool: ${b}\n",
+	       ^^^^^^^^^^^^^^^^^^^

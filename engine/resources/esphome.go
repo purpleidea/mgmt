@@ -687,6 +687,10 @@ func (obj *EsphomeNumberRes) UnmarshalYAML(unmarshal func(interface{}) error) er
 // demo. The name is the exact esphome entity name (or a legacy object_id),
 // unless id overrides it.
 //
+// A reversible motor has one velocity, so speed carries it whole: the magnitude
+// is how fast, and the sign is which way. There is no separate direction field
+// to disagree with it.
+//
 // Stop is an mgmt-side recovery and cleanup interlock. It is not a substitute
 // for a local firmware timeout, a current limit, guards, or a physical e-stop.
 type EsphomeFanRes struct {
@@ -702,13 +706,12 @@ type EsphomeFanRes struct {
 	// State is the desired state of the fan. It must be on or off.
 	State string `lang:"state" yaml:"state"`
 
-	// Speed is the desired discrete speed level. CheckApply validates it
-	// against the fan's advertised supported_speed_count.
+	// Speed is the desired signed speed, from -100 to 100. The magnitude is
+	// the discrete speed level, which CheckApply validates against the
+	// fan's advertised supported_speed_count, and the sign is the
+	// direction: negative runs the fan in reverse. Zero is not a speed, so
+	// use state to stop the fan.
 	Speed int32 `lang:"speed" yaml:"speed"`
-
-	// Direction is the desired fan direction. CheckApply errors clearly
-	// when the entity does not advertise direction support.
-	Direction string `lang:"direction" yaml:"direction"`
 
 	// Id is the exact entity name or legacy object_id of the fan on the
 	// device. It defaults to the name of this resource.
@@ -749,18 +752,36 @@ func (obj *EsphomeFanRes) getId() string {
 	return obj.Name()
 }
 
+// speedLevel returns the discrete speed level that the native api wants. The
+// wire protocol keeps speed and direction apart, so we split our signed speed
+// back into the two halves it commands with.
+func (obj *EsphomeFanRes) speedLevel() int32 {
+	if obj.Speed < 0 {
+		return -obj.Speed
+	}
+	return obj.Speed
+}
+
+// direction returns the fan direction that the sign of the speed asks for.
+func (obj *EsphomeFanRes) direction() string {
+	if obj.Speed < 0 {
+		return esphomeUtil.FanDirectionReverse
+	}
+	return esphomeUtil.FanDirectionForward
+}
+
 // command returns the desired native fan command. Stop commands deliberately
 // omit optional capabilities so any managed fan can be stopped.
 func (obj *EsphomeFanRes) command(on bool) esphomeUtil.FanCommand {
 	return esphomeUtil.FanCommand{
-		State: on, Speed: obj.Speed, Direction: obj.Direction,
+		State: on, Speed: obj.speedLevel(), Direction: obj.direction(),
 		HasSpeed: on, HasDirection: on,
 	}
 }
 
 // Default returns some sensible defaults for this resource.
 func (obj *EsphomeFanRes) Default() engine.Res {
-	return &EsphomeFanRes{Speed: 100, Direction: esphomeUtil.FanDirectionForward}
+	return &EsphomeFanRes{Speed: 100}
 }
 
 // Validate if the params passed in are valid data.
@@ -771,11 +792,8 @@ func (obj *EsphomeFanRes) Validate() error {
 	if obj.State != esphomeStateOn && obj.State != esphomeStateOff {
 		return fmt.Errorf("state must be `%s` or `%s`", esphomeStateOn, esphomeStateOff)
 	}
-	if obj.Speed < 1 || obj.Speed > 100 {
-		return fmt.Errorf("speed must be between 1 and 100")
-	}
-	if obj.Direction != esphomeUtil.FanDirectionForward && obj.Direction != esphomeUtil.FanDirectionReverse {
-		return fmt.Errorf("direction must be `%s` or `%s`", esphomeUtil.FanDirectionForward, esphomeUtil.FanDirectionReverse)
+	if obj.Speed == 0 || obj.Speed < -100 || obj.Speed > 100 {
+		return fmt.Errorf("speed must be between -100 and 100, and not zero")
 	}
 	if obj.getId() == "" {
 		return fmt.Errorf("empty id")
@@ -843,14 +861,14 @@ func (obj *EsphomeFanRes) CheckApply(ctx context.Context, apply bool) (bool, err
 	}
 	state := obj.session.State(obj.getId())
 	if state != nil && state.Domain == esphomeUtil.DomainFan && !state.Missing &&
-		state.Bool == desired && (!desired || (state.Speed == obj.Speed && state.Direction == obj.Direction)) {
+		state.Bool == desired && (!desired || (state.Speed == obj.speedLevel() && state.Direction == obj.direction())) {
 		return true, nil
 	}
 	if !apply {
 		return false, nil
 	}
 
-	obj.init.Logf("turning fan %s at speed %d in the %s direction", obj.State, obj.Speed, obj.Direction)
+	obj.init.Logf("turning fan %s at speed %d in the %s direction", obj.State, obj.speedLevel(), obj.direction())
 	if err := obj.session.SetFan(ctx, obj.getId(), command); err != nil {
 		return false, err
 	}
@@ -871,9 +889,6 @@ func (obj *EsphomeFanRes) Cmp(r engine.Res) error {
 	}
 	if obj.Speed != res.Speed {
 		return fmt.Errorf("the Speed differs")
-	}
-	if obj.Direction != res.Direction {
-		return fmt.Errorf("the Direction differs")
 	}
 	if obj.Id != res.Id {
 		return fmt.Errorf("the Id differs")

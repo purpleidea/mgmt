@@ -28,8 +28,8 @@ esphome:fan $motor {
 	} else {
 		"off"
 	},
-	speed => 50,
-	direction => "reverse",
+	# A negative speed runs the belt in reverse.
+	speed => -50,
 	# On a long outage, stop before retrying the desired state.
 	stop => 5,
 	Meta:retry => -1,

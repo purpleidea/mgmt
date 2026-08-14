@@ -73,14 +73,31 @@ func TestEsphomeFanValidate(t *testing.T) {
 		t.Fatalf("valid fan: %v", err)
 	}
 
-	res.Speed = 0
-	if err := res.Validate(); err == nil {
-		t.Fatalf("zero fan speed unexpectedly validated")
+	for _, speed := range []int32{0, 101, -101} {
+		res.Speed = speed
+		if err := res.Validate(); err == nil {
+			t.Fatalf("fan speed %d unexpectedly validated", speed)
+		}
 	}
+
+	// The sign of the speed is the direction, so a negative speed must
+	// command the same level as its positive twin, but the other way.
 	res.Speed = 50
-	res.Direction = "sideways"
-	if err := res.Validate(); err == nil {
-		t.Fatalf("invalid fan direction unexpectedly validated")
+	if err := res.Validate(); err != nil {
+		t.Fatalf("valid forward fan: %v", err)
+	}
+	forward := res.command(true)
+	res.Speed = -50
+	if err := res.Validate(); err != nil {
+		t.Fatalf("valid reverse fan: %v", err)
+	}
+	reverse := res.command(true)
+
+	if forward.Speed != 50 || forward.Direction != esphomeUtil.FanDirectionForward {
+		t.Fatalf("speed 50 gave %d in the %s direction", forward.Speed, forward.Direction)
+	}
+	if reverse.Speed != 50 || reverse.Direction != esphomeUtil.FanDirectionReverse {
+		t.Fatalf("speed -50 gave %d in the %s direction", reverse.Speed, reverse.Direction)
 	}
 }
 

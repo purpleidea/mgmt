@@ -125,7 +125,6 @@ esphome:fan $motor {
 		"off"
 	},
 	speed => 100,
-	direction => "forward",
 	# On a long outage, stop before retrying the desired state.
 	stop => 5,
 	Meta:retry => -1,

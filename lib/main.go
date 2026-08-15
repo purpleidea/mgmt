@@ -1163,9 +1163,13 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// new incoming graph!
 			timing = time.Now()
 			if err := ge.SendRecv(); err != nil { // apply an operation to the new graph
+				// We're paused, and we don't understand the
+				// state well enough to resume into it, so this
+				// ends the run just like a failed Commit does.
 				_ = ge.Abort() // delete graph
 				Logf("error applying operation to the new graph: %+v", err)
-				continue
+				cancelCause(err) // trigger an exit!
+				continue         // wait for deployChan to exit
 			}
 			Logf("send/recv building took: %s", time.Since(timing))
 
@@ -1173,16 +1177,15 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			if err := ge.Commit(deployCtx); err != nil {
 				// If we fail on commit, we have destructively
 				// destroyed the graph, so we must not run it.
-				// This graph isn't necessarily destroyed, but
-				// since an error is not expected here, we can
-				// either shutdown or wait for the next deploy.
+				// We used to stay paused and wait for the next
+				// deploy, but it's probably better to restart
+				// the whole thing if it's not the deploy. This
+				// could put us into a systemd restart loop, but
+				// that is a different problem we need to solve.
 				_ = ge.Abort() // delete graph
 				Logf("error running commit: %+v", err)
-				// block gapi until a newDeploy comes in...
-				if gapiImpl != nil { // currently running...
-					gapiChan = nil
-				}
-				continue // stay paused
+				cancelCause(err) // trigger an exit!
+				continue         // wait for deployChan to exit
 			}
 
 			// XXX: Should we do this right before Commit?

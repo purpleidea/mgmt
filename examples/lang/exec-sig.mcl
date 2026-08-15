@@ -1,0 +1,8 @@
+# try ^C once, twice, or three times!
+exec "hi" {
+	cmd => "/usr/bin/sleep",
+	args => ["60s"],
+	sig => "SIGCONT", # comment this out to see the difference
+
+	donecmd => "echo all done",
+}

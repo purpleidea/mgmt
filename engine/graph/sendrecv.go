@@ -40,6 +40,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+// RecvFn represents a custom Recv function which can be used in place of the
+// stock, built-in one. This is needed if we want to receive from a different
+// resource data source than our own. (Only for special occasions of course!)
+type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
+
 // SendRecv runs the engine invocation during graph swap on the new graph with
 // data from the old graph, so that we won't need to unnecessarily re-make a
 // resource that had previously received some data and is now different than the
@@ -142,11 +147,6 @@ func (obj *Engine) SendRecv() error {
 
 	return nil
 }
-
-// RecvFn represents a custom Recv function which can be used in place of the
-// stock, built-in one. This is needed if we want to receive from a different
-// resource data source than our own. (Only for special occasions of course!)
-type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
 
 // addSenders indexes this resource, and anything grouped within it, as the
 // senders which are now in the graph. An autogrouped sender isn't a vertex of

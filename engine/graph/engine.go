@@ -96,6 +96,11 @@ type Engine struct {
 	slock *sync.Mutex // semaphore lock
 	semas map[string]*semaphore.Semaphore
 
+	// senders is every resource in the graph which something could receive
+	// from, indexed by kind and name. The graph sync maintains it the same
+	// way it maintains state, so it is only written while we're paused.
+	senders map[string]engine.SendableRes
+
 	bgState map[string]*bgState // background state for each resource kind
 
 	wg *sync.WaitGroup // wg for the whole engine (only used for close)
@@ -143,6 +148,8 @@ func (obj *Engine) Init() error {
 
 	obj.slock = &sync.Mutex{}
 	obj.semas = make(map[string]*semaphore.Semaphore)
+
+	obj.senders = make(map[string]engine.SendableRes)
 
 	obj.bgState = make(map[string]*bgState)
 
@@ -260,6 +267,8 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		if _, exists := obj.state[vertex]; exists {
 			return fmt.Errorf("the Res state already exists")
 		}
+
+		obj.addSenders(res)
 
 		// Skip this if Hidden since we can have a hidden res that has
 		// the same kind+name as a regular res, and this would conflict.
@@ -382,6 +391,11 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		if !res.MetaParams().Hidden {
 			delete(activeMetas, engine.PtrUID(res))
 		}
+
+		// GraphSync runs every remove before any add, so a resource
+		// which is being replaced deletes itself here and the incoming
+		// one puts itself back below.
+		obj.deleteSenders(res)
 
 		// wait for exit before starting new graph!
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
@@ -717,6 +731,13 @@ func (obj *Engine) Pause() error {
 func (obj *Engine) Shutdown() error {
 	obj.isClosing = true
 	emptyGraph, reterr := pgraph.NewGraph("empty")
+
+	// In case we're being called inappropriately, error, but keep doing it.
+	if !obj.paused && len(obj.state) > 0 {
+		// programming error
+		err := fmt.Errorf("the engine must be paused before it is shut down")
+		reterr = errwrap.Append(reterr, err)
+	}
 
 	// this is a graph switch (graph sync) that switches to an empty graph!
 	if err := obj.Load(emptyGraph); err != nil { // copy in empty graph

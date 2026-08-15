@@ -164,7 +164,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	//	if obj.Debug {
 	//		obj.Logf("SendRecv: %s", res) // receiving here
 	//	}
-	//	if updated, err := SendRecv(res, nil); err != nil {
+	//	if updated, err := obj.sendRecv(res, nil); err != nil {
 	//		return errwrap.Wrapf(err, "could not SendRecv")
 	//	} else if len(updated) > 0 {
 	//		//for _, s := range graph.UpdatedStrings(updated) {
@@ -183,7 +183,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	//				if !send.Changed {
 	//					continue
 	//				}
-	//				obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
+	//				obj.Logf("Send/Recv: %v.%s -> %v.%s", engine.Repr(send.Kind, send.Name), send.Key, r, s)
 	//				// if send.Changed == true, at least one was updated
 	//				// invalidate cache, mark as dirty
 	//				obj.state[v].setDirty()
@@ -205,7 +205,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// collect those resources ourselves. It must run even when this vertex
 	// can't receive on its own fields, because a groupable parent (such as
 	// http:server) is commonly not recvable while its children are.
-	if updated, err := SendRecv(res, nil); err != nil {
+	if updated, err := obj.sendRecv(res, nil); err != nil {
 		return errwrap.Wrapf(err, "could not SendRecv")
 	} else if len(updated) > 0 {
 		//for _, s := range graph.UpdatedStrings(updated) {
@@ -230,7 +230,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 				if !send.Changed {
 					continue
 				}
-				obj.Logf("Send/Recv: %v.%s -> %v.%s", send.Res, send.Key, r, s)
+				obj.Logf("Send/Recv: %v.%s -> %v.%s", engine.Repr(send.Kind, send.Name), send.Key, r, s)
 				// if send.Changed == true, at least one was updated
 				// invalidate cache, mark as dirty
 				state.setDirty()

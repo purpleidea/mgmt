@@ -100,16 +100,38 @@ func (obj *Engine) SendRecv() error {
 			// consumed yet, and it works out its own Changed flags
 			// during its next CheckApply anyways.
 			swap := make(map[string]*engine.Send)
+			// Nothing we skip in here is fatal. This pass is an
+			// optimization which saves us from re-making a resource
+			// that we could have kept, so the worst a skipped key
+			// costs us is that one resource getting re-made.
+			// Erroring instead would take down the whole deploy.
 			for k, v := range old.Recv() { // map[string]*Send
+				// This resolves against the running graph,
+				// since we're reading what the old resources
+				// have received so far. A sender which isn't in
+				// it has nothing for us, and Process is where
+				// that gets reported.
+				sender, e := obj.sender(v.Kind, v.Name)
+				if e != nil {
+					continue
+				}
+				// We run over the whole graph at once instead
+				// of in dependency order, so we can reach a
+				// sender before its first CheckApply, and it
+				// has nothing to pre-fill with yet.
+				if sender.Sent() == nil {
+					continue
+				}
 				swap[k] = &engine.Send{
-					Res: v.Res,
-					Key: v.Key,
+					Kind: v.Kind,
+					Name: v.Name,
+					Key:  v.Key,
 					// Changed is false, this pass owns it
 				}
 			}
 			return swap, nil // swap
 		}
-		if updated, err := SendRecv(res, fn); err != nil {
+		if updated, err := obj.sendRecv(res, fn); err != nil {
 			return errwrap.Wrapf(err, "could not SendRecv")
 		} else if as := UpdatedStrings(updated); len(as) > 0 {
 			for _, s := range as {
@@ -126,6 +148,46 @@ func (obj *Engine) SendRecv() error {
 // resource data source than our own. (Only for special occasions of course!)
 type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
 
+// addSenders indexes this resource, and anything grouped within it, as the
+// senders which are now in the graph. An autogrouped sender isn't a vertex of
+// its own, so it lives or dies with the parent it got grouped into, which is
+// why we have to descend.
+//
+// A Hidden resource is skipped, since it never runs a CheckApply and so can
+// never be the one sending. That's also what keeps this index unambiguous: a
+// Hidden resource is the only thing allowed to share a kind and name with a
+// regular resource, and the compiler already refuses to send from one.
+func (obj *Engine) addSenders(res engine.Res) {
+	for _, r := range resTree(res) {
+		sendableRes, ok := r.(engine.SendableRes)
+		if !ok || r.MetaParams().Hidden {
+			continue
+		}
+		obj.senders[engine.Stringer(r)] = sendableRes
+	}
+}
+
+// deleteSenders removes this resource, and anything grouped within it, from the
+// index of senders which are in the graph.
+func (obj *Engine) deleteSenders(res engine.Res) {
+	for _, r := range resTree(res) {
+		if _, ok := r.(engine.SendableRes); !ok || r.MetaParams().Hidden {
+			continue
+		}
+		delete(obj.senders, engine.Stringer(r))
+	}
+}
+
+// sender resolves the sender named by a send/recv handle to the resource which
+// is actually running for it, whichever generation of the graph that came from.
+func (obj *Engine) sender(kind, name string) (engine.SendableRes, error) {
+	sendableRes, exists := obj.senders[engine.Repr(kind, name)]
+	if !exists {
+		return nil, fmt.Errorf("sender %s is not in the graph", engine.Repr(kind, name))
+	}
+	return sendableRes, nil
+}
+
 // SendRecv pulls in the sent values into the receive slots. It is called by the
 // receiver and must be given as input the full resource struct to receive on.
 // It applies the loaded values to the resource. It is called recursively, as it
@@ -137,7 +199,7 @@ type RecvFn func(engine.RecvableRes) (map[string]*engine.Send, error)
 // CheckApply in which to consume them. This is because we can run more than
 // once for each CheckApply, and a repeat run finds the value it already stored
 // in the receiver field and therefore doesn't see anything change.
-func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
+func (obj *Engine) sendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*engine.Send, error) {
 	updated := make(map[engine.RecvableRes]map[string]*engine.Send) // list of updated keys
 	if groupableRes, ok := res.(engine.GroupableRes); ok {
 		for _, x := range groupableRes.GetGroup() { // grouped elements
@@ -155,7 +217,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 			// must recurse even if res can't receive, because a
 			// groupable parent (such as http:server) is often not
 			// recvable while its children are.
-			innerUpdated, err := SendRecv(x, fn)
+			innerUpdated, err := obj.sendRecv(x, fn)
 			if err != nil {
 				return nil, errwrap.Wrapf(err, "recursive SendRecv error")
 			}
@@ -171,7 +233,8 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 					}
 					if _, exists := updated[r][s]; !exists {
 						newSend := &engine.Send{
-							Res:     send.Res,
+							Kind:    send.Kind,
+							Name:    send.Name,
 							Key:     send.Key,
 							Changed: b,
 						}
@@ -208,8 +271,8 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 	//	obj.Logf("SendRecv: %s recv: %+v", res, strings.Join(keys, ", "))
 	//}
 	for k, v := range recv { // map[string]*Send
-		// v.Res // SendableRes // a handle to the resource which is sending a value
-		// v.Key // string      // the key in the resource that we're sending
+		// v.Kind, v.Name // the resource which is sending a value
+		// v.Key          // the key in the resource that we're sending
 		if _, exists := updated[recvableRes]; !exists {
 			updated[recvableRes] = make(map[string]*engine.Send)
 		}
@@ -221,10 +284,14 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 		// the transfer below is a no-op the second time through.
 		updated[recvableRes][k] = v // default
 
-		var st interface{} = v.Res // old style direct send/recv
-		if true {                  // new style send/recv API
-			st = v.Res.Sent()
+		//var st interface{} = v.Res        // old style direct send/recv
+		//var st interface{} = v.Res.Sent() // new style send/recv API
+		sender, e := obj.sender(v.Kind, v.Name)
+		if e != nil {
+			err = errwrap.Append(err, e) // list of errors
+			continue
 		}
+		st := sender.Sent()
 
 		if st == nil {
 			// This can happen if there is a send->recv between two
@@ -242,7 +309,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 			// way where it wouldn't initially have a value to send,
 			// whether cached or otherwise, but this scenario should
 			// be rare.
-			e := fmt.Errorf("received nil value from: %s", v.Res)
+			e := fmt.Errorf("received nil value from: %s", sender)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
@@ -331,14 +398,14 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 
 		// Skip this check in favour of the more complex Into() below...
 		//if kind1 != kind2 {
-		//	e := fmt.Errorf("send/recv kind mismatch between %s: %s and %s: %s", v.Res, kind1, res, kind2)
+		//	e := fmt.Errorf("send/recv kind mismatch between %s: %s and %s: %s", sender, kind1, res, kind2)
 		//	err = errwrap.Append(err, e) // list of errors
 		//	continue
 		//}
 
 		// Skip this check in favour of the more complex Into() below...
 		//if e := TypeCmp(value1, value2); e != nil {
-		//	e := errwrap.Wrapf(e, "type mismatch between %s and %s", v.Res, res)
+		//	e := errwrap.Wrapf(e, "type mismatch between %s and %s", sender, res)
 		//	err = errwrap.Append(err, e) // list of errors
 		//	continue
 		//}
@@ -352,7 +419,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 
 		// if we can't interface, we can't compare...
 		if !value1.CanInterface() {
-			e := fmt.Errorf("can't interface %s.%s", v.Res, v.Key)
+			e := fmt.Errorf("can't interface %s.%s", sender, v.Key)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
@@ -371,7 +438,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 
 		fv, e := types.ValueOf(value1)
 		if e != nil {
-			e := errwrap.Wrapf(e, "bad value %s.%s", v.Res, v.Key)
+			e := errwrap.Wrapf(e, "bad value %s.%s", sender, v.Key)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
@@ -383,7 +450,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 		// difference.
 		converted := reflect.New(dest.Type()).Elem()
 		if e := types.Into(fv, converted); e != nil {
-			e = errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", v.Res, v.Key, kind1, res, k, kind2)
+			e = errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", sender, v.Key, kind1, res, k, kind2)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
@@ -394,7 +461,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 		// mutate the struct field dest with the mcl data in fv
 		if e := types.Into(fv, dest); e != nil {
 			// runtime error, probably from using value res
-			e := errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", v.Res, v.Key, kind1, res, k, kind2)
+			e := errwrap.Wrapf(e, "mismatch: %s.%s (%s) -> %s.%s (%s)", sender, v.Key, kind1, res, k, kind2)
 			err = errwrap.Append(err, e) // list of errors
 			continue
 		}
@@ -402,7 +469,7 @@ func SendRecv(res engine.Res, fn RecvFn) (map[engine.RecvableRes]map[string]*eng
 		//updated[recvableRes][k] = true // we updated this key!
 		v.Changed = true            // tag this key as updated!
 		updated[recvableRes][k] = v // we updated this key!
-		//obj.Logf("SendRecv: %s.%s -> %s.%s (%+v)", v.Res, v.Key, res, k, fv) // fv may be private data
+		//obj.Logf("SendRecv: %s.%s -> %s.%s (%+v)", sender, v.Key, res, k, fv) // fv may be private data
 	}
 	return updated, err
 }
@@ -451,9 +518,25 @@ func UpdatedStrings(updated map[engine.RecvableRes]map[string]*engine.Send) []st
 			if !send.Changed {
 				continue
 			}
-			x := fmt.Sprintf("%v.%s -> %v.%s", send.Res, send.Key, r, s)
+			x := fmt.Sprintf("%v.%s -> %v.%s", engine.Repr(send.Kind, send.Name), send.Key, r, s)
 			out = append(out, x)
 		}
+	}
+	return out
+}
+
+// resTree returns this resource along with everything grouped within it, and so
+// on recursively. An autogrouped resource stops being a vertex of its own, but
+// it still runs, sends and receives, so anything walking the graph to look at
+// resources has to see those too.
+func resTree(res engine.Res) []engine.Res {
+	out := []engine.Res{res}
+	groupableRes, ok := res.(engine.GroupableRes)
+	if !ok {
+		return out
+	}
+	for _, x := range groupableRes.GetGroup() { // grouped elements
+		out = append(out, resTree(x)...) // recurse
 	}
 	return out
 }

@@ -389,7 +389,8 @@ func (obj *Interpreter) makeSendRecv(v1, v2 pgraph.Vertex, edge *interfaces.Edge
 	if existingSend, exists := obj.receive[ruid][edge.Recv]; exists {
 		// ignore identical duplicates
 		// TODO: does this safe ignore work with duplicate compatible resources?
-		if existingSend.Res != v1 || existingSend.Key != edge.Send {
+		res, ok := v1.(engine.Res)
+		if !ok || existingSend.Kind != res.Kind() || existingSend.Name != res.Name() || existingSend.Key != edge.Send {
 			return fmt.Errorf("resource: `%s` has duplicate receive on: `%s` param", engine.Repr(edge.Kind2, edge.Name2), edge.Recv)
 		}
 	}
@@ -416,7 +417,13 @@ func (obj *Interpreter) makeSendRecv(v1, v2 pgraph.Vertex, edge *interfaces.Edge
 	//res1.SendSetActive(true) // tell it that it will be sending (optimization)
 
 	// store mapping for later
-	obj.receive[ruid][edge.Recv] = &engine.Send{Res: res1, Key: edge.Send}
+	// Store the sender by name, not by pointer. Which object actually ends
+	// up running is not known until the engine syncs this graph in.
+	obj.receive[ruid][edge.Recv] = &engine.Send{
+		Kind: res1.Kind(),
+		Name: res1.Name(),
+		Key:  edge.Send,
+	}
 
 	return nil
 }

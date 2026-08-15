@@ -2498,6 +2498,15 @@ func TestAstFunc3(t *testing.T) {
 				t.Errorf("test #%d: error resuming graph: %+v", index, err)
 				return
 			}
+			// We're running now, so we owe the deferred Shutdown above
+			// a pause. This runs before it, since defers are LIFO, and
+			// it only exists on the paths where we actually resumed.
+			defer func() {
+				if err := ge.Pause(); err != nil { // sync
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: error pausing: %+v", index, err)
+				}
+			}()
 
 			// wait for converger instead...
 			select {

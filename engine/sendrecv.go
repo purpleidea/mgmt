@@ -117,8 +117,17 @@ type RecvableRes interface {
 
 // Send points to a value that a resource will send.
 type Send struct {
-	Res SendableRes // a handle to the resource which is sending a value
-	Key string      // the key in the resource that we're sending
+	// Kind and Name identify the resource which is sending a value. This
+	// pair allows this survive a graph swap without needing a pointer
+	// refresh. A direct pointer would not survive: the graph sync decides
+	// for each resource separately whether to keep the one it has or take
+	// the incoming one, so a receiver could easily be left holding a sender
+	// which isn't in the graph, never runs, and never sends. The engine
+	// resolves these to the resource which is actually running.
+	Kind string
+	Name string
+
+	Key string // the key in the resource that we're sending
 
 	// Changed is set to true when a new value was transferred into this
 	// key, and it stays true until the engine has run a CheckApply which

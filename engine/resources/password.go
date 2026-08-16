@@ -31,10 +31,8 @@ package resources
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"io"
-	"math/big"
 	"os"
 	"path"
 	"strings"
@@ -42,6 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 )
@@ -51,8 +50,7 @@ func init() {
 }
 
 const (
-	alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	newline  = "\n" // something not in alphabet that TrimSpace can trim
+	newline = "\n" // something not in alphabet that TrimSpace can trim
 )
 
 // PasswordRes is a no-op resource that returns a random password string.
@@ -159,25 +157,13 @@ func (obj *PasswordRes) write(password string) (int, error) {
 
 // generate generates a new password.
 func (obj *PasswordRes) generate() (string, error) {
-	max := len(alphabet) - 1 // last index
-	output := ""
-
-	// FIXME: have someone verify this is cryptographically secure & correct
-	for i := uint16(0); i < obj.Length; i++ {
-		big, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
-		if err != nil {
-			return "", errwrap.Wrapf(err, "could not generate password")
-		}
-		ix := big.Int64()
-		output += string(alphabet[ix])
+	output, err := util.RandomStringSimple(obj.Length)
+	if err != nil {
+		return "", errwrap.Wrapf(err, "could not generate password")
 	}
 
 	if output == "" { // safety against empty passwords
 		return "", fmt.Errorf("password is empty")
-	}
-
-	if len(output) != int(obj.Length) { // safety against weird bugs
-		return "", fmt.Errorf("password length is too short") // bug!
 	}
 
 	return output, nil
@@ -199,8 +185,8 @@ func (obj *PasswordRes) check(value string) error {
 	}
 Loop:
 	for i := 0; i < length; i++ {
-		for j := 0; j < len(alphabet); j++ {
-			if value[i] == alphabet[j] {
+		for j := 0; j < len(util.RandomStringSimpleAlphabet); j++ {
+			if value[i] == util.RandomStringSimpleAlphabet[j] {
 				continue Loop
 			}
 		}

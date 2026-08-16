@@ -31,15 +31,13 @@ package core // TODO: should this be in its own individual package?
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
-	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util"
 )
 
 const (
@@ -48,8 +46,6 @@ const (
 
 	// arg names...
 	random1ArgNameLength = "length"
-
-	alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
 func init() {
@@ -109,32 +105,6 @@ func (obj *Random1Func) Info() *interfaces.Info {
 	}
 }
 
-// generate generates a random string.
-func generate(length uint16) (string, error) {
-	max := len(alphabet) - 1 // last index
-	output := ""
-
-	// FIXME: have someone verify this is cryptographically secure & correct
-	for i := uint16(0); i < length; i++ {
-		big, err := rand.Int(rand.Reader, big.NewInt(int64(max)))
-		if err != nil {
-			return "", errwrap.Wrapf(err, "could not generate random string")
-		}
-		ix := big.Int64()
-		output += string(alphabet[ix])
-	}
-
-	if length != 0 && output == "" { // safety against empty strings
-		return "", fmt.Errorf("string is empty")
-	}
-
-	if len(output) != int(length) { // safety against weird bugs
-		return "", fmt.Errorf("random string is too short") // bug!
-	}
-
-	return output, nil
-}
-
 // Init runs some startup code for this function.
 func (obj *Random1Func) Init(init *interfaces.Init) error {
 	obj.init = init
@@ -178,7 +148,7 @@ func (obj *Random1Func) Call(ctx context.Context, args []types.Value) (types.Val
 	}
 	obj.length = uint16(length) // cache
 
-	result, err := generate(uint16(length))
+	result, err := util.RandomStringSimple(uint16(length))
 	if err != nil {
 		return nil, err // no errwrap needed b/c helper func
 	}

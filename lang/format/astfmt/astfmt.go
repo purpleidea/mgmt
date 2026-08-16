@@ -689,6 +689,13 @@ func (obj *printer) expr(ctx context.Context, expr interfaces.Expr, depth int) e
 	case *ast.ExprIf:
 		return obj.exprIf(ctx, x, depth)
 
+	case *ast.ExprExcept:
+		if err := obj.expr(ctx, x.Expr, depth); err != nil {
+			return err
+		}
+		obj.buf.WriteString(" <|> ")
+		return obj.expr(ctx, x.Except, depth)
+
 	case *ast.ExprParen:
 		obj.buf.WriteByte('(')
 		if err := obj.expr(ctx, x.Inner, depth); err != nil {
@@ -984,20 +991,6 @@ func (obj *printer) exprCall(ctx context.Context, x *ast.ExprCall, depth int) er
 		obj.buf.WriteByte(']')
 		return nil
 
-	case funcs.LookupDefaultFuncName: // `$foo[$key] || "default"`
-		if len(x.Args) != 3 {
-			return fmt.Errorf("lookup default call with %d args", len(x.Args))
-		}
-		if err := obj.expr(ctx, x.Args[0], depth); err != nil {
-			return err
-		}
-		obj.buf.WriteByte('[')
-		if err := obj.expr(ctx, x.Args[1], depth); err != nil {
-			return err
-		}
-		obj.buf.WriteString("] || ")
-		return obj.expr(ctx, x.Args[2], depth)
-
 	case funcs.StructLookupFuncName: // `$foo->field`
 		if len(x.Args) != 2 {
 			return fmt.Errorf("struct lookup call with %d args", len(x.Args))
@@ -1013,7 +1006,7 @@ func (obj *printer) exprCall(ctx context.Context, x *ast.ExprCall, depth int) er
 		obj.buf.WriteString(field.V)
 		return nil
 
-	case funcs.StructLookupOptionalFuncName: // `$foo->field || "default"`
+	case funcs.StructLookupOptionalFuncName: // `$foo->field <|> "default"`
 		if len(x.Args) != 3 {
 			return fmt.Errorf("struct lookup optional call with %d args", len(x.Args))
 		}
@@ -1026,7 +1019,7 @@ func (obj *printer) exprCall(ctx context.Context, x *ast.ExprCall, depth int) er
 		}
 		obj.buf.WriteString("->")
 		obj.buf.WriteString(field.V)
-		obj.buf.WriteString(" || ")
+		obj.buf.WriteString(" <|> ")
 		return obj.expr(ctx, x.Args[2], depth)
 
 	case funcs.ContainsFuncName:

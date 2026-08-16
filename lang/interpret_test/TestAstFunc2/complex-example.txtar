@@ -16,8 +16,8 @@ $generate = func($idn) {
 
 $foo = iter.map([$id1, $id2], $generate)
 
-$name0 = $foo[0] || "fail"
-$name1 = $foo[1] || "fail"
+$name0 = $foo[0] <|> "fail"
+$name1 = $foo[1] <|> "fail"
 test "${name0}" {}
 test "${name1}" {}
 -- OUTPUT --

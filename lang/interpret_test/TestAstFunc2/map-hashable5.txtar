@@ -5,7 +5,7 @@ $st2 = struct{}
 
 $m = {$st1 => "fail", $st2 => "pass"} # second entry should overwrite!
 
-$s = $m[$st0] || "error"
+$s = $m[$st0] <|> "error"
 
 test "${s}" {}
 -- OUTPUT --

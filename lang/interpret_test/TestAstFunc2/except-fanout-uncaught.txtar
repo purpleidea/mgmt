@@ -1,0 +1,10 @@
+-- main.mcl --
+# This test is important in that it shows that an error mid-graph doesn't escape
+# to the function graph table that is returned, even when it's also caught here.
+$l = ["a"]
+$x = $l[42]
+
+test [$x <|> "caught"] {}
+test [$x] {}
+-- OUTPUT --
+# err: errStream: list index not present, got: 42, len is: 1, in: ["a"]: /main.mcl @ 4:6-4:12

@@ -81,6 +81,43 @@ please consume
 [lang/interfaces/ast.go](https://github.com/purpleidea/mgmt/tree/master/lang/interfaces/ast.go).
 These docs will be expanded on when things are more certain to be stable.
 
+#### Except
+
+The `<|>` operator (the "except" operator) provides a fallback value for an
+expression which can error at runtime. Some functions return "catchable" errors,
+for example a list or map lookup with a missing index or key, or a division by
+zero. Normally any error in the function graph shuts the engine down, but if an
+expression which errored has an except operator attached, then the fallback
+expression is used instead. Both sides must have the same type.
+
+```mcl
+$l = ["a", "b", "c"]
+$x = $l[42] <|> "default"	# list index missing, so we get "default"
+
+$y = 42 / 0 <|> 13.0	# division by zero is catchable too
+
+# they can also be chained, the first side that doesn't error is used
+$z = $l[41] <|> $l[42] <|> "default"
+```
+
+The fallback side is only added to the running function graph if an error
+actually occurs, so it can even contain slow or expensive code which would
+otherwise never run. Since values in mgmt are reactive, if the main expression
+later recovers (for example the list grew, and the index is now present) then
+the fallback side is torn back down, and the main value is used again. Errors
+are caught through dataflow, which means that an error which flows in through a
+variable is caught as well:
+
+```mcl
+$e = $l[42]	# no error here yet...
+$x = $e <|> "default"	# ...it is caught here instead
+```
+
+Note that a struct field lookup with a fallback, eg: `$st->field <|> "d"`, is
+special: whether the field is present or not in that struct is determined
+statically at compile time from the type of the struct, it is not a runtime
+error which gets caught.
+
 ### Statements
 
 There are a very small number of statements in our language. They include:

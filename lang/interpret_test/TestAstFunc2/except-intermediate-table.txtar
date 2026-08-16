@@ -1,0 +1,13 @@
+-- main.mcl --
+import "fmt"
+
+$l = ["a"]
+$x = $l[42]
+$msg = fmt.printf("value: %s", $x)
+$decorated = $msg + "!"
+
+test [$decorated <|> "caught"] {}
+test [fmt.printf("healthy: %s", "ok")] {}
+-- OUTPUT --
+Vertex: test[caught]
+Vertex: test[healthy: ok]

@@ -1,0 +1,24 @@
+-- main.mcl --
+import "list"
+
+$l = ["a", "b", "c"]
+$m = {"k1" => "v1"}
+
+test [$l[0] <|> "fail0"] {}
+test [$l[42] <|> "pass0"] {}
+test [$m["k1"] <|> "fail1"] {}
+test [$m["k2"] <|> "pass1"] {}
+test [list.lookup($l, 42) <|> "pass2"] {}
+test [$l[41] <|> $l[42] <|> "pass3"] {}
+
+# the error is caught even if it flows in through a variable
+$x = $l[42]
+test [$x <|> "pass4"] {}
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[pass0]
+Vertex: test[pass1]
+Vertex: test[pass2]
+Vertex: test[pass3]
+Vertex: test[pass4]
+Vertex: test[v1]

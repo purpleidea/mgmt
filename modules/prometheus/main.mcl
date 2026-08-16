@@ -88,9 +88,9 @@ class server:job($name, $st) {
 	# change the compiler to use the second version?
 	include job_base
 
-	$host = $st->host || "localhost"
-	$port = $st->port || 9100
-	$comment = $st->comment || ""
+	$host = $st->host <|> "localhost"
+	$port = $st->port <|> 9100
+	$comment = $st->comment <|> ""
 
 	$tmpl = struct{
 		name => "${name}",
@@ -176,13 +176,13 @@ class postgresql($config) {
 
 	include postgresql_base
 
-	$host = $config->host || "127.0.0.1"
-	$port = $config->port || 5432
-	$user = $config->user || "prometheus"
-	$pass = $config->pass || ""
-	$dbname = $config->dbname || ""
-	$sslmode = $config->sslmode || false
-	$listen_port = $config->listen_port || 9187
+	$host = $config->host <|> "127.0.0.1"
+	$port = $config->port <|> 5432
+	$user = $config->user <|> "prometheus"
+	$pass = $config->pass <|> ""
+	$dbname = $config->dbname <|> ""
+	$sslmode = $config->sslmode <|> false
+	$listen_port = $config->listen_port <|> 9187
 
 	panic($port <= 0, "prometheus:postgresql $port is not greater than 0")
 

@@ -16,7 +16,7 @@ class bar($st2) {
 	# check that this type matches what's in the incoming struct in case
 	# that field in the struct exists.
 	#$str3 = _struct_lookup_optional($st2, "str2", "C")
-	$str3 = $st2->str2 || "C" # should not unify
+	$str3 = $st2->str2 <|> "C" # should not unify
 
 	test ["str: ${str3}"] {}
 }

@@ -3,7 +3,7 @@ import "fmt"
 
 $m = {"k1" => 42, 13 => true} # incompatible type!
 
-$found = $m["k1"] || 99
+$found = $m["k1"] <|> 99
 
 test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --

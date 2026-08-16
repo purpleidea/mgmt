@@ -1,0 +1,14 @@
+import "list"
+import "test"
+
+$l = ["a", "b", "c"]
+
+# The list lookup fails, so the except operator catches the error, and only then
+# does it build and run the fallback: the slow five second function. If that one
+# had errored too, then the last fallback value would get used. Try editing the
+# index to 1 to see the lookup succeed instantly instead.
+print "debug" {
+	msg => list.lookup($l, 42) <|> test.slow_string() <|> "default!",
+
+	Meta:autogroup => false,
+}

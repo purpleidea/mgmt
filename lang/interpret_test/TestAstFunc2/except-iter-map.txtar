@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+import "golang"
+import "iter"
+
+$items = ["zero", "one"]
+
+$out = iter.map([0, 42, 1], func($i) {
+	$items[$i] <|> fmt.printf("missing-%d", $i)
+})
+$t = golang.template("out: {{ . }}", $out)
+
+test "${t}" {}
+-- OUTPUT --
+Vertex: test[out: [zero missing-42 one]]

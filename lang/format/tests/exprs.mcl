@@ -7,9 +7,9 @@ $b = (1 + 2) * 3
 $d = not $c
 $e = $c and false or true
 $f = $list1[0]
-$g = $map1["k1"] || 0
+$g = $map1["k1"] <|> 0
 $h = $st1->a
-$i = $st1->b || "default"
+$i = $st1->b <|> "default"
 $j = "x" in ["x", "y"]
 $k = if $c {
 	"yes"

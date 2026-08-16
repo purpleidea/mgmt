@@ -1,0 +1,11 @@
+-- main.mcl --
+import "list"
+
+$l = ["a", "b", "c"]
+
+test "test" {
+	anotherstr => list.lookup($l, 42) <|> "whatever",
+}
+-- OUTPUT --
+Field: test[test].AnotherStr = "whatever"
+Vertex: test[test]

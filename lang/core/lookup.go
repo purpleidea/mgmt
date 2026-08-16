@@ -58,9 +58,8 @@ var _ interfaces.InferableFunc = &LookupFunc{} // ensure it meets this expectati
 // the current syntax in the parser is identical, so it's convenient to mix the
 // two together. This calls out to some of the code in the ListLookupFunc and
 // MapLookupFunc implementations. If the index or key for this input doesn't
-// exist, then it will return the zero value for that type.
-// TODO: Eventually we will deprecate this function when the function engine can
-// support passing a value for erroring functions. (Bad index could be an err!)
+// exist, then it will error with a catchable (sentinel) error, which the except
+// operator can catch to provide a fallback value if desired.
 type LookupFunc struct {
 	interfaces.Textarea
 

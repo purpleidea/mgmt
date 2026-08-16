@@ -1,7 +1,7 @@
 -- main.mcl --
 $m = {"hello" => "pass", "world" => "fail"}
 
-$s = $m["hello"] || "error"
+$s = $m["hello"] <|> "error"
 
 test "${s}" {}
 -- OUTPUT --

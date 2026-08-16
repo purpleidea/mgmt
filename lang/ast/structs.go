@@ -13100,6 +13100,353 @@ func (obj *ExprIf) Value() (types.Value, error) {
 	return obj.ElseBranch.Value()
 }
 
+// ExprExcept represents the except operator, eg: `$expr <|> $fallback`. Under
+// normal circumstances it returns the value of the main expression. If that
+// expression errors at runtime with a catchable (sentinel) error, for example a
+// missing list index or a division by zero, then instead of that error shutting
+// down the engine, this catches it and returns the value of the except
+// expression instead. Permanent (non-sentinel) errors are not caught, they are
+// still instantly fatal. The except side is only built into the running
+// function graph when an error actually occurs, and if the main expression ever
+// recovers, it is torn back down and the main value is used again. Both sides
+// must have the same type, which is also the type of this expression.
+type ExprExcept struct {
+	interfaces.Textarea
+
+	data  *interfaces.Data
+	scope *interfaces.Scope // store for referencing this later
+	typ   *types.Type
+
+	Expr   interfaces.Expr // the main expression
+	Except interfaces.Expr // the fallback expression if the main one errors
+}
+
+// String returns a short representation of this expression.
+func (obj *ExprExcept) String() string {
+	return "except( " + obj.Expr.String() + " <|> " + obj.Except.String() + " )"
+}
+
+// Apply is a general purpose iterator method that operates on any AST node. It
+// is not used as the primary AST traversal function because it is less readable
+// and easy to reason about than manually implementing traversal for each node.
+// Nevertheless, it is a useful facility for operations that might only apply to
+// a select number of node types, since they won't need extra noop iterators...
+func (obj *ExprExcept) Apply(fn func(interfaces.Node) error) error {
+	if err := obj.Expr.Apply(fn); err != nil {
+		return err
+	}
+	if err := obj.Except.Apply(fn); err != nil {
+		return err
+	}
+	return fn(obj)
+}
+
+// Init initializes this branch of the AST, and returns an error if it fails to
+// validate.
+func (obj *ExprExcept) Init(data *interfaces.Data) error {
+	obj.data = data
+	obj.Textarea.Setup(data)
+
+	if err := obj.Expr.Init(data); err != nil {
+		return err
+	}
+	if err := obj.Except.Init(data); err != nil {
+		return err
+	}
+
+	// no errors
+	return nil
+}
+
+// Interpolate returns a new node (aka a copy) once it has been expanded. This
+// generally increases the size of the AST when it is used. It calls Interpolate
+// on any child elements and builds the new node with those new node contents.
+func (obj *ExprExcept) Interpolate() (interfaces.Expr, error) {
+	expr, err := obj.Expr.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Expr")
+	}
+	except, err := obj.Except.Interpolate()
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not interpolate Except")
+	}
+	return &ExprExcept{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Expr:     expr,
+		Except:   except,
+	}, nil
+}
+
+// Copy returns a light copy of this struct. Anything static will not be copied.
+func (obj *ExprExcept) Copy() (interfaces.Expr, error) {
+	copied := false
+	expr, err := obj.Expr.Copy()
+	if err != nil {
+		return nil, err
+	}
+	// must have been copied, or pointer would be same
+	if expr != obj.Expr {
+		copied = true
+	}
+	except, err := obj.Except.Copy()
+	if err != nil {
+		return nil, err
+	}
+	if except != obj.Except {
+		copied = true
+	}
+
+	if !copied { // it's static
+		return obj, nil
+	}
+	return &ExprExcept{
+		Textarea: obj.Textarea,
+		data:     obj.data,
+		scope:    obj.scope,
+		typ:      obj.typ,
+		Expr:     expr,
+		Except:   except,
+	}, nil
+}
+
+// Ordering returns a graph of the scope ordering that represents the data flow.
+// This can be used in SetScope so that it knows the correct order to run it in.
+func (obj *ExprExcept) Ordering(produces map[string]interfaces.Node) (*pgraph.Graph, map[interfaces.Node]string, error) {
+	graph, err := pgraph.NewGraph("ordering")
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddVertex(obj)
+
+	cons := make(map[interfaces.Node]string)
+
+	nodes := []interfaces.Expr{obj.Expr, obj.Except}
+
+	for _, node := range nodes { // "dry"
+		g, c, err := node.Ordering(produces)
+		if err != nil {
+			return nil, nil, err
+		}
+		graph.AddGraph(g) // add in the child graph
+
+		// additional constraints...
+		edge := &pgraph.SimpleEdge{Name: "exprexcept1"}
+		graph.AddEdge(node, obj, edge) // prod -> cons
+
+		for k, v := range c { // c is consumes
+			x, exists := cons[k]
+			if exists && v != x {
+				return nil, nil, fmt.Errorf("consumed value is different, got `%+v`, expected `%+v`", x, v)
+			}
+			cons[k] = v // add to map
+
+			n, exists := produces[v]
+			if !exists {
+				continue
+			}
+			edge := &pgraph.SimpleEdge{Name: "exprexcept2"}
+			graph.AddEdge(n, k, edge)
+		}
+	}
+
+	return graph, cons, nil
+}
+
+// SetScope stores the scope for later use in this resource and its children,
+// which it propagates this downwards to.
+func (obj *ExprExcept) SetScope(scope *interfaces.Scope, sctx map[string]interfaces.Expr) error {
+	if scope == nil {
+		scope = interfaces.EmptyScope()
+	}
+	obj.scope = scope
+	if err := obj.Expr.SetScope(scope, sctx); err != nil {
+		return err
+	}
+	return obj.Except.SetScope(scope, sctx)
+}
+
+// SetType is used to set the type of this expression once it is known. This
+// usually happens during type unification, but it can also happen during
+// parsing if a type is specified explicitly. Since types are static and don't
+// change on expressions, if you attempt to set a different type than what has
+// previously been set (when not initially known) this will error.
+func (obj *ExprExcept) SetType(typ *types.Type) error {
+	if obj.typ != nil {
+		return obj.typ.Cmp(typ) // if not set, ensure it doesn't change
+	}
+	obj.typ = typ // set
+	return nil
+}
+
+// Type returns the type of this expression.
+func (obj *ExprExcept) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
+	// Both sides must have the same type, use whichever we can find.
+	t1, err1 := obj.Expr.Type()
+	t2, err2 := obj.Except.Type()
+	if err1 == nil && err2 == nil {
+		if err := t1.Cmp(t2); err != nil {
+			return nil, errwrap.Wrapf(err, "inconsistent except halves")
+		}
+	}
+	if err1 == nil {
+		return t1, nil
+	}
+	if err2 == nil {
+		return t2, nil
+	}
+
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
+}
+
+// Infer returns the type of itself and a collection of invariants. The returned
+// type may contain unification variables. It collects the invariants by calling
+// Check on its children expressions. In making those calls, it passes in the
+// known type for that child to get it to "Check" it. When the type is not
+// known, it should create a new unification variable to pass in to the child
+// Check calls. Infer usually only calls Check on things inside of it, and often
+// does not call another Infer.
+func (obj *ExprExcept) Infer() (*types.Type, []*interfaces.UnificationInvariant, error) {
+	invariants := []*interfaces.UnificationInvariant{}
+
+	// Same unification var because both halves must have the same type.
+	typExpr := &types.Type{
+		Kind: types.KindUnification,
+		Uni:  types.NewElem(), // unification variable, eg: ?1
+	}
+
+	exprInvars, err := obj.Expr.Check(typExpr)
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, exprInvars...)
+
+	exceptInvars, err := obj.Except.Check(typExpr)
+	if err != nil {
+		return nil, nil, err
+	}
+	invariants = append(invariants, exceptInvars...)
+
+	// Every infer call must have this section, because expr var needs this.
+	typType := typExpr
+	if obj.typ != nil {
+		typType = obj.typ
+	}
+	// This must be added even if redundant, so that we collect the obj ptr.
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj,
+		Expect: typExpr, // This is the type that we return.
+		Actual: typType,
+	}
+	invariants = append(invariants, invar)
+
+	return typExpr, invariants, nil
+}
+
+// Check is checking that the input type is equal to the object that Check is
+// running on. In doing so, it adds any invariants that are necessary. Check
+// must always call Infer to produce the invariant. The implementation can be
+// generic for all expressions.
+func (obj *ExprExcept) Check(typ *types.Type) ([]*interfaces.UnificationInvariant, error) {
+	return interfaces.GenericCheck(obj, typ)
+}
+
+// Graph returns the reactive function graph which is expressed by this node. It
+// adds the main expression graph statically, since that must always run, but
+// the except graph is only built here, and it is *not* added. It is passed to
+// the catch-point function (ExprExceptFunc) which lazily attaches it to the
+// running graph via a transaction if the main expression errors, and removes it
+// again if it recovers.
+func (obj *ExprExcept) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, error) {
+	graph, err := pgraph.NewGraph("except")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	typ, err := obj.Type()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	g, f, err := obj.Expr.Graph(env)
+	if err != nil {
+		return nil, nil, err
+	}
+	graph.AddGraph(g)
+
+	// This graph is *not* added here. It only runs if an error shows up.
+	exceptGraph, exceptFunc, err := obj.Except.Graph(env)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	edgeName := structs.ExprExceptFuncArgNameValue
+	edgeNameDummy := structs.OutputFuncDummyArgName
+
+	exprExceptSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
+		Textarea: obj.Textarea,
+		Name:     "exprExceptSubgraphOutput",
+		Type:     typ,
+		EdgeName: structs.OutputFuncArgName,
+	}
+	graph.AddVertex(exprExceptSubgraphOutput)
+
+	function := &structs.ExprExceptFunc{
+		Textarea: obj.Textarea,
+
+		Type: typ, // this is the output type of the expression
+
+		EdgeName: edgeName,
+
+		PrimaryFunc: f,
+
+		ExceptGraph: exceptGraph,
+		ExceptFunc:  exceptFunc,
+
+		OutputVertex: exprExceptSubgraphOutput,
+	}
+	graph.AddVertex(function)
+
+	edge := &interfaces.FuncEdge{Args: []string{edgeName}}
+	graph.AddEdge(f, function, edge) // primary -> exprexcept
+
+	graph.AddEdge(function, exprExceptSubgraphOutput, &interfaces.FuncEdge{
+		Args: []string{edgeNameDummy},
+	})
+
+	return graph, exprExceptSubgraphOutput, nil
+}
+
+// SetValue here is a no-op, because algorithmically when this is called from
+// the func engine, the child fields (the halves expr's) will have had this done
+// to them first, and as such when we try and retrieve the set value from this
+// expression by calling `Value`, it will build it from scratch!
+func (obj *ExprExcept) SetValue(value types.Value) error {
+	if err := obj.typ.Cmp(value.Type()); err != nil {
+		return err
+	}
+	// noop!
+	return nil
+}
+
+// Value returns the value of this expression in our type system. This will
+// usually only be valid once the engine has run and values have been produced.
+// This might get called speculatively (early) during unification to learn more.
+// This returns the value of the main expression only. We can't fall back to the
+// except expression here, because a speculative error usually means the value
+// simply isn't known yet, which is different from a runtime error, and the two
+// cannot be reliably told apart at this stage.
+func (obj *ExprExcept) Value() (types.Value, error) {
+	return obj.Expr.Value()
+}
+
 // ExprParen is a set of parenthesis which wrap an expression. It is a transient
 // AST node which exists only between the parsing and interpolation stages. The
 // parser produces one for every explicit set of parenthesis in the source code,

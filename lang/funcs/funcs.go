@@ -75,11 +75,6 @@ const (
 	// ContainsFuncName is the name the contains function is registered as.
 	ContainsFuncName = "contains"
 
-	// LookupDefaultFuncName is the name this function is registered as.
-	// This starts with an underscore so that it cannot be used from the
-	// lexer.
-	LookupDefaultFuncName = "_lookup_default"
-
 	// LookupFuncName is the name this function is registered as. This
 	// starts with an underscore so that it cannot be used from the lexer.
 	LookupFuncName = "_lookup"
@@ -90,7 +85,10 @@ const (
 
 	// StructLookupOptionalFuncName is the name this function is registered
 	// as. This starts with an underscore so that it cannot be used from the
-	// lexer.
+	// lexer. Of note, this is different from the except operator, since the
+	// optionality of this struct field lookup is determined statically at
+	// compile time (the field is either part of the struct type or not) as
+	// opposed to being a runtime error which can be caught.
 	StructLookupOptionalFuncName = "_struct_lookup_optional"
 
 	// CollectFuncName is the name this function is registered as. This

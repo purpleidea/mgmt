@@ -31,10 +31,10 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -56,24 +56,24 @@ func init() {
 	})
 }
 
-// ListLookup returns the value corresponding to the input index in the list.
+// ListLookup returns the value corresponding to the input index in the list. If
+// the index is not present, then this errors with a catchable (sentinel) error,
+// so that the except operator can catch it and provide a fallback value, eg:
+// `$list[42] <|> "default"`.
 func ListLookup(ctx context.Context, input []types.Value) (types.Value, error) {
 	l := input[0].(*types.ListValue)
 	index := input[1].Int()
-	//zero := l.Type().Val.New() // the zero value
 
-	// TODO: should we handle overflow by returning zero?
 	if index > math.MaxInt { // max int size varies by arch
-		return nil, fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
+		return nil, interfaces.Sentinelf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
 	}
 	if index < 0 { // lists can't have negative indexes (for now)
-		return nil, fmt.Errorf("list index negative, got: %d", index)
+		return nil, interfaces.Sentinelf("list index negative, got: %d", index)
 	}
 
 	val, exists := l.Lookup(int(index))
 	if !exists {
-		//return zero, nil
-		return nil, fmt.Errorf("list index not present, got: %d, len is: %d, in: %v", index, len(l.List()), l)
+		return nil, interfaces.Sentinelf("list index not present, got: %d, len is: %d, in: %v", index, len(l.List()), l)
 	}
 	return val, nil
 }

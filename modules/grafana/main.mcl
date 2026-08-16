@@ -66,8 +66,8 @@ class server:prometheus_base() {
 class server:prometheus($name, $st) {
 	include prometheus_base
 
-	$url = $st->url || "http://localhost:9090"
-	$comment = $st->comment || ""
+	$url = $st->url <|> "http://localhost:9090"
+	$comment = $st->comment <|> ""
 
 	$tmpl = struct{
 		name => "${name}",

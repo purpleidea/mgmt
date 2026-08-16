@@ -4,7 +4,7 @@ import "golang"
 #import "convert"
 
 class rule($st) {
-	$port = $st->port || 0
+	$port = $st->port <|> 0
 
 	#$rule = fmt.printf("%d", $port)
 	$tmpl = struct{

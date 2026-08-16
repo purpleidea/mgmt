@@ -4,7 +4,7 @@ import "world"
 
 $ns = "estate"
 $exchanged = world.kvlookup($ns)
-$state = $exchanged[$hostname] || "default"
+$state = $exchanged[$hostname] <|> "default"
 
 if $state == "one" or $state == "default" {
 
@@ -53,30 +53,31 @@ if $state == "three" {
 }
 -- OUTPUT --
 Edge: FuncValue -> call # fn
-Edge: _lookup_default -> _operator # a
-Edge: _lookup_default -> _operator # a
-Edge: _lookup_default -> _operator # a
-Edge: _lookup_default -> _operator # a
+Edge: _lookup -> exprexcept # value
 Edge: _operator -> _operator # a
 Edge: _operator -> _operator # b
 Edge: _operator -> stmtif # condition
 Edge: _operator -> stmtif # condition
 Edge: _operator -> stmtif # condition
 Edge: call -> callSubgraphOutput # dummy
-Edge: callSubgraphOutput -> _lookup_default # listormap
-Edge: const: str("") -> _lookup_default # indexorkey
+Edge: callSubgraphOutput -> _lookup # listormap
+Edge: const: str("") -> _lookup # indexorkey
 Edge: const: str("==") -> _operator # op
 Edge: const: str("==") -> _operator # op
 Edge: const: str("==") -> _operator # op
 Edge: const: str("==") -> _operator # op
-Edge: const: str("default") -> _lookup_default # default
 Edge: const: str("default") -> _operator # b
 Edge: const: str("one") -> _operator # b
 Edge: const: str("or") -> _operator # op
 Edge: const: str("three") -> _operator # b
 Edge: const: str("two") -> _operator # b
+Edge: exprExceptSubgraphOutput -> _operator # a
+Edge: exprExceptSubgraphOutput -> _operator # a
+Edge: exprExceptSubgraphOutput -> _operator # a
+Edge: exprExceptSubgraphOutput -> _operator # a
+Edge: exprexcept -> exprExceptSubgraphOutput # dummy
 Vertex: FuncValue
-Vertex: _lookup_default
+Vertex: _lookup
 Vertex: _operator
 Vertex: _operator
 Vertex: _operator
@@ -90,12 +91,13 @@ Vertex: const: str("==")
 Vertex: const: str("==")
 Vertex: const: str("==")
 Vertex: const: str("default")
-Vertex: const: str("default")
 Vertex: const: str("estate")
 Vertex: const: str("one")
 Vertex: const: str("or")
 Vertex: const: str("three")
 Vertex: const: str("two")
+Vertex: exprExceptSubgraphOutput
+Vertex: exprexcept
 Vertex: stmtif
 Vertex: stmtif
 Vertex: stmtif

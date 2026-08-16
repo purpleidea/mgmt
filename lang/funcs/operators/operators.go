@@ -206,7 +206,8 @@ func init() {
 			case types.KindInt:
 				divisor := input[1].Int()
 				if divisor == 0 {
-					return nil, fmt.Errorf("can't divide by zero")
+					// catchable with the except operator!
+					return nil, interfaces.Sentinelf("can't divide by zero")
 				}
 				return &types.FloatValue{
 					V: float64(input[0].Int()) / float64(divisor),
@@ -215,7 +216,8 @@ func init() {
 			case types.KindFloat:
 				divisor := input[1].Float()
 				if divisor == 0.0 {
-					return nil, fmt.Errorf("can't divide by zero")
+					// catchable with the except operator!
+					return nil, interfaces.Sentinelf("can't divide by zero")
 				}
 				return &types.FloatValue{
 					V: input[0].Float() / divisor,

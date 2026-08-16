@@ -9,7 +9,7 @@ $key = "k1"
 
 $m = {"k1" => 42, $key => 13} # dupe!
 
-$found = $m["k1"] || 99
+$found = $m["k1"] <|> 99
 
 test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --

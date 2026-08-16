@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# division by zero is a catchable error
+$x = 42 / 0 <|> 13.0
+
+test [fmt.printf("%v", $x)] {}
+-- OUTPUT --
+Vertex: test[13]

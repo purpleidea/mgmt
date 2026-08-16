@@ -5,7 +5,7 @@ $st2 = struct{foo => "b", bar => ["b1", "b2", "b3"]}
 
 $m = {$st1 => "pass", $st2 => "fail"}
 
-$s = $m[$st0] || "error"
+$s = $m[$st0] <|> "error"
 
 test "${s}" {}
 -- OUTPUT --

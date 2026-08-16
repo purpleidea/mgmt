@@ -1,0 +1,14 @@
+-- main.mcl --
+import "list"
+import "test"
+
+$l = ["a", "b", "c"]
+
+# The lookup succeeds, so the slow fallback subgraph never gets built or run. If
+# it did run, this test would take more than five seconds to finish.
+test "test" {
+	anotherstr => list.lookup($l, 0) <|> test.slow_string(),
+}
+-- OUTPUT --
+Field: test[test].AnotherStr = "a"
+Vertex: test[test]

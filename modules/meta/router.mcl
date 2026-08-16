@@ -35,29 +35,29 @@ import "git://github.com/purpleidea/mgmt/modules/purpleidea/"
 import "git://github.com/purpleidea/mgmt/modules/shorewall/"
 
 class router($st) {
-	$net_dev = $st->net_dev || "meth0"
+	$net_dev = $st->net_dev <|> "meth0"
 	$net_mac = $st->net_mac
-	$net_ip = $st->net_ip || "" # cidr, used when not doing dhcp
-	$net_gateway = $st->net_gateway || "" # not cidr, used when not doing dhcp
+	$net_ip = $st->net_ip <|> "" # cidr, used when not doing dhcp
+	$net_gateway = $st->net_gateway <|> "" # not cidr, used when not doing dhcp
 
-	#$net_uuid = $st->net_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	#$net_uuid = $st->net_uuid <|> "" # 01234567-89ab-cdef-0123-456789abcdef
 
-	$loc_dev = $st->loc_dev || "meth1"
-	$loc_mac = $st->loc_mac || ""
+	$loc_dev = $st->loc_dev <|> "meth1"
+	$loc_mac = $st->loc_mac <|> ""
 
-	#$loc_uuid = $st->loc_uuid || "" # 01234567-89ab-cdef-0123-456789abcdef
+	#$loc_uuid = $st->loc_uuid <|> "" # 01234567-89ab-cdef-0123-456789abcdef
 	$loc_network = $st->loc_network # cidr
 	$loc_prefix = net.cidr_to_prefix($loc_network)
 
 	# XXX: loc_ip is now a cidr... can we use it figure out loc_network automatically?
-	$loc_ip = $st->loc_ip || (net.cidr_to_first($loc_network) + "/" + $loc_prefix) # cidr
-	$loc_broadcast = $st->loc_broadcast || net.cidr_to_last($loc_network)
+	$loc_ip = $st->loc_ip <|> (net.cidr_to_first($loc_network) + "/" + $loc_prefix) # cidr
+	$loc_broadcast = $st->loc_broadcast <|> net.cidr_to_last($loc_network)
 
-	$loc_range = $st->loc_range || struct{start => "", end => ""} # struct with start, end fields
+	$loc_range = $st->loc_range <|> struct{start => "", end => ""} # struct with start, end fields
 	$dns = $st->dns
 
-	$aux_dev = $st->aux_dev || ""
-	$aux_mac = $st->aux_mac || ""
+	$aux_dev = $st->aux_dev <|> ""
+	$aux_mac = $st->aux_mac <|> ""
 
 	svc "NetworkManager" {
 		state => "stopped",
@@ -376,8 +376,8 @@ class router:dhcp_host($st) {
 
 	# TODO: add these checks
 	#fail(not net.in_network($loc_network, $i))
-	#$range_start = $loc_range->start || ""
-	#$range_end = $loc_range->end || ""
+	#$range_start = $loc_range->start <|> ""
+	#$range_end = $loc_range->end <|> ""
 	#if $range_start != "" and $range_end != "" {
 	#	fail(net.in_range($range_start, $range_end, $i))
 	#}

@@ -1,0 +1,14 @@
+-- main.mcl --
+import "fmt"
+
+$items = ["zero", "one"]
+$indexes = [0, 42, 1]
+
+for $index, $value in $indexes {
+	$out = $items[$value] <|> fmt.printf("missing-%d", $index)
+	test [$out] {}
+}
+-- OUTPUT --
+Vertex: test[missing-1]
+Vertex: test[one]
+Vertex: test[zero]

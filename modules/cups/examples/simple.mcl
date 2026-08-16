@@ -12,14 +12,14 @@ include cups.base() as printers
 # helper function
 # make sure you add your .ppd files
 class printer($name, $st) {
-	$default = $default_printer[$hostname] || ""
-	$subset = $subset_printers[$name] || []
+	$default = $default_printer[$hostname] <|> ""
+	$subset = $subset_printers[$name] <|> []
 
-	$location = $st->location || ""
-	$makemodel = $st->makemodel || ""
+	$location = $st->location <|> ""
+	$makemodel = $st->makemodel <|> ""
 	$uri str = $st->uri
 
-	$comment = $st->comment || ""
+	$comment = $st->comment <|> ""
 
 	# XXX: if we had a method that took a struct, and added a field and returned it, that would be helpful!
 	# XXX: this would need to have language sugar so that we guarantee the field name string is static.

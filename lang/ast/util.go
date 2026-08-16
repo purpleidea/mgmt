@@ -375,6 +375,8 @@ func getScope(node interfaces.Expr) (*interfaces.Scope, error) {
 	//case *ExprSingleton:
 	case *ExprIf:
 		return expr.scope, nil
+	case *ExprExcept:
+		return expr.scope, nil
 
 	// These shouldn't be seen here, because they're removed during the
 	// Interpolate step, but delegate to the inner expression if one is.
@@ -497,6 +499,15 @@ func checkParamScope(node interfaces.Expr, freeVars map[interfaces.Expr]struct{}
 			return err
 		}
 		if err := checkParamScope(obj.ElseBranch, freeVars); err != nil {
+			return err
+		}
+		return nil
+
+	case *ExprExcept:
+		if err := checkParamScope(obj.Expr, freeVars); err != nil {
+			return err
+		}
+		if err := checkParamScope(obj.Except, freeVars); err != nil {
 			return err
 		}
 		return nil

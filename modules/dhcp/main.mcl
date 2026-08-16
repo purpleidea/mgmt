@@ -35,10 +35,10 @@ import "golang/strings" as golang_strings
 import "os"
 
 class server($st) {
-	$interfaces []str = $st->interfaces || []
-	$authoritative = $st->authoritative || true
-	$defaultleasetime = $st->defaultleasetime || 600
-	$maxleasetime = $st->maxleasetime || 7200
+	$interfaces []str = $st->interfaces <|> []
+	$authoritative = $st->authoritative <|> true
+	$defaultleasetime = $st->defaultleasetime <|> 600
+	$maxleasetime = $st->maxleasetime <|> 7200
 
 	$tmpl = struct{
 		domain => "", # XXX: not implemented
@@ -55,7 +55,7 @@ class server($st) {
 		"redhat" => "dhcp-server", # fedora
 		"debian" => "isc-dhcp-server", # debian
 	}
-	$pkg = $pkgs[os.family()] || ""
+	$pkg = $pkgs[os.family()] <|> ""
 	panic("${pkg}" == "", "dhcp:server $pkg is empty") # not specified
 	pkg "${pkg}" {
 		state => "installed",
@@ -152,16 +152,16 @@ class server:subnet($name, $st) {
 	# TODO: We could compute many defaults from a single network CIDR.
 
 	$network str = $st->network # TODO: improve type unification
-	$netmask = $st->netmask || "255.255.255.0"
-	$broadcast = $st->broadcast || ""
-	$router = $st->router || "" # TODO: eventually this could be a list
-	$dns = $st->dns || [] # []str, local 'option domain-name-servers'
-	$range = $st->range || struct{start => "", end => ""} # struct with start, end fields
-	$range_start = $range->start || ""
-	$range_end = $range->end || ""
-	$nextserver = $st->nextserver || ""
+	$netmask = $st->netmask <|> "255.255.255.0"
+	$broadcast = $st->broadcast <|> ""
+	$router = $st->router <|> "" # TODO: eventually this could be a list
+	$dns = $st->dns <|> [] # []str, local 'option domain-name-servers'
+	$range = $st->range <|> struct{start => "", end => ""} # struct with start, end fields
+	$range_start = $range->start <|> ""
+	$range_end = $range->end <|> ""
+	$nextserver = $st->nextserver <|> ""
 
-	$comment = $st->comment || ""
+	$comment = $st->comment <|> ""
 
 	$valid_range = if $range_start != "" and $range_end != "" {
 		"${range_start} ${range_end}"
@@ -236,10 +236,10 @@ class server:host($name, $st) {
 
 	$macaddress = $st->macaddress
 	$fixedaddress = $st->fixedaddress # []str
-	$hostname = $st->hostname || ""
-	$nextserver = $st->nextserver || ""
-	$filename = $st->filename || ""
-	$comment = $st->comment || ""
+	$hostname = $st->hostname <|> ""
+	$nextserver = $st->nextserver <|> ""
+	$filename = $st->filename <|> ""
+	$comment = $st->comment <|> ""
 
 	$tmpl = struct{
 		name => "${name}",

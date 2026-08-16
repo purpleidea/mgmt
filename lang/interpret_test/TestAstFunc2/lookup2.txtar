@@ -5,8 +5,8 @@ $st1 = struct{
 	c => "pass1",
 }
 
-test [$st1->c || "default"] {}
-test [$st1->missing || "pass2"] {}
+test [$st1->c <|> "default"] {}
+test [$st1->missing <|> "pass2"] {}
 
 $st2 = struct{
 	a => 42,

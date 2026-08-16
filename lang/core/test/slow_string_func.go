@@ -27,52 +27,39 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package core
+package coretest
 
 import (
 	"context"
-	"fmt"
-	"math"
+	"time"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
-const (
-	// ListLookupDefaultFuncName is the name this function is registered as.
-	ListLookupDefaultFuncName = "list_lookup_default"
-)
-
 func init() {
-	simple.Register(ListLookupDefaultFuncName, &simple.Scaffold{
+	simple.ModuleRegister(ModuleName, "slow_string", &simple.Scaffold{
 		I: &simple.Info{
-			Pure: true,
-			Memo: true,
-			Fast: true,
-			Spec: true,
+			Pure: false, // deliberately slow, don't run it early
+			Memo: false,
+			Fast: false,
+			Spec: false,
 		},
-		T: types.NewType("func(list []?1, index int, default ?1) ?1"),
-		F: ListLookupDefault,
+		T: types.NewType("func() str"),
+		F: SlowString,
 	})
 }
 
-// ListLookupDefault returns the value corresponding to the input index in the
-// list. If the value is not present, it returns the default value supplied.
-func ListLookupDefault(ctx context.Context, input []types.Value) (types.Value, error) {
-	l := input[0].(*types.ListValue)
-	index := input[1].Int()
-
-	// TODO: should we handle overflow by returning default?
-	if index > math.MaxInt { // max int size varies by arch
-		return nil, fmt.Errorf("list index overflow, got: %d, max is: %d", index, math.MaxInt)
+// SlowString returns a string, but only after five seconds. It is particularly
+// useful for testing the laziness of the except operator, since the fallback
+// side of that operator should not run unless an error actually occurred.
+func SlowString(ctx context.Context, input []types.Value) (types.Value, error) {
+	select {
+	case <-time.After(time.Second * 5):
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	if index < 0 { // lists can't have negative indexes (for now)
-		return nil, fmt.Errorf("list index negative, got: %d", index)
-	}
-
-	val, exists := l.Lookup(int(index))
-	if !exists {
-		return input[2], nil // default value
-	}
-	return val, nil
+	return &types.StrValue{
+		V: "five seconds has elapsed",
+	}, nil
 }

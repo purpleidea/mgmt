@@ -48,10 +48,10 @@
 			lval.str = yylex.Text()
 			return ELVIS
 		}
-/\|\|/		{
+/<\|>/		{
 			yylex.pos(lval) // our pos
 			lval.str = yylex.Text()
-			return DEFAULT
+			return EXCEPT
 		}
 /=>/		{
 			yylex.pos(lval) // our pos

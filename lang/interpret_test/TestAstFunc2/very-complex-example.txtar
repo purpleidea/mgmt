@@ -73,7 +73,7 @@ $generate = func($idn) {
 # this code should be rejected during type unification
 $foo = iter.map([$id1, $id2], $generate)
 
-$name = $foo[0] || "fail"
+$name = $foo[0] <|> "fail"
 test "${name}" {}
 -- OUTPUT --
 # err: errUnify: type error: str != int: /main.mcl @ 64:13-70:2

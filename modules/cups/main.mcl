@@ -112,15 +112,15 @@ class base:printer_base() {
 }
 
 class base:printer($name, $st) {
-	$default = $st->default || false
-	$info = $st->info || ""
-	$location = $st->location || ""
-	$makemodel = $st->makemodel || ""
+	$default = $st->default <|> false
+	$info = $st->info <|> ""
+	$location = $st->location <|> ""
+	$makemodel = $st->makemodel <|> ""
 	$uri str = $st->uri
-	$typeint int = $st->typeint || 36884 # XXX: some bitmask junk maybe?
+	$typeint int = $st->typeint <|> 36884 # XXX: some bitmask junk maybe?
 	$ppd str = $st->ppd
 
-	$comment = $st->comment || ""
+	$comment = $st->comment <|> ""
 
 	include printer_base
 

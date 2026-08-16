@@ -101,7 +101,7 @@ func init() {
 %token BOOL STRING INTEGER FLOAT
 %token EQUALS DOLLAR
 %token COMMA COLON SEMICOLON
-%token ELVIS DEFAULT ROCKET ARROW DOT
+%token ELVIS EXCEPT ROCKET ARROW DOT
 %token BOOL_IDENTIFIER STR_IDENTIFIER INT_IDENTIFIER FLOAT_IDENTIFIER
 %token MAP_IDENTIFIER STRUCT_IDENTIFIER VARIANT_IDENTIFIER
 %token IDENTIFIER CAPITALIZED_IDENTIFIER
@@ -118,7 +118,12 @@ func init() {
 // the higher the precedence."
 // From: https://www.gnu.org/software/bison/manual/html_node/Infix-Calc.html
 // FIXME: a yacc specialist should check the precedence and add more tests!
-%nonassoc DEFAULT	// XXX: is %nonassoc correct for this?
+// STRUCT_LOOKUP must be below EXCEPT so that when the parser sees the EXCEPT
+// token after `expr ARROW IDENTIFIER`, it prefers to shift it (producing the
+// longer struct-lookup-optional production) instead of reducing early, which
+// would have wrapped the plain struct lookup in the generic except operator.
+%nonassoc STRUCT_LOOKUP
+%left EXCEPT // lowest expr precedence, matches left-first so we catch in order
 %left OR
 %left AND
 %nonassoc LT GT LTE GTE EQ NEQ IN	// TODO: is %nonassoc correct for all of these?
@@ -1067,25 +1072,10 @@ call:
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
-	// lookup an index in a list or a key in a map with a default
-	// lookup_default($foo, $key, $default)
-	// `$foo[$key] || "default"`
-|	expr OPEN_BRACK expr CLOSE_BRACK DEFAULT expr
-	{
-		$$.expr = &ast.ExprCall{
-			Name: funcs.LookupDefaultFuncName,
-			Args: []interfaces.Expr{
-				$1.expr, // the list or map
-				$3.expr, // the index or key is an expr
-				$6.expr, // the default
-			},
-		}
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
-	}
 	// lookup a field in a struct
 	// _struct_lookup($foo, "field")
 	// `$foo->field`
-|	expr ARROW IDENTIFIER
+|	expr ARROW IDENTIFIER %prec STRUCT_LOOKUP
 	{
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupFuncName,
@@ -1094,15 +1084,17 @@ call:
 				&ast.ExprStr{
 					V: $3.str, // the field is always an str
 				},
-				//$5.expr, // the default
 			},
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}
 	// lookup a field in a struct with a default
 	// _struct_lookup_optional($foo, "field", "default")
-	// `$foo->field || "default"`
-|	expr ARROW IDENTIFIER DEFAULT expr
+	// `$foo->field <|> "default"`
+	// NOTE: This is different from the generic except operator below, since
+	// whether the field is present or not is determined statically from the
+	// struct type at compile time, it is not a runtime error to catch.
+|	expr ARROW IDENTIFIER EXCEPT expr
 	{
 		$$.expr = &ast.ExprCall{
 			Name: funcs.StructLookupOptionalFuncName,
@@ -1113,6 +1105,17 @@ call:
 				},
 				$5.expr, // the default
 			},
+		}
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
+	}
+	// the except operator provides a fallback value if an expression errors
+	// `expr <|> $fallback`
+	// eg: `list.lookup($list, 42) <|> "default"`
+|	expr EXCEPT expr
+	{
+		$$.expr = &ast.ExprExcept{
+			Expr:   $1.expr, // the main expression
+			Except: $3.expr, // the fallback if the main expr errors
 		}
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.expr)
 	}

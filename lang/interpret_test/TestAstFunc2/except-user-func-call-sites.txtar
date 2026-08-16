@@ -1,0 +1,18 @@
+-- main.mcl --
+import "list"
+
+func pick($items, $i, $fallback) {
+	list.lookup($items, $i) <|> $fallback
+}
+
+$a = pick(["a"], 0, "fail-a")
+$b = pick(["a"], 4, "b")
+$c = pick(["a"], 5, "c")
+
+test [$a] {}
+test [$b] {}
+test [$c] {}
+-- OUTPUT --
+Vertex: test[a]
+Vertex: test[b]
+Vertex: test[c]

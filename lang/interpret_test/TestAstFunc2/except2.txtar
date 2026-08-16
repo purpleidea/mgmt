@@ -1,0 +1,7 @@
+-- main.mcl --
+$l = ["a"]
+
+# nobody catches this error, so it is fatal when it arrives at a sink
+test [$l[42]] {}
+-- OUTPUT --
+# err: errStream: list index not present, got: 42, len is: 1, in: ["a"]: /main.mcl @ 4:7-4:13

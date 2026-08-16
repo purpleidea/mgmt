@@ -10,13 +10,13 @@ $some_map = {
 }
 
 print "letter" {
-	msg => fmt.printf("letter: %s", $some_list[13] || "j"),
+	msg => fmt.printf("letter: %s", $some_list[13] <|> "j"),
 
 	Meta:autogroup => false,
 }
 
 print "city" {
-	msg => fmt.printf("city: %d", $some_map["montreal"] || 13),
+	msg => fmt.printf("city: %d", $some_map["montreal"] <|> 13),
 
 	Meta:autogroup => false,
 }

@@ -5,7 +5,7 @@ $k1 = ["a", "b", "c"]
 
 $m = {$k1 => 42, ["x", "y", "z"] => 13} # incompatible type!
 
-$found = $m[$k1] || 99
+$found = $m[$k1] <|> 99
 
 test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --

@@ -41,8 +41,8 @@ import "git://github.com/purpleidea/mgmt/modules/misc/"
 
 # class server pulls in everything for you to run a simple etcd server.
 class server($st) {
-	$host = $st->host || "" # TODO: auto-detect ip?
-	$port = $st->port || 22
+	$host = $st->host <|> "" # TODO: auto-detect ip?
+	$port = $st->port <|> 22
 
 	user "etcd" {
 		state => "exists",
@@ -104,10 +104,10 @@ class server($st) {
 
 class service_file($path, $st) {
 	$exec = $st->exec # required
-	$user = $st->user || "etcd"
-	$compaction = $st->compaction || "periodic"
-	$retention = $st->retention || "10h"
-	$quota = $st->retention || "8589934592" # in bytes (1024*1024*1024*8) 8GiB
+	$user = $st->user <|> "etcd"
+	$compaction = $st->compaction <|> "periodic"
+	$retention = $st->retention <|> "10h"
+	$quota = $st->retention <|> "8589934592" # in bytes (1024*1024*1024*8) 8GiB
 
 	# TODO: validate the inputs to avoid weird injection or escaping
 

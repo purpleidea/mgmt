@@ -31,9 +31,9 @@ package core
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -55,16 +55,17 @@ func init() {
 	})
 }
 
-// MapLookup returns the value corresponding to the input key in the map.
+// MapLookup returns the value corresponding to the input key in the map. If the
+// key is not present, then this errors with a catchable (sentinel) error, so
+// that the except operator can catch it and provide a fallback value, eg:
+// `$map["k"] <|> "default"`.
 func MapLookup(ctx context.Context, input []types.Value) (types.Value, error) {
 	m := input[0].(*types.MapValue)
 	key := input[1]
-	//zero := m.Type().Val.New() // the zero value
 
 	val, exists := m.Lookup(key)
 	if !exists {
-		//return zero, nil
-		return nil, fmt.Errorf("map key not present, want: %v in %v", key, m)
+		return nil, interfaces.Sentinelf("map key not present, want: %v in %v", key, m)
 	}
 	return val, nil
 }

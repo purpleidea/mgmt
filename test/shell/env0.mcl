@@ -1,15 +1,15 @@
 import "fmt"
 import "sys"
 
-$tmpdir = sys.defaultenv("TMPDIR", "/tmp")
+$tmpdir = sys.getenv("TMPDIR") <|> "/tmp"
 
 $x = sys.getenv("TEST")
-$y = sys.getenv("DOESNOTEXIST")
+$y = sys.getenv("DOESNOTEXIST") <|> ""
 $z = sys.getenv("EMPTY")
 
-$a = sys.defaultenv("TEST", "321")
-$b = sys.defaultenv("DOESNOTEXIST", "321")
-$c = sys.defaultenv("EMPTY", "456")
+$a = sys.getenv("TEST") <|> "321"
+$b = sys.getenv("DOESNOTEXIST") <|> "321"
+$c = sys.getenv("EMPTY") <|> "456"
 
 $t = sys.hasenv("TEST")
 $f = sys.hasenv("DOESNOTEXIST")

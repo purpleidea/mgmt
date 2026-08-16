@@ -35,6 +35,7 @@ import (
 	"net"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -68,8 +69,10 @@ func init() {
 // port pair, as this is a requirement of the underlying library.
 func SplitHostPort(ctx context.Context, input []types.Value) (types.Value, error) {
 	h, p, err := net.SplitHostPort(input[0].Str())
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error parsing the input")
+	if err != nil { // this parse error is catchable with except
+		return nil, &interfaces.SentinelError{
+			Err: errwrap.Wrapf(err, "error parsing the input"),
+		}
 	}
 
 	v := types.NewStruct(types.NewType(splitHostPortReturnType))

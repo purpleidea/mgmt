@@ -31,11 +31,11 @@ package corenet
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -96,17 +96,18 @@ func IsMac(ctx context.Context, input []types.Value) (types.Value, error) {
 }
 
 // MacFmt takes a MAC address with hyphens and converts it to a format with
-// colons.
+// colons. An invalid MAC address errors with a catchable (sentinel) error, so
+// that the except operator can catch it and provide a fallback value.
 func MacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	mac := input[0].Str()
 
 	// Check if the MAC address is valid.
 	if len(mac) != len("00:00:00:00:00:00") {
-		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+		return nil, interfaces.Sentinelf("invalid MAC address length: %s", mac)
 	}
 	hw, err := net.ParseMAC(mac)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	return &types.StrValue{
@@ -115,17 +116,19 @@ func MacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 }
 
 // OldMacFmt takes a MAC address with colons and converts it to a format with
-// hyphens. This is the old deprecated style that nobody likes.
+// hyphens. This is the old deprecated style that nobody likes. An invalid MAC
+// address errors with a catchable (sentinel) error, so that the except operator
+// can catch it and provide a fallback value.
 func OldMacFmt(ctx context.Context, input []types.Value) (types.Value, error) {
 	mac := input[0].Str()
 
 	// Check if the MAC address is valid.
 	if len(mac) != len("00:00:00:00:00:00") {
-		return nil, fmt.Errorf("invalid MAC address length: %s", mac)
+		return nil, interfaces.Sentinelf("invalid MAC address length: %s", mac)
 	}
 	hw, err := net.ParseMAC(mac)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	return &types.StrValue{

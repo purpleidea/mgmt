@@ -35,6 +35,7 @@ import (
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -51,7 +52,11 @@ func init() {
 	})
 }
 
-// StrToInt converts a string to an integer.
+// StrToInt converts a string to an integer. If the string is not a valid
+// integer, then this errors with a catchable (sentinel) error, so that the
+// except operator can catch it and provide a fallback value, eg:
+//
+//	convert.str_to_int($s) <|> 0
 func StrToInt(ctx context.Context, input []types.Value) (types.Value, error) {
 	if len(input) < 1 {
 		return nil, fmt.Errorf("not enough args")
@@ -61,7 +66,7 @@ func StrToInt(ctx context.Context, input []types.Value) (types.Value, error) {
 	bits := 64 // TODO: get from runtime?
 	x, err := strconv.ParseInt(input[0].Str(), base, bits)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 	return &types.IntValue{
 		V: x,

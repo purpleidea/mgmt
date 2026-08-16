@@ -56,6 +56,10 @@ func init() {
 
 // ReadFileFunc is a function that reads the full contents from a local file. If
 // the file contents change or the file path changes, a new string will be sent.
+// If the file does not exist, then this errors with a catchable (sentinel)
+// error, so that the except operator can catch it and provide a fallback value
+// if desired. Since we keep watching the path, if the file appears later, we
+// automatically recover and its contents get used instead of that fallback.
 // Please note that this is different from the readfile function in the deploy
 // package.
 type ReadFileFunc struct {
@@ -270,7 +274,19 @@ func (obj *ReadFileFunc) Call(ctx context.Context, args []types.Value) (types.Va
 
 	// read file...
 	content, err := os.ReadFile(filename)
-	if err != nil {
+	if err != nil && os.IsNotExist(err) {
+		// This error is catchable, since a missing file is an expected
+		// possibility, and our Stream keeps watching that path, so if
+		// the file appears, we automatically recover with its contents.
+		// You can catch it with the except operator, eg:
+		//
+		//	os.readfile("/tmp/f") <|> "default"
+		//
+		return nil, &interfaces.SentinelError{
+			Err: errwrap.Wrapf(err, "error reading file"),
+		}
+	}
+	if err != nil { // any other error (eg: permissions) is permanent
 		return nil, errwrap.Wrapf(err, "error reading file")
 	}
 

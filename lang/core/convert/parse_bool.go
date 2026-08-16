@@ -31,10 +31,10 @@ package convert
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -54,12 +54,16 @@ func init() {
 // ParseBool parses a bool string and returns a boolean. It errors if you pass
 // it an invalid value. Valid values match what is accepted by the golang
 // strconv.ParseBool function. It's recommended to use the strings `true` or
-// `false` if you are undecided about what string representation to choose.
+// `false` if you are undecided about what string representation to choose. The
+// error is catchable (a sentinel), so that the except operator can catch it and
+// provide a fallback value, eg:
+//
+//	convert.parse_bool($s) <|> false
 func ParseBool(ctx context.Context, input []types.Value) (types.Value, error) {
 	s := input[0].Str()
 	b, err := strconv.ParseBool(s)
 	if err != nil {
-		return nil, fmt.Errorf("invalid bool: `%s`", s)
+		return nil, interfaces.Sentinelf("invalid bool: `%s`", s)
 	}
 	return &types.BoolValue{
 		V: b,

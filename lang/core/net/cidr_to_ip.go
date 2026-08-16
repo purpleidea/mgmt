@@ -32,13 +32,13 @@ package corenet
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"net"
 	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -110,7 +110,7 @@ func CidrToIP(ctx context.Context, input []types.Value) (types.Value, error) {
 	cidr := input[0].Str()
 	ip, _, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 	return &types.StrValue{
 		V: ip.String(),
@@ -123,7 +123,7 @@ func CidrToPrefix(ctx context.Context, input []types.Value) (types.Value, error)
 	cidr := input[0].Str()
 	_, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	ones, _ := ipnet.Mask.Size()
@@ -138,7 +138,7 @@ func CidrToMask(ctx context.Context, input []types.Value) (types.Value, error) {
 	cidr := input[0].Str()
 	_, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 	return &types.StrValue{
 		V: net.IP(ipnet.Mask).String(),
@@ -150,7 +150,7 @@ func CidrToNetwork(ctx context.Context, input []types.Value) (types.Value, error
 	cidr := input[0].Str()
 	ip, ipnet, err := net.ParseCIDR(strings.TrimSpace(cidr))
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	networkAddr := ip.Mask(ipnet.Mask)
@@ -166,7 +166,7 @@ func CidrToFirst(ctx context.Context, input []types.Value) (types.Value, error) 
 	cidr := input[0].Str()
 	prefix, err := netip.ParsePrefix(cidr)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	// prefix.Addr() gives the network address, the "first usable" is
@@ -177,7 +177,7 @@ func CidrToFirst(ctx context.Context, input []types.Value) (types.Value, error) 
 	// Check if it's still within the prefix range.
 	if !prefix.Contains(firstUsable) {
 		// e.g. for a /32, there's no "next" usable address
-		return nil, fmt.Errorf("no usable next address")
+		return nil, interfaces.Sentinelf("no usable next address")
 	}
 
 	return &types.StrValue{
@@ -191,7 +191,7 @@ func CidrToLast(ctx context.Context, input []types.Value) (types.Value, error) {
 	cidr := input[0].Str()
 	prefix, err := netip.ParsePrefix(cidr)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	// get the network address (masked)
@@ -206,7 +206,7 @@ func CidrToLast(ctx context.Context, input []types.Value) (types.Value, error) {
 	}
 
 	if s == "" {
-		return nil, fmt.Errorf("no usable last address")
+		return nil, interfaces.Sentinelf("no usable last address")
 	}
 	return &types.StrValue{
 		V: s,

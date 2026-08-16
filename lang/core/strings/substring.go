@@ -31,9 +31,9 @@ package corestrings
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -50,16 +50,20 @@ func init() {
 	})
 }
 
-// SubStr returns a substring of the input string from low to high.
+// SubStr returns a substring of the input string from low to high. If either
+// index is out of range, then this errors with a catchable (sentinel) error, so
+// that the except operator can catch it and provide a fallback value, eg:
+//
+//	strings.substr($s, 0, 4) <|> $s
 func SubStr(ctx context.Context, input []types.Value) (types.Value, error) {
 	s := input[0].Str()
 	low := int(input[1].Int())
 	high := int(input[2].Int())
 	if low < 0 || low > len(s) {
-		return nil, fmt.Errorf("low/high out of range")
+		return nil, interfaces.Sentinelf("low/high out of range")
 	}
 	if high < 0 || high > len(s) || low > high {
-		return nil, fmt.Errorf("low/high out of range")
+		return nil, interfaces.Sentinelf("low/high out of range")
 	}
 	return &types.StrValue{
 		V: s[low:high],

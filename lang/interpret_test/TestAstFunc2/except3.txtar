@@ -1,0 +1,13 @@
+-- main.mcl --
+import "convert"
+import "fmt"
+
+# an invalid conversion is a catchable error
+$x = convert.str_to_int("not a number") <|> 42
+$y = convert.str_to_int("13") <|> 42
+
+test [fmt.printf("%d", $x)] {}
+test [fmt.printf("%d", $y)] {}
+-- OUTPUT --
+Vertex: test[13]
+Vertex: test[42]

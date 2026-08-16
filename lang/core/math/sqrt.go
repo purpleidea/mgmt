@@ -31,10 +31,10 @@ package coremath
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -51,18 +51,22 @@ func init() {
 	})
 }
 
-// Sqrt returns sqrt(x), the square root of x.
+// Sqrt returns sqrt(x), the square root of x. The domain errors (for example
+// the square root of a negative number) are catchable (sentinel) errors, so
+// that the except operator can catch them and provide a fallback value, eg:
+//
+//	math.sqrt($x) <|> 0.0
 func Sqrt(ctx context.Context, input []types.Value) (types.Value, error) {
 	x := input[0].Float()
 	y := math.Sqrt(x)
 	if math.IsNaN(y) {
-		return nil, fmt.Errorf("result is not a number")
+		return nil, interfaces.Sentinelf("result is not a number")
 	}
 	if math.IsInf(y, 1) {
-		return nil, fmt.Errorf("result is positive infinity")
+		return nil, interfaces.Sentinelf("result is positive infinity")
 	}
 	if math.IsInf(y, -1) {
-		return nil, fmt.Errorf("result is negative infinity")
+		return nil, interfaces.Sentinelf("result is negative infinity")
 	}
 	return &types.FloatValue{
 		V: y,

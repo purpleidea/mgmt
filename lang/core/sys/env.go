@@ -35,6 +35,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -48,16 +49,6 @@ func init() {
 		},
 		T: types.NewType("func(str) str"),
 		F: GetEnv,
-	})
-	simple.ModuleRegister(ModuleName, "defaultenv", &simple.Scaffold{
-		I: &simple.Info{
-			Pure: false,
-			Memo: false,
-			Fast: true,
-			Spec: false,
-		},
-		T: types.NewType("func(str, str) str"),
-		F: DefaultEnv,
 	})
 	simple.ModuleRegister(ModuleName, "hasenv", &simple.Scaffold{
 		I: &simple.Info{
@@ -81,20 +72,19 @@ func init() {
 	})
 }
 
-// GetEnv gets environment variable by name or returns empty string if non
-// existing.
+// GetEnv gets an environment variable by name. If the variable is not set, then
+// this errors with a catchable (sentinel) error, so that the except operator
+// can catch it and provide a fallback value, eg:
+//
+//	sys.getenv("TEST") <|> "default"
+//
+// Note that a variable which is set to the empty string exists, and as such it
+// returns the empty string without erroring.
 func GetEnv(ctx context.Context, input []types.Value) (types.Value, error) {
-	return &types.StrValue{
-		V: os.Getenv(input[0].Str()),
-	}, nil
-}
-
-// DefaultEnv gets environment variable by name or returns default if non
-// existing.
-func DefaultEnv(ctx context.Context, input []types.Value) (types.Value, error) {
-	value, exists := os.LookupEnv(input[0].Str())
+	name := input[0].Str()
+	value, exists := os.LookupEnv(name)
 	if !exists {
-		value = input[1].Str()
+		return nil, interfaces.Sentinelf("environment variable not set: %s", name)
 	}
 	return &types.StrValue{
 		V: value,

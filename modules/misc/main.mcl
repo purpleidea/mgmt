@@ -87,7 +87,7 @@ class ssh_keygen_type($user, $type) {
 	line "${user}@${hostname}" {
 		#file => "", # specified on collect
 		#state => "exists", # specified on collect
-		content => os.readfilewait("${p}.ssh/id_${type}.pub"),
+		content => os.readfile("${p}.ssh/id_${type}.pub") <|> "",
 
 		Meta:hidden => true,
 		Meta:export => ["*"],

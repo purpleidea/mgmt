@@ -35,6 +35,7 @@ import (
 	"math"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -75,14 +76,16 @@ func Mod(ctx context.Context, input []types.Value) (types.Value, error) {
 		return nil, fmt.Errorf("unexpected kind: %s", k)
 	}
 	z := math.Mod(x, y)
+	// These domain errors (eg: mod by zero) are catchable with the except
+	// operator, eg: `math.mod($x, $y) <|> 0`.
 	if math.IsNaN(z) {
-		return nil, fmt.Errorf("result is not a number")
+		return nil, interfaces.Sentinelf("result is not a number")
 	}
 	if math.IsInf(z, 1) {
-		return nil, fmt.Errorf("unexpected positive infinity")
+		return nil, interfaces.Sentinelf("unexpected positive infinity")
 	}
 	if math.IsInf(z, -1) {
-		return nil, fmt.Errorf("unexpected negative infinity")
+		return nil, interfaces.Sentinelf("unexpected negative infinity")
 	}
 	if float {
 		return &types.FloatValue{

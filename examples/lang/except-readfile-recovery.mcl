@@ -1,0 +1,32 @@
+import "os"
+
+# This demonstrates a changing os.readfile primary with an except fallback.
+#
+# First make sure the input is absent:
+#
+#	rm -f /tmp/except-readfile-recovery-input
+#
+# Then start mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/except-readfile-recovery.mcl
+#
+# In another terminal, watch the managed output file:
+#
+#	watch -n 0.5 cat /tmp/except-readfile-recovery-output
+#
+# The output starts as "default" because the input file is missing. Now create
+# the input file and the resource should flip to the primary value:
+#
+#	echo recovered > /tmp/except-readfile-recovery-input
+#
+# Remove the input again to see the fallback get reattached:
+#
+#	rm -f /tmp/except-readfile-recovery-input
+
+$input = "/tmp/except-readfile-recovery-input"
+$output = "/tmp/except-readfile-recovery-output"
+
+file $output {
+	state => $const.res.file.state.exists,
+	content => os.readfile($input) <|> "default", # the magic happens here!
+}

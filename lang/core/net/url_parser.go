@@ -35,6 +35,7 @@ import (
 	"net/url"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
@@ -74,11 +75,13 @@ func init() {
 // output in the future.
 func URLParser(ctx context.Context, input []types.Value) (types.Value, error) {
 	u, err := url.Parse(input[0].Str())
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "error parsing the URL")
+	if err != nil { // this parse error is catchable with except
+		return nil, &interfaces.SentinelError{
+			Err: errwrap.Wrapf(err, "error parsing the URL"),
+		}
 	}
 	if u.Scheme == "" {
-		return nil, fmt.Errorf("empty schemes are invalid")
+		return nil, interfaces.Sentinelf("empty schemes are invalid")
 	}
 
 	v := types.NewStruct(types.NewType(urlParserReturnType))

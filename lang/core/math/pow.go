@@ -31,10 +31,10 @@ package coremath
 
 import (
 	"context"
-	"fmt"
 	"math"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -56,14 +56,15 @@ func Pow(ctx context.Context, input []types.Value) (types.Value, error) {
 	x, y := input[0].Float(), input[1].Float()
 	// FIXME: check for overflow
 	z := math.Pow(x, y)
+	// These domain errors are catchable with the except operator.
 	if math.IsNaN(z) {
-		return nil, fmt.Errorf("result is not a number")
+		return nil, interfaces.Sentinelf("result is not a number")
 	}
 	if math.IsInf(z, 1) {
-		return nil, fmt.Errorf("result is positive infinity")
+		return nil, interfaces.Sentinelf("result is positive infinity")
 	}
 	if math.IsInf(z, -1) {
-		return nil, fmt.Errorf("result is negative infinity")
+		return nil, interfaces.Sentinelf("result is negative infinity")
 	}
 	// TODO: consider only returning floats, and adding isinf and
 	// isnan functions so that users can decide for themselves...

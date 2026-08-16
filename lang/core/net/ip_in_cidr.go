@@ -31,10 +31,10 @@ package corenet
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -52,17 +52,18 @@ func init() {
 }
 
 // IPInCidr returns true if the input ip is part of a CIDR network. If either
-// value is invalid this errors.
+// value is invalid this errors with a catchable (sentinel) error, so that the
+// except operator can catch it and provide a fallback value.
 func IPInCidr(ctx context.Context, input []types.Value) (types.Value, error) {
 	s := input[0].Str()
 	ip := net.ParseIP(s)
 	if ip == nil {
-		return nil, fmt.Errorf("invalid IP: %s", s)
+		return nil, interfaces.Sentinelf("invalid IP: %s", s)
 	}
 
 	_, network, err := net.ParseCIDR(input[1].Str())
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 
 	return &types.BoolValue{

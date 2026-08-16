@@ -90,6 +90,10 @@ zero. Normally any error in the function graph shuts the engine down, but if an
 expression which errored has an except operator attached, then the fallback
 expression is used instead. Both sides must have the same type.
 
+Other examples of functions which can return "catchable" errors include an
+invalid string conversion with `convert.str_to_int`, a missing file with
+`os.readfile`, or an unset variable with `sys.getenv`.
+
 ```mcl
 $l = ["a", "b", "c"]
 $x = $l[42] <|> "default"	# list index missing, so we get "default"

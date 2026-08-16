@@ -35,6 +35,7 @@ import (
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 )
 
@@ -51,7 +52,11 @@ func init() {
 	})
 }
 
-// StrToFloat converts a string to a float.
+// StrToFloat converts a string to a float. If the string is not a valid float,
+// then this errors with a catchable (sentinel) error, so that the except
+// operator can catch it and provide a fallback value, eg:
+//
+//	convert.str_to_float($s) <|> 0.0
 func StrToFloat(ctx context.Context, input []types.Value) (types.Value, error) {
 	if len(input) < 1 {
 		return nil, fmt.Errorf("not enough args")
@@ -60,7 +65,7 @@ func StrToFloat(ctx context.Context, input []types.Value) (types.Value, error) {
 	bits := 64 // TODO: get from runtime?
 	x, err := strconv.ParseFloat(input[0].Str(), bits)
 	if err != nil {
-		return nil, err
+		return nil, &interfaces.SentinelError{Err: err} // catchable
 	}
 	return &types.FloatValue{
 		V: x,

@@ -1728,3 +1728,79 @@ func (obj *VariantValue) Struct() map[string]Value {
 func (obj *VariantValue) Func() interface{} {
 	return obj.V.Func()
 }
+
+// ErrValue represents an error that is passed around in place of a real value.
+// It is used by the function engine to propagate errors along the edges of the
+// function graph, so that a downstream vertex can catch them and provide a
+// fallback value if it knows how to. This is *not* a normal value, and it must
+// never be used or stored where a real value is expected. The type it carries
+// is the type of the value that would have been produced if the error had not
+// occurred. This is so that type comparison operations still work when this
+// value is passed around in place of a real one.
+type ErrValue struct {
+	Base
+
+	// Typ is the type of the value which would exist if it didn't error.
+	Typ *Type
+
+	// Err is the error that this value is carrying. It must not be nil.
+	Err error
+}
+
+// String returns a visual representation of this value.
+func (obj *ErrValue) String() string {
+	return fmt.Sprintf("err(%v)", obj.Err)
+}
+
+// Type returns the type data structure that represents this type.
+func (obj *ErrValue) Type() *Type { return obj.Typ }
+
+// Less compares to value and returns true if we're smaller. This panics for
+// this type because error values must not be sorted.
+func (obj *ErrValue) Less(v Value) bool {
+	panic("cannot compare error values")
+}
+
+// Cmp returns an error if this value isn't the same as the arg passed in.
+func (obj *ErrValue) Cmp(val Value) error {
+	if obj == nil || val == nil {
+		return fmt.Errorf("cannot cmp to nil")
+	}
+	if err := obj.Type().Cmp(val.Type()); err != nil {
+		return errwrap.Wrapf(err, "cannot cmp types")
+	}
+
+	cmp, ok := val.(*ErrValue)
+	if !ok {
+		return fmt.Errorf("values are not both error values")
+	}
+	if obj.Err.Error() != cmp.Err.Error() {
+		return fmt.Errorf("values are different")
+	}
+
+	return nil
+}
+
+// Copy returns a copy of this value.
+func (obj *ErrValue) Copy() Value {
+	return &ErrValue{
+		Typ: obj.Typ.Copy(),
+		Err: obj.Err,
+	}
+}
+
+// Value returns the raw value of this type.
+func (obj *ErrValue) Value() interface{} {
+	return obj.Err
+}
+
+// IsErr determines if a value is actually an error value in disguise. These are
+// usually passed around by the function engine, and are not expected to be
+// visible to most code.
+func IsErr(v Value) (error, bool) {
+	ev, ok := v.(*ErrValue)
+	if !ok {
+		return nil, false
+	}
+	return ev.Err, true
+}

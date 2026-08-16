@@ -30,6 +30,9 @@
 package interfaces
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/purpleidea/mgmt/util"
 )
 
@@ -56,3 +59,42 @@ const (
 	// to run.
 	ErrInterrupt = util.Error("function call interrupted")
 )
+
+// SentinelError wraps an error to mark it as "catchable". By default, any error
+// returned from the Call method of a function is a permanent error, and it will
+// shut down the function engine instantly. This is the right choice for
+// programming errors and other truly unexpected situations. Some errors are an
+// expected possibility however, such as a missing list index or map key in a
+// lookup, or a division by zero. Functions which want those to be recoverable
+// must wrap them with this type. The function engine will then propagate them
+// downstream along the graph edges in place of a value, giving the except
+// operator a chance to catch them and provide a fallback value. If nobody
+// catches one, it is fatal when it arrives at a sink. Wrap errors with the
+// Sentinelf helper function to return them conveniently.
+type SentinelError struct {
+
+	// Err is the error we are wrapping. It must not be nil.
+	Err error
+}
+
+// Error implements the error interface for this special error type.
+func (obj *SentinelError) Error() string { return obj.Err.Error() }
+
+// Unwrap lets the standard errors package look inside of this error type.
+func (obj *SentinelError) Unwrap() error { return obj.Err }
+
+// Sentinelf works like fmt.Errorf, except that the returned error is marked as
+// "catchable" for the function engine. Use it in the Call method of a function
+// for any error which should be catchable by the except operator, instead of
+// being an instant, permanent, fatal error.
+func Sentinelf(format string, v ...interface{}) error {
+	return &SentinelError{
+		Err: fmt.Errorf(format, v...),
+	}
+}
+
+// IsSentinelError returns true if the error is of type SentinelError.
+func IsSentinelError(err error) bool {
+	var sentinel *SentinelError
+	return errors.As(err, &sentinel)
+}

@@ -50,6 +50,20 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// LogCatchableErrors determines whether catchable (sentinel) errors get
+	// logged (with a source position highlight) when they occur. Such an
+	// error might get caught downstream by the except operator, in which
+	// case the log message is arguably just noise, since providing the
+	// fallback value is the expected and healthy code path there. Set this
+	// to false to keep those errors silent. An uncaught error which arrives
+	// at a sink is fatal, and is always part of the final engine error,
+	// independent of this setting. Either way, we only log a failure when
+	// its error message changes, not on every event, since a failed
+	// function is called again whenever new input values arrive for it.
+	LogCatchableErrors = false // useful for debugging but normally confuses
+)
+
 // Engine implements a dag engine which lets us "run" a dag of functions, but
 // also allows us to modify it while we are running. The functions we support
 // can take one of two forms.
@@ -355,22 +369,22 @@ Start:
 				obj.wg.Add(1)
 				go func() {
 					defer obj.wg.Done()
-					// XXX: I think the design should be that
-					// if this ever shuts down, then the
-					// function engine should shut down, but
-					// that the individual Call() can error...
-					// This is inline with our os.Readfilewait
-					// function which models the logic we want...
-					// If the call errors AND we have the Except
-					// feature, then we want that Except to run,
-					// but if we get a new event, then we should
-					// try again. basically revive itself after
-					// an errored Call function. Of course if
-					// Stream shuts down, we're nuked, so maybe
-					// we might want to retry... So maybe a resource
-					// could tweak the retry params for such a
-					// function??? Or maybe a #pragma kind of
-					// directive thing above each function???
+					// If Stream ever errors, then the whole
+					// function engine shuts down. This is
+					// different from Call, which can return
+					// a catchable (sentinel) error: those
+					// propagate down the graph in place of
+					// values, and can get caught by the
+					// except operator. If a new event comes
+					// in, the failed Call runs again, and
+					// it can revive itself. Any other Call
+					// error is permanent and fatal. Of
+					// course if Stream shuts down, we're
+					// nuked, so maybe we might want to
+					// retry... Maybe a resource could tweak
+					// the retry params for such a function?
+					// Or maybe a #pragma kind of directive
+					// thing above each function??? TBD...
 					err := streamableFunc.Stream(ctx)
 					if err == nil {
 						return
@@ -397,6 +411,14 @@ Start:
 			//incoming := obj.graph.IncomingGraphVertices(f) // []pgraph.Vertex
 			incoming := node.incoming // memoized!
 			sig := node.sig
+
+			// Is this vertex a catch-point for propagating upstream
+			// errors? Almost no function are: errors slide past the
+			// normal ones (we don't even run Call) and it's only
+			// the rare catch-point (the except operator) which can
+			// receive them as *types.ErrValue args, in its normal
+			// Call.
+			_, isExceptable := f.(interfaces.ExceptableFunc)
 
 			// Not all of the incoming edges have been added yet.
 			// We start by doing the "easy" count, and if it fails,
@@ -475,8 +497,30 @@ Start:
 					//continue Iterate
 				}
 
+				// The node we pull from failed instead of
+				// making a value. If we're not a catch-point,
+				// then we fail too, without running Call, and
+				// the error keeps propagating downstream in
+				// place of a value. If it arrives at a sink (no
+				// outgoing edges) then nobody was able to catch
+				// it, and it's fatal.
+				failed := fromNode.failed
+				if failed != nil && !isExceptable {
+					node.failed = failed
+					node.failedStr = fromNode.failedStr
+					node.failedSrc = fromNode.failedSrc
+					node.result = nil
+					node.epoch = epoch // nothing else to do this epoch
+					table[f] = nil     // reset any stale value
+					if !node.hasOutgoing {
+						obj.logFatalFailure(node)
+						return failed // fatal, nobody caught it
+					}
+					continue Iterate
+				}
+
 				value := fromNode.result
-				if value == nil {
+				if value == nil && failed == nil {
 					//if valid { // must be a programming err!
 					//panic(fmt.Sprintf("unexpected nil node result from: %s", ff))
 					//}
@@ -505,6 +549,18 @@ Start:
 					//	// XXX: we could maybe detect this at the incoming loop above instead
 					//	continue
 					//}
+					// We're a catch-point, so we receive
+					// the upstream error in place of the
+					// value it would have sent. The type is
+					// the one the real value would have had
+					// so that any type comparisons still
+					// work as expected.
+					if failed != nil {
+						value = &types.ErrValue{
+							Typ: sig.Map[arg],
+							Err: failed,
+						}
+					}
 					// populate struct
 					if err := st.Set(arg, value); err != nil {
 						//panic(fmt.Sprintf("struct set failure on `%s` from `%s`: %v", node, fromNode, err))
@@ -540,8 +596,6 @@ Start:
 			}
 			//node.result, err = f.Call(ctx, args)
 			node.result, err = obj.call(ctx, args, f) // recovers!
-			// XXX: On error lookup the fallback value if it exists.
-			// XXX: This might cause an interrupt + graph addition.
 			if err == interfaces.ErrInterrupt {
 				// re-run topological sort... at the top!
 
@@ -558,9 +612,48 @@ Start:
 				// Don't wrap this with the below highlighter!
 				return err
 			}
-			if err != nil {
+			if err != nil && !interfaces.IsSentinelError(err) {
+				// Any error is permanent and instantly fatal,
+				// unless the function explicitly marked it as
+				// catchable by wrapping it as a SentinelError.
 				return interfaces.HighlightHelper(f, obj.Logf, err)
 			}
+			if err != nil {
+				// The function returned a catchable (sentinel)
+				// error. This is not (yet) fatal. We store the
+				// error and propagate it downstream in place of
+				// a real value, so that a downstream
+				// catch-point (the except operator) has a
+				// chance to catch it and provide a fallback
+				// value. If it arrives at a sink (no outgoing
+				// edges) then it's fatal since nobody was able
+				// to catch it.
+				if s := err.Error(); node.failed == nil || node.failedStr != s {
+					// Wrap it with the source position.
+					// This also logs, so only do it on a
+					// change to avoid spamming on every new
+					// event.
+					logf := obj.Logf
+					if !LogCatchableErrors { // silence it
+						logf = func(format string, v ...interface{}) {}
+					}
+					node.failed = interfaces.HighlightHelper(f, logf, err)
+					node.failedStr = s
+					node.failedSrc = f
+				}
+				node.result = nil
+				node.epoch = epoch // nothing else to do this epoch
+				table[f] = nil     // reset any stale value
+				if !node.hasOutgoing {
+					obj.logFatalFailure(node)
+					return node.failed // fatal, nobody caught it
+				}
+				continue
+			}
+			node.failed = nil // reset after a successful call
+			node.failedStr = ""
+			node.failedSrc = nil
+
 			// Previously: len(obj.graph.OutgoingGraphVertices(f)) > 0
 			if node.result == nil && node.hasOutgoing {
 				// XXX: this check may not work if we have our
@@ -1121,6 +1214,21 @@ func (obj *Engine) errAppend(err error) {
 	obj.errMutex.Unlock()
 }
 
+// logFatalFailure emits the original source highlight for an uncaught catchable
+// error. Caught errors stay silent when LogCatchableErrors is false.
+func (obj *Engine) logFatalFailure(node *state) {
+	if LogCatchableErrors {
+		return
+	}
+	if node.failedSrc == nil || node.failedStr == "" {
+		return
+	}
+
+	// The returned error is ignored because node.failed already contains
+	// the source byline that should be returned to callers.
+	_ = interfaces.HighlightHelper(node.failedSrc, obj.Logf, fmt.Errorf("%s", node.failedStr))
+}
+
 // state tracks some internal vertex-specific state information.
 type state struct {
 	Func interfaces.Func
@@ -1138,6 +1246,23 @@ type state struct {
 
 	// result is the latest output from calling this function.
 	result types.Value
+
+	// failed is set when the last Call of this function returned an error
+	// which was explicitly marked as catchable (a SentinelError) or when an
+	// upstream error propagated through us. It travels downstream along the
+	// edges in place of a real value, until either a catch-point (the
+	// except operator) catches it, or it arrives at a sink (a vertex with
+	// no outgoing edges) where it is fatal. It contains position info. Any
+	// other (permanent) Call error shuts the engine down instantly instead.
+	failed error
+
+	// failedStr caches the raw error string of the last failure, so that we
+	// only log (and re-wrap) an error when it actually changes.
+	failedStr string
+
+	// failedSrc is the function that originally produced failed. This is
+	// used to log the correct source highlight if failed reaches a sink.
+	failedSrc interfaces.Func
 
 	// Cache everything the iterate loop needs for this vertex. These values
 	// are built once per interrupt (when the graph shape changes) and are

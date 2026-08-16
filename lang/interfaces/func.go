@@ -183,6 +183,27 @@ type StreamableFunc interface {
 	Stream(context.Context) error
 }
 
+// ExceptableFunc is a function which can accept error values as inputs. When an
+// upstream function returns a catchable (SentinelError) error in Call, the
+// function engine stores that error and propagates it downstream along the
+// edges in place of a real value, instead of shutting down. (Any other Call
+// error is permanent, and it shuts the engine down instantly.) Most functions
+// never see these errors, because the engine skips their Call and passes the
+// error further along. If the error arrives at a function which implements this
+// interface, the engine calls it normally, but with a *types.ErrValue in each
+// arg position that would have received a value from a failed vertex. That
+// function is then responsible for handling the error, usually by switching to
+// some fallback subgraph. If an error arrives at a vertex with no outgoing
+// edges (a sink) then nobody was able to catch it, and the engine shuts down
+// with that error.
+type ExceptableFunc interface {
+	Func // implement everything in Func but add the additional requirements
+
+	// Exceptable is a marker method that tells the engine we can receive
+	// *types.ErrValue inputs in Call.
+	Exceptable()
+}
+
 // CleanableFunc is an interface for functions that might have some cleanup to
 // run after they have been removed from the graph. It's usually useful for
 // executing cleanup transactions.

@@ -58,7 +58,7 @@ type State struct {
 	Version  string
 	Hostname string
 
-	//Converger *converger.Coordinator
+	Converger *converger.Coordinator
 
 	Local *local.API
 	World engine.World
@@ -192,9 +192,10 @@ func (obj *State) Init() error {
 	//obj.tuid = obj.Converger.Register() // gets registered in Worker()
 
 	obj.init = &engine.Init{
-		Program:  obj.Program,
-		Version:  obj.Version,
-		Hostname: obj.Hostname,
+		Program:   obj.Program,
+		Version:   obj.Version,
+		Hostname:  obj.Hostname,
+		Converger: obj.Converger,
 
 		// Watch:
 		Event: obj.event,

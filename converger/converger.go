@@ -40,6 +40,11 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
+const (
+	// StateFnExit is the state function which exits after convergence.
+	StateFnExit = "exit"
+)
+
 // StateFns are a map of state functions which are run with the converged state
 // whenever it changes.
 type StateFns = map[string]func(context.Context, bool) error
@@ -115,6 +120,17 @@ func (obj *Coordinator) Init() error { // TODO: do we need an error?
 	obj.wg = &sync.WaitGroup{}
 
 	return nil
+}
+
+// TimeoutSeconds returns the configured convergence timeout in seconds.
+func (obj *Coordinator) TimeoutSeconds() int {
+	return obj.Timeout
+}
+
+// ExitsOnConverged reports whether an exit state function is configured.
+func (obj *Coordinator) ExitsOnConverged() bool {
+	_, exists := obj.StateFns[StateFnExit]
+	return exists
 }
 
 // Register creates a new UID which can be used to report converged state. You

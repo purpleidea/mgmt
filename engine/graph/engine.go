@@ -308,10 +308,10 @@ func (obj *Engine) Commit(ctx context.Context) error {
 			Version:  obj.Version,
 			Hostname: obj.Hostname,
 
-			//Converger: obj.Converger,
-			Local:  obj.Local,
-			World:  obj.World,
-			Prefix: statePrefix,
+			Converger: obj.Converger,
+			Local:     obj.Local,
+			World:     obj.World,
+			Prefix:    statePrefix,
 
 			Debug: obj.Debug,
 			Logf: func(format string, v ...interface{}) {

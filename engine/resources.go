@@ -37,6 +37,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/purpleidea/mgmt/converger"
 	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/pgraph"
@@ -147,6 +148,10 @@ type Init struct {
 	// Hostname is the uuid for the host.
 	Hostname string
 
+	// Converger is the process-wide convergence coordinator. This is the
+	// live, mutable handle, not a read-only view.
+	Converger *converger.Coordinator
+
 	// Called from within Watch:
 
 	// Event sends an event notifying the engine of a possible state change.
@@ -219,13 +224,14 @@ type Init struct {
 // Copy makes a copy of this Init struct, with all of the same elements inside.
 func (obj *Init) Copy() *Init {
 	return &Init{
-		Program:  obj.Program,
-		Version:  obj.Version,
-		Hostname: obj.Hostname,
-		Event:    obj.Event,
-		Refresh:  obj.Refresh,
-		Send:     obj.Send,
-		Recv:     obj.Recv,
+		Program:   obj.Program,
+		Version:   obj.Version,
+		Hostname:  obj.Hostname,
+		Converger: obj.Converger,
+		Event:     obj.Event,
+		Refresh:   obj.Refresh,
+		Send:      obj.Send,
+		Recv:      obj.Recv,
 		//Graph: obj.Graph, // TODO: not implemented, use FilteredGraph
 		FilteredGraph: obj.FilteredGraph,
 		Local:         obj.Local,

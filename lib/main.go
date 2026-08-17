@@ -583,7 +583,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	stateFns := converger.StateFns{}
 	if obj.ConvergedExit && obj.ConvergerTimeout >= 0 {
-		stateFns["exit"] = func(ctx context.Context, converged bool) error {
+		stateFns[converger.StateFnExit] = func(ctx context.Context, converged bool) error {
 			if converged {
 				Logf("converged for %d seconds, exiting!", obj.ConvergerTimeout)
 				cancelCause(nil) // trigger an exit!

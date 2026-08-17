@@ -130,6 +130,13 @@ func (obj *ExprIfFunc) Info() *interfaces.Info {
 // Init runs some startup code for this if expression function.
 func (obj *ExprIfFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	// If this func is being re-added to the graph, then our previous
+	// subgraph was already torn down (via Cleanup/Reverse) when we were
+	// removed. Reset last so that the next Call always rebuilds the branch
+	// subgraph. Otherwise, if the condition happens to match the stale last
+	// value, we'd skip the rebuild and never re-add the edge to our output
+	// vertex, leaving it permanently starved of a value.
+	obj.last = nil
 	return nil
 }
 

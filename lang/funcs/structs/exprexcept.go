@@ -149,6 +149,12 @@ func (obj *ExprExceptFunc) Info() *interfaces.Info {
 // Init runs some startup code for this except expression function.
 func (obj *ExprExceptFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	// If this func is being re-added to the graph, then our previous
+	// subgraph was already torn down (via Cleanup/Reverse) when we were
+	// removed. Reset last so that the next Call always rebuilds the branch
+	// subgraph, otherwise a stale last matching the error state would
+	// wrongly skip the rebuild.
+	obj.last = nil
 	return nil
 }
 

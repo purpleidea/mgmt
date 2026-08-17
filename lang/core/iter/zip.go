@@ -266,6 +266,8 @@ func (obj *ZipFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *ZipFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.last1 = nil // reset in case we're being re-added to the graph
+	obj.last2 = nil
 	obj.lastFuncValue = nil
 	obj.lastN = -1
 

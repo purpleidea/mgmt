@@ -224,6 +224,7 @@ func (obj *FilterFunc) Info() *interfaces.Info {
 // Init runs some startup code for this function.
 func (obj *FilterFunc) Init(init *interfaces.Init) error {
 	obj.init = init
+	obj.last = nil // reset in case we're being re-added to the graph
 	obj.lastFuncValue = nil
 	obj.lastInputListLength = -1
 

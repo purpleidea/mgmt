@@ -264,6 +264,30 @@ type SchedulerWorld interface {
 	Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error)
 }
 
+// EndpointsWorld is a world interface that provides information about how to
+// connect to the backing datastore, both from this host, and from foreign
+// hosts. It is used by anything that wants to bootstrap a new member into the
+// cluster, such as the remote resource, which needs to tell a newly spawned
+// agent where to connect to.
+type EndpointsWorld interface {
+	// LocalEndpoints returns the URLs that this process can currently use
+	// to reach the world backend. They are only guaranteed to be valid
+	// from this hosts perspective, eg: they may be localhost URLs.
+	LocalEndpoints(ctx context.Context) ([]string, error)
+
+	// AdvertisedEndpoints returns a map from hostname to the URLs which
+	// that host advertises for anyone to connect to the world backend.
+	// These may or may not be reachable from any given network location,
+	// eg: they may be localhost URLs if that host didn't advertise
+	// anything publicly routable.
+	AdvertisedEndpoints(ctx context.Context) (map[string][]string, error)
+
+	// WatchEndpoints returns a channel which sends an event on any possible
+	// change to the results of the above two methods. On an event, re-run
+	// the getters to see what changed.
+	WatchEndpoints(ctx context.Context) (<-chan error, error)
+}
+
 // EtcdWorld is a world interface that should be implemented if the world
 // backend is implementing etcd, and if it supports dynamically resizing things.
 // TODO: In theory we could generalize this to support other backends, but lets

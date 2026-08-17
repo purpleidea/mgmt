@@ -659,6 +659,14 @@ func (obj *World) Cleanup() error {
 	return obj.cleanup()
 }
 
+// LocalEndpoints overrides the embedded etcd.World implementation, because the
+// endpoints which our client uses are only reachable through our own SSH
+// tunnel, and as a result they would be misleading to anyone who wants to make
+// a direct connection to them, such as the remote resource tunnelling code.
+func (obj *World) LocalEndpoints(ctx context.Context) ([]string, error) {
+	return nil, fmt.Errorf("local endpoints are tunnelled over ssh, they are not directly dialable")
+}
+
 // tunnelConn is the net.Conn that we hand to grpc for an ssh tunnel. It ties
 // the tunnel channel and its dedicated ssh client together so that closing the
 // conn also closes the client. This is necessary because an ssh channel's Close

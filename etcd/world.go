@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -50,6 +51,7 @@ import (
 )
 
 var _ engine.SchedulerWorld = &World{} // guarantee the contract
+var _ engine.EndpointsWorld = &World{} // guarantee the contract
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
@@ -348,4 +350,117 @@ func (obj *World) Fs(ctx context.Context, uri string) (engine.Fs, error) {
 // WatchMembers returns a channel of changing members in the cluster.
 func (obj *World) WatchMembers(ctx context.Context) (<-chan *interfaces.MembersResult, error) {
 	return obj.client.WatchMembers(ctx)
+}
+
+// LocalEndpoints returns the URLs that this process can currently use to reach
+// the world backend. They are only guaranteed to be valid from this hosts
+// perspective, eg: they may be localhost URLs.
+func (obj *World) LocalEndpoints(ctx context.Context) ([]string, error) {
+	c := obj.client.GetClient()
+	if c == nil {
+		return nil, fmt.Errorf("client is nil")
+	}
+	endpoints := c.Endpoints()
+	if len(endpoints) == 0 {
+		return nil, fmt.Errorf("no endpoints available")
+	}
+	return endpoints, nil
+}
+
+// AdvertisedEndpoints returns a map from hostname to the URLs which that host
+// advertises for anyone to connect to the world backend. These may or may not
+// be reachable from any given network location, eg: they may be localhost URLs
+// if that host didn't advertise anything publicly routable.
+func (obj *World) AdvertisedEndpoints(ctx context.Context) (map[string][]string, error) {
+	c := obj.client.GetClient()
+	if c == nil {
+		return nil, fmt.Errorf("client is nil")
+	}
+	resp, err := c.MemberList(ctx)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not get member list")
+	}
+	if resp == nil {
+		return nil, fmt.Errorf("empty response")
+	}
+
+	result := make(map[string][]string)
+	for _, m := range resp.Members {
+		if m == nil || m.Name == "" { // skip nil or unstarted members
+			continue
+		}
+		result[m.Name] = m.ClientURLs // these are the advertised ones
+	}
+	return result, nil
+}
+
+// WatchEndpoints returns a channel which sends an event on any possible change
+// to the results of LocalEndpoints or AdvertisedEndpoints. On an event, re-run
+// the getters to see what changed. Since the underlying member watch polls, we
+// deduplicate here and only send an event when something actually changed. An
+// initial event is sent once we're successfully watching.
+func (obj *World) WatchEndpoints(ctx context.Context) (<-chan error, error) {
+	membersChan, err := obj.client.WatchMembers(ctx)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not watch members")
+	}
+
+	ch := make(chan error)
+	go func() {
+		defer close(ch)
+		previous := ""
+		started := false
+		for {
+			var result *interfaces.MembersResult
+			var ok bool
+			select {
+			case result, ok = <-membersChan:
+				if !ok {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+
+			if result.Err != nil {
+				select {
+				case ch <- result.Err:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			// build a canonical string to deduplicate with
+			current := membersFingerprint(result.Members)
+			if started && current == previous {
+				continue // skip duplicate poll results
+			}
+			previous = current
+			started = true
+
+			select {
+			case ch <- nil: // send an event
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
+// membersFingerprint builds a canonical string out of a members list so that
+// two identical results can be compared and deduplicated.
+func membersFingerprint(members []*interfaces.Member) string {
+	hosts := []string{}
+	for _, m := range members {
+		curls := []string{}
+		for _, u := range m.ClientURLs {
+			curls = append(curls, u.String())
+		}
+		sort.Strings(curls)
+		hosts = append(hosts, fmt.Sprintf("%s=%s", m.Name, strings.Join(curls, ",")))
+	}
+	sort.Strings(hosts)
+	return strings.Join(hosts, ";")
 }

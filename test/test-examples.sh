@@ -17,10 +17,28 @@ find_mcl_examples() {
 	repo_files | grep '\.mcl$' | grep '^examples/lang/' | grep -v 'modules/'
 }
 
-for file in $(find_mcl_examples); do
-	#echo "mcl: $file"
-	run-test ./mgmt check --tmp-prefix lang --skip-fmt "$file" &> /dev/null || fail_test "could not compile: $file"
-done
+mcl_jobs=${MGMT_TEST_JOBS:-}
+if [[ -z $mcl_jobs ]]; then
+	mcl_jobs=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || true)
+fi
+case "$mcl_jobs" in
+'' | 0 | *[!0-9]*) mcl_jobs=1 ;;
+esac
+if [[ -z ${MGMT_TEST_JOBS:-} ]]; then
+	# These short checks benefit from oversubscription; 8x was near the
+	# measured throughput plateau.
+	mcl_jobs=$((mcl_jobs * 8))
+fi
+
+# Each file is an independent mcl program. Check several in parallel, while
+# keeping the number of memory-heavy mgmt processes bounded.
+failures=$(
+	# bash's $0 argument is underscore so xargs appends each file as $1.
+	find_mcl_examples | xargs -n 1 -P "$mcl_jobs" bash -c '
+		file=$1
+		"$MGMT" check --tmp-prefix lang --skip-fmt "$file" &>/dev/null || echo "./mgmt check --tmp-prefix lang --skip-fmt $file"
+	' _ # arg0 is not needed
+)
 
 buildout='test-examples.out'
 # make symlink to outside of package

@@ -257,6 +257,15 @@ type PkPackageIDActionData struct {
 	Newest    bool
 }
 
+type resolvedPackage struct {
+	Info      uint32
+	PackageID string
+}
+
+// PackageKit's Package signal uses sequential PkInfoEnum values, not the
+// bitfield values used by the PkInfoEnum constants above.
+const packageInfoInstalledValue uint32 = 1
+
 // NewBus returns a new bus connection.
 func NewBus() (*Conn, error) {
 	// if we share the bus with others, we will get each others messages!!
@@ -371,11 +380,42 @@ func (obj *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 
 // ResolvePackages runs the PackageKit Resolve method and returns the result.
 func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter uint64) ([]string, error) {
-	packageIDs := []string{}
+	resolved, err := obj.resolvePackagesWithInfo(ctx, packages, filter)
+	if err != nil {
+		return nil, err
+	}
+	packageIDs := make([]string, 0, len(resolved))
+	for _, pkg := range resolved {
+		packageIDs = append(packageIDs, pkg.PackageID)
+	}
+	return packageIDs, nil
+}
+
+func newResolvedPackage(body []interface{}) (*resolvedPackage, bool) {
+	if len(body) < 2 {
+		return nil, false
+	}
+	info, _ := body[0].(uint32)
+	packageID, ok := body[1].(string)
+	if !ok {
+		return nil, false
+	}
+	return &resolvedPackage{
+		Info:      info,
+		PackageID: packageID,
+	}, true
+}
+
+func (obj resolvedPackage) installed() bool {
+	return obj.Info == packageInfoInstalledValue
+}
+
+func (obj *Conn) resolvePackagesWithInfo(ctx context.Context, packages []string, filter uint64) ([]resolvedPackage, error) {
+	resolved := []resolvedPackage{}
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := obj.CreateTransaction() // emits Destroy on close
 	if err != nil {
-		return []string{}, err
+		return []resolvedPackage{}, err
 	}
 
 	// add signal matches for Package and Finished which will always be last
@@ -394,7 +434,7 @@ func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter 
 		obj.Logf("ResolvePackages(): Call: Success!")
 	}
 	if call.Err != nil {
-		return []string{}, call.Err
+		return []resolvedPackage{}, call.Err
 	}
 loop:
 	for {
@@ -403,7 +443,7 @@ loop:
 		case signal, ok := <-ch:
 			if !ok {
 				// channel closed, e.g. the bus connection died
-				return []string{}, fmt.Errorf("signal channel closed unexpectedly")
+				return []resolvedPackage{}, fmt.Errorf("signal channel closed unexpectedly")
 			}
 			if obj.Debug {
 				obj.Logf("ResolvePackages(): Signal: %+v", signal)
@@ -414,21 +454,18 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return []string{}, newPkError(signal.Body)
+				return []resolvedPackage{}, newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
-				//pkg_int, ok := signal.Body[0].(int)
-				packageID, ok := signal.Body[1].(string)
-				// format is: name;version;arch;data
+				pkg, ok := newResolvedPackage(signal.Body)
 				if !ok {
 					continue loop
 				}
-				//comment, ok := signal.Body[2].(string)
-				for _, p := range packageIDs {
-					if packageID == p {
+				for _, p := range resolved {
+					if pkg.PackageID == p.PackageID {
 						continue loop // duplicate!
 					}
 				}
-				packageIDs = append(packageIDs, packageID)
+				resolved = append(resolved, *pkg)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -436,39 +473,35 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
+				return []resolvedPackage{}, fmt.Errorf("error in body: %v", signal.Body)
 			}
 
 		case <-ctx.Done(): // the engine cancelled us, e.g. a slow network
-			return []string{}, ctx.Err()
+			return []resolvedPackage{}, ctx.Err()
 		}
 	}
-	return packageIDs, nil
+	return resolved, nil
 }
 
 // IsInstalledList queries a list of packages to see if they are installed.
 func (obj *Conn) IsInstalledList(ctx context.Context, packages []string) ([]bool, error) {
 	var filter uint64          // initializes at the "zero" value of 0
 	filter += PkFilterEnumArch // always search in our arch
-	packageIDs, err := obj.ResolvePackages(ctx, packages, filter)
+	resolved, err := obj.resolvePackagesWithInfo(ctx, packages, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error resolving packages")
 	}
 
 	var m = make(map[string]int)
-	for _, packageID := range packageIDs {
-		s := strings.Split(packageID, ";")
+	for _, packageInfo := range resolved {
+		s := strings.Split(packageInfo.PackageID, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
 		pkg := s[0]
-		flags := strings.Split(s[3], ":")
-		for _, f := range flags {
-			if f == "installed" {
-				if _, exists := m[pkg]; !exists {
-					m[pkg] = 0
-				}
-				m[pkg]++ // if we see pkg installed, increment
-				break
+		if packageInfo.installed() {
+			if _, exists := m[pkg]; !exists {
+				m[pkg] = 0
 			}
+			m[pkg]++ // if we see pkg installed, increment
 		}
 	}
 
@@ -889,7 +922,7 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 	if obj.Debug {
 		obj.Logf("PackagesToPackageIDs(): %s", strings.Join(packages, ", "))
 	}
-	resolved, err := obj.ResolvePackages(ctx, packages, filter)
+	resolved, err := obj.resolvePackagesWithInfo(ctx, packages, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error resolving")
 	}
@@ -904,13 +937,14 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 	}
 	var index int
 
-	for _, packageID := range resolved {
+	for _, packageInfo := range resolved {
 		index = -1
+		packageID := packageInfo.PackageID
 		//obj.Logf("* %v", packageID)
 		// format is: name;version;arch;data
 		s := strings.Split(packageID, ";")
 		//if len(s) != 4 { continue } // this would be a bug!
-		pkg, ver, arch, data := s[0], s[1], s[2], s[3]
+		pkg, ver, arch, _ := s[0], s[1], s[2], s[3]
 		// we might need to allow some of this, eg: i386 .deb on amd64
 		b, err := IsMyArch(arch)
 		if err != nil {
@@ -940,7 +974,7 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 			}
 		}
 
-		if FlagInData("installed", data) {
+		if packageInfo.installed() {
 			installed[index] = true
 			version[index] = ver
 			// state of "uninstalled" matched during CheckApply, and

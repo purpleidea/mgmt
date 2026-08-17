@@ -57,3 +57,47 @@ func TestNewPkErrorInvalidBody(t *testing.T) {
 		t.Errorf("expected error")
 	}
 }
+
+func TestResolvedPackageInstalledStateUsesSignalInfo(t *testing.T) {
+	const (
+		packageKitSignalInfoInstalled uint32 = 1
+		packageKitSignalInfoAvailable uint32 = 2
+	)
+
+	tests := []struct {
+		name      string
+		body      []interface{}
+		installed bool
+	}{
+		{
+			name: "debian apt installed signal",
+			body: []interface{}{
+				packageKitSignalInfoInstalled,
+				"qemu-utils;1:10.0.8+ds-0+deb13u1+b2;amd64;auto:debian-stable-main",
+				"QEMU utilities",
+			},
+			installed: true,
+		},
+		{
+			name: "available signal",
+			body: []interface{}{
+				packageKitSignalInfoAvailable,
+				"qemu-utils;1:10.0.8+ds-0+deb13u1+b2;amd64;debian-stable-main",
+				"QEMU utilities",
+			},
+			installed: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pkg, ok := newResolvedPackage(test.body)
+			if !ok {
+				t.Fatalf("expected package signal body to parse")
+			}
+			if pkg.installed() != test.installed {
+				t.Fatalf("installed: got %t, want %t", pkg.installed(), test.installed)
+			}
+		})
+	}
+}

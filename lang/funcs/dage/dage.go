@@ -226,7 +226,6 @@ func (obj *Engine) Run(ctx context.Context) error {
 // incoming graph argument as well, I would expect.
 func (obj *Engine) process(ctx context.Context, epoch int64) error {
 
-	mapping := make(map[pgraph.Vertex]int)
 	start := 0
 	table := make(interfaces.Table) // map[interfaces.Func]types.Value
 
@@ -303,11 +302,8 @@ Start:
 			// happen, because those can cause transactions to run,
 			// and those transactions run obj.effect() which resets
 			// this interrupt value back to true!
-			obj.interrupt = false            // reset
-			start = 0                        // restart the loop
-			for i, v := range obj.topoSort { // TODO: Do it once here, or repeatedly below?
-				mapping[v] = i
-			}
+			obj.interrupt = false // reset
+			start = 0             // restart the loop
 			//obj.lastTable = nil // XXX: structural change, always send?
 
 			goto PreIterate // skip waiting for a new event
@@ -339,9 +335,8 @@ Start:
 				}
 				continue
 			}
-			// i is 0 if missing
-			i, _ := mapping[node.Func] // get the node to start from...
-			start = i
+			// topoIndex is 0 for a node that wasn't cached yet
+			start = node.topoIndex // get the node to start from...
 			// XXX: Should we ACK() here so that Stream can "make"
 			// the new value available to it's Call() starting now?
 
@@ -366,7 +361,6 @@ Start:
 			if obj.Debug {
 				obj.Logf("topo(%d): %p %+v", i, f, f)
 			}
-			mapping[v] = i // store for subsequent loops
 
 			node, exists := obj.state[f]
 			if !exists {
@@ -774,7 +768,7 @@ func (obj *Engine) cache() {
 		}
 	}
 
-	for _, v := range obj.topoSort {
+	for i, v := range obj.topoSort {
 		f, ok := v.(interfaces.Func)
 		if !ok {
 			panic("not a Func")
@@ -783,6 +777,8 @@ func (obj *Engine) cache() {
 		if !exists {
 			panic(fmt.Sprintf("node state missing: %s", f))
 		}
+
+		state.topoIndex = i
 
 		state.incoming = make([]interfaces.Func, len(incomingCache[v]))
 		state.incomingArgs = make(map[interfaces.Func][]string) // map Func -> (*FuncEdge).Args
@@ -1304,6 +1300,7 @@ type state struct {
 	// are built once per interrupt (when the graph shape changes) and are
 	// reused on every subsequent event until the next interrupt.
 	sig           *types.Type
+	topoIndex     int
 	incoming      []interfaces.Func
 	incomingArgs  map[interfaces.Func][]string
 	realEdgeCount int

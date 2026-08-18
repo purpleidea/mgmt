@@ -1,0 +1,56 @@
+import "world"
+
+$ns = "remote"
+$self_hostname = "lappy"
+$dest_hostname = "host2"
+
+if $hostname == "${self_hostname}" { # my laptop
+
+	# the remote side sets this key to "ok" once it finishes its work
+	$exchanged = world.kvlookup($ns)
+	$state = $exchanged[$dest_hostname] <|> ""
+
+	print "state" {
+		msg => "state is: '${state}'",
+
+		Meta:autogroup => false,
+	}
+
+	if $state != "ok" {
+		remote "remote1" {
+			# don't put the password here, this is just an example
+			# for debugging!
+			remote => "ssh://root@${dest_hostname}:22/",
+			#allow_cleartext_password => true, # for debugging only, password leaks!
+
+			state => "running",
+
+			caching => true, # cache the remote binary
+			transient => true, # stop it before closing its ssh tunnel
+			tunnelled => true, # tunnel etcd back through the ssh connection
+
+			install_deps => true,
+			converger_timeout => 10,
+		}
+	}
+}
+
+# We could even chain a second jump from the remote host here...
+
+# This part runs on the remote host. The code arrives there via the normal
+# deploy mechanism, since the remote instance is a member of our cluster.
+if $hostname == $dest_hostname {
+
+	file "/tmp/wow" {
+		content => "hello from ${self_hostname}\n",
+		state => "exists",
+	}
+
+	kv "ok@${hostname}" { # happens when everything is done
+		key => $ns,
+		value => "ok",
+		mapped => true,
+	}
+
+	File["/tmp/wow"] -> Kv["ok@${hostname}"]
+}

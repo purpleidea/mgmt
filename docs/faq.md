@@ -457,9 +457,7 @@ deploy to the standalone binary you've previously run.
 ### The docs speaks of `--remote` but the CLI errors out?
 
 The `--remote` flag existed in an earlier version of mgmt. It was removed and
-will be replaced with a more powerful version, which is a "remote" resource. The
-code is mostly ready but it's not finished. If you'd like to help finish it or
-sponsor the work, please let me know.
+was replaced with a more powerful version, which is the "remote" resource.
 
 ### Does this support Windows? OSX? GNU Hurd?
 

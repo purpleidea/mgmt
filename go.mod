@@ -33,6 +33,7 @@ require (
 	github.com/metal-automata/fw v0.0.0-20260201142203-2928c3e2daea
 	github.com/pin/tftp/v3 v3.1.0
 	github.com/pkg/errors v0.9.1
+	github.com/pkg/sftp v1.13.11
 	github.com/prometheus/client_golang v1.23.2
 	github.com/purpleidea/lsmod v0.0.0-20250606013221-b3436dd8182f
 	github.com/sanity-io/litter v1.5.5
@@ -124,6 +125,7 @@ require (
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

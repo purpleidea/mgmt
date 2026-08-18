@@ -1,0 +1,15 @@
+$user = "root"
+$dest = "192.168.100.1"
+$self_hostname = "lappy"
+
+if $hostname == "${self_hostname}" {
+	remote "remote0" {
+		# don't put the password here, this is just an example for debugging!
+		remote => "ssh://${user}@${dest}:22/",
+		#allow_cleartext_password => true, # for debugging only, password leaks!
+
+		caching => true, # cache the remote binary
+		transient => true, # stop the remote instance when we shut down
+		tunnelled => true, # tunnel the etcd connection back through ssh
+	}
+}

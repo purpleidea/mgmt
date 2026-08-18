@@ -17,7 +17,6 @@ For more information, you may like to read some blog posts from the author:
 * [Automatic edges in mgmt](https://purpleidea.com/blog/2016/03/14/automatic-edges-in-mgmt/)
 * [Automatic grouping in mgmt](https://purpleidea.com/blog/2016/03/30/automatic-grouping-in-mgmt/)
 * [Automatic clustering in mgmt](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/)
-* [Remote execution in mgmt](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
 * [Send/Recv in mgmt](https://purpleidea.com/blog/2016/12/07/sendrecv-in-mgmt/)
 * [Metaparameters in mgmt](https://purpleidea.com/blog/2017/03/01/metaparameters-in-mgmt/)
 
@@ -100,14 +99,14 @@ with the `--seeds` variable.
 You can read the introductory blog post about this topic here:
 [https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/](https://purpleidea.com/blog/2016/06/20/automatic-clustering-in-mgmt/)
 
-### Remote ("agent-less") mode
+### Remote execution ("agent-less")
 
-Remote mode is a special mode that lets you kick off mgmt runs on one or more
-remote machines which are only accessible via SSH. In this mode the initiating
-host connects over SSH, copies over the `mgmt` binary, opens an SSH tunnel, and
-runs the remote program while simultaneously passing the etcd traffic back
-through the tunnel so that the initiators etcd cluster can be used to exchange
-resource data.
+Remote execution lets you kick off mgmt runs on one or more remote machines
+which are only accessible via SSH. This is done via the `remote` resource. Here
+the initiating host connects over SSH, copies over the `mgmt` binary, opens an
+SSH tunnel, and runs the remote program while simultaneously passing the etcd
+traffic back through the tunnel so that the initiators etcd cluster can be used
+to exchange resource data.
 
 The interesting benefit of this architecture is that multiple hosts which can't
 connect directly use the initiator to pass the important traffic through to each
@@ -123,13 +122,8 @@ the group to exit. This is particularly useful for bootstrapping new clusters
 which need to exchange information that is only available at run time.
 
 This existed in earlier versions of mgmt as a `--remote` option, but it has been
-removed and is being ported to a more powerful variant where you can remote
+removed and has being ported to the more powerful variant where you can remote
 execute via a `remote` resource.
-
-#### Blog post
-
-You can read the introductory blog post about this topic here:
-[https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/](https://purpleidea.com/blog/2016/10/07/remote-execution-in-mgmt/)
 
 ## Reference
 

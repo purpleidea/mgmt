@@ -783,6 +783,10 @@ func (obj *Engine) cache() {
 		state.incoming = make([]interfaces.Func, len(incomingCache[v]))
 		state.incomingArgs = make(map[interfaces.Func][]string) // map Func -> (*FuncEdge).Args
 
+		// Count the "logical" edges. We have shared edges which
+		// represent more than one value, when the same value is passed
+		// more than once to the same func, so each arg name in an edge
+		// counts as one logical edge. See realEdgeCount for reference.
 		total := 0
 		for i, xm := range incomingCache[v] {
 			state.incoming[i] = xm.v1
@@ -914,7 +918,7 @@ func (obj *Engine) addVertex(f interfaces.Func) error {
 
 	txn := obj.Txn()
 
-	// This is the one of two places where we modify this map. To avoid
+	// This is one of the two places where we modify this map. To avoid
 	// concurrent writes, we only do this when we're locked! Anywhere that
 	// can read where we are locked must have a mutex around it or do the
 	// lookup when we're in an unlocked state.
@@ -1040,9 +1044,8 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 	if !exists {
 		return fmt.Errorf("vertex %p %s doesn't exist", f, f)
 	}
-	_ = node
 
-	// This is the one of two places where we modify this map. To avoid
+	// This is one of the two places where we modify this map. To avoid
 	// concurrent writes, we only do this when we're locked! Anywhere that
 	// can read where we are locked must have a mutex around it or do the
 	// lookup when we're in an unlocked state.

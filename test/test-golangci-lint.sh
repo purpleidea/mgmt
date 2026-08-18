@@ -86,7 +86,9 @@ linters:
 				- organization
 				- organized
 				- penalize
+				- prioritization
 				- prioritize
+				- prioritizing
 				- randomized
 				- realization
 				- realize
@@ -164,8 +166,12 @@ linters:
 				  correction: organized
 				- typo: penalise
 				  correction: penalize
+				- typo: prioritisation
+				  correction: prioritization
 				- typo: prioritise
 				  correction: prioritize
+				- typo: prioritising
+				  correction: prioritizing
 				- typo: randomised
 				  correction: randomized
 				- typo: realisation

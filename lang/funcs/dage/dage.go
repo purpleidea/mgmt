@@ -249,27 +249,8 @@ Start:
 				op := obj.ops[0]      // run in same order added
 				obj.ops = obj.ops[1:] // queue
 
-				// adds are new vertices which join the graph
-				if add, ok := op.(*addVertex); ok {
-					table[add.f] = nil // for symmetry
-
-					if err := add.fn(ctx); err != nil { // Init!
-						return err
-					}
-
-					continue
-				}
-
-				// deletes are the list of Func's (vertices)
-				// that were deleted in a txn.
-				if del, ok := op.(*deleteVertex); ok {
-					delete(table, del.f) // cleanup the table
-
-					if err := del.fn(ctx); err != nil { // Cleanup!
-						return err
-					}
-
-					continue
+				if err := op.apply(ctx, table); err != nil {
+					return err
 				}
 			}
 
@@ -1321,6 +1302,9 @@ func (obj *state) String() string {
 
 // ops is either an addVertex or deleteVertex operation.
 type ops interface {
+	// apply runs this operation during an engine interrupt. It must also
+	// update the table of output values to match the change.
+	apply(ctx context.Context, table interfaces.Table) error
 }
 
 // addVertex is one of the "ops" that are possible.
@@ -1329,10 +1313,22 @@ type addVertex struct {
 	fn func(context.Context) error
 }
 
+// apply adds a new vertex which joins the graph.
+func (obj *addVertex) apply(ctx context.Context, table interfaces.Table) error {
+	table[obj.f] = nil // for symmetry
+	return obj.fn(ctx) // Init!
+}
+
 // deleteVertex is one of the "ops" that are possible.
 type deleteVertex struct {
 	f  interfaces.Func
 	fn func(context.Context) error
+}
+
+// apply removes a Func (vertex) that was deleted in a txn.
+func (obj *deleteVertex) apply(ctx context.Context, table interfaces.Table) error {
+	delete(table, obj.f) // cleanup the table
+	return obj.fn(ctx)   // Cleanup!
 }
 
 // realEdgeCount tells us how many "logical" edges there are. We have shared

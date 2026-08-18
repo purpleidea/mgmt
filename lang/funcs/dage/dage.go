@@ -37,6 +37,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -62,6 +63,12 @@ const (
 	// its error message changes, not on every event, since a failed
 	// function is called again whenever new input values arrive for it.
 	LogCatchableErrors = false // useful for debugging but normally confuses
+
+	// eventQueueWarnLimit is the queued event count above which we start
+	// warning that the engine can't keep up with the incoming events. The
+	// event queue is unbounded, so this turns silent memory growth into a
+	// diagnosable log message. We warn again on every doubling of the size.
+	eventQueueWarnLimit = 1024
 )
 
 // Engine implements a dag engine which lets us "run" a dag of functions, but
@@ -88,8 +95,8 @@ const (
 //
 // XXX: If this engine continuously receives function events at a higher speed
 // than it can process, then it will bog down and consume memory infinitely. We
-// should consider adding some sort of warning or error if we get to a certain
-// size.
+// now warn when the event queue exceeds a certain size, but we should consider
+// whether we'd ever want to turn that into a hard error.
 //
 // XXX: It's likely that this engine could be made even more efficient by more
 // cleverly traversing through the graph. Instead of a topological sort, we
@@ -132,9 +139,12 @@ type Engine struct {
 
 	// ag is the aggregation channel, which receives events from any of the
 	// StreamableFunc's that are running.
-	// XXX: add a mechanism to detect if it gets too full
 	ag *util.InfiniteChan[*state]
 	//ag chan *state
+
+	// agWarned is the (atomic) queue size at which the next "event queue
+	// too big" warning fires. It doubles after each warning.
+	agWarned int64
 
 	// cancel can be called to shutdown Run() after it's started of course.
 	cancel func()
@@ -189,6 +199,7 @@ func (obj *Engine) Setup() error {
 	//obj.ag = make(chan *state, 1) // for group events
 	//obj.ag = make(chan *state) // normal no buffer, we can't drop any
 	obj.ag = util.NewInfiniteChan[*state]() // lock-free but unbounded
+	obj.agWarned = eventQueueWarnLimit
 
 	obj.streamChan = make(chan interfaces.Table)
 
@@ -790,6 +801,16 @@ func (obj *Engine) cache() {
 // which stores the event information.
 func (obj *Engine) event(ctx context.Context, state *state) error {
 	//f := state.Func // for reference, how to get the Vertex/Func pointer!
+
+	// The queue is unbounded, so if events arrive faster than we process
+	// them, we consume memory infinitely. Warn if it keeps on growing. This
+	// can run concurrently, hence the atomics. It's not exact (two senders
+	// can race past the same threshold) but it's only a warning.
+	if l := int64(obj.ag.Len()); l >= eventQueueWarnLimit {
+		if next := atomic.LoadInt64(&obj.agWarned); l >= next && atomic.CompareAndSwapInt64(&obj.agWarned, next, l*2) {
+			obj.Logf("engine event queue has %d pending events, %s is falling behind", l, obj.Name)
+		}
+	}
 
 	select {
 	case obj.ag.In <- state: // buffered to avoid blocking issues

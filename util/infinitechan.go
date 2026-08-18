@@ -29,18 +29,36 @@
 
 package util
 
+import (
+	"sync/atomic"
+)
+
 // InfiniteChan is a buffered channel that has a theoretical infinite size. Of
 // could you can run out of memory though. This is the same idea as a
 // `make(chan T, $size)` but where $size grows to however big you need it to be.
 type InfiniteChan[T any] struct {
 	In  chan<- T
 	Out <-chan T
+
+	// length is an atomic count of the values in the internal buffer.
+	length int64
+}
+
+// Len returns the number of values that are currently buffered inside. Since
+// values can get added and removed concurrently, this is an approximation.
+func (obj *InfiniteChan[T]) Len() int {
+	return int(atomic.LoadInt64(&obj.length))
 }
 
 // NewInfiniteChan builds a new InfiniteChan of the correct type.
 func NewInfiniteChan[T any]() *InfiniteChan[T] {
 	in := make(chan T)
 	out := make(chan T)
+
+	obj := &InfiniteChan[T]{
+		In:  in,
+		Out: out,
+	}
 
 	go func() {
 		defer close(out)
@@ -70,15 +88,14 @@ func NewInfiniteChan[T any]() *InfiniteChan[T] {
 					continue
 				}
 				buffer = append(buffer, val)
+				atomic.AddInt64(&obj.length, 1)
 
 			case ch <- next: // send
 				buffer = buffer[1:]
+				atomic.AddInt64(&obj.length, -1)
 			}
 		}
 	}()
 
-	return &InfiniteChan[T]{
-		In:  in,
-		Out: out,
-	}
+	return obj
 }

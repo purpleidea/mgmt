@@ -330,6 +330,15 @@ Start:
 				// TODO: If we don't have events, maybe shutdown?
 				panic("unexpected event channel shutdown")
 			}
+			if got, exists := obj.state[node.Func]; !exists || got != node {
+				// The vertex was deleted, but its Stream (which
+				// gets cancelled asynchronously) had an event
+				// already queued up. Skip the stale event.
+				if obj.Debug {
+					obj.Logf("stale event: %v", node)
+				}
+				continue
+			}
 			// i is 0 if missing
 			i, _ := mapping[node.Func] // get the node to start from...
 			start = i
@@ -366,9 +375,16 @@ Start:
 
 			streamableFunc, isStreamable := f.(interfaces.StreamableFunc)
 			if isStreamable && !node.started { // don't start twice
+				// Each Stream gets its own child ctx, so that
+				// we can shut down a single function (eg: when
+				// its vertex is deleted) without taking down
+				// the whole engine along with it!
+				streamCtx, streamCancel := context.WithCancel(ctx)
+				node.streamCancel = streamCancel
 				obj.wg.Add(1)
 				go func() {
 					defer obj.wg.Done()
+					defer streamCancel() // it's safe to call this twice
 					// If Stream ever errors, then the whole
 					// function engine shuts down. This is
 					// different from Call, which can return
@@ -385,8 +401,16 @@ Start:
 					// the retry params for such a function?
 					// Or maybe a #pragma kind of directive
 					// thing above each function??? TBD...
-					err := streamableFunc.Stream(ctx)
+					err := streamableFunc.Stream(streamCtx)
 					if err == nil {
+						return
+					}
+					// Only this node was cancelled (it was
+					// deleted from the graph) while the
+					// rest of the engine lives on. That's a
+					// deliberate, healthy shutdown of this
+					// one function, so discard its error.
+					if streamCtx.Err() == context.Canceled && ctx.Err() == nil {
 						return
 					}
 					// Don't wrap context errors with source
@@ -1030,6 +1054,13 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 	op := &deleteVertex{
 		f: f,
 		fn: func(ctx context.Context) error {
+			// Stop the running Stream (if any) first, so that the
+			// function is quiescent by the time Cleanup runs. The
+			// goroutine discards any error from this cancellation.
+			if node.streamCancel != nil {
+				node.streamCancel()
+				node.streamCancel = nil
+			}
 			// XXX: do we run f.Done() first ? Did it run elsewhere?
 			cleanableFunc, ok := f.(interfaces.CleanableFunc)
 			if !ok {
@@ -1246,6 +1277,11 @@ type state struct {
 
 	// result is the latest output from calling this function.
 	result types.Value
+
+	// streamCancel cancels the per-node context that Stream was started
+	// with. It lets us shut down a single function (eg: when its vertex is
+	// deleted) without stopping the whole engine.
+	streamCancel func()
 
 	// failed is set when the last Call of this function returned an error
 	// which was explicitly marked as catchable (a SentinelError) or when an

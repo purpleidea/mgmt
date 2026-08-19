@@ -1,0 +1,8 @@
+-- main.mcl --
+# A duplicate class name must carry a source position byline pointing at the
+# duplicate class declaration, rather than being reported without a location.
+class foo {}
+class foo {}
+test "t" {}
+-- OUTPUT --
+# err: errInterpolate: duplicate class name of: `foo`: /main.mcl @ 4:1-4:13

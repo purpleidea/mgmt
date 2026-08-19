@@ -4837,7 +4837,9 @@ func (obj *StmtProg) Interpolate() (interfaces.Stmt, error) {
 			continue
 		}
 		if _, exists := classes[stmt.Name]; exists {
-			return nil, fmt.Errorf("duplicate class name of: `%s`", stmt.Name)
+			err := fmt.Errorf("duplicate class name of: `%s`", stmt.Name)
+			// Point the error at the duplicate class declaration.
+			return nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 		}
 		// if it contains a colon we could skip it (perf busy work)
 		//if strings.Contains(stmt.Name, interfaces.ClassSep) {

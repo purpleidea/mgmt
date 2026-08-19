@@ -16,4 +16,4 @@ class someclass {
 # this should generate a compile error
 include someclass
 -- OUTPUT --
-# err: errSetScope: local import of `something.mcl` failed: module contains unused statements: found stmt: include(someclass): /main.mcl @ 2:1-2:23
+# err: errSetScope: local import of `something.mcl` failed: module contains unused statements: found stmt: include(someclass): /something.mcl @ 9:1-9:18: /main.mcl @ 2:1-2:23

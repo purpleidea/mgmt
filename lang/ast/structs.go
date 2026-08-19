@@ -6378,7 +6378,11 @@ func (obj *StmtProg) IsModuleUnsafe() error { // TODO: rename this function?
 			// all of these are safe
 		default:
 			// something else unsafe (unused)
-			return fmt.Errorf("found stmt: %s", x.String())
+			err := fmt.Errorf("found stmt: %s", x.String())
+			// Point the error at the offending statement inside the
+			// imported module, so the root cause is pinpointed there
+			// (the import site itself is located by the caller).
+			return interfaces.HighlightHelper(x, obj.data.Logf, err)
 		}
 	}
 	return nil

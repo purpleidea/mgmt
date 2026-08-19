@@ -569,6 +569,28 @@ func findExprPoly(apparentCallee interfaces.Expr) *ExprPoly {
 	}
 }
 
+// unwrapSynthetic returns the first "real" node by unwrapping any synthetic
+// nodes that the compiler introduces but which don't exist in the user's
+// original source code (eg: ExprTopLevel, ExprSingleton, ExprPoly, and
+// ExprIterated). Since these have no source position of their own, we unwrap
+// them to reach the inner node whose position we can show to the user in error
+// messages. If node is not synthetic, it is returned unchanged.
+func unwrapSynthetic(node interfaces.Node) interfaces.Node {
+	switch x := node.(type) {
+	case *ExprTopLevel:
+		return unwrapSynthetic(x.Definition)
+	case *ExprSingleton:
+		return unwrapSynthetic(x.Definition)
+	case *ExprIterated:
+		return unwrapSynthetic(x.Definition)
+	case *ExprPoly:
+		return unwrapSynthetic(x.Definition)
+
+	default:
+		return node
+	}
+}
+
 // newExprParam is a helper function to create an ExprParam with the internal
 // key set to the pointer of the thing we're creating.
 func newExprParam(name string, typ *types.Type) *ExprParam {

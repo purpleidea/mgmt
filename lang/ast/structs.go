@@ -6097,6 +6097,15 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 		invariants = append(invariants, invars...)
 	}
 
+	// The Node in each invariant is only used to produce nicer error
+	// messages. Some of those nodes are synthetic (compiler-internal
+	// wrappers with no source position of their own) so unwrap them to the
+	// real inner node here in one central place, otherwise the error would
+	// have no source position to show the user.
+	for _, invar := range invariants {
+		invar.Node = unwrapSynthetic(invar.Node)
+	}
+
 	return invariants, nil
 }
 

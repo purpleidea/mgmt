@@ -10,5 +10,5 @@ test "test2" {
 	anotherstr => $id("hello"),
 }
 -- OUTPUT --
-# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: str != int
-# err: errUnify: unify error with: topLevel(singleton(func(x) { var(x) })): type error: int != str
+# err: errUnify: type error: str != int: /main.mcl @ 4:7-4:22
+# err: errUnify: type error: int != str: /main.mcl @ 4:7-4:22

@@ -1,0 +1,9 @@
+-- main.mcl --
+# calling a lambda with the wrong number of args is a unify error, and it must
+# still show the source position (textarea) of the real func definition, not the
+# synthetic ExprTopLevel/ExprSingleton wrapper nodes.
+$f = func($a, $b) { $a }
+$x = $f(1)
+test "${x}" {}
+-- OUTPUT --
+# err: errUnify: func arg count differs: /main.mcl @ 4:6-4:25

@@ -1,0 +1,8 @@
+-- main.mcl --
+# Importing the same module twice must carry a source position byline pointing
+# at the duplicate import statement.
+import "fmt"
+import "fmt"
+test "t" {}
+-- OUTPUT --
+# err: errSetScope: import `fmt` already exists in this scope: /main.mcl @ 4:1-4:13

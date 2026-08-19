@@ -1,0 +1,8 @@
+-- main.mcl --
+# Two imports sharing an alias must carry a source position byline pointing at
+# the second import statement.
+import "fmt" as x
+import "math" as x
+test "t" {}
+-- OUTPUT --
+# err: errSetScope: import alias `x` already exists in this scope: /main.mcl @ 4:1-4:19

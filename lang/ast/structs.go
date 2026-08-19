@@ -5674,12 +5674,14 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 		}
 		// check for duplicates *in this scope*
 		if _, exists := imports[imp.Name]; exists {
-			return fmt.Errorf("import `%s` already exists in this scope", imp.Name)
+			err := fmt.Errorf("import `%s` already exists in this scope", imp.Name)
+			return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 		}
 
 		result, err := langUtil.ParseImportName(imp.Name)
 		if err != nil {
-			return errwrap.Wrapf(err, "import `%s` is not valid", imp.Name)
+			err := errwrap.Wrapf(err, "import `%s` is not valid", imp.Name)
+			return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 		}
 		alias := result.Alias // this is what we normally call the import
 
@@ -5687,14 +5689,16 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			alias = imp.Alias // use alias if specified
 		}
 		if _, exists := aliases[alias]; exists {
-			return fmt.Errorf("import alias `%s` already exists in this scope", alias)
+			err := fmt.Errorf("import alias `%s` already exists in this scope", alias)
+			return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 		}
 
 		// run the scope importer...
 		importedScope, err := obj.importScope(result, scope)
 		if err != nil {
 			obj.data.Logf("import scope `%s` failed", imp.Name)
-			return err
+			// point the error at the offending import statement
+			return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 		}
 
 		// read from stored scope which was previously saved in SetScope
@@ -5706,13 +5710,15 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			newName := alias + interfaces.ModuleSep + name
 			if alias == interfaces.BareSymbol {
 				if !AllowBareImports {
-					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					err := fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 				}
 				newName = name
 			}
 			if previous, exists := newVariables[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
-				return fmt.Errorf("can't squash variable `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				err := fmt.Errorf("can't squash variable `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 			}
 			newVariables[newName] = imp.Name
 			newScope.Variables[newName] = x // merge
@@ -5721,13 +5727,15 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			newName := alias + interfaces.ModuleSep + name
 			if alias == interfaces.BareSymbol {
 				if !AllowBareImports {
-					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					err := fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 				}
 				newName = name
 			}
 			if previous, exists := newFunctions[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
-				return fmt.Errorf("can't squash function `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				err := fmt.Errorf("can't squash function `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 			}
 			newFunctions[newName] = imp.Name
 			newScope.Functions[newName] = x
@@ -5736,13 +5744,15 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			newName := alias + interfaces.ModuleSep + name
 			if alias == interfaces.BareSymbol {
 				if !AllowBareImports {
-					return fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					err := fmt.Errorf("bare imports disabled at compile time for import of `%s`", imp.Name)
+					return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 				}
 				newName = name
 			}
 			if previous, exists := newClasses[newName]; exists && alias != interfaces.BareSymbol {
 				// don't overwrite in same scope
-				return fmt.Errorf("can't squash class `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				err := fmt.Errorf("can't squash class `%s` from `%s` by import of `%s`", newName, previous, imp.Name)
+				return interfaces.HighlightHelper(imp, obj.data.Logf, err)
 			}
 			newClasses[newName] = imp.Name
 			newScope.Classes[newName] = x

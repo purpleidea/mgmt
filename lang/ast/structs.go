@@ -11032,7 +11032,7 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	for i, arg := range obj.Args { // []interfaces.Expr
 		name, err := argGen(i) // get the Nth arg name
 		if err != nil {
-			return nil, nil, errwrap.Wrapf(err, "error getting arg name #%d for func `%s`", i, obj.Name)
+			return nil, nil, interfaces.HighlightHelper(obj, obj.data.Logf, errwrap.Wrapf(err, "error getting arg name #%d for func `%s`", i, obj.Name))
 		}
 		if name == "" {
 			// possible programming error

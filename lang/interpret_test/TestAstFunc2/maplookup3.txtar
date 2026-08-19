@@ -1,0 +1,9 @@
+-- main.mcl --
+import "map"
+
+# map.lookup takes two args (map, key), so passing a third arg here is a type
+# error. This must still show the source position (textarea) in the error.
+$name = map.lookup({}, "key", "default")
+test "${name}" {}
+-- OUTPUT --
+# err: errUnify: error getting arg name #2 for func `map.lookup`: index 2 exceeds arg length of 2: /main.mcl @ 5:9-5:41

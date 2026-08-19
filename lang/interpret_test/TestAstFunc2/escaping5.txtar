@@ -2,4 +2,4 @@
 # this is invalid (there's no \j escape sequence)
 test "X: there is no \j sequence" {}
 -- OUTPUT --
-# err: errInterpolate: parser failed: unknown escape sequence: \j
+# err: errInterpolate: parser failed: unknown escape sequence: \j: /main.mcl @ 2:6-2:34

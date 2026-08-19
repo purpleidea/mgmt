@@ -2,4 +2,4 @@
 # this is invalid (you can't have a function inside a var lookup)
 test "X: ${foo()}" {}
 -- OUTPUT --
-# err: errInterpolate: parser failed: cannot parse string: X: ${foo()}
+# err: errInterpolate: parser failed: cannot parse string: X: ${foo()}: /main.mcl @ 2:6-2:19

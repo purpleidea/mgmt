@@ -2,4 +2,4 @@
 # this is invalid (you can't have an empty var lookup)
 test "X: ${}" {}
 -- OUTPUT --
-# err: errInterpolate: parser failed: cannot parse string: X: ${}
+# err: errInterpolate: parser failed: cannot parse string: X: ${}: /main.mcl @ 2:6-2:14

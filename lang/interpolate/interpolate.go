@@ -74,7 +74,10 @@ func StrInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.
 func RagelInterpolate(str string, textarea *interfaces.Textarea, data *interfaces.Data) (interfaces.Expr, error) {
 	sequence, err := Parse(str)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "parser failed")
+		err := errwrap.Wrapf(err, "parser failed")
+		// Point the error at the string literal in the source, since
+		// the interpolation parser has no position info of its own.
+		return nil, interfaces.HighlightHelper(textarea, data.Logf, err)
 	}
 
 	// If we didn't find anything of value, we got an empty string...

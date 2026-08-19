@@ -130,6 +130,7 @@ func TestAstFunc1(t *testing.T) {
 	const magicError = "# err: "
 	const magicErrorLexParse = "errLexParse: "
 	const magicErrorInit = "errInit: "
+	const magicInterpolate = "errInterpolate: "
 	const magicErrorSetScope = "errSetScope: "
 	const magicErrorUnify = "errUnify: "
 	const magicErrorGraph = "errGraph: "
@@ -274,6 +275,7 @@ func TestAstFunc1(t *testing.T) {
 			errMagic := ""
 			failLexParse := false
 			failInit := false
+			failInterpolate := false
 			failSetScope := false
 			failUnify := false
 			failGraph := false
@@ -301,6 +303,12 @@ func TestAstFunc1(t *testing.T) {
 					errStr = strings.TrimPrefix(expstr, magicErrorInit)
 					expstr = errStr
 					failInit = true
+				}
+				if strings.HasPrefix(expstr, magicInterpolate) {
+					errMagic = magicInterpolate
+					errStr = strings.TrimPrefix(expstr, magicInterpolate)
+					expstr = errStr
+					failInterpolate = true
 				}
 				if strings.HasPrefix(expstr, magicErrorSetScope) {
 					errMagic = magicErrorSetScope
@@ -516,9 +524,24 @@ func TestAstFunc1(t *testing.T) {
 			}
 
 			iast, err := xast.Interpolate()
-			if err != nil {
+			if (!fail || !failInterpolate) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: interpolate failed with: %+v", index, err)
+				return
+			}
+			if failInterpolate && err != nil {
+				s := err.Error() // convert to string
+				if !foundErr(s) {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: expected different error", index)
+					t.Logf("test #%d: err: %s", index, s)
+					t.Logf("test #%d: exp: %s", index, expstr)
+				}
+				return // fail happened during interpolate, don't run setscope!
+			}
+			if failInterpolate && err == nil {
+				t.Errorf("test #%d: FAIL", index)
+				t.Errorf("test #%d: interpolate passed, expected fail", index)
 				return
 			}
 

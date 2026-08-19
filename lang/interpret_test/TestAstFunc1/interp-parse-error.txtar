@@ -1,0 +1,6 @@
+-- main.mcl --
+# A string-interpolation parse error must carry a source position byline that
+# points at the offending string literal, just like lex/parse and unify errors.
+test "${bad +}" {}
+-- OUTPUT --
+# err: errInterpolate: parser failed: cannot parse string: ${bad +}: /main.mcl @ 3:6-3:16

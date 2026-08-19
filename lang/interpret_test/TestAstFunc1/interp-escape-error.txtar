@@ -1,0 +1,7 @@
+-- main.mcl --
+# A bad escape sequence inside a string is caught by the interpolation parser
+# and must also carry a source position byline pointing at the string literal.
+$x = "bad\qescape"
+test "t" {}
+-- OUTPUT --
+# err: errInterpolate: parser failed: unknown escape sequence: \q: /main.mcl @ 3:6-3:19

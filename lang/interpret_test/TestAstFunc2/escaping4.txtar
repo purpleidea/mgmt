@@ -2,4 +2,4 @@
 # this is invalid (you can't escape a z, right?)
 test "X: \z" {}
 -- OUTPUT --
-# err: errInterpolate: parser failed: unknown escape sequence: \z
+# err: errInterpolate: parser failed: unknown escape sequence: \z: /main.mcl @ 2:6-2:13

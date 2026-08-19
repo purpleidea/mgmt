@@ -1,0 +1,12 @@
+-- main.mcl --
+# A unify error on a `forkv` loop value variable must point at the `$f`
+# declaration in the loop header, not at the whole forkv statement.
+$fns = {"a" => func($x) { $x }}
+forkv $k, $f in $fns {
+	test "t" {
+		int8 => $f(1),
+		anotherstr => $f("a"),
+	}
+}
+-- OUTPUT --
+# err: errUnify: type error: int != str: /main.mcl @ 4:11-4:13

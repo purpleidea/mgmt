@@ -1,0 +1,13 @@
+-- main.mcl --
+# A unify error on a `for` loop variable must point at the `$f` declaration in
+# the loop header, not at the whole for statement. The loop variable is used as
+# a function at two conflicting types, so the conflict lands on the loop param.
+$fns = [func($x) { $x }]
+for $i, $f in $fns {
+	test "t" {
+		int8 => $f(1),
+		anotherstr => $f("a"),
+	}
+}
+-- OUTPUT --
+# err: errUnify: type error: int != str: /main.mcl @ 5:9-5:11

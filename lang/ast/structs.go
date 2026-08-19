@@ -3654,6 +3654,14 @@ type StmtFor struct {
 	Index string // no $ prefix
 	Value string // no $ prefix
 
+	// IndexTextarea and ValueTextarea store the source positions of the two
+	// loop variables, so that errors about them can point at the variable
+	// declaration rather than at the whole for statement. They only carry
+	// coordinates (located by the parser). The source file comes from the
+	// parent statement's Textarea.
+	IndexTextarea interfaces.Textarea
+	ValueTextarea interfaces.Textarea
+
 	TypeIndex *types.Type
 	TypeValue *types.Type
 
@@ -3752,6 +3760,9 @@ func (obj *StmtFor) Interpolate() (interfaces.Stmt, error) {
 		Index: obj.Index,
 		Value: obj.Value,
 
+		IndexTextarea: obj.IndexTextarea,
+		ValueTextarea: obj.ValueTextarea,
+
 		TypeIndex: obj.TypeIndex,
 		TypeValue: obj.TypeValue,
 
@@ -3798,6 +3809,9 @@ func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
 
 		Index: obj.Index,
 		Value: obj.Value,
+
+		IndexTextarea: obj.IndexTextarea,
+		ValueTextarea: obj.ValueTextarea,
 
 		TypeIndex: obj.TypeIndex,
 		TypeValue: obj.TypeValue,
@@ -3919,7 +3933,15 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 		obj.Index,
 		typExprIndex,
 	)
+	// Point errors about this loop variable at its own declaration: inherit
+	// the source file from the parent statement, then stamp the located
+	// coordinates on top. Fall back to the parent if it wasn't located.
 	obj.indexParam.Textarea = obj.Textarea // inherit location from parent
+	if obj.IndexTextarea.IsSet() {
+		startLine, startColumn := obj.IndexTextarea.Pos()
+		endLine, endColumn := obj.IndexTextarea.End()
+		obj.indexParam.Locate(startLine, startColumn, endLine, endColumn)
+	}
 
 	typExprValue := obj.TypeValue
 	if obj.TypeValue == nil {
@@ -3933,6 +3955,11 @@ func (obj *StmtFor) SetScope(scope *interfaces.Scope) error {
 		typExprValue,
 	)
 	obj.valueParam.Textarea = obj.Textarea // inherit location from parent
+	if obj.ValueTextarea.IsSet() {
+		startLine, startColumn := obj.ValueTextarea.Pos()
+		endLine, endColumn := obj.ValueTextarea.End()
+		obj.valueParam.Locate(startLine, startColumn, endLine, endColumn)
+	}
 
 	newScope := scope.Copy()
 	newScope.Iterated = true // important!
@@ -4180,6 +4207,14 @@ type StmtForKV struct {
 	Key string // no $ prefix
 	Val string // no $ prefix
 
+	// KeyTextarea and ValTextarea store the source positions of the two
+	// loop variables, so that errors about them can point at the variable
+	// declaration rather than at the whole forkv statement. They only carry
+	// coordinates (located by the parser). The source file comes from the
+	// parent statement's Textarea.
+	KeyTextarea interfaces.Textarea
+	ValTextarea interfaces.Textarea
+
 	TypeKey *types.Type
 	TypeVal *types.Type
 
@@ -4278,6 +4313,9 @@ func (obj *StmtForKV) Interpolate() (interfaces.Stmt, error) {
 		Key: obj.Key,
 		Val: obj.Val,
 
+		KeyTextarea: obj.KeyTextarea,
+		ValTextarea: obj.ValTextarea,
+
 		TypeKey: obj.TypeKey,
 		TypeVal: obj.TypeVal,
 
@@ -4324,6 +4362,9 @@ func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
 
 		Key: obj.Key,
 		Val: obj.Val,
+
+		KeyTextarea: obj.KeyTextarea,
+		ValTextarea: obj.ValTextarea,
 
 		TypeKey: obj.TypeKey,
 		TypeVal: obj.TypeVal,
@@ -4442,7 +4483,15 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 		obj.Key,
 		typExprKey,
 	)
+	// Point errors about this loop variable at its own declaration: inherit
+	// the source file from the parent statement, then stamp the located
+	// coordinates on top. Fall back to the parent if it wasn't located.
 	obj.keyParam.Textarea = obj.Textarea // inherit location from parent
+	if obj.KeyTextarea.IsSet() {
+		startLine, startColumn := obj.KeyTextarea.Pos()
+		endLine, endColumn := obj.KeyTextarea.End()
+		obj.keyParam.Locate(startLine, startColumn, endLine, endColumn)
+	}
 
 	typExprVal := obj.TypeVal
 	if obj.TypeVal == nil {
@@ -4456,6 +4505,11 @@ func (obj *StmtForKV) SetScope(scope *interfaces.Scope) error {
 		typExprVal,
 	)
 	obj.valParam.Textarea = obj.Textarea // inherit location from parent
+	if obj.ValTextarea.IsSet() {
+		startLine, startColumn := obj.ValTextarea.Pos()
+		endLine, endColumn := obj.ValTextarea.End()
+		obj.valParam.Locate(startLine, startColumn, endLine, endColumn)
+	}
 
 	newScope := scope.Copy()
 	newScope.Iterated = true // important!

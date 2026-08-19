@@ -277,27 +277,35 @@ stmt:
 	// `for $index, $value in $list { <body> }`
 |	FOR var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
 	{
-		$$.stmt = &ast.StmtFor{
+		stmt := &ast.StmtFor{
 			Index: $2.str, // no $ prefix
 			Value: $4.str, // no $ prefix
 			Expr:  $6.expr, // XXX: name this List ?
 			Body:  $8.stmt,
 		}
+		// store the loop variable positions so errors can point at them
+		stmt.IndexTextarea.Locate($2.row, $2.col, $2.endRow, $2.endCol)
+		stmt.ValueTextarea.Locate($4.row, $4.col, $4.endRow, $4.endCol)
 		relocate($7, $9, $8.stmt) // the block spans the braces
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], stmt)
+		$$.stmt = stmt
 	}
 	// iterate over maps
 	// `forkv $key, $val in $map { <body> }`
 |	FORKV var_identifier COMMA var_identifier IN expr OPEN_CURLY prog CLOSE_CURLY
 	{
-		$$.stmt = &ast.StmtForKV{
+		stmt := &ast.StmtForKV{
 			Key:  $2.str, // no $ prefix
 			Val:  $4.str, // no $ prefix
 			Expr: $6.expr, // XXX: name this Map ?
 			Body: $8.stmt,
 		}
+		// store the loop variable positions so errors can point at them
+		stmt.KeyTextarea.Locate($2.row, $2.col, $2.endRow, $2.endCol)
+		stmt.ValTextarea.Locate($4.row, $4.col, $4.endRow, $4.endCol)
 		relocate($7, $9, $8.stmt) // the block spans the braces
-		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+		locate(yylex, $1, yyDollar[len(yyDollar)-1], stmt)
+		$$.stmt = stmt
 	}
 	// this is the named version, iow, a user-defined function (statement)
 	// `func name() { <expr> }`

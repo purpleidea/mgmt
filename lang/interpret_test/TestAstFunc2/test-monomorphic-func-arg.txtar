@@ -10,4 +10,5 @@ test "test1" {
 	anotherstr => use_polymorphically(func($x) { $x }),
 }
 -- OUTPUT --
-# err: errUnify: unify error with: param(id): type error: int != str
+# err: errUnify: type error: str != int: /main.mcl @ 5:26-5:29
+# err: errUnify: type error: int != str: /main.mcl @ 5:26-5:29

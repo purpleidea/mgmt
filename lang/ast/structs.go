@@ -9855,7 +9855,20 @@ func (obj *ExprFunc) SetScope(scope *interfaces.Scope, sctx map[string]interface
 				arg.Name,
 				arg.Type,
 			)
+			// Point errors about this param right at the arg
+			// declaration (eg: the `$id` in the function sig). We
+			// inherit the source file (and logf) from the parent
+			// func, since the arg only carries the coordinates that
+			// the parser located, and then stamp those coordinates
+			// on top. If the arg wasn't located (eg: for builtins
+			// whose args don't come from the parser) we keep the
+			// func's own location as a fallback.
 			param.Textarea = obj.Textarea // inherit location from parent func
+			if arg.IsSet() {
+				startLine, startColumn := arg.Pos()
+				endLine, endColumn := arg.End()
+				param.Locate(startLine, startColumn, endLine, endColumn)
+			}
 			obj.params[i] = param
 			sctxBody[arg.Name] = param
 		}

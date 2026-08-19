@@ -1045,7 +1045,10 @@ func (obj *StmtRes) collect(table interfaces.Table) (map[string]map[string]strin
 func (obj *StmtRes) resource(table interfaces.Table, resName, data string) (engine.Res, error) {
 	res, err := engine.NewNamedResource(obj.Kind, resName)
 	if err != nil {
-		return nil, errwrap.Wrapf(err, "cannot create resource kind `%s` with named `%s`", obj.Kind, resName)
+		err := errwrap.Wrapf(err, "cannot create resource kind `%s` with name `%s`", obj.Kind, resName)
+		// Point the error at the resource statement in the source for
+		// an unknown resource kind, rather than leaving it without pos.
+		return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	// Here we start off by using the collected resource as the base params.

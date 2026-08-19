@@ -1172,7 +1172,7 @@ func BenchmarkLang(b *testing.B) {
 				})
 				cancel()
 				wg.Wait()
-				lang.Cleanup()
+				_ = lang.Cleanup()
 			}
 		})
 	}

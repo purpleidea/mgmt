@@ -1,0 +1,13 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
+-- main.mcl --
+# a syntax error inside an imported file must still get a source position
+# byline, and it must point at the imported file (foo.mcl), not main.mcl.
+import "foo.mcl" as *
+test "t" {}
+-- foo.mcl --
+$x = [1, 2 3]
+-- OUTPUT --
+# err: errSetScope: local import of `foo.mcl` failed: could not generate AST from import: parser: `syntax error: unexpected INTEGER, expecting CLOSE_BRACK or COMMA`: /foo.mcl @ 1:12-1:13

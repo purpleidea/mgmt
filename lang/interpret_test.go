@@ -336,6 +336,24 @@ func TestAstFunc1(t *testing.T) {
 			fail := errStr != ""
 			expstr = strings.Trim(expstr, "\n")
 
+			logCache := "" // save for comparing logs in tests
+			logCacher := func(format string, v ...interface{}) {
+				logCache += fmt.Sprintf(format, v...) + "\n"
+			}
+			expFilter := func(expstr string) string {
+				parts := strings.SplitN(expstr, "\n", 2)
+				if len(parts) == 1 {
+					return ""
+				}
+				var filtered []string
+				for _, line := range strings.Split(parts[1], "\n") {
+					if !strings.HasPrefix(line, magicError) {
+						filtered = append(filtered, line)
+					}
+				}
+				return strings.Join(filtered, "\n")
+			}
+
 			t.Logf("\n\ntest #%d (%s) ----------------\npath: %s\n\n", index, name, src)
 
 			logf := func(format string, v ...interface{}) {
@@ -407,6 +425,13 @@ func TestAstFunc1(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			xast, err := parser.LexParse(reader)
+			if err != nil {
+				// annotate parse errors with a source position
+				// byline and caret highlight (cached for matching)
+				logCache = "" // reset
+				file := &interfaces.SourceFile{FS: output.FS, Path: output.Base + output.Metadata.Main}
+				err = interfaces.HighlightParseError(err, file, logCacher)
+			}
 			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
@@ -420,6 +445,13 @@ func TestAstFunc1(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+
+				// multiline caret matching from logf
+				if s := expFilter(expstr); s != "" && !strings.Contains(logCache, s) {
+					t.Errorf("test #%d: err:\n%s", index, logCache)
+					t.Errorf("test #%d: exp:\n%s", index, s)
+				}
+
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
 			if failLexParse && err == nil {
@@ -1024,6 +1056,13 @@ func TestAstFunc2(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			xast, err := parser.LexParse(reader)
+			if err != nil {
+				// annotate parse errors with a source position
+				// byline and caret highlight (cached for matching)
+				logCache = "" // reset
+				file := &interfaces.SourceFile{FS: output.FS, Path: output.Base + output.Metadata.Main}
+				err = interfaces.HighlightParseError(err, file, logCacher)
+			}
 			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)
@@ -1037,6 +1076,13 @@ func TestAstFunc2(t *testing.T) {
 					t.Logf("test #%d: err: %s", index, s)
 					t.Logf("test #%d: exp: %s", index, expstr)
 				}
+
+				// multiline caret matching from logf
+				if s := expFilter(expstr); s != "" && !strings.Contains(logCache, s) {
+					t.Errorf("test #%d: err:\n%s", index, logCache)
+					t.Errorf("test #%d: exp:\n%s", index, s)
+				}
+
 				return // fail happened during lex parse, don't run init/interpolate!
 			}
 			if failLexParse && err == nil {
@@ -1916,6 +1962,11 @@ func TestAstFunc3(t *testing.T) {
 
 			reader := bytes.NewReader(output.Main)
 			xast, err := parser.LexParse(reader)
+			if err != nil {
+				// annotate parse errors with a source position byline
+				file := &interfaces.SourceFile{FS: output.FS, Path: output.Base + output.Metadata.Main}
+				err = interfaces.HighlightParseError(err, file, nil)
+			}
 			if (!fail || !failLexParse) && err != nil {
 				t.Errorf("test #%d: FAIL", index)
 				t.Errorf("test #%d: lex/parse failed with: %+v", index, err)

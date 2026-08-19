@@ -2146,20 +2146,30 @@ func (yylex *Lexer) Error(str string) {
 		// the lexer fails, because it ends up generating ERROR tokens,
 		// which most parsers usually don't match and store in the AST.
 		err := ErrParseError // TODO: add more specific types...
+		// By default, point at the lexer's current position, which is
+		// the offending lookahead token that triggered the error. This
+		// is accurate for the generic "unexpected token" errors.
+		row, col := yylex.Line(), yylex.Column()
 		if strings.HasSuffix(str, ErrParseAdditionalEquals.Error()) {
 			err = ErrParseAdditionalEquals
+			// These come from the %error patterns below, where the
+			// offending lookahead token is a trailing NEWLINE or
+			// CLOSE_CURLY. Point at the parser's last tracked
+			// position instead, which sits on the meaningful token
+			// (eg: the value that is missing a comma after it).
+			row, col = lp.row, lp.col
 		} else if strings.HasSuffix(str, ErrParseExpectingComma.Error()) {
 			err = ErrParseExpectingComma
+			row, col = lp.row, lp.col
 		} else if strings.HasPrefix(str, ErrParseSetType.Error()) {
 			err = ErrParseSetType
+			row, col = lp.row, lp.col
 		}
 		lp.parseErr = &LexParseErr{
 			Err: err,
 			Str: str,
-			// FIXME: get these values, by tracking pos in parser...
-			// FIXME: currently, the values we get are mostly wrong!
-			Row: lp.row, //lp.row[len(lp.row)-1],
-			Col: lp.col, //lp.col[len(lp.col)-1],
+			Row: row,
+			Col: col,
 		}
 	}
 }

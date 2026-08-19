@@ -9,4 +9,4 @@ test "unreachable" {
 	slicestring => $mylist,
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA` @1:2
+# err: errLexParse: parser: `syntax error: unexpected COMMA`: /main.mcl @ 1:12-1:13

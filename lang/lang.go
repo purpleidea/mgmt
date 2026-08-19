@@ -160,6 +160,9 @@ func (obj *Lang) Init(ctx context.Context) error {
 	// this reads an io.Reader, which might be a stream of multiple files...
 	xast, err := parser.LexParse(reader)
 	if err != nil {
+		// annotate parse errors with a source position byline + caret
+		file := &interfaces.SourceFile{FS: output.FS, Path: output.Base + output.Metadata.Main}
+		err = interfaces.HighlightParseError(err, file, obj.Logf)
 		return errwrap.Wrapf(err, "could not generate AST")
 	}
 	obj.Logf("lexing/parsing took: %s", time.Since(timing))

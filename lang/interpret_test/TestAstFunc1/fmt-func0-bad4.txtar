@@ -14,4 +14,4 @@ test "bar" {
 	comment => bar("a", "b",), # bad
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN` @9:22
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN`: /main.mcl @ 9:26-9:27

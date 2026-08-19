@@ -1,0 +1,13 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
+-- main.mcl --
+$x = [1, 2]]
+test "t" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_BRACK, expecting NEWLINE`: /main.mcl @ 1:12-1:13
+parser: `syntax error: unexpected CLOSE_BRACK, expecting NEWLINE`: /main.mcl @ 1:12-1:13
+
+$x = [1, 2]]
+           ^

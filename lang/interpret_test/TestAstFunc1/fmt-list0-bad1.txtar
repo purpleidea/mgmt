@@ -9,4 +9,4 @@ test "foo" {
 	slicestring => $list0,
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected CLOSE_BRACK` @1:31
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_BRACK`: /main.mcl @ 1:35-1:36

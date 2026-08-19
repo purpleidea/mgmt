@@ -11,4 +11,4 @@ test "t1" {
 	uint64 => 18446744073709551615,
 }
 -- OUTPUT --
-# err: errLexParse: integer: overflow: `18446744073709551615` @6:12
+# err: errLexParse: integer: overflow: `18446744073709551615`: /main.mcl @ 6:12-6:13

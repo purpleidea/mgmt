@@ -8,4 +8,4 @@ $st = struct{w => 1, , o => 2}
 $value = $st->w
 test "${value}" {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting IDENTIFIER` @1:14
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting IDENTIFIER`: /main.mcl @ 1:22-1:23

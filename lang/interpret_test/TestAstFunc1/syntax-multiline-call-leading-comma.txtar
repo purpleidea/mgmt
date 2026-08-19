@@ -10,4 +10,4 @@ $msg = fmt.printf(
 )
 test "${msg}" {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN` @3:19
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN`: /main.mcl @ 4:2-4:3

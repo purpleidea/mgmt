@@ -1,0 +1,13 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
+-- main.mcl --
+$x = 1 2
+test "t" {}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected INTEGER, expecting NEWLINE`: /main.mcl @ 1:8-1:9
+parser: `syntax error: unexpected INTEGER, expecting NEWLINE`: /main.mcl @ 1:8-1:9
+
+$x = 1 2
+       ^

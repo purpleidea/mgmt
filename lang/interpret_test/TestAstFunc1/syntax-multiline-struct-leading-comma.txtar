@@ -11,4 +11,4 @@ $st = struct{
 $value = $st->w
 test "${value}" {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting NEWLINE or CLOSE_CURLY or IDENTIFIER` @1:14
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting NEWLINE or CLOSE_CURLY or IDENTIFIER`: /main.mcl @ 2:2-2:3

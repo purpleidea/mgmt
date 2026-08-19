@@ -1,0 +1,13 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
+-- main.mcl --
+test "t" {}
+)
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN`: /main.mcl @ 2:1-2:2
+parser: `syntax error: unexpected CLOSE_PAREN`: /main.mcl @ 2:1-2:2
+
+)
+^

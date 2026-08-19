@@ -118,6 +118,13 @@ func (obj *Textarea) End() (int, int) {
 	return obj.endLine, obj.endColumn
 }
 
+// SetSourceFile sets the source file that this textarea's positions refer to.
+// It is used when building a Textarea outside of the normal AST setup, eg to
+// annotate a lex/parse error with a source position and highlight.
+func (obj *Textarea) SetSourceFile(file *SourceFile) {
+	obj.file = file
+}
+
 // SourceFile returns the source file that holds the code for an AST node. This
 // never returns nil, but it can return an empty one if it was never set up.
 func (obj *Textarea) SourceFile() *SourceFile {
@@ -241,6 +248,41 @@ func HighlightHelper(node interface{}, logf func(format string, v ...interface{}
 	}
 	//return errwrap.Wrapf(err, "%s", displayer.Byline()) // alternate
 	return fmt.Errorf("%s: %s", err.Error(), displayer.Byline())
+}
+
+// PositionedError is implemented by errors that know the source position where
+// they occurred, such as lex/parse errors. It is used by HighlightParseError to
+// annotate them with a source position byline (and caret) without the error's
+// package needing to depend on this one's highlight machinery.
+type PositionedError interface {
+	// ErrorPos returns the zero-based row and column where this error
+	// occurred.
+	ErrorPos() (row, col int)
+}
+
+// HighlightParseError annotates an error that knows its own source position
+// (see PositionedError, eg a lex/parse error) with a byline and caret highlight
+// from the given source file. If err doesn't implement PositionedError then it
+// is returned unchanged. The logf is used to emit the multi-line caret snippet;
+// the returned error carries the single-line byline.
+func HighlightParseError(err error, file *SourceFile, logf func(format string, v ...interface{})) error {
+	e, ok := err.(PositionedError)
+	if !ok {
+		return err // no position info, leave it alone
+	}
+	if logf == nil {
+		logf = func(string, ...interface{}) {}
+	}
+
+	// Build a Textarea pointing at the error position so we can reuse the
+	// existing highlight machinery. We only have a single point, so we
+	// highlight one character to produce a caret.
+	row, col := e.ErrorPos()
+	ta := &Textarea{}
+	ta.SetSourceFile(file)
+	ta.Locate(row, col, row, col+1)
+
+	return HighlightHelper(ta, logf, err)
 }
 
 // TextareaSettable is implemented by functions that can receive source position

@@ -71,9 +71,18 @@ type LexParseErr struct {
 	Filename string
 }
 
-// Error displays this error with all the relevant state information.
+// Error displays this error with all the relevant state information. The source
+// position is not included here; use interfaces.HighlightParseError to add a
+// byline (and caret) from the source file that the code was parsed from.
 func (obj *LexParseErr) Error() string {
-	return fmt.Sprintf("%s: `%s` @%d:%d", obj.Err, obj.Str, obj.Row+1, obj.Col+1)
+	return fmt.Sprintf("%s: `%s`", obj.Err, obj.Str)
+}
+
+// ErrorPos returns the zero-based row and column where this error occurred. It
+// implements the interfaces.PositionedError interface so that the error can be
+// annotated with a source position byline and caret highlight.
+func (obj *LexParseErr) ErrorPos() (row, col int) {
+	return obj.Row, obj.Col
 }
 
 // lexParseAST is a struct which we pass into the lexer/parser so that we have a

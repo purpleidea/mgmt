@@ -12,4 +12,4 @@ $fn = func(
 $out = $fn("hello")
 test "${out}" {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN` @1:12
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting CLOSE_PAREN`: /main.mcl @ 2:2-2:3

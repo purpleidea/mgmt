@@ -8,4 +8,4 @@ file { "/tmp/foo":
 	ensure => present,
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COLON` @2:8
+# err: errLexParse: parser: `syntax error: unexpected COLON`: /main.mcl @ 2:18-2:19

@@ -12,4 +12,4 @@ test "f" {
 	comment => $f("a", "b"),
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN` @2:14
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN`: /main.mcl @ 2:18-2:19

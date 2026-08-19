@@ -159,6 +159,9 @@ func (obj *GAPI) Cli(info *gapi.Info) (*gapi.Deploy, error) {
 	logf("lexing/parsing...")
 	xast, err := parser.LexParse(bytes.NewReader(output.Main))
 	if err != nil {
+		// annotate parse errors with a source position byline + caret
+		file := &interfaces.SourceFile{FS: output.FS, Path: output.Base + output.Metadata.Main}
+		err = interfaces.HighlightParseError(err, file, logf)
 		return nil, errwrap.Wrapf(err, "could not generate AST")
 	}
 	if debug {

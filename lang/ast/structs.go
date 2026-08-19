@@ -5351,6 +5351,10 @@ func (obj *StmtProg) importSystemScope(name string) (*interfaces.Scope, error) {
 		// now run the lexer/parser to do the import
 		ast, err := obj.data.LexParser(reader)
 		if err != nil {
+			// annotate parse errors with the (embedded) source path
+			// there's no filesystem here so we can't draw a caret!
+			file := &interfaces.SourceFile{Path: p}
+			err = interfaces.HighlightParseError(err, file, obj.data.Logf)
 			return nil, errwrap.Wrapf(err, "could not generate AST from import `%s`", name)
 		}
 		if obj.data.Debug {
@@ -5477,6 +5481,9 @@ func (obj *StmtProg) importScopeWithParsedInputs(input *inputs.ParsedInput, scop
 	// now run the lexer/parser to do the import
 	ast, err := obj.data.LexParser(reader)
 	if err != nil {
+		// annotate parse errors with a source position byline + caret
+		file := &interfaces.SourceFile{FS: input.FS, Path: input.Base + input.Metadata.Main}
+		err = interfaces.HighlightParseError(err, file, obj.data.Logf)
 		return nil, errwrap.Wrapf(err, "could not generate AST from import")
 	}
 	if obj.data.Debug {

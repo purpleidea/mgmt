@@ -15,4 +15,4 @@ test "f" {
 	comment => $f("a", "b"),
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected NEWLINE, expecting COMMA` @4:2
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE, expecting COMMA`: /main.mcl @ 4:5-4:6

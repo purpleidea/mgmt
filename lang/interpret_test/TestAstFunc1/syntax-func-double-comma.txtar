@@ -10,4 +10,4 @@ $fn = func($x,,$y) {
 $out = $fn("hello", "world")
 test "${out}" {}
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting DOLLAR` @1:12
+# err: errLexParse: parser: `syntax error: unexpected COMMA, expecting DOLLAR`: /main.mcl @ 1:15-1:16

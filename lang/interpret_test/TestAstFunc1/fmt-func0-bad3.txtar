@@ -14,4 +14,4 @@ test "foo" {
 	),
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected NEWLINE` @8:3
+# err: errLexParse: parser: `syntax error: unexpected NEWLINE`: /main.mcl @ 8:6-8:7

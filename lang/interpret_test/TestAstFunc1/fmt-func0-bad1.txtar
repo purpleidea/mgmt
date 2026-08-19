@@ -14,4 +14,4 @@ test "foo" {
 	),
 }
 -- OUTPUT --
-# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN, expecting DOLLAR` @1:14
+# err: errLexParse: parser: `syntax error: unexpected CLOSE_PAREN, expecting DOLLAR`: /main.mcl @ 1:17-1:18

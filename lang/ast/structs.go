@@ -2952,7 +2952,8 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 						p2 = engine.Repr(k2, v.String())
 					}
 				}
-				return nil, errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", p1, sr1, p2, sr2)
+				err := errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", p1, sr1, p2, sr2)
+				return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 		}
 	}

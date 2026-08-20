@@ -1685,23 +1685,27 @@ edge:
 	// Test["t1"] -> Test["t2"] -> Test["t3"] # chain or pair
 	edge_half_list
 	{
-		$$.stmt = &ast.StmtEdge{
+		edge := &ast.StmtEdge{
 			EdgeHalfList: $1.edgeHalfList,
 			//Notify: false, // unused here
 		}
+		$$.stmt = edge
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+		locateEdge(edge) // span the full edge, not just its first half
 	}
 	// Test["t1"].foo_send -> Test["t2"].blah_recv # send/recv
 |	edge_half_sendrecv ARROW edge_half_sendrecv
 	{
-		$$.stmt = &ast.StmtEdge{
+		edge := &ast.StmtEdge{
 			EdgeHalfList: []*ast.StmtEdgeHalf{
 				$1.edgeHalf,
 				$3.edgeHalf,
 			},
 			//Notify: false, // unused here, it is implied (i think)
 		}
+		$$.stmt = edge
 		locate(yylex, $1, yyDollar[len(yyDollar)-1], $$.stmt)
+		locateEdge(edge) // span the full edge, not just its first half
 	}
 ;
 edge_half_list:
@@ -2114,6 +2118,21 @@ func relocate(first yySymType, last yySymType, node interface{}) {
 		//fmt.Printf("LOCATE(%v): %v, %v, %v, %v\n", node, first.row, first.col, last.endRow, last.endCol)
 		pn.Locate(first.row, first.col, last.endRow, last.endCol)
 	}
+}
+
+// locateEdge stamps an StmtEdge's position to the exact span of its edge
+// halves. The edge grammar's trailing symbol is a non-terminal (an edge half or
+// list of them) whose parser symbol only carries its first token's end, so a
+// plain locate would truncate the edge. The edge half nodes themselves are
+// located across their full extent, so we span from the first to the last.
+func locateEdge(edge *ast.StmtEdge) {
+	n := len(edge.EdgeHalfList)
+	if n == 0 {
+		return
+	}
+	startLine, startCol := edge.EdgeHalfList[0].Pos()
+	endLine, endCol := edge.EdgeHalfList[n-1].End()
+	edge.Locate(startLine, startCol, endLine, endCol)
 }
 
 // cast is used to pull out the parser run-specific struct we store our AST in.

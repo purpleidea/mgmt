@@ -15,4 +15,4 @@ test "recv" {
 # must error, incompatible types
 Test["send"].answer -> Test["recv"].anotherstr
 -- OUTPUT --
-# err: errUnify: cannot send/recv from test[send].answer to test[recv].anotherstr: field kind mismatch between int and string
+# err: errUnify: cannot send/recv from test[send].answer to test[recv].anotherstr: field kind mismatch between int and string: /main.mcl @ 15:1-15:47

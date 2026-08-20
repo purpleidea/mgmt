@@ -21,4 +21,4 @@ class bar($st2) {
 	test ["str: ${str3}"] {}
 }
 -- OUTPUT --
-# err: errUnify: error setting type: func() { <built-in:_struct_lookup_optional> }, error: non-optional arg must match return type: base kind does not match (str != list)
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup_optional> }, error: non-optional arg must match return type: base kind does not match (str != list): /main.mcl @ 18:10-18:28

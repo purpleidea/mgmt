@@ -10943,6 +10943,15 @@ func (obj *ExprCall) SetScope(scope *interfaces.Scope, sctx map[string]interface
 		}
 
 		obj.expr = monomorphicTarget
+
+		// A builtin func (eg: the `_struct_lookup` behind `$x->foo`)
+		// has no source position of its own, since it isn't written out
+		// in the code. This copy is ours alone, so stamp it with this
+		// call's position, and later errors (eg: from SetType/Build)
+		// can point at the call site instead of being position-less.
+		if fn, ok := trueCallee(obj.expr).(*ExprFunc); ok && !fn.IsSet() && obj.IsSet() {
+			fn.SetTextarea(obj.Textarea)
+		}
 	} else {
 		// This call refers to a monomorphic expression which has
 		// already been scope-checked, so we don't need to scope-check
@@ -11087,7 +11096,8 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 			// a printf scenario where it's wrong statically...
 			t1 := mapped[name]
 			t2 := partialValues[i].Type()
-			return nil, nil, fmt.Errorf("type/value inconsistent at arg #%d for func `%s`: %v != %v", i, obj.Name, t1, t2)
+			err := fmt.Errorf("type/value inconsistent at arg #%d for func `%s`: %v != %v", i, obj.Name, t1, t2)
+			return nil, nil, interfaces.HighlightHelper(arg, obj.data.Logf, err)
 		}
 	}
 

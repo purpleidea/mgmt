@@ -11,4 +11,4 @@ file "/tmp/datetime" {
 	content => golang.template("num: {{ .num }} seconds\nload average: {{ .load }}\n", $tmplvalues),
 }
 -- OUTPUT --
-# err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field x1 type error: base kind does not match (bool != float)
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field x1 type error: base kind does not match (bool != float): /main.mcl @ 6:17-6:31

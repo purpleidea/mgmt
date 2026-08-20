@@ -136,7 +136,8 @@ func (obj *Unifier) Unify(ctx context.Context) error {
 			// "check" step to add additional constraints that were
 			// not possible during type unification.
 			// TODO: Improve this error message!
-			return fmt.Errorf("error setting type: %+v, error: %s", x.Expr, err)
+			err := fmt.Errorf("error setting type: %+v, error: %s", x.Expr, err)
+			return interfaces.HighlightHelper(x.Expr, obj.Logf, err)
 		}
 	}
 	return nil

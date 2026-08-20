@@ -9,4 +9,4 @@ test "t1" {
 	anotherstr => fmt.printf("hello %s", $x),
 }
 -- OUTPUT --
-# err: errUnify: type/value inconsistent at arg #1 for func `fmt.printf`: str != int
+# err: errUnify: type/value inconsistent at arg #1 for func `fmt.printf`: str != int: /main.mcl @ 8:39-8:41

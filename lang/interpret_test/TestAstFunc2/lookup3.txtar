@@ -10,4 +10,4 @@ $st = struct{
 $name = $st->missing + "fail"
 test "${name}" {} # this can't unify!
 -- OUTPUT --
-# err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field missing was not found in struct
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup> }, error: field missing was not found in struct: /main.mcl @ 9:9-9:21

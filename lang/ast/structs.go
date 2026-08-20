@@ -450,7 +450,8 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 		if line, ok := x.(*StmtResField); ok {
 			// Was the field already seen in this resource?
 			if _, exists := fieldNames[line.Field]; exists {
-				return fmt.Errorf("resource has duplicate field of: %s", line.Field)
+				err := fmt.Errorf("resource has duplicate field of: %s", line.Field)
+				return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 			fieldNames[line.Field] = struct{}{}
 		}
@@ -465,7 +466,8 @@ func (obj *StmtRes) Init(data *interfaces.Data) error {
 			// FIXME: Allow duplicates in certain fields, such as
 			// ones that are lists... In this case, they merge...
 			if _, exists := metaNames[line.Property]; exists && line.Property != MetaField {
-				return fmt.Errorf("resource has duplicate meta entry of: %s", line.Property)
+				err := fmt.Errorf("resource has duplicate meta entry of: %s", line.Property)
+				return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 			metaNames[line.Property] = struct{}{}
 		}
@@ -769,7 +771,8 @@ func (obj *StmtRes) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		for _, property := range properties {
 			// Was the meta entry already seen in this resource?
 			if _, exists := metaNames[property]; exists {
-				return nil, fmt.Errorf("resource has duplicate meta entry of: %s", property)
+				err := fmt.Errorf("resource has duplicate meta entry of: %s", property)
+				return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 			metaNames[property] = struct{}{}
 		}
@@ -3735,7 +3738,8 @@ func (obj *StmtFor) Init(data *interfaces.Data) error {
 		if _, ok := stmt.(*StmtImport); !ok {
 			continue
 		}
-		return fmt.Errorf("a StmtImport can't be contained inside a StmtFor")
+		err := fmt.Errorf("a StmtImport can't be contained inside a StmtFor")
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 	return nil
 }
@@ -4288,7 +4292,8 @@ func (obj *StmtForKV) Init(data *interfaces.Data) error {
 		if _, ok := stmt.(*StmtImport); !ok {
 			continue
 		}
-		return fmt.Errorf("a StmtImport can't be contained inside a StmtForKV")
+		err := fmt.Errorf("a StmtImport can't be contained inside a StmtForKV")
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 	return nil
 }
@@ -8605,7 +8610,8 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 				typ = t // save it
 			} else if err := typ.Cmp(t); err != nil {
 				// TODO: wrap error here to make it user friendly?
-				return errwrap.Wrapf(err, "inconsistent map key type")
+				err := errwrap.Wrapf(err, "inconsistent map key type")
+				return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 		}
 
@@ -8621,7 +8627,8 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 
 	// This check is useful to catch these errors before type unification!
 	if !types.IsHashableType(typ) {
-		return fmt.Errorf("map key type %s is not hashable", typ)
+		err := fmt.Errorf("map key type %s is not hashable", typ)
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	// The `nil` type is not important, we just need any stand-in.
@@ -8629,7 +8636,8 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 	m := mapTyp.New().(*types.MapValue)
 	if m == nil {
 		// If you build a map with an invalid type, then it will be nil.
-		return fmt.Errorf("map key type %s is not hashable", typ.String())
+		err := fmt.Errorf("map key type %s is not hashable", typ.String())
+		return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 
 	// Instead of N^2 Cmp check here, try and add them to the map.
@@ -8640,7 +8648,8 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 		}
 		if m.Len() != i+1 { // Length mismatch!
 			// We must have just added a duplicate!
-			return fmt.Errorf("duplicate map key: %s", key)
+			err := fmt.Errorf("duplicate map key: %s", key)
+			return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 		}
 	}
 
@@ -9178,7 +9187,8 @@ func (obj *ExprStruct) Init(data *interfaces.Data) error {
 	for _, x := range obj.Fields {
 		// Validate field names and ensure no duplicates!
 		if _, exists := fields[x.Name]; exists {
-			return fmt.Errorf("duplicate struct field name of: `%s`", x.Name)
+			err := fmt.Errorf("duplicate struct field name of: `%s`", x.Name)
+			return interfaces.HighlightHelper(obj, obj.data.Logf, err)
 		}
 		fields[x.Name] = struct{}{}
 

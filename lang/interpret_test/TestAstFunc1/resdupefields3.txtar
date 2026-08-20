@@ -5,4 +5,4 @@ test "test" {
 	Meta:noop => false,
 }
 -- OUTPUT --
-# err: errInit: resource has duplicate meta entry of: noop
+# err: errInit: resource has duplicate meta entry of: noop: /main.mcl @ 1:1-5:2

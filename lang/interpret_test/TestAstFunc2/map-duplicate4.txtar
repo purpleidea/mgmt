@@ -7,4 +7,4 @@ $found = $m["k1"] <|> 99
 
 test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --
-# err: errInit: inconsistent map key type: base kind does not match (str != int)
+# err: errInit: inconsistent map key type: base kind does not match (str != int): /main.mcl @ 3:6-3:30

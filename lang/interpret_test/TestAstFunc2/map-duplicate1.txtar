@@ -9,4 +9,4 @@ print "print1" {
 	msg => fmt.printf("found value of: %d", $found),
 }
 -- OUTPUT --
-# err: errInit: duplicate map key: "k1"
+# err: errInit: duplicate map key: "k1": /main.mcl @ 3:6-3:41

@@ -28,4 +28,4 @@ test "test" {
 	#Meta:autogroup => false,
 }
 -- OUTPUT --
-# err: errGraph: resource has duplicate meta entry of: noop
+# err: errGraph: resource has duplicate meta entry of: noop: /main.mcl @ 1:1-28:2

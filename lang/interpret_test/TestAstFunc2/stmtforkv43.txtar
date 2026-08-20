@@ -19,4 +19,4 @@ forkv $key, $val in $map {
 -- thing.mcl --
 $inside = 13
 -- OUTPUT --
-# err: errInit: a StmtImport can't be contained inside a StmtForKV
+# err: errInit: a StmtImport can't be contained inside a StmtForKV: /main.mcl @ 7:1-17:2

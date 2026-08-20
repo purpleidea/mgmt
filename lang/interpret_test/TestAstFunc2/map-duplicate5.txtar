@@ -9,4 +9,4 @@ $found = $m[$k1] <|> 99
 
 test [fmt.printf("value: %d", $found)] {}
 -- OUTPUT --
-# err: errInit: map key type []str is not hashable
+# err: errInit: map key type []str is not hashable: /main.mcl @ 5:6-5:40

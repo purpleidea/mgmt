@@ -19,4 +19,4 @@ for $index, $value in $list {
 -- thing.mcl --
 $inside = 13
 -- OUTPUT --
-# err: errInit: a StmtImport can't be contained inside a StmtFor
+# err: errInit: a StmtImport can't be contained inside a StmtFor: /main.mcl @ 7:1-17:2

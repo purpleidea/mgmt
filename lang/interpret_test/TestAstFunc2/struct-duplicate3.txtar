@@ -3,4 +3,4 @@ $st struct{x str} = struct{x => "hello", x => "world"}
 $name = $st->x
 test "${name}" {}
 -- OUTPUT --
-# err: errInit: duplicate struct field name of: `x`
+# err: errInit: duplicate struct field name of: `x`: /main.mcl @ 1:21-1:55

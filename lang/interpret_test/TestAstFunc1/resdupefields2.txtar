@@ -4,4 +4,4 @@ test "test" {
 	anotherstr => "hello world", # values aren't checked in dupe checks
 }
 -- OUTPUT --
-# err: errInit: resource has duplicate field of: anotherstr
+# err: errInit: resource has duplicate field of: anotherstr: /main.mcl @ 1:1-4:2

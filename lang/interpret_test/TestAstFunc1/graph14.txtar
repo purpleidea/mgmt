@@ -4,4 +4,4 @@
 $x = "wow"
 $x = 99 # woops, but also a change of type :P
 -- OUTPUT --
-# err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x)
+# err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x): /main.mcl @ 4:1-4:8

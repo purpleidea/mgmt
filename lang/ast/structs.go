@@ -4992,7 +4992,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 
 			n, exists := prod[uid]
 			if exists {
-				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				err := fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				return nil, nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 			}
 			prod[uid] = stmt // store
 		}
@@ -5004,7 +5005,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			uid := varOrderingPrefix + stmt.Ident // ordering id
 			n, exists := prod[uid]
 			if exists {
-				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				err := fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				return nil, nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 			}
 			prod[uid] = stmt // store
 		}
@@ -5016,7 +5018,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			uid := funcOrderingPrefix + stmt.Name // ordering id
 			n, exists := prod[uid]
 			if exists {
-				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				err := fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				return nil, nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 			}
 			prod[uid] = stmt // store
 		}
@@ -5028,7 +5031,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			uid := classOrderingPrefix + stmt.Name // ordering id
 			n, exists := prod[uid]
 			if exists {
-				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				err := fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				return nil, nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 			}
 			prod[uid] = stmt // store
 		}
@@ -5043,7 +5047,8 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			uid := scopedOrderingPrefix + stmt.Alias // ordering id
 			n, exists := prod[uid]
 			if exists {
-				return nil, nil, fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				err := fmt.Errorf("duplicate assignment to `%s`, have: %s", uid, n)
+				return nil, nil, interfaces.HighlightHelper(stmt, obj.data.Logf, err)
 			}
 			prod[uid] = stmt // store
 		}

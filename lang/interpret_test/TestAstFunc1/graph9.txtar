@@ -3,4 +3,4 @@
 $x = "hello"
 $x = "world" # woops
 -- OUTPUT --
-# err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x)
+# err: errSetScope: could not generate ordering: duplicate assignment to `var:x`, have: bind(x): /main.mcl @ 3:1-3:13

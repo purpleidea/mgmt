@@ -943,6 +943,20 @@ func (obj *StmtRes) Output(table interfaces.Table) (*interfaces.Output, error) {
 			}
 			apply(res) // apply metaparams, does not return anything
 
+			// Validate the resource here, while we still have the
+			// source position, so that a failure points at the
+			// offending resource block instead of surfacing
+			// position-less from the engine.
+			// XXX: We now run Validate twice: at least once in the
+			// engine and this additional call here. It's more
+			// expensive, but it lets us emit a source caret, which
+			// only the lang layer can produce. Consider avoiding
+			// the double validation in the future for efficiency.
+			if err := engine.Validate(res); err != nil {
+				err := errwrap.Wrapf(err, "%s did not Validate", res)
+				return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
+			}
+
 			resources = append(resources, res)
 
 			edgeList, err := obj.edges(table, name)

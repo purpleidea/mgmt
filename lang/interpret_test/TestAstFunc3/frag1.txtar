@@ -13,4 +13,4 @@ file "/tmp/frags/all" {
 	],
 }
 -- OUTPUT --
-# err: errValidate: file[/tmp/frags/all] did not Validate: inside a frag (`/tmp/frags/`)
+# err: errInterpret: file[/tmp/frags/all] did not Validate: inside a frag (`/tmp/frags/`): /main.mcl @ 8:1-13:2

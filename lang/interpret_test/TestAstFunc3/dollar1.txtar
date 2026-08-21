@@ -2,4 +2,4 @@
 $foo = "/tmp/file1"
 test "$foo" {} # catch simple typos! should be "${foo}"
 -- OUTPUT --
-# err: errValidate: test[$foo] did not Validate: the Res name starts with a $
+# err: errInterpret: test[$foo] did not Validate: the Res name starts with a $: /main.mcl @ 2:1-2:15

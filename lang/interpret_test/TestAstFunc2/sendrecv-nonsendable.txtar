@@ -1,0 +1,10 @@
+-- main.mcl --
+file "/tmp/x" {
+	state => "exists",
+}
+test "b" {}
+
+# file is not a sendable resource
+File["/tmp/x"].content -> Test["b"].anotherstr
+-- OUTPUT --
+# err: errUnify: cannot send from resource of kind: file: /main.mcl @ 7:1-7:47

@@ -11,4 +11,4 @@ file "/tmp/command-output" {
 # this is an error because two senders cannot send to the same receiver key
 Exec[["exec0", "exec1"]].output -> File["/tmp/command-output"].content
 -- OUTPUT --
-# err: errInterpret: resource: `file[/tmp/command-output]` has duplicate receive on: `content` param
+# err: errInterpret: resource: `file[/tmp/command-output]` has duplicate receive on: `content` param: /main.mcl @ 11:1-11:71

@@ -1,0 +1,10 @@
+-- main.mcl --
+# two same-name resources of a non-compatible kind with differing params
+file "/tmp/x" {
+	content => "a\n",
+}
+file "/tmp/x" {
+	content => "b\n",
+}
+-- OUTPUT --
+# err: errInterpret: inequivalent duplicate resource `file[/tmp/x]` found: the contents of Content differ: /main.mcl @ 5:1-7:2

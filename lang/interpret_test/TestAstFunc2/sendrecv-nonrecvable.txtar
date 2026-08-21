@@ -1,0 +1,10 @@
+-- main.mcl --
+test "a" {}
+exec "e" {
+	cmd => "echo hello",
+}
+
+# exec is not a recvable resource
+Test["a"].hello -> Exec["e"].cmd
+-- OUTPUT --
+# err: errUnify: cannot recv to resource of kind: exec: /main.mcl @ 7:1-7:33

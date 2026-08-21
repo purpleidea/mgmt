@@ -581,6 +581,10 @@ type Edge struct {
 	Recv  string // name of field used for send/recv (optional)
 
 	Notify bool // is there a notification being sent?
+
+	// Node is the AST node that produced this edge. It is used to point
+	// errors at the originating source position. It may be nil.
+	Node Node
 }
 
 // Output is a collection of data returned by a Stmt.
@@ -588,6 +592,11 @@ type Output struct { // returned by Stmt
 	Resources []engine.Res
 	Edges     []*Edge
 	//Exported []*Exports // TODO: add exported resources
+
+	// Nodes maps each produced resource back to the AST node that built it,
+	// so that later errors (eg: duplicate resources) can point at the
+	// originating source position. A resource may be absent from this map.
+	Nodes map[engine.Res]Node
 }
 
 // EmptyOutput returns the zero, empty value for the output, with all the
@@ -596,6 +605,7 @@ func EmptyOutput() *Output {
 	return &Output{
 		Resources: []engine.Res{},
 		Edges:     []*Edge{},
+		Nodes:     make(map[engine.Res]Node),
 	}
 }
 

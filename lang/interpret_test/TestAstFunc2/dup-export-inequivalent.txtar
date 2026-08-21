@@ -1,0 +1,12 @@
+-- main.mcl --
+# two same-name resources exported to the same host with differing params
+test "a" {
+	anotherstr => "x",
+	Meta:export => ["h1"],
+}
+test "a" {
+	anotherstr => "y",
+	Meta:export => ["h1"],
+}
+-- OUTPUT --
+# err: errInterpret: inequivalent duplicate export: test[a] to h1: the AnotherStr differs: /main.mcl @ 6:1-9:2

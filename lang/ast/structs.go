@@ -925,6 +925,7 @@ func (obj *StmtRes) Output(table interfaces.Table) (*interfaces.Output, error) {
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
 
 	apply, err := obj.metaparams(table)
 	if err != nil {
@@ -958,6 +959,7 @@ func (obj *StmtRes) Output(table interfaces.Table) (*interfaces.Output, error) {
 			}
 
 			resources = append(resources, res)
+			nodes[res] = obj // remember where this resource came from
 
 			edgeList, err := obj.edges(table, name)
 			if err != nil {
@@ -970,6 +972,7 @@ func (obj *StmtRes) Output(table interfaces.Table) (*interfaces.Output, error) {
 	return &interfaces.Output{
 		Resources: resources,
 		Edges:     edges,
+		Nodes:     nodes,
 	}, nil
 }
 
@@ -1293,6 +1296,8 @@ func (obj *StmtRes) edges(table interfaces.Table, resName string) ([]*interfaces
 				//Recv: "",
 
 				Notify: notify,
+
+				Node: obj,
 			}
 			edges = append(edges, edge)
 		}
@@ -1309,6 +1314,8 @@ func (obj *StmtRes) edges(table interfaces.Table, resName string) ([]*interfaces
 				//Recv: "",
 
 				Notify: notify,
+
+				Node: obj,
 			}
 			edges = append(edges, edge)
 		}
@@ -2928,12 +2935,16 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	// TODO: this sort of sideloaded validation could happen in a dedicated
 	// Validate() function, but for now is here for lack of a better place!
 	if len(obj.EdgeHalfList) == 1 {
-		return nil, fmt.Errorf("can't create an edge with only one half")
+		err := fmt.Errorf("can't create an edge with only one half")
+		return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 	}
 	if len(obj.EdgeHalfList) == 2 {
 		sr1 := obj.EdgeHalfList[0].SendRecv
 		sr2 := obj.EdgeHalfList[1].SendRecv
 		if (sr1 == "") != (sr2 == "") { // xor
+			// NOTE: Unreachable from mcl. The grammar guarantees an
+			// edge's two halves both carry a send/recv field or
+			// neither, so there's no source position to point at.
 			return nil, fmt.Errorf("you must specify both send/recv fields or neither")
 		}
 
@@ -2951,11 +2962,13 @@ func (obj *StmtEdge) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 			}
 			res1, ok := r1.(engine.SendableRes)
 			if !ok {
-				return nil, fmt.Errorf("cannot send from resource of kind: %s", k1)
+				err := fmt.Errorf("cannot send from resource of kind: %s", k1)
+				return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 			res2, ok := r2.(engine.RecvableRes)
 			if !ok {
-				return nil, fmt.Errorf("cannot recv to resource of kind: %s", k2)
+				err := fmt.Errorf("cannot recv to resource of kind: %s", k2)
+				return nil, interfaces.HighlightHelper(obj, obj.data.Logf, err)
 			}
 
 			// Check that the kind1:send -> kind2:recv fields are type
@@ -3102,6 +3115,8 @@ func (obj *StmtEdge) Output(table interfaces.Table) (*interfaces.Output, error) 
 					Recv:  obj.EdgeHalfList[i+1].SendRecv,
 
 					Notify: obj.Notify,
+
+					Node: obj,
 				}
 				edges = append(edges, edge)
 			}
@@ -3666,14 +3681,19 @@ func (obj *StmtIf) Output(table interfaces.Table) (*interfaces.Output, error) {
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
 	if output != nil {
 		resources = append(resources, output.Resources...)
 		edges = append(edges, output.Edges...)
+		for r, n := range output.Nodes {
+			nodes[r] = n
+		}
 	}
 
 	return &interfaces.Output{
 		Resources: resources,
 		Edges:     edges,
+		Nodes:     nodes,
 	}, nil
 }
 
@@ -4208,6 +4228,7 @@ func (obj *StmtFor) Output(table interfaces.Table) (*interfaces.Output, error) {
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
 
 	list := expr.List() // must not panic!
 
@@ -4222,12 +4243,16 @@ func (obj *StmtFor) Output(table interfaces.Table) (*interfaces.Output, error) {
 		if output != nil {
 			resources = append(resources, output.Resources...)
 			edges = append(edges, output.Edges...)
+			for r, n := range output.Nodes {
+				nodes[r] = n
+			}
 		}
 	}
 
 	return &interfaces.Output{
 		Resources: resources,
 		Edges:     edges,
+		Nodes:     nodes,
 	}, nil
 }
 
@@ -4751,6 +4776,7 @@ func (obj *StmtForKV) Output(table interfaces.Table) (*interfaces.Output, error)
 
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
 
 	m := expr.Map() // must not panic!
 
@@ -4782,12 +4808,16 @@ func (obj *StmtForKV) Output(table interfaces.Table) (*interfaces.Output, error)
 		if output != nil {
 			resources = append(resources, output.Resources...)
 			edges = append(edges, output.Edges...)
+			for r, n := range output.Nodes {
+				nodes[r] = n
+			}
 		}
 	}
 
 	return &interfaces.Output{
 		Resources: resources,
 		Edges:     edges,
+		Nodes:     nodes,
 	}, nil
 }
 
@@ -6383,6 +6413,7 @@ func (obj *StmtProg) updateEnv(env *interfaces.Env) (*pgraph.Graph, *interfaces.
 func (obj *StmtProg) Output(table interfaces.Table) (*interfaces.Output, error) {
 	resources := []engine.Res{}
 	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
 
 	for _, stmt := range obj.Body {
 		// skip over *StmtClass here so its Output method can be used...
@@ -6407,6 +6438,9 @@ func (obj *StmtProg) Output(table interfaces.Table) (*interfaces.Output, error) 
 		if output != nil {
 			resources = append(resources, output.Resources...)
 			edges = append(edges, output.Edges...)
+			for r, n := range output.Nodes {
+				nodes[r] = n
+			}
 		}
 	}
 
@@ -6415,6 +6449,7 @@ func (obj *StmtProg) Output(table interfaces.Table) (*interfaces.Output, error) 
 	return &interfaces.Output{
 		Resources: resources,
 		Edges:     edges,
+		Nodes:     nodes,
 	}, nil
 }
 

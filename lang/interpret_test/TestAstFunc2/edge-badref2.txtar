@@ -1,0 +1,7 @@
+-- main.mcl --
+test "real" {}
+
+# the to-side (recv) resource of this edge is never defined
+Test["real"] -> Test["missing2"]
+-- OUTPUT --
+# err: errInterpret: edge cannot find resource kind: test named: `missing2`: /main.mcl @ 4:1-4:33

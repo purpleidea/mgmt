@@ -157,7 +157,8 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 			// because exported resources are often just partials...
 			if err := engine.ResCmp(r, res); err != nil {
 				// TODO: print a diff of the two resources
-				return nil, errwrap.Wrapf(err, "inequivalent duplicate export: %s to %s", res, host)
+				err := errwrap.Wrapf(err, "inequivalent duplicate export: %s to %s", res, host)
+				return nil, interfaces.HighlightHelper(output.Nodes[res], obj.Logf, err)
 			}
 		}
 
@@ -194,10 +195,15 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 			if ok1 && ok2 {
 				if err := engine.AdaptCmp(r1, r2); err != nil {
 					// TODO: print a diff of the two resources
-					return nil, errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
+					err := errwrap.Wrapf(err, "incompatible duplicate resource `%s` found", res)
+					return nil, interfaces.HighlightHelper(output.Nodes[res], obj.Logf, err)
 				}
 				merged, err := engine.ResMerge(r1, r2)
 				if err != nil {
+					// NOTE: Unreachable from mcl. Merge is
+					// only called after AdaptCmp already
+					// passed, so it can only fail on an
+					// internal/copy error.
 					return nil, errwrap.Wrapf(err, "could not merge duplicate resources")
 				}
 
@@ -208,7 +214,8 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 
 			if err := engine.ResCmp(r, res); err != nil {
 				// TODO: print a diff of the two resources
-				return nil, errwrap.Wrapf(err, "inequivalent duplicate resource `%s` found", res)
+				err := errwrap.Wrapf(err, "inequivalent duplicate resource `%s` found", res)
+				return nil, interfaces.HighlightHelper(output.Nodes[res], obj.Logf, err)
 			}
 			// more than one identical resource exists. we can allow
 			// duplicates, if they're not going to conflict... since
@@ -235,11 +242,13 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 	for _, edge := range output.Edges {
 		v1s := obj.lookupAll(edge.Kind1, edge.Name1)
 		if len(v1s) == 0 {
-			return nil, fmt.Errorf("edge cannot find resource kind: %s named: `%s`", edge.Kind1, edge.Name1)
+			err := fmt.Errorf("edge cannot find resource kind: %s named: `%s`", edge.Kind1, edge.Name1)
+			return nil, interfaces.HighlightHelper(edge.Node, obj.Logf, err)
 		}
 		v2s := obj.lookupAll(edge.Kind2, edge.Name2)
 		if len(v2s) == 0 {
-			return nil, fmt.Errorf("edge cannot find resource kind: %s named: `%s`", edge.Kind2, edge.Name2)
+			err := fmt.Errorf("edge cannot find resource kind: %s named: `%s`", edge.Kind2, edge.Name2)
+			return nil, interfaces.HighlightHelper(edge.Node, obj.Logf, err)
 		}
 
 		// Make edges pair wise between each two. Normally these loops
@@ -253,6 +262,9 @@ func (obj *Interpreter) Interpret(ast interfaces.Stmt, table interfaces.Table) (
 
 		// send recv
 		if (edge.Send == "") != (edge.Recv == "") { // xor
+			// NOTE: Unreachable from mcl. The grammar guarantees an
+			// edge's two halves both carry a send/recv field or
+			// neither. This is also checked at type-check time.
 			return nil, fmt.Errorf("you must specify both send/recv fields or neither")
 		}
 		if edge.Send == "" || edge.Recv == "" { // is there send/recv to do or not?
@@ -391,25 +403,32 @@ func (obj *Interpreter) makeSendRecv(v1, v2 pgraph.Vertex, edge *interfaces.Edge
 		// TODO: does this safe ignore work with duplicate compatible resources?
 		res, ok := v1.(engine.Res)
 		if !ok || existingSend.Kind != res.Kind() || existingSend.Name != res.Name() || existingSend.Key != edge.Send {
-			return fmt.Errorf("resource: `%s` has duplicate receive on: `%s` param", engine.Repr(edge.Kind2, edge.Name2), edge.Recv)
+			err := fmt.Errorf("resource: `%s` has duplicate receive on: `%s` param", engine.Repr(edge.Kind2, edge.Name2), edge.Recv)
+			return interfaces.HighlightHelper(edge.Node, obj.Logf, err)
 		}
 	}
 
 	if res, ok := v1.(engine.Res); ok && res.MetaParams().Hidden && edge.Send != "" {
-		return fmt.Errorf("cannot send from hidden resource: %s", engine.Stringer(res))
+		err := fmt.Errorf("cannot send from hidden resource: %s", engine.Stringer(res))
+		return interfaces.HighlightHelper(edge.Node, obj.Logf, err)
 	}
 
 	res1, ok := v1.(engine.SendableRes)
 	if !ok {
+		// NOTE: Unreachable from mcl. A non-sendable kind is caught
+		// earlier at StmtEdge.TypeCheck, so there's no byline here.
 		return fmt.Errorf("cannot send from resource: %s", engine.Stringer(res1))
 	}
 	res2, ok := v2.(engine.RecvableRes)
 	if !ok {
+		// NOTE: Unreachable from mcl. A non-recvable kind is caught
+		// earlier at StmtEdge.TypeCheck, so there's no byline here.
 		return fmt.Errorf("cannot recv to resource: %s", engine.Stringer(res2))
 	}
 
 	if err := engineUtil.StructFieldCompat(res1.Sends(), edge.Send, res2, edge.Recv); err != nil {
-		return errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", engine.Stringer(res1), edge.Send, engine.Stringer(res2), edge.Recv)
+		err := errwrap.Wrapf(err, "cannot send/recv from %s.%s to %s.%s", engine.Stringer(res1), edge.Send, engine.Stringer(res2), edge.Recv)
+		return interfaces.HighlightHelper(edge.Node, obj.Logf, err)
 	}
 
 	// XXX: Not doing this for now, see the interface for more information.

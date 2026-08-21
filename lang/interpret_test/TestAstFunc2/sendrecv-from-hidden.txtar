@@ -1,0 +1,10 @@
+-- main.mcl --
+test "a" {
+	Meta:hidden => true,
+}
+test "b" {}
+
+# can't send from a hidden resource
+Test["a"].hello -> Test["b"].anotherstr
+-- OUTPUT --
+# err: errInterpret: cannot send from hidden resource: test[a]: /main.mcl @ 7:1-7:40

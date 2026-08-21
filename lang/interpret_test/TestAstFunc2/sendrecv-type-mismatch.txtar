@@ -1,0 +1,8 @@
+-- main.mcl --
+test "a" {}
+test "b" {}
+
+# answer is an int, anotherstr is a string; incompatible send/recv
+Test["a"].answer -> Test["b"].anotherstr
+-- OUTPUT --
+# err: errUnify: cannot send/recv from test[a].answer to test[b].anotherstr: field kind mismatch between int and string: /main.mcl @ 5:1-5:41

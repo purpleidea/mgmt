@@ -1,0 +1,7 @@
+-- main.mcl --
+test "a" {}
+
+# an edge statement with only a single half is not a valid edge
+Test["a"]
+-- OUTPUT --
+# err: errUnify: can't create an edge with only one half: /main.mcl @ 4:1-4:10

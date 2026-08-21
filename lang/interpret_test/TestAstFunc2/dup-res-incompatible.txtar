@@ -1,0 +1,12 @@
+-- main.mcl --
+# two same-name pkg resources (a compatible kind) with incompatible params
+pkg "cowsay" {
+	state => "installed",
+	allowdowngrade => true,
+}
+pkg "cowsay" {
+	state => "installed",
+	allowdowngrade => false,
+}
+-- OUTPUT --
+# err: errInterpret: incompatible duplicate resource `pkg[cowsay]` found: allowdowngrade differs: true vs false: /main.mcl @ 6:1-9:2

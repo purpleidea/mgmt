@@ -1,0 +1,7 @@
+-- main.mcl --
+test "real" {}
+
+# the from-side (send) resource of this edge is never defined
+Test["missing1"] -> Test["real"]
+-- OUTPUT --
+# err: errInterpret: edge cannot find resource kind: test named: `missing1`: /main.mcl @ 4:1-4:33

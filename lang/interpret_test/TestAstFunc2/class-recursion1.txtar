@@ -6,4 +6,4 @@ class c2 {
 	include c1
 }
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 2:2-2:12, /main.mcl @ 5:2-5:12

@@ -16,4 +16,4 @@ for $index, $value in $list {
 	test [$s] {}
 }
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 9:23-9:29

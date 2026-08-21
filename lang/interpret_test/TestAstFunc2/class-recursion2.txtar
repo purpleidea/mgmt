@@ -9,4 +9,4 @@ class c1($cond) {
 }
 include c1(true)
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 4:3-4:20

@@ -16,4 +16,4 @@ test "${f1.z}" {}
 test "${f1.x}" {} # tricky
 test "${f1.newx}" {}
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 8:7-8:9

@@ -40,6 +40,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -678,4 +679,69 @@ func classScopeFeedback(scope *interfaces.Scope, logf func(format string, v ...i
 	for _, name := range names {
 		logf("class %s", name)
 	}
+}
+
+// cycleReferenceNodes returns the nodes in a pgraph cycle error that reference
+// a name defined elsewhere in the cycle. These are the actual recursion points,
+// such as the `$foo(...)` call in a recursive function, or the `include`s in a
+// mutually recursive pair of classes. The ordering graph links each producer of
+// a variable/class/func to the node that consumes it with a dedicated edge, so
+// a cycle node is a recursion point when such an edge reaches it from another
+// node in the cycle. The result is deduplicated by span and sorted by source
+// position. It returns nil if none are found.
+func cycleReferenceNodes(graph *pgraph.Graph, err error) []interfaces.PositionableNode {
+	e, ok := err.(*pgraph.ErrNotAcyclic)
+	if !ok {
+		return nil
+	}
+	inCycle := make(map[pgraph.Vertex]struct{}, len(e.Cycle))
+	for _, v := range e.Cycle {
+		inCycle[v] = struct{}{}
+	}
+
+	kept := []interfaces.PositionableNode{}
+	seen := make(map[[4]int]struct{})
+	for _, v := range e.Cycle {
+		pn, ok := v.(interfaces.PositionableNode)
+		if !ok || !pn.IsSet() {
+			continue
+		}
+		// Is v the consumer end of a producer->consumer edge whose
+		// producer is also in the cycle? If so, it's a recursion point.
+		isRef := false
+		for n := range inCycle {
+			if n == v {
+				continue
+			}
+			edge := graph.FindEdge(n, v)
+			if edge == nil {
+				continue
+			}
+			if s := edge.String(); s == orderingProdConsEdge1 || s == orderingProdConsEdge2 {
+				isRef = true
+				break
+			}
+		}
+		if !isRef {
+			continue
+		}
+		sl, sc := pn.Pos()
+		el, ec := pn.End()
+		key := [4]int{sl, sc, el, ec}
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		kept = append(kept, pn)
+	}
+
+	sort.Slice(kept, func(i, j int) bool {
+		li, ci := kept[i].Pos()
+		lj, cj := kept[j].Pos()
+		if li != lj {
+			return li < lj
+		}
+		return ci < cj
+	})
+	return kept
 }

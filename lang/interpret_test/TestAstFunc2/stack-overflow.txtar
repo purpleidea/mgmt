@@ -3,4 +3,4 @@
 import "fmt"
 $x = fmt.printf("TEST is %s", if $x == "b" { "a" } else { "b" })
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 3:34-3:36

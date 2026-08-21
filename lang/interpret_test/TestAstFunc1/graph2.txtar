@@ -3,4 +3,4 @@
 $x = $y
 $y = $x
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 2:6-2:8, /main.mcl @ 3:6-3:8

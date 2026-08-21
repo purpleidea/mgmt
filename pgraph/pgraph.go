@@ -797,6 +797,19 @@ func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 	var result []Vertex
 	found := false
 
+	// order returns the keys of a vertex map sorted by String(). This is
+	// only ever run on an error path (a cycle was already found to exist),
+	// so the sort cost is irrelevant and buys us a deterministic reported
+	// cycle.
+	order := func(m map[Vertex]Edge) []Vertex {
+		vs := make([]Vertex, 0, len(m))
+		for n := range m {
+			vs = append(vs, n)
+		}
+		VertexSlice(vs).Sort() // add determinism
+		return vs
+	}
+
 	var dfs func(Vertex) bool
 	dfs = func(v Vertex) bool {
 		if found {
@@ -806,7 +819,7 @@ func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 		stack[v] = true
 		path = append(path, v)
 
-		for n := range obj.adjacency[v] {
+		for _, n := range order(obj.adjacency[v]) {
 			if !visited[n] {
 				if dfs(n) {
 					return true
@@ -832,7 +845,7 @@ func (obj *Graph) findCycleDFS(start Vertex) []Vertex {
 	}
 
 	// run DFS from all potentially cyclic nodes
-	for v := range obj.adjacency {
+	for _, v := range obj.VerticesSorted() { // add determinism
 		if !visited[v] {
 			if dfs(v) {
 				break

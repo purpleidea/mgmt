@@ -170,6 +170,16 @@ const (
 	// It is shared between imports and include as.
 	scopedOrderingPrefix = "scoped:"
 
+	// orderingProdConsEdge1 names an Ordering graph edge that links a
+	// producer of a variable/class/func to a node which consumes it. The
+	// consumer end is a "reference" and is used to find the recursion
+	// points in a cycle.
+	orderingProdConsEdge1 = "stmtprog1"
+
+	// orderingProdConsEdge2 is like orderingProdConsEdge1, but comes from a
+	// second matching pass in StmtProg.Ordering.
+	orderingProdConsEdge2 = "stmtprog2"
+
 	// ErrNoStoredScope is an error that tells us we can't get a scope here.
 	ErrNoStoredScope = util.Error("scope is not stored in this node")
 
@@ -5126,7 +5136,9 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			if !exists {
 				continue
 			}
-			edge := &pgraph.SimpleEdge{Name: "stmtprog1"}
+			// NOTE: The edge name is used by cycleReferenceNodes to
+			// find the recursion points inside a cycle.
+			edge := &pgraph.SimpleEdge{Name: orderingProdConsEdge1}
 			// We want the convention to be produces -> consumes.
 			graph.AddEdge(n, k, edge)
 		}
@@ -5138,7 +5150,9 @@ func (obj *StmtProg) Ordering(produces map[string]interfaces.Node) (*pgraph.Grap
 			if key != str {
 				continue
 			}
-			edge := &pgraph.SimpleEdge{Name: "stmtprog2"}
+			// NOTE: The edge name is used by cycleReferenceNodes to
+			// find the recursion points inside a cycle.
+			edge := &pgraph.SimpleEdge{Name: orderingProdConsEdge2}
 			graph.AddEdge(val, x, edge) // prod -> cons
 		}
 	}
@@ -5806,7 +5820,27 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 			obj.data.Logf("set scope: not a dag:\n%s", orderingGraph.Sprint())
 			//obj.data.Logf("set scope: not a dag:\n%s", orderingGraphFiltered.Sprint())
 		}
-		return errwrap.Wrapf(err, "recursive reference while setting scope")
+		e := errwrap.Wrapf(err, "recursive reference while setting scope")
+		// A recursion has no single "cause", so point at each of the
+		// references that form the loop (eg: the `$foo(...)` call in a
+		// recursive function, or the `include`s in a class cycle): emit
+		// a caret for each, and byline the error with all their spans.
+		nodes := cycleReferenceNodes(orderingGraph, err)
+		if len(nodes) == 0 {
+			return e
+		}
+		bylines := make([]string, 0, len(nodes))
+		for _, n := range nodes {
+			d, ok := n.(interfaces.TextDisplayer)
+			if !ok {
+				continue
+			}
+			if hl := d.HighlightText(); hl != "" {
+				obj.data.Logf("%s", hl)
+			}
+			bylines = append(bylines, d.Byline())
+		}
+		return fmt.Errorf("%s: %s", e.Error(), strings.Join(bylines, ", "))
 	}
 	if obj.data.Debug { // XXX: catch ordering errors in the logs
 		obj.data.Logf("nodeOrder:")

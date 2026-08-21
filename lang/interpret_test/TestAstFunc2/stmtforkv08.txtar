@@ -16,4 +16,4 @@ forkv $key, $val in $map {
 	test [$s] {}
 }
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 9:21-9:25

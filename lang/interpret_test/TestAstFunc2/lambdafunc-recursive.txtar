@@ -20,4 +20,4 @@ $out2 = $sum(-5) # -5 + -4 + -3 + -2 + -1 + -0 = -15
 test fmt.printf("sum(4) is %d", $out1) {}
 test fmt.printf("sum(-5) is %d", $out2) {}
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 6:8-6:21

@@ -12,4 +12,4 @@ class c1($count) {
 	}
 }
 -- OUTPUT --
-# err: errSetScope: recursive reference while setting scope: not a dag
+# err: errSetScope: recursive reference while setting scope: not a dag: /main.mcl @ 10:3-10:25

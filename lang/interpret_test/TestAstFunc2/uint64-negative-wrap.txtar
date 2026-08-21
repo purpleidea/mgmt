@@ -9,4 +9,4 @@ test "t1" {
 	uint64 => $x,
 }
 -- OUTPUT --
-# err: errInterpret: error building resource: can't store negative int `-1` into unsigned `uint64` field
+# err: errInterpret: error building resource: can't store negative int `-1` into unsigned `uint64` field: /main.mcl @ 8:2-8:15

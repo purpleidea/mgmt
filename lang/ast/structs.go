@@ -1161,7 +1161,9 @@ func (obj *StmtRes) resource(table interfaces.Table, resName, data string) (engi
 
 		// mutate the struct field f with the mcl data in fv
 		if err := types.Into(fv, f); err != nil {
-			return nil, err
+			// Point at the specific resource field in the source,
+			// e.g. storing a negative int into an unsigned field.
+			return nil, interfaces.HighlightHelper(x, x.data.Logf, err)
 		}
 	}
 

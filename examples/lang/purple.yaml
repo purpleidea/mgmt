@@ -1,0 +1,239 @@
+
+esphome:
+  name: esphome-conveyor
+  friendly_name: mgmt ESPHome Conveyor
+  on_boot:
+    priority: -100
+    then:
+      # Keep the DRV8833 asleep before touching the H-bridge state.
+      - output.turn_off: motor_sleep
+      - fan.turn_off: conveyor_motor
+      # # Start from known published values rather than unpublished ones.
+      # - binary_sensor.template.publish:
+      #     id: brick_en_route
+      #     state: false
+      # ESPHome sets APDS9960 ATIME=0xDB (~103ms) and does not expose it. The
+      # bench test that produced usable colour used 72 x 2.78ms ~= 200ms, so
+      # ATIME = 256-72 = 184 = 0xB8. Shorter integration is why the earlier
+      # ESPHome readings were much worse than the CircuitPython ones.
+      - lambda: |-
+          if (!id(exit_apds).write_byte(0x81, 0xB8)) {
+            ESP_LOGW("conveyor", "Failed to set exit APDS9960 colour integration to 200ms");
+          } else {
+            ESP_LOGI("conveyor", "Exit APDS9960 colour integration set to 200ms");
+          }
+
+esp32:
+  board: um_feathers2
+  variant: esp32s2
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "esphome-conveyor-fallback"
+    password: "purpleIdea"
+    ap_timeout: 5min
+
+captive_portal:
+
+logger:
+  level: INFO
+
+api:
+  id: native_api
+  encryption:
+    # Public demo key. Generate a unique key for every real device.
+    key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+  reboot_timeout: 5min
+  # Losing the controller is the one case where the firmware must act on the
+  # motor without being asked: nobody is left to stop the belt. There is no
+  # persistent fault latch and no reset button, so reconnecting mgmt is all it
+  # takes to resume.
+  #
+  # Clearing the run request matters as much as stopping the belt. Without it,
+  # a controller that goes away mid-run leaves the device still saying a brick
+  # is on its way, and the next mgmt to connect reads that, believes it, and
+  # starts the belt with nothing at the entry.
+  on_client_disconnected:
+    - fan.turn_off: conveyor_motor
+    - light.turn_off: status_light
+    - logger.log: "Belt and light off: the mgmt api client disconnected"
+
+ota:
+  - platform: esphome
+
+# globals:
+
+# FeatherS2 STEMMA/Qwiic I2C pins used by CircuitPython board.SDA/board.SCL.
+i2c:
+  - id: main_i2c
+    sda: GPIO8
+    scl: GPIO9
+    scan: true
+
+tca9548a:
+  - id: sensor_mux
+    i2c_id: main_i2c
+    address: 0x70
+    channels:
+      - bus_id: entry_i2c
+        channel: 0
+      - bus_id: exit_i2c
+        channel: 1
+
+# Keep a 100ms polling interval so proximity stays responsive. Polling this
+# fast costs nothing on the api now that these readings stay on the device.
+apds9960:
+  - id: entry_apds
+    i2c_id: entry_i2c
+    address: 0x39
+    update_interval: 100ms
+  - id: exit_apds
+    i2c_id: exit_i2c
+    address: 0x39
+    update_interval: 100ms
+    # An object close enough to read is also close enough to block the light
+    # the sensor needs, so this runs wide open. At 4x a brick at the capture
+    # position gave clear=0.1%, which is a handful of ADC counts and below any
+    # sane floor. 64x is 16 times that. Gain scales every channel by the same
+    # factor, so the red ratio, and the threshold mgmt tests it against, are
+    # unaffected.
+    ambient_light_gain: 64x
+
+# Every raw reading below is internal. They drive the automations on this page
+# and never reach mgmt, which is what keeps the native api quiet. To calibrate
+# on the bench, flip one to `internal: false` temporarily and watch it in the
+# ESPHome dashboard.
+sensor:
+  - platform: apds9960
+    apds9960_id: entry_apds
+    type: PROXIMITY
+    id: entry_proximity
+    internal: true
+  - platform: apds9960
+    apds9960_id: exit_apds
+    type: PROXIMITY
+    id: exit_proximity
+    internal: true
+
+binary_sensor:
+  - platform: template
+    id: entry_object_present
+    name: Entry Object Present
+    lambda: return id(entry_proximity).has_state() && id(entry_proximity).state >= 20.0;
+    filters:
+      # A brick has to settle at the entry to count. Without this, a hand
+      # passing over the sensor, or a reading that brushes the threshold, is
+      # enough to start the belt. Raise the 20.0 above as well if the idle
+      # reading on your bench ever creeps up near it.
+      - delayed_on: 400ms
+
+  # 70% is approximately raw proximity 179. The bench data showed that useful
+  # colour discrimination only happens this close to the sensor; the approach
+  # readings were not trustworthy.
+  - platform: template
+    id: exit_object_present
+    name: Exit Object Present
+    lambda: return id(exit_proximity).has_state() && id(exit_proximity).state >= 70.0;
+    filters:
+      # Lifting a brick off drags the reading down through the threshold, and a
+      # slow or wobbly hand can cross it more than once. Each of those bounces
+      # would restart the capture and republish, so the light would flicker
+      # between the colour and idle white. Debounce the release only: the press
+      # is what withdraws the run request, and delaying that would let the
+      # brick coast past the sensor.
+      - delayed_off: 300ms
+    on_press:
+      # The brick arrived, so it is no longer on its way. mgmt sees that and
+      # stops the belt within a round trip. Note that the firmware does not
+      # touch the motor here: that is mgmt's call, and the capture below
+      # tolerates the belt still coasting for a moment.
+      - script.stop: jam_timeout
+
+
+# The FeatherS2 onboard APA102 uses a dedicated write-only SPI bus. GPIO21
+# enables the secondary 3.3V regulator that the onboard peripherals need.
+spi:
+  - id: status_spi
+    clk_pin: GPIO45
+    mosi_pin: GPIO40
+
+output:
+  # CircuitPython board.D21 -> FeatherS2 GPIO38 -> DRV8833 AIN1.
+  - platform: ledc
+    id: motor_ain1_pwm
+    pin: GPIO38
+    frequency: 20kHz
+  # CircuitPython board.D20 -> FeatherS2 GPIO33 -> DRV8833 AIN2.
+  - platform: ledc
+    id: motor_ain2_pwm
+    pin: GPIO33
+    frequency: 20kHz
+  # CircuitPython board.D5 -> FeatherS2 GPIO1 -> DRV8833 SLP.
+  - platform: gpio
+    id: motor_sleep
+    pin: GPIO1
+
+fan:
+  - platform: hbridge
+    id: conveyor_motor
+    name: Conveyor Motor
+    # Forward matches the tested CircuitPython state: AIN1 high, AIN2 low.
+    pin_a: motor_ain1_pwm
+    pin_b: motor_ain2_pwm
+    decay_mode: slow
+    speed_count: 100
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+      - output.turn_on: motor_sleep
+      - script.execute: jam_timeout
+    on_turn_off:
+      - output.turn_off: motor_sleep
+      - script.stop: jam_timeout
+
+light:
+  - platform: spi_led_strip
+    spi_id: status_spi
+    id: status_light
+    name: Status Light
+    num_leds: 1
+    data_rate: 1MHz
+    default_transition_length: 0s
+    restore_mode: ALWAYS_OFF
+    # The firmware declares the animations but never selects one. mgmt picks
+    # by name through the effect field of the esphome:light resource, so the
+    # device does the animating and mgmt does the deciding.
+    effects:
+      - addressable_rainbow:
+          name: Rainbow
+          speed: 10
+      - strobe:
+          name: Traveling Blink
+          colours:
+            - state: true
+              brightness: 35%
+              red: 100%
+              green: 70%
+              blue: 0%
+              duration: 400ms
+            - state: false
+              duration: 400ms
+
+script:
+  # A brick that never arrives, because it jammed, fell off, or was lifted
+  - id: jam_timeout
+    mode: restart
+    then:
+      - delay: 15s
+      - if:
+          condition:
+            fan.is_on: conveyor_motor
+          then:
+            - fan.turn_off: conveyor_motor
+            - logger.log:
+                level: WARN
+                format: "Belt stopped by the firmware backstop: mgmt did not react to the withdrawn run request"

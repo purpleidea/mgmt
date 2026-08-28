@@ -1,0 +1,9 @@
+{{/*
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+*/ -}}
+{{ if .Comment -}}
+#
+#	{{ .Comment }}
+#
+{{ end -}}
+{{ .Type }}    {{ .Database }}             {{ .User }}             {{ .Address }}            {{ .Method }}

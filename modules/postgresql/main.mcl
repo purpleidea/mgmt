@@ -1,0 +1,291 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "deploy"
+import "fmt"
+import "golang"
+import "local"
+import "os"
+
+class database($config) {
+	$namespace = $config->namespace # outside "name" of the db folder
+	$version str = $config->version # version of the db (eg: "15")
+	$port int = $config->port # port the db runs on
+
+	panic($namespace == "", "postgresql:database $namespace is empty")
+	panic($version == "", "postgresql:database $version is empty")
+
+	# TODO: ensure package is the right $version
+	if os.is_family_redhat() { # we only use fedora atm
+		pkg [
+			"postgresql",
+		] {
+			state => "installed",
+		}
+	}
+	if os.is_family_debian() {
+		pkg [
+			"postgresql",
+		] {
+			state => "installed",
+		}
+	}
+
+	$cname = "${version}/${namespace}" # cluster name
+	$etc = "/etc/postgresql/${version}/${namespace}/"
+	$var = "/var/lib/postgresql/${version}/${namespace}/"
+	$pid = "/var/run/postgresql/${version}-${namespace}.pid" # pid file
+	$svc = "postgresql@${version}-${namespace}" # generated service name
+
+	pkg "postgresql" {
+		state => "installed",
+
+		Before => File["${etc}"],
+	}
+
+	file "${etc}" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rwx,o=rx", # dir
+
+		Depend => Pkg["postgresql"],
+		Before => Svc["${svc}"],
+	}
+
+	file "${etc}conf.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rwx,o=rx", # dir
+
+		Depend => Pkg["postgresql"],
+		Before => Svc["${svc}"],
+	}
+
+	file "${var}" {
+		state => $const.res.file.state.exists,
+		recurse => false,
+		purge => false,
+		owner => "postgres",
+		group => "postgres",
+		# Permissions should be u=rwx (0700) or u=rwx,g=rx (0750).
+		mode => "u=rwx,g=rx,o=", # dir
+
+		Depend => Pkg["postgresql"],
+		Before => Svc["${svc}"],
+	}
+
+	$tmpl = struct{
+		cname => $cname,
+		port => $port,
+		etc => $etc,
+		var => $var,
+		pid => $pid,
+	}
+
+	file "${etc}postgresql.conf" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/postgresql.conf.tmpl"), $tmpl),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+	#file "${etc}pg_hba.conf" {
+	#	state => $const.res.file.state.exists,
+	#	content => golang.template(deploy.readfile("/files/pg_hba.conf.tmpl"), $tmpl),
+	#	owner => "postgres",
+	#	group => "postgres",
+	#	mode => "ug=rw,o=r",
+	#
+	#	Notify => Svc["${svc}"],
+	#}
+	file "${etc}pg_ident.conf" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/pg_ident.conf"),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+
+	file "${etc}pg_ctl.conf" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/pg_ctl.conf"),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+
+	file "${etc}start.conf" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/start.conf"),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+
+	file "${etc}environment" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/environment"),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+
+	svc "${svc}" {
+		state => "running",
+		startup => "enabled",
+
+		Depend => Pkg["postgresql"],
+	}
+
+	$vardir = local.vardir("postgresql/")
+
+	include auth_base # XXX: for now
+}
+
+# Disables a running database. Does not delete the data.
+class disable($config) {
+	$namespace = $config->namespace # outside "name" of the db folder
+	$version str = $config->version # version of the db (eg: "15")
+	$port int = $config->port # port the db runs on
+
+	panic($namespace == "", "postgresql:disable $namespace is empty")
+	panic($version == "", "postgresql:disable $version is empty")
+
+	$cname = "${version}/${namespace}" # cluster name
+	$etc = "/etc/postgresql/${version}/${namespace}/"
+	$svc = "postgresql@${version}-${namespace}" # generated service name
+
+	svc "${svc}" {
+		state => "stopped",
+		startup => "disabled",
+	}
+}
+
+class database:auth_base() {
+	file "${vardir}pg_hba.d/" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true,
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rwx,o=rx", # dir
+	}
+
+	file "${vardir}pg_hba.conf.header" {
+		state => $const.res.file.state.exists,
+		content => deploy.readfile("/files/pg_hba.conf.header"), # static, no template!
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+	}
+
+	file "${etc}pg_hba.conf" {
+		state => $const.res.file.state.exists,
+		fragments => [
+			"${vardir}pg_hba.conf.header", # also pull this one file
+			"${vardir}pg_hba.d/", # pull from this dir
+		],
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Depend => File["${vardir}pg_hba.conf.header"],
+		Depend => File["${vardir}pg_hba.d/"],
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+}
+
+# HBA stands for host-based authentication.
+class database:auth($name, $st) {
+	include auth_base
+
+	$type = $st->type <|> "host"
+	$database = $st->database <|> "all"
+	$user = $st->user <|> "all"
+	$address = $st->address # required
+	$method = $st->method <|> "scram-sha-256" # "peer" is the other method
+	$comment = $st->comment <|> ""
+
+	$tmpl = struct{
+		type => $type,
+		database => $database,
+		user => $user,
+		address => $address,
+		method => $method,
+		comment => "${comment}",
+	}
+
+	file "${vardir}pg_hba.d/${name}.pg_hba" {
+		state => $const.res.file.state.exists,
+		content => golang.template(deploy.readfile("/files/pg_hba.frag.tmpl"), $tmpl),
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Before => File["${etc}pg_hba.conf"],
+		Depend => File["${vardir}pg_hba.d/"],
+	}
+}
+
+class database:conf($name, $content) {
+	$content = $st->content
+
+	file "${etc}conf.d/" {
+		state => $const.res.file.state.exists,
+		content => $content,
+		owner => "postgres",
+		group => "postgres",
+		mode => "ug=rw,o=r",
+
+		Notify => Svc["${svc}"],
+		Before => Svc["${svc}"],
+	}
+}

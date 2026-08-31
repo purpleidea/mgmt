@@ -1076,7 +1076,7 @@ func (obj *Type) Reflect() reflect.Type {
 
 			// Our struct field names are lowercase, which
 			// reflect.StructOf would panic on, since those are
-			// unexported, so export the name by capitalizing it,
+			// unexported, so export the name by capitalising it,
 			// and store the original in the `lang` struct tag,
 			// which TypeOf and Into already use for this mapping.
 			r, size := utf8.DecodeRuneInString(k)

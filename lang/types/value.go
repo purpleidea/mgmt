@@ -1413,8 +1413,10 @@ func (obj *StructValue) Value() interface{} {
 	typ := obj.T.Reflect()
 	val := reflect.New(typ).Elem() // New returns a PtrTo(typ)
 
-	for _, k := range obj.T.Ord {
-		val.FieldByName(k).Set(reflect.ValueOf(obj.V[k].Value())) // recurse
+	for i, k := range obj.T.Ord {
+		// Reflect() exports the field names, but preserves the field
+		// order, so set by index instead of by name.
+		val.Field(i).Set(reflect.ValueOf(obj.V[k].Value())) // recurse
 	}
 	return val.Interface()
 }

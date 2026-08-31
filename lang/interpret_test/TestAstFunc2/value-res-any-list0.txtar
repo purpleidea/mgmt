@@ -1,0 +1,8 @@
+-- main.mcl --
+$example = ["a", "b", "c"]
+
+value "example" {
+	any => $example,
+}
+-- OUTPUT --
+Vertex: value[example]

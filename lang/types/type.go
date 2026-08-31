@@ -35,6 +35,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/disjoint"
@@ -1062,6 +1064,7 @@ func (obj *Type) Reflect() reflect.Type {
 		}
 
 		fields := []reflect.StructField{}
+		seen := make(map[string]string) // exported name -> field name
 		for _, k := range obj.Ord {
 			t, ok := obj.Map[k]
 			if !ok {
@@ -1070,16 +1073,33 @@ func (obj *Type) Reflect() reflect.Type {
 			if t == nil {
 				panic("malformed struct field")
 			}
-			if strings.Title(k) != k { // is exported?
-				//k = strings.Title(k) // TODO: is this helpful?
+
+			// Our struct field names are lowercase, which
+			// reflect.StructOf would panic on, since those are
+			// unexported, so export the name by capitalizing it,
+			// and store the original in the `lang` struct tag,
+			// which TypeOf and Into already use for this mapping.
+			r, size := utf8.DecodeRuneInString(k)
+			u := unicode.ToUpper(r)
+			if !unicode.IsUpper(u) { // eg: leading underscore
 				// reflect.StructOf would panic on anything unexported
-				panic(fmt.Sprintf("struct has unexported field: %s", k))
+				panic(fmt.Sprintf("struct has unexportable field: %s", k))
+			}
+			name := string(u) + k[size:]
+			if dup, exists := seen[name]; exists {
+				panic(fmt.Sprintf("struct fields `%s` and `%s` both export as `%s`", dup, k, name))
+			}
+			seen[name] = k
+
+			var tag reflect.StructTag
+			if name != k { // renamed, keep the original in the tag
+				tag = reflect.StructTag(fmt.Sprintf("%s:%q", StructTag, k))
 			}
 
 			fields = append(fields, reflect.StructField{
-				Name: k, // struct field name
+				Name: name, // exported struct field name
 				Type: t.Reflect(),
-				//Tag:  `mgmt:"foo"`, // unused
+				Tag:  tag,
 			})
 		}
 

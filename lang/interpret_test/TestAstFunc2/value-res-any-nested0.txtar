@@ -1,0 +1,18 @@
+-- main.mcl --
+$inner = struct{
+	deep => ["x", "y"],
+}
+
+$example = struct{
+	foo => "Hello world",
+	bar => 42,
+	baz => $inner,
+	items => [struct{num => 1}, struct{num => 2}],
+	pairs => {"key" => struct{ok => true}},
+}
+
+value "example" {
+	any => $example,
+}
+-- OUTPUT --
+Vertex: value[example]

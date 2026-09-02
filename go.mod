@@ -21,7 +21,6 @@ require (
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/nftables v0.2.0
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/hashicorp/consul/api v1.31.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/hil v0.0.0-20241119142051-4415e05c565c
@@ -50,7 +49,7 @@ require (
 	golang.org/x/sys v0.47.0
 	golang.org/x/time v0.9.0
 	golang.org/x/tools v0.47.0
-	google.golang.org/grpc v1.83.0
+	google.golang.org/grpc v1.83.1
 	gopkg.in/yaml.v2 v2.4.0
 	honnef.co/go/augeas v0.0.0-20161110001225-ca62e35ed6b8
 	libvirt.org/go/libvirt v1.11006.0
@@ -102,6 +101,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect

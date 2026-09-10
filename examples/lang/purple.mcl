@@ -1,0 +1,62 @@
+# mgmt run --tmp-prefix lang examples/lang/purple.mcl
+
+import "fmt"
+import "net/esphome"
+
+$endpoint = "esphome-conveyor"
+$motor = "Conveyor Motor"
+
+esphome:endpoint $endpoint {
+	host => "esphome-conveyor.local",
+	# Public sample key: replace it here and in the firmware before real use.
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=",
+	interval => 0,
+	logs => "info",
+}
+
+# The entire interface to the hardware: two facts.
+$entry_object_present = esphome.binary_sensor($endpoint, "Entry Object Present")
+$exit_object_present = esphome.binary_sensor($endpoint, "Exit Object Present")
+$hysteresis1 = history($entry_object_present, 1000)
+$hysteresis2 = history($hysteresis1, 1000)
+$motor_state = ($entry_object_present or $hysteresis1 or $hysteresis2) and (not $exit_object_present)
+
+esphome:fan $motor {
+	endpoint => $endpoint,
+	state => if $motor_state {
+		"on"
+	} else {
+		"off"
+	},
+	# A negative speed runs the belt in reverse.
+	speed => -50,
+	# On a long outage, stop before retrying the desired state.
+	stop => 5,
+	Meta:retry => -1,
+	Meta:delay => 5000,
+}
+
+print "conveyor" {
+	msg => fmt.printf(
+		"entry_object_present=%t exit_object_present=%t motor_state=%t hysteresis1=%t hysteresis2=%t",
+		$entry_object_present,
+		$exit_object_present,
+		$motor_state,
+		$hysteresis1,
+		$hysteresis2,
+	),
+}
+
+file "/tmp/conveyor" {
+	state => "exists",
+	content => fmt.printf(
+		"entry_object_present=%t\nhysteresis1=%t\nhysteresis2=%t\nmotor_state=%t\nexit_object_present=%t\n",
+		$entry_object_present,
+		$hysteresis1,
+		$hysteresis2,
+		$motor_state,
+		$exit_object_present,
+	),
+}
+
+Esphome:Endpoint[$endpoint] -> Esphome:Fan[$motor]

@@ -1,0 +1,125 @@
+# Make the on-board LED of an Adafruit HUZZAH32 blink cooperatively with
+# esphome. The device firmware turns the LED on three seconds after it sees it
+# turn off. Mgmt watches the exported state and turns it off as soon as
+# it sees it turn on.
+#
+# Copy the commented firmware YAML below into esphome-blink.yaml, add
+# wifi_ssid and wifi_password to ESPHome's secrets.yaml, then compile and flash
+# it with:
+#
+#   esphome run esphome-blink.yaml
+#
+# Run mgmt with:
+#
+#   mgmt run --tmp-prefix lang examples/lang/esphome-blink.mcl
+#
+# The sample native-api key is intentionally public. Replace it in both the
+# endpoint below and the copied YAML before using this anywhere untrusted.
+#
+# ESPHome firmware:
+#
+# esphome:
+#   name: esphome-blink
+#   friendly_name: mgmt ESPHome Blink
+#   on_boot:
+#     # Start the loop even if restoring the switch to OFF does not fire its
+#     # on_turn_off automation during initialization.
+#     priority: -100
+#     then:
+#       - delay: 3s
+#       - if:
+#           condition:
+#             switch.is_off: onboard_led
+#           then:
+#             - logger.log:
+#                 tag: blink
+#                 level: INFO
+#                 format: "Boot delay elapsed; turning the LED on"
+#             - switch.turn_on: onboard_led
+#
+# esp32:
+#   board: featheresp32
+#   framework:
+#     type: arduino
+#
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+#
+# logger:
+#   level: DEBUG
+#
+# api:
+#   encryption:
+#     key: "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k="
+#
+# ota:
+#   - platform: esphome
+#
+# switch:
+#   - platform: gpio
+#     id: onboard_led
+#     # Keep this exact entity name in sync with the mcl file.
+#     name: Onboard LED
+#     pin: GPIO13
+#     restore_mode: ALWAYS_OFF
+#     on_turn_on:
+#       - logger.log:
+#           tag: blink
+#           level: INFO
+#           format: "LED turned on; waiting for mgmt to turn it off"
+#     on_turn_off:
+#       - logger.log:
+#           tag: blink
+#           level: INFO
+#           format: "LED turned off; turning it back on in three seconds"
+#       - delay: 3s
+#       - if:
+#           condition:
+#             switch.is_off: onboard_led
+#           then:
+#             - logger.log:
+#                 tag: blink
+#                 level: INFO
+#                 format: "LED is still off; turning it on"
+#             - switch.turn_on: onboard_led
+#
+# # The branch's state function reads binary_sensor entities, so mirror the
+# # writable switch state into a read-only entity for mgmt to watch.
+# binary_sensor:
+#   - platform: template
+#     id: onboard_led_state
+#     # Keep this exact entity name in sync with the mcl file.
+#     name: Onboard LED State
+#     lambda: return id(onboard_led).state;
+
+import "fmt"
+import "net/esphome"
+
+$endpoint = "esphome-blink"
+$led = "Onboard LED"
+$led_on = esphome.binary_sensor($endpoint, "Onboard LED State")
+
+esphome:endpoint $endpoint {
+	host => "esphome-blink.local",
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=", # noise psk
+	interval => 0, # keep one connection open for native push events
+	logs => "debug", # stream the device logger through mgmt
+}
+
+print "led state" {
+	msg => fmt.printf("on-board led is on: %v", $led_on),
+}
+
+# This block appears when the device reports that the LED is on. The firmware
+# supplies the deliberate delay before turning it on again. Once mgmt commands
+# the LED off, the pushed state event removes this block until the next cycle.
+if $led_on {
+
+	esphome:switch $led {
+		endpoint => $endpoint,
+		state => "off",
+	}
+
+	Esphome:Endpoint[$endpoint] -> Esphome:Switch[$led]
+}

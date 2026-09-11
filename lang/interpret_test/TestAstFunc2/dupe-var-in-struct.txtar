@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# The same variable used for two struct fields must not lose one.
+$foo = "hello"
+
+test [fmt.printf("%v", struct{a => $foo, b => $foo})] {}
+-- OUTPUT --
+Vertex: test[struct{a: "hello"; b: "hello"}]

@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# Using the same variable twice in a list must not lose an argument or crash.
+# The two elements produce the same func vertex, and pgraph stores a single
+# edge per vertex pair, so the edge args must be merged.
+$foo = "hello"
+
+test [fmt.printf("%v", [$foo, $foo])] {}
+-- OUTPUT --
+Vertex: test[["hello", "hello"]]

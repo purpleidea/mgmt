@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# The same variable passed twice to a function must not lose an argument. This
+# goes through the txn layer, which already merges shared edges, but we guard it
+# so it stays correct alongside the list/map/struct cases.
+$foo = "hello"
+
+test [fmt.printf("%s-%s", $foo, $foo)] {}
+-- OUTPUT --
+Vertex: test[hello-hello]

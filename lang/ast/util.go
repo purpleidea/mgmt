@@ -745,3 +745,27 @@ func cycleReferenceNodes(graph *pgraph.Graph, err error) []interfaces.Positionab
 	})
 	return kept
 }
+
+// addFuncEdge adds a function edge from f1 to f2 in the graph, wiring the
+// single named arg. Since pgraph stores at most one edge between any given
+// vertex pair, if such an edge already exists (which happens when the same
+// producer feeds more than one argument of the same consumer, such as the list
+// `[$foo, $foo]`, or a map or struct with a repeated value) then the arg name
+// is merged into the existing edge instead of replacing it. A single FuncEdge
+// may name more than one logical input; the txn layer and the dage function
+// engine already collapse shared edges this way. Without this, the second
+// AddEdge would clobber the first and the consumer would receive a nil value
+// for the lost argument.
+func addFuncEdge(graph *pgraph.Graph, f1, f2 interfaces.Func, arg string) {
+	if edge := graph.FindEdge(f1, f2); edge != nil {
+		fe := edge.(*interfaces.FuncEdge)
+		for _, a := range fe.Args {
+			if a == arg {
+				return // already present, nothing to do
+			}
+		}
+		fe.Args = append(fe.Args, arg) // merge into the existing edge
+		return
+	}
+	graph.AddEdge(f1, f2, &interfaces.FuncEdge{Args: []string{arg}})
+}

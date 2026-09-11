@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# The same variable used as both a map key and value must not lose one.
+$foo = "hello"
+
+test [fmt.printf("%v", {$foo => $foo})] {}
+-- OUTPUT --
+Vertex: test[{"hello": "hello"}]

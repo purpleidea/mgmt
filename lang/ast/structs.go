@@ -8572,9 +8572,8 @@ func (obj *ExprList) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 		}
 		graph.AddGraph(g)
 
-		fieldName := strconv.Itoa(index) // argNames as integers!
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // element -> list
+		fieldName := strconv.Itoa(index)           // argNames as integers!
+		addFuncEdge(graph, f, function, fieldName) // element -> list
 	}
 
 	return graph, function, nil
@@ -9088,9 +9087,8 @@ func (obj *ExprMap) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, 
 		graph.AddGraph(g)
 
 		// do the key names ever change? -- yes
-		fieldName := "key:" + strconv.Itoa(index) // stringify map key
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // key -> map
+		fieldName := "key:" + strconv.Itoa(index)  // stringify map key
+		addFuncEdge(graph, f, function, fieldName) // key -> map
 	}
 
 	// each map key value pair needs to point to the final map expression
@@ -9101,9 +9099,8 @@ func (obj *ExprMap) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func, 
 		}
 		graph.AddGraph(g)
 
-		fieldName := "val:" + strconv.Itoa(index) // stringify map val
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // val -> map
+		fieldName := "val:" + strconv.Itoa(index)  // stringify map val
+		addFuncEdge(graph, f, function, fieldName) // val -> map
 	}
 
 	return graph, function, nil
@@ -9561,8 +9558,7 @@ func (obj *ExprStruct) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Fun
 		graph.AddGraph(g)
 
 		fieldName := x.Name
-		edge := &interfaces.FuncEdge{Args: []string{fieldName}}
-		graph.AddEdge(f, function, edge) // field -> struct
+		addFuncEdge(graph, f, function, fieldName) // field -> struct
 	}
 
 	return graph, function, nil

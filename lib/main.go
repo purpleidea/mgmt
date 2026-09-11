@@ -956,6 +956,15 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 				if gapiImpl != nil { // currently running...
 					gapiChan = nil
+					// Shut the previous GAPI down and wait
+					// for it to fully exit before we start
+					// the new one. Otherwise its function
+					// engine keeps running for the life of
+					// the process, leaking any watches (eg:
+					// inotify fds) it holds on each deploy.
+					if err := gapiImpl.Cleanup(); err != nil {
+						obj.Logf("gapi: previous exited with error: %+v", err)
+					}
 				}
 				gapiImpl = gapiObj // copy it to active
 

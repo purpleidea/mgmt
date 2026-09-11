@@ -64,6 +64,7 @@ type GAPI struct {
 
 	data        *gapi.Data
 	initialized bool
+	cancel      func()          // shuts down the Next goroutine
 	wg          *sync.WaitGroup // sync group for tunnel go routines
 	err         error
 	errMutex    *sync.Mutex // guards err
@@ -110,6 +111,9 @@ func (obj *GAPI) Info() *gapi.InfoResult {
 // Next returns nil errors every time there could be a new graph.
 func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 	ch := make(chan gapi.Next)
+	// Wrap the incoming context so that Cleanup can shut us down on our own
+	// (eg: when a new deploy replaces us) without cancelling our parent.
+	ctx, obj.cancel = context.WithCancel(ctx)
 	obj.wg.Add(1)
 	go func() {
 		defer obj.wg.Done()
@@ -154,6 +158,18 @@ func (obj *GAPI) Next(ctx context.Context) chan gapi.Next {
 		}
 	}()
 	return ch
+}
+
+// Cleanup shuts the GAPI down and waits for it to finish before it returns. It
+// cancels the context we wrapped in Next and blocks until the Next goroutine
+// has exited. The context.Canceled that results from our own cancellation is
+// filtered out, so this returns nil on a clean shutdown.
+func (obj *GAPI) Cleanup() error {
+	if obj.cancel == nil {
+		return nil // Next was never called; nothing to shut down
+	}
+	obj.cancel()
+	return errwrap.NoContextCanceled(errwrap.WithoutContext(obj.Err()))
 }
 
 // Err will contain the last error when Next shuts down. It waits for all the

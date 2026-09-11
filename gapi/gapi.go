@@ -153,6 +153,14 @@ type GAPI interface {
 	// graph.
 	Next(ctx context.Context) chan Next
 
+	// Cleanup shuts the GAPI down and waits for it to finish before it
+	// returns. It's used to reclaim a GAPI's resources when it's being
+	// replaced by a new deploy, without having to tear down the whole
+	// process. Implementations should cancel whatever they started in Next
+	// and block until it has exited. It returns any genuine error that
+	// occurred while running, but not the expected cancellation signal.
+	Cleanup() error
+
 	// Err will contain the last error when Next shuts down. It waits for
 	// all the running processes to exit before it returns.
 	Err() error

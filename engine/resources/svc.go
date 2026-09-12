@@ -113,6 +113,13 @@ type SvcRes struct {
 	// Session specifies if this is for a system service (false) or a user
 	// session specific service (true).
 	Session bool `lang:"session" yaml:"session"` // user session (true) or system?
+
+	// Restart specifies what a refresh notification does to a running
+	// service. When false (the default) we attempt a systemd reload, and
+	// fall back to a restart if the unit does not support reloading. When
+	// true we always do a full restart (stop then start) which re-runs the
+	// unit's ExecStart.
+	Restart bool `lang:"restart" yaml:"restart"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -561,21 +568,33 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
-	if !refresh { // Do we need to reload the service?
+	if !refresh { // Do we need to reload or restart the service?
 		return false, nil // success
 	}
 
 	if obj.init.Debug {
-		obj.init.Logf("reloading...")
+		if obj.Restart {
+			obj.init.Logf("restarting...")
+		} else {
+			obj.init.Logf("reloading...")
+		}
 	}
 
 	// From: https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.systemd1.html
 	// If a service is restarted that isn't running, it will be started
 	// unless the "Try" flavour is used in which case a service that isn't
 	// running is not affected by the restart. The ReloadOrRestart flavours
-	// attempt a reload if the unit supports it and use a restart otherwise.
+	// attempts a reload if the unit supports it and uses restart otherwise.
 	result := make(chan string, 1) // catch result information
-	if _, err := conn.ReloadOrTryRestartUnitContext(ctx, svc, SystemdUnitModeFail, result); err != nil {
+	if obj.Restart {
+		_, err = conn.RestartUnitContext(ctx, svc, SystemdUnitModeFail, result)
+	} else {
+		_, err = conn.ReloadOrTryRestartUnitContext(ctx, svc, SystemdUnitModeFail, result)
+	}
+	if err != nil {
+		if obj.Restart {
+			return false, errwrap.Wrapf(err, "failed to restart unit")
+		}
 		return false, errwrap.Wrapf(err, "failed to reload unit")
 	}
 
@@ -589,7 +608,11 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		// pass
 
 	case SystemdUnitResultDone:
-		obj.init.Logf("service reloaded")
+		if obj.Restart {
+			obj.init.Logf("service restarted")
+		} else {
+			obj.init.Logf("service reloaded")
+		}
 
 	case SystemdUnitResultCanceled:
 		// TODO: should this be context.Canceled?
@@ -599,6 +622,9 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		return false, fmt.Errorf("operation timed out")
 
 	case SystemdUnitResultFailed:
+		if obj.Restart {
+			return false, fmt.Errorf("svc restart failed (selinux?)")
+		}
 		return false, fmt.Errorf("svc reload failed (selinux?)")
 
 	default:
@@ -657,6 +683,9 @@ func (obj *SvcRes) Cmp(r engine.Res) error {
 	}
 	if obj.Session != res.Session {
 		return fmt.Errorf("the Session differs")
+	}
+	if obj.Restart != res.Restart {
+		return fmt.Errorf("the Restart differs")
 	}
 
 	return nil

@@ -1,0 +1,10 @@
+-- main.mcl --
+$example = struct{
+	foo => "Hello world",
+}
+
+value "example" {
+	any => $example,
+}
+-- OUTPUT --
+Vertex: value[example]

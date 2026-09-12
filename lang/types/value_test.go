@@ -618,6 +618,40 @@ func TestStruct2(t *testing.T) {
 	}
 }
 
+func TestStruct3(t *testing.T) {
+	// Lowercase field names get exported (capitalized) by Reflect, with
+	// the original name kept in the `lang` struct tag, so a struct value
+	// can round trip through a golang interface{} and back via ValueOf.
+	st := NewStruct(NewType("struct{answer int; nested struct{truth bool}}"))
+	if err := st.Set("answer", &IntValue{V: 42}); err != nil {
+		t.Errorf("struct could not set key, error: %v", err)
+		return
+	}
+	inner := NewStruct(NewType("struct{truth bool}"))
+	if err := inner.Set("truth", &BoolValue{V: true}); err != nil {
+		t.Errorf("struct could not set key, error: %v", err)
+		return
+	}
+	if err := st.Set("nested", inner); err != nil {
+		t.Errorf("struct could not set key, error: %v", err)
+		return
+	}
+
+	v := st.Value() // this used to panic on the unexported field names
+	if typ := fmt.Sprintf("%T", v); typ != `struct { Answer int64 "lang:\"answer\""; Nested struct { Truth bool "lang:\"truth\"" } "lang:\"nested\"" }` {
+		t.Errorf("struct displayed type value: %s", typ)
+	}
+
+	out, err := ValueOfGolang(v)
+	if err != nil {
+		t.Errorf("could not get value of golang struct, error: %v", err)
+		return
+	}
+	if err := st.Cmp(out); err != nil {
+		t.Errorf("struct value did not round trip, error: %v", err)
+	}
+}
+
 func TestValueOf0(t *testing.T) {
 	testCases := map[Value]interface{}{
 		&BoolValue{V: true}:  true,

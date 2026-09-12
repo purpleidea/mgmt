@@ -1840,23 +1840,29 @@ func TestResTypeOfSkipPrivateFields(t *testing.T) {
 }
 
 func TestReflect0(t *testing.T) {
-	mustPanic := func() (reterr error) {
-		defer func() {
-			// catch unhandled panics
-			if r := recover(); r != nil {
-				reterr = fmt.Errorf("panic: %+v", r)
-			}
-		}()
+	// Lowercase (unexported) struct field names get capitalized, so that
+	// reflect.StructOf doesn't panic on them, and the original name is
+	// stored in the `lang` struct tag, which TypeOf uses to map it back.
+	typ := NewType("struct{field1 str}")
+	st := typ.Reflect()
 
-		// It's unclear if we want this behaviour forever, but it is the
-		// current behaviour, and I'd at least like to know if it
-		// changes so we can understand where (if at all) it's required.
-		typ := NewType("struct{field1 str}")
-		_ = typ.Reflect()
-		return nil
+	field, ok := st.FieldByName("Field1")
+	if !ok {
+		t.Fatalf("expected a `Field1` field, got: %+v", st)
+	}
+	if field.Type.Kind() != reflect.String {
+		t.Errorf("expected a string field, got: %+v", field.Type)
+	}
+	if alias, ok := field.Tag.Lookup(StructTag); !ok || alias != "field1" {
+		t.Errorf("expected a `%s` tag of `field1`, got: `%s`", StructTag, alias)
 	}
 
-	if err := mustPanic(); err == nil {
-		t.Errorf("expected panic, got nil")
+	// And the original type can round trip back out of the golang type.
+	out, err := TypeOf(st)
+	if err != nil {
+		t.Fatalf("could not TypeOf the reflected struct: %+v", err)
+	}
+	if err := typ.Cmp(out); err != nil {
+		t.Errorf("type did not round trip through Reflect: %+v", err)
 	}
 }

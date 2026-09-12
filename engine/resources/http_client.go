@@ -47,8 +47,10 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util/atomicfile"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -152,7 +154,6 @@ type HTTPClientRes struct {
 	// XXX: Can this method really guarantee the server started a watch?
 	LongpollConditional bool `lang:"longpoll_conditional" yaml:"longpoll_conditional"`
 
-	tmp string // download location
 	dst string // the file location
 
 	sha256 string // cache of dst
@@ -395,7 +396,6 @@ func (obj *HTTPClientRes) Init(init *engine.Init) error {
 	if err != nil {
 		return errwrap.Wrapf(err, "could not get VarDir in Init()")
 	}
-	obj.tmp = filepath.Join(dir, "tmp") // return a unique file
 
 	obj.dst = obj.getDst()
 	if obj.dst == "" { // user didn't specify file
@@ -842,26 +842,7 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 		return false, nil
 	}
 
-	// If we're writing a file, we should stream it to a vardir and then
-	// swap it atomically so that (1) we don't buffer the entire file into
-	// memory and (2) so that we don't have a partial (corrupt) file if the
-	// http fails to complete or validate the hash correctly. Note that we
-	// *don't* store the file twice in the steady state, since the vardir
-	// version overwrites the final destination when things check out okay.
-	tmpdel := true
-	defer func() {
-		// once file moved away, we should not run remove!
-		if !tmpdel {
-			return
-		}
-		// cleanup the partial file if not moved...
-		if err := os.Remove(obj.tmp); err != nil {
-			// XXX: should we bubble an error up instead?
-			obj.init.Logf("error removing tmp file %q: %v", obj.tmp, err)
-		}
-	}()
-
-	file, err := os.Create(obj.tmp)
+	file, err := atomicfile.New(obj.dst)
 	if err != nil {
 		return false, err
 	}
@@ -897,12 +878,6 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 	if err := file.Sync(); err != nil {
 		return false, err
 	}
-	// "The behavior of Close after the first call is undefined. Specific
-	// implementations may document their own behavior." We double close in
-	// defer above, which as per the *os.File implementation is allowed.
-	if err := file.Close(); err != nil {
-		return false, err
-	}
 
 	// Set the mtime on the download from the server's Last-Modified header
 	// so that subsequent calls using the `If-Modified-Since` header will
@@ -913,9 +888,30 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 		if err != nil { // not a permanent error
 			obj.init.Logf("could not parse Last-Modified %q: %v", lm, err)
 
-		} else if err := os.Chtimes(obj.tmp, t, t); err != nil {
-			return false, errwrap.Wrapf(err, "could not set mtime on %s", obj.tmp)
+		} else {
+			//if err := os.Chtimes(obj.tmp, t, t); err != nil {
+			syscall, err := file.SyscallConn()
+			if err != nil {
+				return false, errwrap.Wrapf(err, "could not setup syscall conn (platform problem?)")
+			}
+			//if err := os.Chtimes(obj.tmp, t, t); err != nil {
+			var utimesErr error
+			err = syscall.Control(func(fd uintptr) {
+				utimesErr = unix.Futimes(int(fd), []unix.Timeval{{Sec: 0, Usec: 0}, {Sec: t.Unix(), Usec: 0}})
+			})
+
+			if err != nil {
+				return false, errwrap.Wrapf(err, "failed to set mtime temporary file for %s", obj.dst)
+			}
+
+			if utimesErr != nil {
+				return false, errwrap.Wrapf(err, "failed to set mtime on temporary file for %s", obj.dst)
+			}
 		}
+	}
+
+	if err := file.Commit(); err != nil {
+		return false, err
 	}
 
 	if obj.sha256 == "" { // not cached
@@ -932,16 +928,6 @@ func (obj *HTTPClientRes) processResp(ctx context.Context, resp *http.Response, 
 	// server version. That mtime is our long poll cursor: if stale it would
 	// make the server return immediately on every poll in an infinite loop.
 	unchanged := obj.sha256 == sum()
-
-	// XXX: VarDir may be on a different filesystem than dst, in which case
-	// os.Rename fails with syscall.EXDEV. Eventually VarDir should expose
-	// that and give us an API that lets us receive a dir on the same
-	// filesystem we're on or just fall back to a copy to the same dir as
-	// the dst but with a .tmp?
-	if err := os.Rename(obj.tmp, obj.dst); err != nil {
-		return false, err
-	}
-	tmpdel = false
 
 	content := buf.String()
 	if err := obj.send(content); err != nil { // send/recv

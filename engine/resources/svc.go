@@ -507,13 +507,13 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 	}
 
-	// XXX: do we need to use a buffered channel here?
-	result := make(chan string, 1) // catch result information
-	defer close(result)
-	var status string
-	var ok bool
-
 	if !stateOK && obj.State != "" {
+		// This channel must be buffered: go-systemd delivers the job
+		// result with a blocking send while holding its jobListener
+		// lock, so an unbuffered channel with no ready receiver would
+		// deadlock every future job on this conn. See waitJob for how
+		// and when it is safe to close.
+		result := make(chan string, 1) // catch result information
 		if obj.State == "running" {
 			_, err = conn.StartUnitContext(ctx, svc, SystemdUnitModeFail, result)
 		} else if obj.State == "stopped" {
@@ -530,27 +530,9 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		}
 		refresh = false // We did a start or stop, so a reload is not needed.
 
-		// TODO: Should we permanently error after a long timeout here?
-		for {
-			warn := true // warn once
-			select {
-			case status, ok = <-result:
-				if !ok {
-					return false, fmt.Errorf("unexpected closed channel during start/stop")
-				}
-				break
-
-			case <-time.After(10 * time.Second):
-				if warn {
-					obj.init.Logf("service start/stop is slow...")
-				}
-				warn = false
-				continue
-
-			case <-ctx.Done():
-				return false, ctx.Err()
-			}
-			break // don't loop forever
+		status, err := obj.waitJob(ctx, result)
+		if err != nil {
+			return false, err
 		}
 
 		switch status {
@@ -592,31 +574,14 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	// unless the "Try" flavour is used in which case a service that isn't
 	// running is not affected by the restart. The ReloadOrRestart flavours
 	// attempt a reload if the unit supports it and use a restart otherwise.
+	result := make(chan string, 1) // catch result information
 	if _, err := conn.ReloadOrTryRestartUnitContext(ctx, svc, SystemdUnitModeFail, result); err != nil {
 		return false, errwrap.Wrapf(err, "failed to reload unit")
 	}
 
-	// TODO: Should we permanently error after a long timeout here?
-	for {
-		warn := true // warn once
-		select {
-		case status, ok = <-result:
-			if !ok {
-				return false, fmt.Errorf("unexpected closed channel during reload")
-			}
-			break
-
-		case <-time.After(10 * time.Second):
-			if warn {
-				obj.init.Logf("service start/stop is slow...")
-			}
-			warn = false
-			continue
-
-		case <-ctx.Done():
-			return false, ctx.Err()
-		}
-		break // don't loop forever
+	status, err := obj.waitJob(ctx, result)
+	if err != nil {
+		return false, err
 	}
 
 	switch status {
@@ -641,6 +606,39 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	return false, nil // success
+}
+
+// waitJob blocks until systemd reports the result of a job that was previously
+// started with the given buffered result channel, or until ctx is cancelled.
+//
+// On a real result it closes the channel before returning. This is safe because
+// go-systemd removes the channel from its job listener as soon as it delivers
+// the result, so no further send can race with our close. On ctx cancellation
+// the job may still be in flight, and go-systemd delivers results from an
+// asynchronous, non-joinable dispatcher goroutine, so there is no moment at
+// which we can prove that no further send will happen; closing then would risk
+// a panic from a send on a closed channel. We therefore leave the channel to
+// the garbage collector (the deferred conn.Close in the caller stops that
+// dispatcher) and return promptly, since the engine requires CheckApply to
+// return soon after its context is cancelled.
+// XXX: get the go-systemd project to fix their crummy API
+func (obj *SvcRes) waitJob(ctx context.Context, result chan string) (string, error) {
+	for {
+		// TODO: Should we permanently error after a long timeout here?
+		select {
+		case status, ok := <-result:
+			if ok { // it's now safe to free the channel explicitly
+				close(result)
+			}
+			return status, nil
+
+		case <-time.After(10 * time.Second):
+			obj.init.Logf("systemd job is slow, still waiting...")
+
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.

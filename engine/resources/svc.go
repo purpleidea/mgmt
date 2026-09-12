@@ -227,9 +227,22 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 	//defer close(chSub) // cannot close receive-only channel
 	//defer close(chSubErr) // cannot close receive-only channel
 	defer func() { // drain to avoid deadlock with this crappy function
+		// The go-systemd subscribe goroutine only closes chSub and
+		// chSubErr once the ctx we passed to SubscribeContext is done.
+		// Our defer cancel() above runs *after* this defer (they run
+		// LIFO) so if Watch is returning because of an error rather
+		// than a cancelled ctx, those channels would never close and
+		// this drain would block forever. Cancel here first so they
+		// close.
+		cancel()
 		// XXX: https://github.com/coreos/go-systemd/pull/514 or similar
-		chSubClosed := false
-		chSubErrClosed := false
+		// The main loop above sets chSub or chSubErr to nil once it has
+		// seen it close. A receive on a nil channel blocks forever, so
+		// treat an already-nil channel as already-drained, otherwise we
+		// deadlock in the select below waiting on a close we can never
+		// observe.
+		chSubClosed := chSub == nil
+		chSubErrClosed := chSubErr == nil
 		for {
 			if chSubClosed && chSubErrClosed {
 				return

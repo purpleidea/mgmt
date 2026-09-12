@@ -68,6 +68,7 @@ linters:
 				- capitalize
 				- capitalized
 				- capitalizes
+				- capitalizing
 				- customize
 				- finalizes
 				- fulfill
@@ -130,6 +131,8 @@ linters:
 				  correction: capitalized
 				- typo: capitalises
 				  correction: capitalizes
+				- typo: capitalising
+				  correction: capitalizing
 				- typo: customise
 				  correction: customize
 				- typo: finalises

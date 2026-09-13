@@ -148,6 +148,8 @@ class vm($name, $config) {
 		run_cmd => $run_cmd,
 		firstboot_cmd => $firstboot_cmd,
 
+		Meta:async => true, # already the default
+
 		# make sure key exists so that's it's available for injection!
 		Depend => File["/root/.ssh/id_rsa"],
 		Depend => Svc["virtqemud"],
@@ -195,6 +197,12 @@ class vm($name, $config) {
 		hotcpus => true, # "that's hot!"
 		restartondiverge => "",
 		restartonrefresh => false,
+
+		# Starting a vm can be slow, so don't hold up graph swaps on it.
+		# This is about our own CheckApply only. Being downstream of the
+		# async virt:builder doesn't need this, since we wait for it to
+		# finish either way.
+		Meta:async => true,
 
 		Depend => Svc["virtqemud"],
 		Depend => Svc["virtnetworkd"],

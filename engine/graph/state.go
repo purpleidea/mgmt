@@ -77,6 +77,11 @@ type State struct {
 	isStateOK *atomic.Bool // is state OK or do we need to run CheckApply ?
 	workerErr error        // did the Worker error?
 
+	// async caches whether this resource runs its CheckApply in the async,
+	// non-blocking manner. It is resolved once during Init and must not
+	// change. See engine.AsyncCheckApply for how the value is determined.
+	async bool
+
 	mutex *sync.RWMutex // used for editing state properties
 
 	// pMutex guards pCancel below.
@@ -167,6 +172,10 @@ func (obj *State) Init() error {
 
 	obj.isStateOK = &atomic.Bool{}
 
+	// Resolve the async setting once. This is the Meta:async override if set,
+	// otherwise the resource default (which traits.Async makes true).
+	obj.async = engine.AsyncCheckApply(res)
+
 	obj.mutex = &sync.RWMutex{}
 	obj.pMutex = &sync.Mutex{}
 	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
@@ -223,6 +232,13 @@ func (obj *State) Init() error {
 		//},
 
 		FilteredGraph: func() (*pgraph.Graph, error) {
+			// The CheckApply of an async resource can overlap with
+			// a graph swap, and this walks the graph, so it can't
+			// be offered safely. See traits.Async for the details.
+			if obj.async {
+				return nil, fmt.Errorf("the FilteredGraph API is not available to an async resource")
+			}
+
 			graph, err := pgraph.NewGraph("filtered")
 			if err != nil {
 				return nil, err

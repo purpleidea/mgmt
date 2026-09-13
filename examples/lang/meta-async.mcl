@@ -1,0 +1,18 @@
+import "datetime"
+import "fmt"
+
+$d = datetime.now()
+file "/tmp/mgmt/datetime" { # updates every second (constant graph swaps)
+	state => $const.res.file.state.exists,
+	content => fmt.printf("datetime: %d\n", $d),
+}
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+}
+
+test "blocker" { # blocks in CheckApply for 15s, and then errors
+	waitforerror => 15 * 1000,
+
+	Meta:async => true, # async means we don't block datetime from updating
+}

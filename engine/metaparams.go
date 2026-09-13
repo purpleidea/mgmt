@@ -56,6 +56,7 @@ var DefaultMetaParams = &MetaParams{
 	Dollar:  false,
 	Hidden:  false,
 	Export:  []string{},
+	Async:   nil, // nil means use the resource default (traits.Async)
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -175,6 +176,26 @@ type MetaParams struct {
 	// of a kind+name to the same host, the exports must not conflict. On
 	// resource collect, this parameter is not preserved.
 	Export []string `yaml:"export"`
+
+	// Async tells the engine that the CheckApply operation of this resource
+	// may continue running in the background, even while the rest of the
+	// engine pauses to perform a graph swap. This is useful for resources
+	// which have long-running CheckApply operations (such as building a
+	// virtual machine image) where you don't want to block the rest of the
+	// engine from applying a new version of the graph while that work is
+	// happening.
+	//
+	// If the resource is removed from the graph during a swap while its
+	// CheckApply is still running, then the swap blocks while the
+	// CheckApply operation finishes, in the same way it would if it wasn't
+	// async.
+	//
+	// The default behaviour depends on if the resource has the
+	// `traits.Async` property set or not. This metaparam can override it
+	// when set. If the override setting is incompatible with the resource
+	// (for example, a resource which may *not* run in an async way) then
+	// this can be caught during the res Validate.
+	Async *bool `yaml:"async"`
 }
 
 // Cmp compares two AutoGroupMeta structs and determines if they're equivalent.
@@ -233,6 +254,12 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	if err := util.SortedStrSliceCompare(obj.Export, meta.Export); err != nil {
 		return errwrap.Wrapf(err, "values for Export are different")
 	}
+	if (obj.Async == nil) != (meta.Async == nil) {
+		return fmt.Errorf("values for Async are different")
+	}
+	if obj.Async != nil && meta.Async != nil && *obj.Async != *meta.Async {
+		return fmt.Errorf("values for Async are different")
+	}
 
 	return nil
 }
@@ -259,6 +286,18 @@ func (obj *MetaParams) Validate() error {
 	}
 	// TODO: Should we validate the export patterns?
 
+	// If async is explicitly set true, it can't be combined with export or
+	// hidden. This doesn't block the traits.Async value, which is related,
+	// but that we don't need to validate or consider here.
+	if obj.Async != nil && *obj.Async {
+		if obj.Hidden {
+			return fmt.Errorf("the async param can't be combined with hidden")
+		}
+		if len(obj.Export) > 0 {
+			return fmt.Errorf("the async param can't be combined with export")
+		}
+	}
+
 	return nil
 }
 
@@ -273,6 +312,11 @@ func (obj *MetaParams) Copy() *MetaParams {
 	if obj.Export != nil {
 		export = make([]string, len(obj.Export))
 		copy(export, obj.Export)
+	}
+	var async *bool
+	if obj.Async != nil {
+		b := *obj.Async
+		async = &b
 	}
 	return &MetaParams{
 		Noop:    obj.Noop,
@@ -289,6 +333,7 @@ func (obj *MetaParams) Copy() *MetaParams {
 		Dollar:  obj.Dollar,
 		Hidden:  obj.Hidden,
 		Export:  export,
+		Async:   async,
 	}
 }
 

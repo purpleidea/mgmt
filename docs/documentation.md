@@ -324,6 +324,27 @@ It might be wise to combine the use of this meta parameter with the use of the
 `realize` meta parameter to ensure that your reversed resource actually runs at
 least once, if there's a chance that it might be gone for a while.
 
+#### Async
+
+Boolean. Async tells the engine that the CheckApply operation of this resource
+may continue running in the background, even while the rest of the engine pauses
+to perform a graph swap. This is useful for resources which have long-running
+CheckApply operations (such as building a virtual machine image) where you don't
+want to block the rest of the engine from applying a new version of the graph
+while that work is happening.
+
+If the resource is removed from the graph during a swap while its CheckApply is
+still running, then the swap blocks while the CheckApply operation finishes, in
+the same way it would if it wasn't async. Anything downstream of the resource
+waits for that CheckApply to finish before it runs, exactly as it would have if
+the swap had not happened. The `FilteredGraph` API is not available to an async
+resource, since its CheckApply can overlap with a graph swap.
+
+The default behaviour depends on if the resource has the `traits.Async` property
+set or not. This metaparam can override it when set. If the override setting is
+incompatible with the resource (for example, a resource which may *not* run in
+an async way) then this can be caught during the res Validate.
+
 ### Lang metadata file
 
 Any module *must* have a metadata file in its root. It must be named

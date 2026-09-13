@@ -326,7 +326,11 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		}
 		// if this fails, don't UpdateTimestamp()
 		ranCheckApply = true
-		checkOK, err = safeCheckApply(ctx, res, !noop)
+		if state.async {
+			checkOK, err = obj.asyncCheckApply(ctx, state, res, !noop)
+		} else {
+			checkOK, err = safeCheckApply(ctx, res, !noop)
+		}
 		if !checkOK && obj.Debug { // don't log on (checkOK == true)
 			obj.Logf("%s: CheckApply(%t): Return(%t, %s)", res, !noop, checkOK, engineUtil.CleanError(err))
 		}
@@ -439,7 +443,9 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 // vertex execution. This function cannot be "re-run" for the same vertex. The
 // retry mechanism stuff happens inside of this. To actually "re-run" you need
 // to remove the vertex and build a new one. The engine guarantees that we do
-// not allow CheckApply to run while we are paused. That is enforced here.
+// not allow CheckApply to run while we are paused. That is enforced here. The
+// one exception is an async resource, whose CheckApply may keep running across
+// a pause. See asyncCheckApply for how that stays safe.
 func (obj *Engine) Worker(vertex pgraph.Vertex) error {
 	res, isRes := vertex.(engine.Res)
 	if !isRes {
@@ -918,11 +924,21 @@ Loop:
 			backPoke := false
 			// Run with a cancellable context, and register it, so
 			// that a failing Watch can interrupt us to restart.
-			processCtx, pCancel := context.WithCancel(state.doneCtx)
+			// An async CheckApply is detached from doneCtx, so that
+			// a graph swap which removes us waits for it to finish
+			// instead of cancelling it. Only cancelProcess reaches
+			// it, from a Watch restart or from a user interrupt.
+			parent := state.doneCtx
+			if state.async {
+				parent = context.Background()
+			}
+			processCtx, pCancel := context.WithCancel(parent)
 			state.registerProcessCancel(pCancel)
 			err = obj.Process(processCtx, vertex)
 			state.registerProcessCancel(nil)
-			interrupted := processCtx.Err() != nil && state.doneCtx.Err() == nil
+			// For an async resource, only cancelProcess can end the
+			// context, and that is always an interrupt.
+			interrupted := processCtx.Err() != nil && (state.async || state.doneCtx.Err() == nil)
 			pCancel() // cleanup the context
 			if err == engine.ErrBackPoke {
 				backPoke = true
@@ -989,6 +1005,48 @@ Loop:
 	} // process loop
 
 	//return nil // unreachable
+}
+
+// asyncCheckApply runs the CheckApply of an async resource. It runs it in a
+// goroutine, and while it awaits the result it also listens for a pause, which
+// it acknowledges so that a graph swap can proceed while the CheckApply keeps
+// running. After a pause it waits to be resumed, or removed, before it collects
+// the result, because the rest of Process touches the graph, and that must not
+// overlap with a Commit. When we're the one being removed, the Commit is what
+// blocks on us, and the graph isn't modified until every removal returns, so it
+// is safe to carry on at once. This always waits for the goroutine, so nothing
+// outlives Process, and a second CheckApply can never overlap with the first.
+func (obj *Engine) asyncCheckApply(ctx context.Context, state *State, res engine.Res, apply bool) (bool, error) {
+	type result struct {
+		checkOK bool
+		err     error
+	}
+	resultChan := make(chan result, 1) // buffered, so the goroutine never blocks
+	go func() {
+		checkOK, err := safeCheckApply(ctx, res, apply)
+		resultChan <- result{checkOK: checkOK, err: err}
+	}()
+
+	for {
+		select {
+		case r := <-resultChan:
+			return r.checkOK, r.err // we only return here
+
+		case _, ok := <-state.pauseSignal:
+			if !ok {
+				state.pauseSignal = nil
+				continue
+			}
+			// Acked, so graph swap can continue while we run async.
+			select {
+			case _, ok := <-state.resumeSignal: // channel closes
+				if !ok {
+					continue
+				}
+				// resumed!
+			}
+		}
+	}
 }
 
 // safeCheckApply wraps a call to res.CheckApply with a panic recovery so that a

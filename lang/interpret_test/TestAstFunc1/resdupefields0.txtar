@@ -18,6 +18,7 @@ test "test" {
 		dollar => false,
 		hidden => false,
 		export => ["hostname"],
+		async => false,
 		reverse => true,
 		autoedge => true,
 		autogroup => true,
@@ -28,4 +29,4 @@ test "test" {
 	#Meta:autogroup => false,
 }
 -- OUTPUT --
-# err: errGraph: resource has duplicate meta entry of: noop: /main.mcl @ 1:1-28:2
+# err: errGraph: resource has duplicate meta entry of: noop: /main.mcl @ 1:1-29:2

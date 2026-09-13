@@ -457,6 +457,36 @@ type BackgroundRes interface {
 	Background(*BackgroundHandle) BackgroundFunc
 }
 
+// AsyncableRes is an interface that lets a resource specify an async default
+// for engine-managed async CheckApply execution.
+type AsyncableRes interface {
+	Res
+
+	// AsyncCheckApply tells the engine this resource will run async by
+	// default if it returns true. You may choose a different return value
+	// by statically examining the resource params. You must not change this
+	// value after it has been initially determined and after first call of
+	// this function. By specifying `traits.Async` it effectively adds an
+	// implementation of this function for you which always returns true.
+	AsyncCheckApply() bool
+}
+
+// AsyncCheckApply returns the resolved async setting for a resource. The
+// `Meta:async` metaparam wins if it is set, otherwise we fall back to the
+// resource's own default via the AsyncableRes interface (which the traits.Async
+// struct supplies as always true) otherwise we default to false. This is the
+// single source of truth for whether the engine runs a resource's CheckApply in
+// the async, non-blocking manner. It must be resolved once and not change.
+func AsyncCheckApply(res Res) bool {
+	if b := res.MetaParams().Async; b != nil {
+		return *b // the user override wins
+	}
+	if r, ok := res.(AsyncableRes); ok {
+		return r.AsyncCheckApply() // the resource default
+	}
+	return false
+}
+
 // YAMLRes is a resource that supports creation by unmarshalling.
 type YAMLRes interface {
 	Res

@@ -86,6 +86,7 @@ const (
 // TODO: Add autoedges with the virt resource disk path!
 type VirtBuilderRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Async
 
 	init *engine.Init
 

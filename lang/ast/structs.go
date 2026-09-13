@@ -1468,6 +1468,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 				res.MetaParams().Export = values
 			})
 
+		case "async":
+			async := v.Bool() // must not panic
+			apply = append(apply, func(res engine.Res) {
+				res.MetaParams().Async = &async
+			})
+
 		case "reverse":
 			apply = append(apply, func(res engine.Res) {
 				r, ok := res.(engine.ReversibleRes)
@@ -1612,6 +1618,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 				}
 				apply = append(apply, func(res engine.Res) {
 					res.MetaParams().Export = values
+				})
+			}
+			if val, exists := v.Struct()["async"]; exists {
+				async := val.Bool() // must not panic
+				apply = append(apply, func(res engine.Res) {
+					res.MetaParams().Async = &async
 				})
 			}
 			if val, exists := v.Struct()["reverse"]; exists {
@@ -2280,6 +2292,7 @@ func (obj *StmtResMeta) Init(data *interfaces.Data) error {
 	case "dollar":
 	case "hidden":
 	case "export":
+	case "async":
 	case "reverse":
 	case "autoedge":
 	case "autogroup":
@@ -2506,6 +2519,9 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 	case "export":
 		typExpr = types.TypeListStr
 
+	case "async":
+		typExpr = types.TypeBool
+
 	case "reverse":
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = types.TypeBool
@@ -2522,7 +2538,7 @@ func (obj *StmtResMeta) TypeCheck(kind string) ([]*interfaces.UnificationInvaria
 		// FIXME: allow partial subsets of this struct, and in any order
 		// FIXME: we might need an updated unification engine to do this
 		wrap := func(reverse *types.Type) *types.Type {
-			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
+			return types.NewType(fmt.Sprintf("struct{noop bool; retry int; retryreset bool; delay int; timeout int; poll int; limit float; burst int; reset bool; sema []str; rewatch bool; realize bool; dollar bool; hidden bool; export []str; async bool; reverse %s; autoedge bool; autogroup bool}", reverse.String()))
 		}
 		// TODO: We might want more parameters about how to reverse.
 		typExpr = wrap(types.TypeBool)

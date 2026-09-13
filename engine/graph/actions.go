@@ -50,7 +50,12 @@ func (obj *Engine) OKTimestamp(vertex pgraph.Vertex) bool {
 }
 
 // BadTimestamps returns the list of vertices that are causing our timestamp to
-// be bad.
+// be bad. A prerequisite is bad if it hasn't completed a Process since we last
+// ran. A prerequisite with a Process in flight zeroes its own timestamp for the
+// duration, which makes it bad for everyone, including a vertex which has never
+// run, such as one just added by a graph swap. Otherwise the zero timestamp of
+// that vertex would let it start while a prerequisite is in the middle of a
+// CheckApply, and before that work is done.
 func (obj *Engine) BadTimestamps(vertex pgraph.Vertex) []pgraph.Vertex {
 	obj.tlock.RLock()
 	state := obj.state[vertex]
@@ -134,6 +139,24 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 		// can't continue until timestamp is in sequence, defer for now
 		return engine.ErrBackPoke
 	}
+
+	// We're going to run, so our timestamp no longer describes a completed
+	// run that anyone downstream can rely on. Zeroing it blocks all of them
+	// until the update at the end, since any timestamp is >= zero. This
+	// must come after the backpoke check above, which needs our real
+	// timestamp. If we don't get as far as that update, it stays zero, and
+	// downstream waits until a retry succeeds, or until a graph swap
+	// replaces us.
+	//
+	// How could this matter in real life? Suppose we have an async resource
+	// which initially starts running, but during graph swap a new dependent
+	// resource appears downstream. Initially it has a zero timestamp, which
+	// would let it start running even though the async pre-requisite is not
+	// done. As a result, we set this to zero so that the prerequisite won't
+	// run until this finishes with a larger timestamp. Then we're all done!
+	state.mutex.Lock()   // concurrent write start
+	state.timestamp = 0  // running (race)
+	state.mutex.Unlock() // concurrent write end
 
 	// semaphores!
 	// These shouldn't ever block an exit, since the graph should eventually

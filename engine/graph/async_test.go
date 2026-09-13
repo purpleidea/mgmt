@@ -405,7 +405,10 @@ func TestAsyncCheckApplyAcrossSwap(t *testing.T) {
 }
 
 // TestAsyncCheckApplySoftInterrupt checks that the user interrupt still cancels
-// the context of a running async CheckApply, even though a removal doesn't.
+// the context of a running async CheckApply, even though a removal doesn't. It
+// does so in the situation the second ^C actually produces: the first ^C pauses
+// the engine, which an async resource lets through at once, and the shutdown is
+// then what blocks on the CheckApply, until the interrupt cancels it.
 func TestAsyncCheckApplySoftInterrupt(t *testing.T) {
 	ge, cleanup := newTestEngine(t)
 	defer cleanup()
@@ -424,16 +427,7 @@ func TestAsyncCheckApplySoftInterrupt(t *testing.T) {
 	}
 	g.AddVertex(slow)
 	swapTestGraph(t, ge, g)
-	defer func() {
-		if err := ge.Shutdown(); err != nil {
-			t.Errorf("engine Shutdown: %v", err)
-		}
-	}()
-	defer func() {
-		if err := ge.Pause(); err != nil {
-			t.Errorf("engine Pause: %v", err)
-		}
-	}()
+	defer close(slow.release) // unblock the CheckApply if we fail partway
 
 	select {
 	case <-slow.entered: // the CheckApply is now running
@@ -441,13 +435,29 @@ func TestAsyncCheckApplySoftInterrupt(t *testing.T) {
 		t.Fatalf("async CheckApply never ran")
 	}
 
+	if err := ge.Pause(); err != nil { // the first ^C
+		t.Fatalf("engine Pause: %v", err)
+	}
+	shutdown := make(chan error, 1)
+	go func() {
+		shutdown <- ge.Shutdown()
+	}()
+	select {
+	case err := <-shutdown:
+		t.Fatalf("engine Shutdown returned before the async CheckApply finished: %v", err)
+	case <-time.After(time.Second):
+		// still blocked on the CheckApply, as it should be
+	}
+
 	ge.SoftInterrupt() // the second ^C
 
-	for i := 0; slow.running.Load(); i++ {
-		if i > 1000 {
-			t.Fatalf("the interrupt never reached the async CheckApply")
+	select {
+	case err := <-shutdown:
+		if err != nil {
+			t.Fatalf("engine Shutdown: %v", err)
 		}
-		time.Sleep(10 * time.Millisecond)
+	case <-time.After(10 * time.Second):
+		t.Fatalf("the interrupt never reached the async CheckApply")
 	}
 	if !slow.interrupted.Load() {
 		t.Errorf("the async CheckApply returned without seeing a cancelled context")

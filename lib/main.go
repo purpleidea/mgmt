@@ -852,20 +852,25 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	// It needs a goroutine of its own, because the main loop below can be
 	// sitting in Pause, waiting on the very CheckApply that we're being
 	// asked to interrupt. If a request came in before we got here, then we
-	// interrupt the engine at once, before it ever starts a resource.
+	// interrupt the engine at once, before it ever starts a resource. It
+	// must outlive the main loop, and only stop once the engine Shutdown
+	// has returned, because that Shutdown can be the thing waiting on the
+	// CheckApply. An async resource lets the exit pause of the main loop
+	// through immediately, and then it's the Shutdown which blocks on it.
+	geDone := make(chan struct{})
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		select {
 		case <-obj.softInterruptCtx.Done():
-		case <-geCtx.Done(): // the engine is going away anyways
+		case <-geDone: // the engine has exited
 			return
 		}
 		ge.SoftInterrupt()
 
 		select {
 		case <-obj.hardInterruptCtx.Done():
-		case <-geCtx.Done(): // the engine is going away anyways
+		case <-geDone: // the engine has exited
 			return
 		}
 		if err := ge.HardInterrupt(); err != nil {
@@ -877,6 +882,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 	go func() {
 		defer wg.Done()
 		defer worldCancel()
+		defer close(geDone) // the interrupt goroutine can stop now
 		select {
 		case <-geCtx.Done():
 		}

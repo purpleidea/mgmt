@@ -353,6 +353,16 @@ func (obj *Graph) Adjacency() map[Vertex]map[Vertex]Edge {
 	return obj.adjacency
 }
 
+// ReverseAdjacency returns the reverse adjacency map representing this graph.
+// It mirrors Adjacency with the edge direction flipped, so
+// ReverseAdjacency()[v] holds the vertices pointing to v. The returned map must
+// be treated as read-only: any mutations must go through the graph API
+// (AddVertex, AddEdge, DeleteVertex, DeleteEdge, DeleteEdgeBetween, and so on)
+// so that any internal indexes stay consistent.
+func (obj *Graph) ReverseAdjacency() map[Vertex]map[Vertex]Edge {
+	return obj.revadjmap
+}
+
 // FindEdge returns the edge from v1 -> v2 if it exists. Otherwise nil.
 func (obj *Graph) FindEdge(v1, v2 Vertex) Edge {
 	x, exists := obj.adjacency[v1]

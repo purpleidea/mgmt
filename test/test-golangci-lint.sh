@@ -93,6 +93,8 @@ linters:
 				- randomized
 				- realization
 				- realize
+				- realized
+				- realizes
 				- realizing
 				- recognized
 				- recognize
@@ -181,6 +183,10 @@ linters:
 				  correction: realization
 				- typo: realise
 				  correction: realize
+				- typo: realised
+				  correction: realized
+				- typo: realises
+				  correction: realizes
 				- typo: realising
 				  correction: realizing
 				- typo: recognised

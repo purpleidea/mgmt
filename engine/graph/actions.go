@@ -106,7 +106,7 @@ func (obj *Engine) Process(ctx context.Context, vertex pgraph.Vertex) error {
 	// keeps running until we're paused, and every event it sends would
 	// otherwise start a fresh CheckApply that we'd then have to wait for.
 	// We leave the state dirty, since we didn't converge it.
-	if obj.interrupt.Load() {
+	if obj.interrupted() {
 		if obj.Debug {
 			obj.Logf("%s: interrupted, skipping Process", vertex)
 		}
@@ -698,6 +698,7 @@ Loop:
 			if obj.Debug {
 				obj.Logf("poke received")
 			}
+			// we're already marked unrealized by Poke() at the send
 			reserv = nil // we didn't receive a real event here...
 
 		case _, ok := <-state.pauseSignal: // one message
@@ -943,6 +944,13 @@ Loop:
 			if err == engine.ErrBackPoke {
 				backPoke = true
 				err = nil // for future code safety
+			}
+			if err == nil {
+				// Either that work is done, or it's blocked on
+				// a prerequisite, which we backpoked. Either
+				// way, a graph swap has nothing more to wait
+				// for from us.
+				state.setRealized() // see waitRealized in the engine
 			}
 			if obj.Debug && backPoke {
 				obj.Logf("Process(%s): BackPoke!", vertex)

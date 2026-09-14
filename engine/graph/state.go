@@ -82,6 +82,14 @@ type State struct {
 	// change. See engine.AsyncCheckApply for how the value is determined.
 	async bool
 
+	// realized is closed while this resource has no pending work which it
+	// could run. It starts open, since we haven't run at all, is replaced
+	// with an open channel when an event or a poke arrives, and is closed
+	// again when a Process consumed that work, or found it blocked behind a
+	// prerequisite. The engine Pause waits on it for a realize resource, so
+	// that a graph swap waits for that work. It is guarded by mutex.
+	realized chan struct{}
+
 	mutex *sync.RWMutex // used for editing state properties
 
 	// pMutex guards pCancel below.
@@ -179,6 +187,7 @@ func (obj *State) Init() error {
 	obj.mutex = &sync.RWMutex{}
 	obj.pMutex = &sync.Mutex{}
 	obj.doneCtx, obj.doneCtxCancel = context.WithCancel(context.Background())
+	obj.realized = make(chan struct{}) // open, we have work to do
 
 	obj.processDone = make(chan struct{})
 	obj.watchDone = make(chan struct{})
@@ -364,6 +373,14 @@ func (obj *State) Cleanup() error {
 // callers are expected to make sure that they don't leave any of these running
 // by the time the Worker() shuts down.
 func (obj *State) Poke() {
+	// A poke is work, so mark ourselves unrealized here, at the send, and
+	// not when the Worker later receives it. A realize pause (see
+	// waitRealized in the engine) pauses in topological order and waits on
+	// this before it pauses us, so the poke from a prerequisite which just
+	// ran must be visible as work by the time we are looked at, even if our
+	// Worker hasn't dequeued it yet. Otherwise the pause could slip in and
+	// skip our run.
+	obj.setUnrealized()
 	select {
 	case obj.pokeChan <- struct{}{}:
 	default: // if chan is now full because more than one poke happened...
@@ -460,12 +477,47 @@ func (obj *State) event(ctx context.Context) error {
 }
 
 // setDirty marks the resource state as dirty. This signals to the engine that
-// CheckApply will have some work to do in order to converge it.
+// CheckApply will have some work to do in order to converge it. That work is
+// also what makes us unrealized.
 func (obj *State) setDirty() {
 	obj.tuid.StopTimer()
 	//obj.mutex.Lock()
 	obj.isStateOK.Store(false) // concurrent write
 	//obj.mutex.Unlock()
+	obj.setUnrealized()
+}
+
+// setUnrealized records that we have pending work, so we are not realized. It
+// reopens the realized channel if it was closed. See that field for who waits.
+func (obj *State) setUnrealized() {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	select {
+	case <-obj.realized: // it was closed, so make a fresh open one
+		obj.realized = make(chan struct{})
+	default: // still open, nothing to do
+	}
+}
+
+// setRealized records that we have no pending work which we could run, either
+// since a Process consumed it, or since it is blocked behind a prerequisite. It
+// closes the realized channel if it was open.
+func (obj *State) setRealized() {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+	select {
+	case <-obj.realized: // already closed, nothing to do
+	default:
+		close(obj.realized)
+	}
+}
+
+// realizedChan returns the current realized channel to wait on. It's closed
+// once we have no pending work which we could run.
+func (obj *State) realizedChan() <-chan struct{} {
+	obj.mutex.RLock()
+	defer obj.mutex.RUnlock()
+	return obj.realized
 }
 
 // poll is a replacement for Watch when the Poll metaparameter is used.

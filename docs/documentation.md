@@ -231,16 +231,6 @@ back as a new vertex, thus causing it to run again. This is different from the
 this is exhausted that we're in permanent worker failure, and only then can we
 rely on this metaparam.
 
-#### Realize
-
-Boolean. Realize ensures that the resource is guaranteed to converge at least
-once before a potential graph swap removes or changes it. This guarantee is
-useful for fast changing graphs, to ensure that the brief creation of a resource
-is seen. This guarantee does not prevent against the engine quitting normally,
-and it can't guarantee it if the resource is blocked because of a failed
-pre-requisite resource.
-*XXX: This is currently not implemented!*
-
 #### Dollar
 
 Boolean. Dollar allows you to have a resource name that starts with a `$` sign.
@@ -324,6 +314,30 @@ It might be wise to combine the use of this meta parameter with the use of the
 `realize` meta parameter to ensure that your reversed resource actually runs at
 least once, if there's a chance that it might be gone for a while.
 
+#### Realize
+
+Boolean. Realize ensures that the resource is guaranteed to run at least once
+before a potential graph swap removes or changes it. A resource needs to run if
+it has never run, or if it received an event or a poke which it hasn't
+successfully acted on yet. A graph swap waits for such a resource, including
+through any retry or rate limit delay it is in. This guarantee is useful for
+fast changing graphs, to ensure that the brief creation of a resource is seen.
+This guarantee does not prevent against the engine quitting normally, or via an
+interrupt, and it can't guarantee it if the resource is blocked because of a
+failed pre-requisite resource.
+
+Because a resource can only run correctly once its prerequisites have run, it
+also makes a resource downstream of an async res hold up the swap until that
+async CheckApply finishes and it has run itself, since the async metaparam is
+otherwise never held up by what's below it. This also waits for the whole chain
+of prerequisites leading up to a realize resource, and pauses each of them only
+after it has run. This can decrease the expected asynchronous behaviour that was
+specified upstream, as well as increasing the cost of a graph swap, so it is
+rare that you will want to use this metaparam.
+
+This metaparam forces the async behaviour on any res to false since the two
+can't be combined.
+
 #### Async
 
 Boolean. Async tells the engine that the CheckApply operation of this resource
@@ -344,6 +358,8 @@ The default behaviour depends on if the resource has the `traits.Async` property
 set or not. This metaparam can override it when set. If the override setting is
 incompatible with the resource (for example, a resource which may *not* run in
 an async way) then this can be caught during the res Validate.
+
+This metaparam is incompatible with the realize metaparam.
 
 ### Lang metadata file
 

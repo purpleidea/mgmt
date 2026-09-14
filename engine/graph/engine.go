@@ -101,14 +101,28 @@ type Engine struct {
 	// way it maintains state, so it is only written while we're paused.
 	senders map[string]engine.SendableRes
 
+	// realizeSet is the set of vertices whose pending work a graph swap
+	// must wait for before it pauses them: every realize resource plus all
+	// of their transitive prerequisites. It only depends on the committed
+	// graph topology and metaparams, so Commit computes it once and Pause
+	// reads it, rather than rebuilding it on every swap. Like senders, it
+	// is only written while we're paused. A nil set is the common case,
+	// where no resource uses the realize metaparam. See realizeWaitSet and
+	// Pause.
+	realizeSet map[pgraph.Vertex]struct{}
+
 	bgState map[string]*bgState // background state for each resource kind
 
 	wg *sync.WaitGroup // wg for the whole engine (only used for close)
 
 	paused    bool // are we paused?
 	fastPause *atomic.Bool
-	interrupt *atomic.Bool // has the user asked us to stop waiting?
-	isClosing bool         // are we shutting down?
+	// interrupt is closed when the user asks us to stop waiting. It is a
+	// channel rather than a flag, because a Worker which is withholding a
+	// pause for a realize resource needs something to wake it up.
+	interrupt     chan struct{}
+	interruptOnce *sync.Once
+	isClosing     bool // are we shutting down?
 
 	errMutex *sync.Mutex // wraps the *state workerErr (one mutex for all)
 }
@@ -157,7 +171,8 @@ func (obj *Engine) Init() error {
 
 	//obj.paused = false // start off running (but empty)
 	obj.fastPause = &atomic.Bool{}
-	obj.interrupt = &atomic.Bool{}
+	obj.interrupt = make(chan struct{})
+	obj.interruptOnce = &sync.Once{}
 
 	obj.errMutex = &sync.Mutex{}
 
@@ -532,11 +547,16 @@ func (obj *Engine) Commit(ctx context.Context) error {
 	// the changes that we'd made to the previously primary graph. This is
 	// because this function is meant to atomically swap the graphs safely.
 
-	// Update all the `State` structs with the new Graph pointer.
+	// Update all the `State` structs with the new Graph pointer. We also
+	// make a list of any res with realize so we don't scan again for it.
+	realizeSeeds := []pgraph.Vertex{}
 	for _, vertex := range obj.graph.Vertices() {
-		_, ok := vertex.(engine.Res)
+		res, ok := vertex.(engine.Res)
 		if !ok { // should not happen, previously validated
 			return fmt.Errorf("not a Res")
+		}
+		if res.MetaParams().Realize {
+			realizeSeeds = append(realizeSeeds, vertex)
 		}
 
 		state, exists := obj.state[vertex]
@@ -545,6 +565,10 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		}
 		state.Graph = obj.graph // update pointer to graph
 	}
+
+	// Precompute the realize wait set once, now that the new graph is here.
+	// This is nil, unless a realize resource exists somewhere in the graph.
+	obj.realizeSet = obj.realizeWaitSet(realizeSeeds)
 
 	// Stop anything remaining here since they're not in the resource graph.
 	// The Watch functions of this kind must be done running by the time we
@@ -632,7 +656,7 @@ func (obj *Engine) SetFastPause(b bool) {
 func (obj *Engine) SoftInterrupt() {
 	// XXX: Should these two be used here at all? Can we save them for below?
 	obj.fastPause.Store(true) // stop any pending poke's from running
-	obj.interrupt.Store(true) // no new Process runs from here on
+	obj.setInterrupt()        // no new Process runs from here on
 
 	obj.tlock.RLock()
 	defer obj.tlock.RUnlock()
@@ -652,7 +676,7 @@ func (obj *Engine) SoftInterrupt() {
 // an error, which we log and step past.
 func (obj *Engine) HardInterrupt() error {
 	obj.fastPause.Store(true) // in case we got here without the above
-	obj.interrupt.Store(true) // in case we got here without the above
+	obj.setInterrupt()        // in case we got here without the above
 
 	obj.tlock.RLock()
 	defer obj.tlock.RUnlock()
@@ -672,6 +696,24 @@ func (obj *Engine) HardInterrupt() error {
 	}
 
 	return reterr
+}
+
+// setInterrupt records that the user asked us to stop waiting. It's safe to
+// call more than once.
+func (obj *Engine) setInterrupt() {
+	obj.interruptOnce.Do(func() {
+		close(obj.interrupt)
+	})
+}
+
+// interrupted reports whether the user asked us to stop waiting.
+func (obj *Engine) interrupted() bool {
+	select {
+	case <-obj.interrupt:
+		return true
+	default:
+		return false
+	}
 }
 
 // interruptRes runs Interrupt recursively into autogrouped resources. We
@@ -699,6 +741,65 @@ func (obj *Engine) interruptRes(res engine.Res) error {
 	return reterr
 }
 
+// realizeWaitSet returns the set of vertices whose runnable work a graph swap
+// must wait for before it pauses them. This is every resource with the realize
+// metaparam, plus all of their transitive prerequisites, since a realize
+// resource can only run correctly once its prerequisites have run. Because we
+// pause in topological order, waiting for each of these in turn realizes a
+// prerequisite before the resource which depends on it, so there is never a
+// blocked backpoke and never a deadlock.
+//
+// To avoid running this excessively, we compute the seeds during the existing
+// graph walk after GraphSync, and we cache the result in obj.realizeSet so that
+// it's ready when Pause needs to read it. A nil result is very common and cheap
+// and occurs when there aren't any realize metaparams being used.
+func (obj *Engine) realizeWaitSet(seeds []pgraph.Vertex) map[pgraph.Vertex]struct{} {
+	if len(seeds) == 0 {
+		return nil // nobody uses the realize metaparam, so no waiting
+	}
+
+	set := make(map[pgraph.Vertex]struct{})
+	// The keys of revadjmap[v] are the prerequisites of v, walked directly
+	// to avoid allocating a slice per node like IncomingGraphVertices does.
+	revadjmap := obj.graph.ReverseAdjacency()
+	// walk up to add each realize resource and all of its prerequisites
+	stack := append([]pgraph.Vertex{}, seeds...)
+	for len(stack) > 0 {
+		v := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if _, exists := set[v]; exists {
+			continue // already visited, don't re-walk
+		}
+		set[v] = struct{}{}
+		// IncomingGraphVertices are the prerequisites of v
+		//stack = append(stack, obj.graph.IncomingGraphVertices(v)...) // slow
+		for prereq := range revadjmap[v] { // fast
+			stack = append(stack, prereq)
+		}
+	}
+	return set
+}
+
+// waitRealized implements the realize metaparam. Before we pause a resource in
+// the realize set (see realizeWaitSet) we wait until it has no pending work
+// which it could run, so that the graph swap waits for that work. Since the set
+// includes every prerequisite of a realize resource, and we pause in
+// topological order, each prerequisite is realized (it is run) before we pause
+// it, so that we're good by the time we reach the resource which depends on
+// this. That resource is then unblocked and can run correctly too, which is why
+// there is no deadlock. A prerequisite which runs async loses its async
+// behaviour here, since we wait for its CheckApply to finish before pausing it.
+func (obj *Engine) waitRealized(state *State) {
+	if obj.fastPause.Load() {
+		return
+	}
+	select {
+	case <-state.realizedChan():
+	case <-state.doneCtx.Done(): // it's exiting
+	case <-obj.interrupt: // the user asked us to stop waiting
+	}
+}
+
 // Pause the active, running graph.
 func (obj *Engine) Pause() error {
 	// It would be safer to lock this, but it would be slower and mask bugs.
@@ -712,6 +813,9 @@ func (obj *Engine) Pause() error {
 
 	topoSort, _ := obj.graph.TopologicalSort()
 	for _, vertex := range topoSort { // squeeze out the events...
+		if _, ok := obj.realizeSet[vertex]; ok {
+			obj.waitRealized(obj.state[vertex]) // realize waits here
+		}
 		// The Event is sent to an unbuffered channel, so this event is
 		// synchronous, and as a result it blocks until it is received.
 		if err := obj.state[vertex].Pause(); err != nil && err != engine.ErrClosed {

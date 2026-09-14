@@ -52,11 +52,11 @@ var DefaultMetaParams = &MetaParams{
 	Reset:   false,
 	//Sema:  []string{},
 	Rewatch: false,
-	Realize: false, // true would be more awesome, but unexpected for users
 	Dollar:  false,
 	Hidden:  false,
 	Export:  []string{},
-	Async:   nil, // nil means use the resource default (traits.Async)
+	Realize: false, // true would be more awesome, but unexpected for users
+	Async:   nil,   // nil means use the resource default (traits.Async)
 }
 
 // MetaRes is the interface a resource must implement to support meta params.
@@ -134,15 +134,6 @@ type MetaParams struct {
 	// that you wanted this enabled on most resources.
 	Rewatch bool `yaml:"rewatch"`
 
-	// Realize ensures that the resource is guaranteed to converge at least
-	// once before a potential graph swap removes or changes it. This
-	// guarantee is useful for fast changing graphs, to ensure that the
-	// brief creation of a resource is seen. This guarantee does not prevent
-	// against the engine quitting normally, and it can't guarantee it if
-	// the resource is blocked because of a failed pre-requisite resource.
-	// XXX: Not implemented!
-	Realize bool `yaml:"realize"`
-
 	// Dollar allows you to name a resource to start with the dollar
 	// character. We don't allow this by default since it's probably not
 	// needed, and is more likely to be a typo where the user forgot to
@@ -176,6 +167,31 @@ type MetaParams struct {
 	// of a kind+name to the same host, the exports must not conflict. On
 	// resource collect, this parameter is not preserved.
 	Export []string `yaml:"export"`
+
+	// Realize ensures that the resource is guaranteed to run at least once
+	// before a potential graph swap removes or changes it. A resource needs
+	// to run if it has never run, or if it received an event or a poke
+	// which it hasn't successfully acted on yet. A graph swap waits for
+	// such a resource, including through any retry or rate limit delay it
+	// is in. This guarantee is useful for fast changing graphs, to ensure
+	// that the brief creation of a resource is seen. This guarantee does
+	// not prevent against the engine quitting normally, or via an
+	// interrupt, and it can't guarantee it if the resource is blocked
+	// because of a failed pre-requisite resource.
+	//
+	// Because a resource can only run correctly once its prerequisites have
+	// run, it also makes a resource downstream of an async res hold up the
+	// swap until that async CheckApply finishes and it has run itself,
+	// since the async metaparam is otherwise never held up by what's below
+	// it. This also waits for the whole chain of prerequisites leading up
+	// to a realize resource, and pauses each of them only after it has run.
+	// This can decrease the expected asynchronous behaviour that was
+	// specified upstream, as well as increasing the cost of a graph swap,
+	// so it is rare that you will want to use this metaparam.
+	//
+	// This metaparam forces the async behaviour on any res to false since
+	// the two can't be combined.
+	Realize bool `yaml:"realize"`
 
 	// Async tells the engine that the CheckApply operation of this resource
 	// may continue running in the background, even while the rest of the
@@ -242,9 +258,6 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	if obj.Rewatch != meta.Rewatch {
 		return fmt.Errorf("values for Rewatch are different")
 	}
-	if obj.Realize != meta.Realize {
-		return fmt.Errorf("values for Realize are different")
-	}
 	if obj.Dollar != meta.Dollar {
 		return fmt.Errorf("values for Dollar are different")
 	}
@@ -253,6 +266,9 @@ func (obj *MetaParams) Cmp(meta *MetaParams) error {
 	}
 	if err := util.SortedStrSliceCompare(obj.Export, meta.Export); err != nil {
 		return errwrap.Wrapf(err, "values for Export are different")
+	}
+	if obj.Realize != meta.Realize {
+		return fmt.Errorf("values for Realize are different")
 	}
 	if (obj.Async == nil) != (meta.Async == nil) {
 		return fmt.Errorf("values for Async are different")
@@ -296,6 +312,9 @@ func (obj *MetaParams) Validate() error {
 		if len(obj.Export) > 0 {
 			return fmt.Errorf("the async param can't be combined with export")
 		}
+		if obj.Realize {
+			return fmt.Errorf("the async param can't be combined with realize")
+		}
 	}
 
 	return nil
@@ -329,10 +348,10 @@ func (obj *MetaParams) Copy() *MetaParams {
 		Reset:   obj.Reset,
 		Sema:    sema,
 		Rewatch: obj.Rewatch,
-		Realize: obj.Realize,
 		Dollar:  obj.Dollar,
 		Hidden:  obj.Hidden,
 		Export:  export,
+		Realize: obj.Realize,
 		Async:   async,
 	}
 }

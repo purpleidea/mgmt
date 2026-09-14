@@ -476,8 +476,15 @@ type AsyncableRes interface {
 // resource's own default via the AsyncableRes interface (which the traits.Async
 // struct supplies as always true) otherwise we default to false. This is the
 // single source of truth for whether the engine runs a resource's CheckApply in
-// the async, non-blocking manner. It must be resolved once and not change.
+// the async, non-blocking manner. It must be resolved once and not change. If
+// the `Meta:realize` param is set, then this returns false.
 func AsyncCheckApply(res Res) bool {
+	if res.MetaParams().Realize {
+		// A realize resource makes the graph swap wait for its
+		// CheckApply, which is the opposite of async. Validate rejects
+		// the explicit combination, so this only overrides the default.
+		return false
+	}
 	if b := res.MetaParams().Async; b != nil {
 		return *b // the user override wins
 	}

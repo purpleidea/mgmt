@@ -273,7 +273,7 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	absPath, err := safepath.ParseIntoAbsPath(requestPath)
 	if err != nil {
-		obj.init.Logf("invalid input path: %s", requestPath)
+		obj.init.Logf("invalid input path: %q", requestPath)
 		sendHTTPError(w, err)
 		return
 	}
@@ -281,7 +281,7 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 	if !obj.Longpoll {
 		handle, mtime, err := obj.getContent(absPath)
 		if err != nil {
-			obj.init.Logf("could not get content for: %s", requestPath)
+			obj.init.Logf("could not get content for: %q", requestPath)
 			sendHTTPError(w, err)
 			return
 		}
@@ -306,7 +306,7 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 		handle, mtime, err := obj.getContent(absPath)
 		if err != nil {
-			obj.init.Logf("could not get content for: %s", requestPath)
+			obj.init.Logf("could not get content for: %q", requestPath)
 			sendHTTPError(w, err)
 			return
 		}

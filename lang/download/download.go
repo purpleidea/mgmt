@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	git "github.com/go-git/go-git/v5"
@@ -102,11 +103,12 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 	pull := false
 	dir := modulesPath + info.Path // TODO: is this dir unique?
 	isBare := false
+	progress := &gitProgressWriter{logf: obj.info.Logf}
 	options := &git.CloneOptions{
 		URL: info.URL,
 		// TODO: do we want to add an option for infinite recursion here?
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		Progress:          os.Stdout,
+		Progress:          progress,
 	}
 
 	msg := fmt.Sprintf("downloading `%s` to: `%s`", info.URL, dir)
@@ -140,7 +142,7 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 			pull = true // make sure to pull latest...
 		}
 	} else if err != nil {
-		return errwrap.Wrapf(err, "can't clone repo: `%s` to: `%s`", info.URL, dir)
+		return errwrap.Wrapf(util.EscapeLogError(err), "can't clone repo: `%s` to: `%s`", info.URL, dir)
 	}
 
 	worktree, err := repo.Worktree()
@@ -157,12 +159,12 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 		options := &git.PullOptions{
 			// TODO: do we want to add an option for infinite recursion here?
 			RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-			Progress:          os.Stdout,
+			Progress:          progress,
 		}
 		obj.info.Logf("pulling...")
 		err := worktree.PullContext(context.TODO(), options)
 		if err != nil && err != git.NoErrAlreadyUpToDate {
-			return errwrap.Wrapf(err, "can't pull latest from: `%s`", info.URL)
+			return errwrap.Wrapf(util.EscapeLogError(err), "can't pull latest from: `%s`", info.URL)
 		}
 		if err == git.NoErrAlreadyUpToDate {
 			obj.info.Logf("repo already up to date!")
@@ -178,4 +180,15 @@ func (obj *Downloader) Get(info *interfaces.ImportData, modulesPath string) erro
 	}
 
 	return nil
+}
+
+// gitProgressWriter logs progress messages received from a remote git server.
+type gitProgressWriter struct {
+	logf func(format string, v ...interface{})
+}
+
+// Write logs remote progress data with control characters escaped.
+func (obj *gitProgressWriter) Write(p []byte) (int, error) {
+	obj.logf("git: %s", util.EscapeLog(string(p)))
+	return len(p), nil
 }

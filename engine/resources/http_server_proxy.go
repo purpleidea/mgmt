@@ -172,7 +172,7 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, method, requestPat
 			return nil, err
 		}
 		if err == nil {
-			obj.init.Logf("cache: %s", cachePath)
+			obj.init.Logf("cache: %q", cachePath)
 			return fn, nil
 		}
 		// otherwise, it must be a file not found in cache error...
@@ -262,7 +262,7 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, method, requestPat
 				}
 				if err := os.Chtimes(cachePath, time.Time{}, modtime); err != nil {
 					// TODO: what do we do here?
-					obj.init.Logf("could not chtimes: %s", cachePath)
+					obj.init.Logf("could not chtimes: %q", cachePath)
 				}
 			}()
 
@@ -315,10 +315,10 @@ func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, method, requestPat
 		if _, err := io.Copy(writer, response.Body); err != nil {
 			if obj.Cache != "" { // check in the cache...
 				// We already took the mutex earlier!
-				obj.init.Logf("removing a partial file: %s", cachePath)
+				obj.init.Logf("removing a partial file: %q", cachePath)
 				if err := os.Remove(cachePath); err != nil {
 					// TODO: what do we do here?
-					obj.init.Logf("could not remove: %s", cachePath)
+					obj.init.Logf("could not remove: %q", cachePath)
 				}
 			}
 			// Even if we have an error, it's too late to error.
@@ -410,7 +410,7 @@ func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// TODO: use safepath instead
 	//absPath, err := safepath.ParseIntoAbsPath(requestPath)
 	//if err != nil {
-	//	obj.init.Logf("invalid input path: %s", requestPath)
+	//	obj.init.Logf("invalid input path: %q", requestPath)
 	//	sendHTTPError(w, err)
 	//	return
 	//}

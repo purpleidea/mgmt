@@ -250,7 +250,7 @@ func (obj *HTTPServerUIRes) ginLogger() gin.HandlerFunc {
 		if obj.init.Debug {
 			return
 		}
-		obj.init.Logf("%v %s %s (%d)", clientIP, method, path, status)
+		obj.init.Logf("%s %s %q (%d)", clientIP, method, path, status)
 	}
 }
 

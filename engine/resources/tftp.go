@@ -361,7 +361,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 			obj.init.Logf("Client: %s Server: %s", raddr.String(), s)
 		}
 
-		obj.init.Logf("Read: %s", filename)
+		obj.init.Logf("Read: %q", filename)
 
 		//var handle io.Reader // TODO: simplify?
 		var handle io.ReadSeeker
@@ -383,7 +383,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 			var err error
 			handle, err = res.getContent()
 			if err != nil {
-				obj.init.Logf("could not get content for: %s", filename)
+				obj.init.Logf("could not get content for: %q", filename)
 				obj.init.Logf("error: %v", err)
 				// don't leak additional information to client!
 				return fmt.Errorf("could not get content for: %s", filename)
@@ -401,24 +401,24 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 			p := filepath.Join(obj.Root, filename) // normal unsafe!
 			if !strings.HasPrefix(p, obj.Root) {   // root ends with /
 				// user might have tried a ../../etc/passwd hack
-				obj.init.Logf("join inconsistency: %s", p)
+				obj.init.Logf("join inconsistency: %q", p)
 				return openError // match this to below error...
 			}
 			if TftpUseSecureJoin {
 				var err error
 				p, err = util.SecureJoin(obj.Root, filename)
 				if err != nil {
-					obj.init.Logf("secure join fail: %s", filename)
+					obj.init.Logf("secure join fail: %q", filename)
 					return openError // match this to below error...
 				}
 			}
 			if obj.init.Debug {
-				obj.init.Logf("Got file at root: %s", p)
+				obj.init.Logf("Got file at root: %q", p)
 			}
 			var err error
 			handle, err = os.Open(p)
 			if err != nil {
-				obj.init.Logf("could not open: %s", p)
+				obj.init.Logf("could not open: %q", p)
 				// don't leak the full path with Root to client!
 				return openError // don't differentiate the err!
 			}
@@ -427,7 +427,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 		// We never found a file...
 		if handle == nil {
 			if obj.init.Debug || true { // XXX: maybe we should always do this?
-				obj.init.Logf("File not found: %s", filename)
+				obj.init.Logf("File not found: %q", filename)
 			}
 			// don't leak additional information to client!
 			return errwrap.Wrapf(os.ErrNotExist, "file: %s", filename)
@@ -471,7 +471,7 @@ func (obj *TFTPServerRes) readHandler(ctx context.Context) func(string, io.Reade
 				return context.Cause(ctx)
 			default:
 			}
-			obj.init.Logf("could not read %s, error: %+v", filename, err)
+			obj.init.Logf("could not read %q, error: %+v", filename, err)
 			// don't leak additional information to client!
 			return fmt.Errorf("could not read: %s", filename)
 
@@ -513,7 +513,7 @@ func (obj *hook) OnSuccess(stats tftp.TransferStats) {
 	if !obj.debug {
 		return
 	}
-	obj.logf("transfer success: %+v", stats)
+	obj.logf("transfer success: %s", util.EscapeLog(fmt.Sprintf("%+v", stats)))
 }
 
 // OnFailure is called by the tftp server if a transfer fails.
@@ -521,7 +521,7 @@ func (obj *hook) OnFailure(stats tftp.TransferStats, err error) {
 	if !obj.debug {
 		return
 	}
-	obj.logf("transfer failure: %+v", stats)
+	obj.logf("transfer failure: %s", util.EscapeLog(fmt.Sprintf("%+v", stats)))
 }
 
 // TFTPFileRes is a file that exists within a tftp server. The name is used as

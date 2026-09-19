@@ -229,7 +229,7 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	p := filepath.Join(obj.Root, requestPath) // normal unsafe!
 	if !strings.HasPrefix(p, obj.Root) {      // root ends with /
 		// user might have tried a ../../etc/passwd hack
-		obj.init.Logf("join inconsistency: %s", p)
+		obj.init.Logf("join inconsistency: %q", p)
 		http.NotFound(w, req) // lie to them...
 		return
 	}
@@ -237,19 +237,19 @@ func (obj *HTTPServerRes) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		var err error
 		p, err = util.SecureJoin(obj.Root, requestPath)
 		if err != nil {
-			obj.init.Logf("secure join fail: %s", requestPath)
+			obj.init.Logf("secure join fail: %q", requestPath)
 			http.NotFound(w, req) // lie to them...
 			return
 		}
 	}
 	if obj.init.Debug {
-		obj.init.Logf("Got file at root: %s", p)
+		obj.init.Logf("Got file at root: %q", p)
 	}
 
 	//nolint:gosec // G703: p is validated against Root above (HasPrefix + optional SecureJoin)
 	handle, err := os.Open(p)
 	if err != nil {
-		obj.init.Logf("could not open: %s", p)
+		obj.init.Logf("could not open: %q", p)
 		sendHTTPError(w, err)
 		return
 	}
@@ -775,7 +775,7 @@ func (obj *HTTPServerRes) handler() func(http.ResponseWriter, *http.Request) {
 		obj.init.Logf("%s URL: %s", req.Method, req.URL)
 		requestPath := req.URL.Path // TODO: is this what we want here?
 		if obj.init.Debug {
-			obj.init.Logf("Path: %s", requestPath)
+			obj.init.Logf("Path: %q", requestPath)
 		}
 
 		// Look through the autogrouped resources!
@@ -813,7 +813,7 @@ func (obj *HTTPServerRes) handler() func(http.ResponseWriter, *http.Request) {
 
 		// We never found something to serve...
 		if obj.init.Debug || true { // XXX: maybe we should always do this?
-			obj.init.Logf("File not found: %s", requestPath)
+			obj.init.Logf("File not found: %q", requestPath)
 		}
 		http.NotFound(w, req)
 		return

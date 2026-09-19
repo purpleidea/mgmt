@@ -181,7 +181,7 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 			}
 
 			if obj.init.Debug {
-				obj.init.Logf("got hosts: %+v", scheduledResult.Hosts)
+				obj.init.Logf("got hosts: %q", scheduledResult.Hosts)
 			}
 			obj.mutex.Lock()
 			obj.value = scheduledResult.Hosts // store it

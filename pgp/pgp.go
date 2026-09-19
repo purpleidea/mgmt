@@ -105,7 +105,7 @@ func Generate(name, comment, email string, hash *crypto.Hash) (*PGP, error) {
 
 // SaveKey writes the whole entity (including private key!) to a .gpg file.
 func (obj *PGP) SaveKey(path string) error {
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return errwrap.Wrapf(err, "can't create file from given path")
 	}
@@ -152,7 +152,7 @@ func (obj *PGP) WriteFile(path string, buff *bytes.Buffer) error {
 
 // CreateWriter remove duplicate function.
 func createWriter(path string) (*bufio.Writer, error) {
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't create file from given path")
 	}

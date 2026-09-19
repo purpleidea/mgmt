@@ -96,7 +96,7 @@ const (
 	// from amazon. This regex will match "https://sns.***.amazonaws.com/"
 	// where *** represents any combination of words and hyphens, and will
 	// match any aws region name, eg: ca-central-1.
-	SnsCertURLRegex = `(^https:\/\/sns\.([\w\-])+\.amazonaws.com\/)`
+	SnsCertURLRegex = `^https://sns\.[\w-]+\.amazonaws\.com/`
 	// CwePrefix gets prepended onto the cloudwatch rule name.
 	CwePrefix = Ec2Prefix + "cw-"
 	// CweRuleName is the name of the rule created by makeCloudWatchRule.

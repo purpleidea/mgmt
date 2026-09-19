@@ -162,7 +162,7 @@ func (obj *HTTPServerFlagRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		val := req.PostFormValue(key) // string
 		if obj.init.Debug || true {   // XXX: maybe we should always do this?
-			obj.init.Logf("got %s: %s", key, val)
+			obj.init.Logf("got %s: %q", key, val)
 		}
 
 		obj.mutex.Lock()

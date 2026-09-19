@@ -495,7 +495,7 @@ func (obj *HTTPServerUIInputRes) valueCheckApply(ctx context.Context, apply bool
 	obj.last = &s // cache
 
 	// XXX: This is getting called twice, what's the bug?
-	obj.init.Logf("sending: %s", value)
+	obj.init.Logf("sending: %q", value)
 
 	// send
 	if err := obj.init.Send(&HTTPServerUIInputSends{
@@ -561,7 +561,7 @@ func (obj *HTTPServerUIInputRes) storeCheckApply(ctx context.Context, apply bool
 		}
 	}
 
-	obj.init.Logf("sending: %s", value)
+	obj.init.Logf("sending: %q", value)
 
 	// send
 	if err := obj.init.Send(&HTTPServerUIInputSends{

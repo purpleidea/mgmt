@@ -45,6 +45,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/coredhcp/coredhcp/handler"
@@ -479,7 +480,7 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	// This is the variant for the simple interface as seen in:
 	// https://github.com/insomniacslk/dhcp/pull/373
 	//logf := func(format string, v ...interface{}) {
-	//	obj.init.Logf("dhcpv4: "+format, v...)
+	//	obj.init.Logf("dhcpv4: %s", util.EscapeLog(fmt.Sprintf(format, v...)))
 	//}
 	//logfOpt := server4.WithLogf(logf) // wrap the server logging...
 	//opts = append(opts, logfOpt)
@@ -488,10 +489,11 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 		logf: func(format string, v ...interface{}) {
 			// Once we've started exiting, the library logs the
 			// closed conn read garbage that we don't care about.
-			if s := fmt.Sprintf(format, v...); ctx.Err() != nil && strings.Contains(s, net.ErrClosed.Error()) {
+			s := fmt.Sprintf(format, v...)
+			if ctx.Err() != nil && strings.Contains(s, net.ErrClosed.Error()) {
 				return
 			}
-			obj.init.Logf(format, v...)
+			obj.init.Logf("%s", util.EscapeLog(s))
 		},
 	}
 	logOpt := server4.WithLogger(newLogger)
@@ -896,7 +898,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 		obj.init.Logf("received a DHCPv4 packet from: %s", req.ClientHWAddr.String())
 		if obj.init.Debug {
 			obj.init.Logf("received from DHCPv4 peer: %s", peer)
-			obj.init.Logf("received a DHCPv4 packet: %s", req.Summary())
+			obj.init.Logf("received a DHCPv4 packet: %s", util.EscapeLog(req.Summary()))
 		}
 
 		var (
@@ -1009,7 +1011,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 		if resp != nil {
 			if obj.init.Debug {
 				// NOTE: This is very useful for debugging!
-				obj.init.Logf("sending a DHCPv4 packet: %s", resp.Summary())
+				obj.init.Logf("sending a DHCPv4 packet: %s", util.EscapeLog(resp.Summary()))
 			}
 			var peer net.Addr
 			if !req.GatewayIPAddr.IsUnspecified() {

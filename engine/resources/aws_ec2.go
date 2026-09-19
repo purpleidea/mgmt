@@ -994,7 +994,7 @@ func (obj *AwsEc2Res) snsGetCert(url string) (*x509.Certificate, error) {
 		return nil, errwrap.Wrapf(err, "error matching regex")
 	}
 	if !matchURL {
-		return nil, fmt.Errorf("invalid certificate url: %s", url)
+		return nil, fmt.Errorf("invalid certificate url: %q", url)
 	}
 	// download the signing certificate
 	//nolint:gosec // G107: url is validated against SnsCertURLRegex above

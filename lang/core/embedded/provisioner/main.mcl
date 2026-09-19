@@ -482,11 +482,33 @@ class base:repo($config) {
 	exec "uefi-extract-${uid}" {
 		# we use rpm2archive instead of cpio since the latter is deprecated for big files
 		# we do this in a loop for all the rpm files
-		cmd => "for i in ${uefi_download_dir}*.rpm; do /usr/bin/rpm2archive \$i | /usr/bin/tar -xvz --directory ${uefi_extract_dir} --exclude ./etc; done",
+		# fedora44 stores the raw RPM payload in versioned /usr/lib/efi/
+		# directories. Older releases have the files in $uefi_root.
+		cmd => golang_strings.join([
+			"for i in ${uefi_download_dir}*.rpm",
+			"do /usr/bin/rpm2archive \$i | /usr/bin/tar -xvz --directory ${uefi_extract_dir} --exclude ./etc",
+			"done",
+			"if ! /usr/bin/test -s '${uefi_shim}'",
+			"then /usr/bin/mkdir -p '${uefi_root}' && /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shim.efi '${uefi_shim}'",
+			"fi",
+			"if ! /usr/bin/test -s '${uefi_shimx64}'",
+			"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shimx64.efi '${uefi_shimx64}'",
+			"fi",
+			"if ! /usr/bin/test -s '${uefi_grubx64}'",
+			"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/grub2/'*/EFI/fedora/grubx64.efi '${uefi_grubx64}'",
+			"fi",
+			"/usr/bin/test -s '${uefi_shim}' && /usr/bin/test -s '${uefi_shimx64}' && /usr/bin/test -s '${uefi_grubx64}'",
+		], "; "),
 		shell => "/usr/bin/bash",
 
 		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
-		creates => $uefi_shim,
+		ifcmd => "! /usr/bin/test -s '${uefi_shim}' || ! /usr/bin/test -s '${uefi_shimx64}' || ! /usr/bin/test -s '${uefi_grubx64}'",
+		ifshell => "/usr/bin/bash",
+		watchfiles => [
+			$uefi_shim,
+			$uefi_shimx64,
+			$uefi_grubx64,
+		],
 
 		Depend => Exec["uefi-download-${uid}"],
 		Before => Tftp:Server[":69"],
@@ -495,6 +517,7 @@ class base:repo($config) {
 	$uefi_root = "${uefi_extract_dir}/boot/efi/EFI/fedora/"
 	$uefi_shim = "${uefi_root}shim.efi"
 	$uefi_shimx64 = "${uefi_root}shimx64.efi"
+	$uefi_grubx64 = "${uefi_root}grubx64.efi"
 	tftp:file "/uefi/shim.efi" { # needs leading slash
 		path => $uefi_shim, # TODO: add autoedges
 
@@ -506,12 +529,12 @@ class base:repo($config) {
 		Depend => Exec["uefi-extract-${uid}"],
 	}
 	tftp:file "/uefi/grubx64.efi" { # sometimes used?
-		path => "${uefi_root}grubx64.efi", # TODO: add autoedges
+		path => $uefi_grubx64, # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}
 	tftp:file "grubx64.efi" { # no leading slash
-		path => "${uefi_root}grubx64.efi", # TODO: add autoedges
+		path => $uefi_grubx64, # TODO: add autoedges
 
 		Depend => Exec["uefi-extract-${uid}"],
 	}

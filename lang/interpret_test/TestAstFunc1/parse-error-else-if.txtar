@@ -1,0 +1,17 @@
+-- CONFIG --
+{
+	"nofmt": true
+}
+-- main.mcl --
+$foo = "bar"
+if $foo == "test" {
+	# hmm
+} else if $foo == "bar" {
+	# wheee
+}
+-- OUTPUT --
+# err: errLexParse: parser: `syntax error: unexpected IF, expecting OPEN_CURLY`: /main.mcl @ 4:8-4:9
+parser: `syntax error: unexpected IF, expecting OPEN_CURLY`: /main.mcl @ 4:8-4:9
+
+} else if $foo == "bar" {
+       ^

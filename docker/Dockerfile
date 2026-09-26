@@ -1,4 +1,4 @@
-FROM golang:1.25
+FROM golang:1.26
 
 LABEL maintainer="Michał Czeraszkiewicz <contact@czerasz.com>"
 

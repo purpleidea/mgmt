@@ -1,0 +1,164 @@
+# Sort LEGO bricks by colour with mgmt and an ESPHome conveyor belt.
+#
+# The firmware lives in esphome-conveyor.yaml, next to this file. Flash it
+# first, then run:
+#
+#	mgmt run --tmp-prefix lang examples/lang/esphome-conveyor.mcl
+#
+# This is a development-bench example, not a machine-safety system. Before
+# energizing a motor, review the real board pinout and DRV8833 wiring, add a
+# current limit and guards, and wire a physical emergency stop in series with
+# the motor supply or driver enable. A software stop is not an emergency stop.
+# Keep hands, hair, clothing, and loose parts clear of the belt.
+#
+# The demo, once a brick is dropped on the belt:
+#
+#	1. The entry sensor sees it, so the device reports a brick en route.
+#	2. mgmt starts the belt and blinks the light amber.
+#	3. The brick reaches the exit. The device reports that nothing is en
+#	   route any more, and mgmt stops the belt.
+#	4. The device publishes one averaged colour reading, mgmt classifies it,
+#	   and the light goes solid red for a red brick or rainbow for any
+#	   other colour.
+#	5. Lift the brick off and the light goes back to idle white.
+#
+# Hold a brick against the exit sensor without using the belt at all and you
+# get a colour tester: nothing is en route, so the belt never moves, and the
+# light names the brick about two seconds later. That is the easy way to pick
+# the threshold below, since Exit Red Ratio is right there in the ESPHome
+# dashboard while you try one brick after another.
+#
+# Who decides what:
+#
+#	The device reports two facts and nothing else: whether a brick is on
+#	its way, and how red the brick at the exit is. It never steers the
+#	belt during normal operation.
+#
+#	mgmt owns every decision, and they are all on this page: when the belt
+#	runs, how red counts as red, and what the light shows. Change the
+#	threshold below and save; the next brick is classified by the new rule
+#	with no reflash and no restart. That is the point of the demo.
+#
+# Why red against everything else:
+#
+#	Bench captures of red, green, blue, yellow, and white bricks gave these
+#	average red ratios, sampled at close range with the exit APDS9960
+#	running proximity and colour together at 64x gain and ~200ms
+#	integration:
+#
+#	red     48%     unmistakable
+#	yellow  35%     the closest of the rest
+#	blue    29%
+#	green   26%
+#	white   overlaps blue and yellow
+#
+#	Red separates cleanly and nothing else does, so red is the only claim
+#	worth making. A threshold of 42% sits almost exactly between red and
+#	the nearest impostor. Everything else is honestly reported as "other"
+#	rather than guessed at. Better illumination beside the sensor is what
+#	it would take to tell the rest apart.
+
+import "fmt"
+import "net/esphome"
+
+$endpoint = "esphome-conveyor"
+$motor = "Conveyor Motor"
+$light = "Status Light"
+
+# The entire interface to the hardware: two facts.
+$en_route = esphome.binary_sensor($endpoint, "Brick En Route")
+$red_ratio = esphome.sensor($endpoint, "Exit Red Ratio")
+
+# The device publishes a negative ratio when it has no trustworthy reading:
+# nothing at the exit, a brick lifted off mid-capture, or a capture too dark
+# to mean anything. So one number tells us both whether there is a brick to
+# judge and what it looks like, and there are no separate messages to
+# correlate.
+#
+# Greater than, not at least: a real capture is a share of a positive total
+# and is never zero, and zero is also what this reads before the device has
+# told us anything. Both of those mean "nothing to classify", which is why the
+# light does not flash a colour on the way up.
+$measured = $red_ratio > 0.0
+$is_red = $red_ratio >= 42.0
+$is_other = $measured and not $is_red
+
+# One flat rule per animation, and the empty string for "not this one". A brick
+# that has arrived is no longer en route, so these two are never set at once,
+# which makes adding them below a plain choice between three outcomes: rainbow,
+# amber blink, or no effect at all.
+#
+# Keeping each rule flat is deliberate, and not only for readability. An if
+# expression nested inside the branch of another one currently makes mgmt drop
+# the update that switches between them, so the light would sit on a stale
+# animation until something else happened to it. See
+# https://github.com/purpleidea/mgmt/issues/966.
+$rainbow = if $is_other {
+	"Rainbow"
+} else {
+	""
+}
+$traveling = if $en_route {
+	"Traveling Blink"
+} else {
+	""
+}
+
+esphome:endpoint $endpoint {
+	host => "esphome-conveyor.local",
+	# Public sample key: replace it here and in the firmware before real use.
+	key => "kJ7hc0lJ0Zw9N3DcJzXn1kJ7hc0lJ0Zw9N3DcJzXn1k=",
+	interval => 0,
+	logs => "info",
+}
+
+esphome:fan $motor {
+	endpoint => $endpoint,
+	# Run the belt exactly while a brick is on its way, and nothing else.
+	# Nobody else commands this motor while we are connected, so there is
+	# no second opinion to converge against. A brick already sitting at the
+	# exit does not block a new run: drop another brick on the entry and
+	# the belt moves.
+	state => if $en_route {
+		"on"
+	} else {
+		"off"
+	},
+	speed => 100,
+	# On a long outage, stop before retrying the desired state.
+	stop => 5,
+	Meta:retry => -1,
+	Meta:delay => 5000,
+}
+
+esphome:light $light {
+	endpoint => $endpoint,
+	state => "on",
+	brightness => 0.35,
+	# A running effect overrides the colour, so this shows through only when
+	# no effect is selected: solid red for a red brick, idle white the rest
+	# of the time.
+	colour => if $is_red {
+		"red"
+	} else {
+		"white"
+	},
+	# The device owns both animations and we only name the one we want.
+	# Rainbow means "a brick we cannot name" and the blink means one is on
+	# its way. Exactly one of the two is ever set, so adding them names it,
+	# and an idle belt adds two empty strings and selects no effect.
+	effect => $rainbow + $traveling,
+}
+
+print "conveyor" {
+	msg => fmt.printf(
+		"en_route=%v red_ratio=%f red=%v other=%v",
+		$en_route,
+		$red_ratio,
+		$is_red,
+		$is_other,
+	),
+}
+
+Esphome:Endpoint[$endpoint] -> Esphome:Fan[$motor]
+Esphome:Endpoint[$endpoint] -> Esphome:Light[$light]

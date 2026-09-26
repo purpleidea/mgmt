@@ -97,6 +97,8 @@ type HTTPServerGroupableRes interface {
 // modern httpd servers out there, but rather as a simple, dynamic, integrated
 // alternative for bootstrapping new machines and clusters in an elegant way.
 //
+// This http server may not be security hardened for the public internet.
+//
 // TODO: add support for TLS
 // XXX: Make the http:server:ui resource that functions can read data from!
 // XXX: The http:server:ui resource can also take in values from those functions
@@ -109,7 +111,13 @@ type HTTPServerRes struct {
 
 	// Address is the listen address to use for the http server. It is
 	// common to use `:80` (the standard) to listen on TCP port 80 on all
-	// addresses.
+	// addresses. Beware that binding to all interfaces (by not specifying
+	// it or by using `0.0.0.0` or `::` addresses) exposes this server on
+	// every network the machine is attached to, which may include the
+	// public internet. If you do so, make sure that a firewall and/or local
+	// access control is in place to limit incoming traffic. This http
+	// server may not be security hardened for the public internet. A
+	// warning is logged at runtime when listening on all interfaces.
 	Address string `lang:"address" yaml:"address"`
 
 	// Timeout is the maximum duration in seconds to use for unspecified
@@ -170,6 +178,23 @@ func (obj *HTTPServerRes) getAddress() string {
 		return obj.Address
 	}
 	return obj.Name()
+}
+
+// isAllInterfaces returns true if the address we're listening on binds to all
+// available interfaces rather than a specific one. This is the case when the
+// host portion is empty (eg: `:80`) or is the unspecified IPv4 (`0.0.0.0`) or
+// IPv6 (`::`) address. This is used to warn the operator about the security
+// implications of exposing the server more widely than they might expect.
+func (obj *HTTPServerRes) isAllInterfaces() bool {
+	host, _, err := net.SplitHostPort(obj.getAddress())
+	if err != nil {
+		return false // malformed; Validate handles this, don't warn here
+	}
+	if host == "" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsUnspecified()
 }
 
 // getReadTimeout determines the value for ReadTimeout, because if unspecified,
@@ -413,6 +438,10 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		return errwrap.Wrapf(err, "could not start listener")
 	}
 	defer obj.conn.Close()
+
+	if obj.isAllInterfaces() {
+		obj.init.Logf("warning: listening on all interfaces at %s", obj.getAddress())
+	}
 
 	obj.serveMux = http.NewServeMux() // do it here in case Watch restarts!
 	// TODO: We could consider having the obj.GetGroup loop here, instead of

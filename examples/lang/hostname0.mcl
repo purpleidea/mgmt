@@ -1,7 +1,10 @@
 import "sys"
 
-$host = sys.hostname()
-file "/tmp/mgmt/${host}" {
-	content => "hello from ${host}!\n",
+# sys.hostname() returns the actual system hostname, which can change over time.
+# $hostname corresponds to the cluster-wide unique identifier which can be set
+# with the --hostname flag. If unspecified, it defaults to the system hostname.
+$h = sys.hostname()
+file "/tmp/${hostname}" {
+	content => "hello from ${h} and ${hostname}\n",
 	state => $const.res.file.state.exists,
 }

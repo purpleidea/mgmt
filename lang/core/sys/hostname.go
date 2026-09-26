@@ -93,7 +93,7 @@ func (obj *Hostname) Init(init *interfaces.Init) error {
 	return nil
 }
 
-// Stream returns the single value that this func has, and then closes.
+// Stream starts a mainloop and runs Event when it's time to Call() again.
 func (obj *Hostname) Stream(ctx context.Context) error {
 	recurse := false // single file
 	recWatcher, err := recwatch.NewRecWatcher(ctx, "/etc/hostname", recurse)

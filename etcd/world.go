@@ -386,10 +386,10 @@ func (obj *World) AdvertisedEndpoints(ctx context.Context) (map[string][]string,
 
 	result := make(map[string][]string)
 	for _, m := range resp.Members {
-		if m == nil || m.Name == "" { // skip nil or unstarted members
+		if m == nil || m.GetName() == "" { // skip nil or unstarted members
 			continue
 		}
-		result[m.Name] = m.ClientURLs // these are the advertised ones
+		result[m.GetName()] = m.GetClientURLs() // these are the advertised ones
 	}
 	return result, nil
 }

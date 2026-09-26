@@ -136,7 +136,7 @@ func (obj *Observer) Observe(ctx context.Context) <-chan *Result {
 			fn(ctx) // start campaign
 		}
 		if err == nil {
-			elected = string(leaderResult.Kvs[0].Value)
+			elected = string(leaderResult.Kvs[0].GetValue())
 			obj.Logf("leader information: %s", elected)
 			close(startup)
 		}
@@ -162,7 +162,7 @@ func (obj *Observer) Observe(ctx context.Context) <-chan *Result {
 					return
 				}
 
-				elected = string(val.Kvs[0].Value)
+				elected = string(val.Kvs[0].GetValue())
 				if obj.Debug {
 					obj.Logf("elected: %s", elected)
 				}

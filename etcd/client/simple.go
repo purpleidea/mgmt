@@ -329,7 +329,7 @@ func (obj *Simple) Get(ctx context.Context, path string, opts ...etcd.OpOption) 
 	// TODO: write a resp.ToMap() function on https://godoc.org/github.com/etcd-io/etcd/api/etcdserverpb#RangeResponse
 	result := make(map[string]string)
 	for _, x := range resp.Kvs {
-		result[string(x.Key)] = string(x.Value)
+		result[string(x.GetKey())] = string(x.GetValue())
 	}
 	return result, nil
 }
@@ -398,7 +398,7 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 // watch recursively.
 // TODO: do we need to support retry and changed client connections?
 // XXX: do we need to track last successful revision and retry from there? If so
-// use: lastRev := response.Header.Revision // TODO: +1 ? and: etcd.WithRev(rev)
+// use: `lastRev := response.Header.GetRevision()` and `etcd.WithRev(rev)` ?
 func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd.OpOption) (*interfaces.WatcherInfo, error) {
 	if obj.client == nil { // catch bugs, this often means programming error
 		return nil, fmt.Errorf("client is nil") // extra safety!
@@ -460,7 +460,7 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 
 				isCanceled := resp.Canceled || resp.Err() == context.Canceled
 				// TODO: this might not be needed
-				if resp.Header.Revision == 0 { // by inspection
+				if resp.Header.GetRevision() == 0 { // by inspection
 					if obj.Debug {
 						obj.logf("watch: received empty message") // switched client connection
 					}
@@ -544,20 +544,20 @@ func (obj *Simple) WatchMembers(ctx context.Context) (<-chan *interfaces.Members
 				}
 				// member: https://godocs.io/github.com/coreos/etcd/etcdserver/etcdserverpb#Member
 
-				purls, err := etcdUtil.FromStringListToURLs(m.PeerURLs)
+				purls, err := etcdUtil.FromStringListToURLs(m.GetPeerURLs())
 				if err != nil {
 					result.Err = errwrap.Wrapf(err, "invalid member peer URLs")
 					goto Send
 				}
-				curls, err := etcdUtil.FromStringListToURLs(m.ClientURLs)
+				curls, err := etcdUtil.FromStringListToURLs(m.GetClientURLs())
 				if err != nil {
 					result.Err = errwrap.Wrapf(err, "invalid member client URLs")
 					goto Send
 				}
 
 				member := &interfaces.Member{
-					ID:   m.ID,
-					Name: m.Name,
+					ID:   m.GetID(),
+					Name: m.GetName(),
 					//IsLeader: m.IsLeader, // XXX: add when new version of etcd supports this
 					PeerURLs:   purls,
 					ClientURLs: curls,

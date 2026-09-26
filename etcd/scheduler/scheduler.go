@@ -483,7 +483,7 @@ func (obj *Apparatus) SchedulerAdd(ctx context.Context, namespace string, apply 
 		}
 
 		kv := resp.Kvs[0]
-		if string(kv.Value) == data && kv.Lease == int64(leaseID) {
+		if string(kv.GetValue()) == data && kv.GetLease() == int64(leaseID) {
 			return true, nil // state is correct
 		}
 		return false, nil // state needs updating
@@ -870,9 +870,9 @@ func (obj *Apparatus) getData(ctx context.Context) (map[string]map[string]*sched
 	// anything left in it right now. This can happen when we withdraw the
 	// host from being scheduled, and it's important that we show an empty
 	// set instead of leaving a single stale host hanging around in there!
-	for _, kv := range respSchedule.Kvs {
-		ns := string(kv.Key)
-		//v := string(kv.Value) // currently scheduled joined hostnames
+	for _, kv := range respSchedule.GetKvs() {
+		ns := string(kv.GetKey())
+		//v := string(kv.GetValue()) // currently scheduled joined hostnames
 		if !strings.HasPrefix(ns, scheduledPathAll) {
 			continue
 		}
@@ -886,8 +886,8 @@ func (obj *Apparatus) getData(ctx context.Context) (map[string]map[string]*sched
 	// FIXME: the value key could instead be host specific information which
 	// is used for some purpose, eg: seconds active, and other data?
 
-	for _, kv := range respHostname.Kvs {
-		k, v := string(kv.Key), string(kv.Value)
+	for _, kv := range respHostname.GetKvs() {
+		k, v := string(kv.GetKey()), string(kv.GetValue())
 
 		if !strings.HasPrefix(k, hostnamePathPrefix) {
 			continue

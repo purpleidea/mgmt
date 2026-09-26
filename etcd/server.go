@@ -217,7 +217,7 @@ func (obj *EmbdEtcd) runServer(ctx context.Context, newCluster bool, peerURLsMap
 		return err
 	}
 
-	obj.serverID = uint64(obj.server.Server.ID()) // store member id for internal use
+	obj.serverID = uint64(obj.server.Server.MemberID()) // store member id for internal use
 	defer func() {
 		obj.serverID = 0 // reset
 	}()

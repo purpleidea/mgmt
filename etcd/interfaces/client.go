@@ -43,7 +43,7 @@ type WatcherData struct {
 
 	// XXX: what goes here... this? or a more processed version?
 	Path   string // the path we're watching
-	Header pb.ResponseHeader
+	Header *pb.ResponseHeader
 	Events []*etcd.Event
 	Err    error
 }

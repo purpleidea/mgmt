@@ -1,0 +1,330 @@
+# Mgmt
+# Copyright (C) James Shubin and the project contributors
+# Written by James Shubin <james@shubin.ca> and the project contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+#
+# Additional permission under GNU GPL version 3 section 7
+#
+# If you modify this program, or any covered work, by linking or combining it
+# with embedded mcl code and modules (and that the embedded mcl code and
+# modules which link with this program, contain a copy of their source code in
+# the authoritative form) containing parts covered by the terms of any other
+# license, the licensors of this program grant you additional permission to
+# convey the resulting work. Furthermore, the licensors of this program grant
+# the original author, James Shubin, additional permission to update this
+# additional permission if he deems it necessary to achieve the goals of this
+# additional permission.
+
+import "convert"
+import "encoding"
+import "fmt"
+import "golang/strings" as golang_strings
+import "local"
+import "os"
+import "strings"
+
+import "git://github.com/purpleidea/mgmt/modules/misc/"
+import "git://github.com/purpleidea/mgmt/modules/mgmt/"
+import "git://github.com/purpleidea/mgmt/modules/purpleidea/"
+import "git://github.com/purpleidea/mgmt/modules/shorewall/"
+import "git://github.com/purpleidea/mgmt/modules/virtualization/"
+
+# Class host is used to host a workshop. It builds a set of vms for the users.
+class host($st) {
+
+	# nft list ruleset # see what's there
+	# nft flush ruleset # delete it all
+	# systemctl restart shorewall # fix it up
+	# nft delete table ip libvirt_network # fix the root cause of missing DNAT :/
+
+	# XXX: add DNS and DNSFP for my server
+	# XXX: use raid 1 storage for vm's
+
+	$json_str = $st->json_str <|> "{}" # TODO: make it mandatory?
+	$distro_uid = $st->distro_uid <|> "fedora44-x86_64"
+	$passwd = $st->passwd <|> "hunter2" # XXX: pick your own default
+	$sshkey = $st->sshkey <|> ""
+
+	$net_dev = "enp1s0f0" # XXX: pull automatically
+	$vir_dev = "virbr0"
+	$vir_network = "192.168.122.0/24"
+
+	$vardir = local.vardir("tmp/") # XXX: what to name this?
+
+	# Every machine should have it's own ssh keypair.
+	#include misc.ssh_keygen("root") # might as well
+	include misc.ssh_keygen_type("root", "rsa") # might as well
+	$root_sshkey = golang_strings.trim_space(os.readfile("/root/.ssh/id_rsa.pub") <|> "")
+
+	include mgmt.base() # stuff we usually want
+	#include mgmt.binary() # keep our binary up-to-date
+
+	#include purpleidea.base() # my packages
+
+	file "/root/" { # completeness handle
+	}
+
+	if "${sshkey}" != "" {
+		file "/root/.ssh/authorized_keys" {
+			state => "exists",
+			content => "${sshkey}\n",
+			mode => "u=rw,go=",
+			owner => "root",
+			group => "root",
+
+			Depend => File["/root/.ssh/"], # ensure the dir exists
+		}
+	}
+
+	pkg "rsync" { # useful for hacking
+		state => "installed",
+	}
+
+	file "/root/rsync/" {
+		state => "exists",
+		recurse => true,
+		purge => true,
+	}
+	file "/root/passwd/" {
+		state => "exists",
+		recurse => true,
+		purge => true,
+	}
+	file "/root/rsync.sh" {
+		state => "exists",
+		content => "#!/bin/bash\nfor script in /root/rsync/*.sh; do echo $(basename $script); $script; done\n",
+		mode => "u=rwx",
+	}
+	file "/root/passwd.sh" {
+		state => "exists",
+		content => "#!/bin/bash\nfor script in /root/passwd/*.sh; do echo $(basename $script); $script; done\n",
+		mode => "u=rwx",
+	}
+	file "/root/workshop/" {
+		state => "exists",
+	}
+
+	include virtualization.base
+
+	file "/etc/libvirt/hooks/qemu.d/nft-hack" {
+		state => "exists",
+		mode => "u=rwx",
+		content => "#!/bin/bash\n/usr/bin/nft delete table ip libvirt_network ; /usr/bin/nft delete table ip6 libvirt_network ; exit 0\n",
+
+		Depend => File["/etc/libvirt/hooks/qemu.d/"],
+	}
+
+	# if the struct field is missing in the data, the flexible version allows this
+	$json = encoding.decode_json_flexible($json_str, "map{str: struct{comment str; sshkey str}}")
+
+	forkv $ix_str, $st in $json {
+		$index = convert.str_to_int($ix_str)
+		panic($index <= 0 or $index >= 100, "workshop $index is out of range")
+		$comment = $st->comment <|> ""
+		$sp = strings.split($st->sshkey, " ")
+		$ssh_type str = $sp[0]
+		$ssh_key str = $sp[1] # ssh-rsa or ssh-ed25519
+		$ssh_comment str = $sp[2] <|> ""
+		# TODO: unification
+		$st_sshkey struct{ssh_type str; ssh_key str; ssh_comment str} = struct{
+			ssh_type => $ssh_type,
+			ssh_key => $ssh_key,
+			ssh_comment => $ssh_comment,
+		}
+		$n = fmt.printf("workshop%d", $index)
+		include virtualization.vm($n, struct{
+			startup => "enabled", # start on boot
+			sshkey => $st_sshkey,
+			index => $index,
+			distro_uid => "${distro_uid}",
+			root_password_selector => "password:${passwd}",
+			packages => ["rsync"], # extra packages
+			#seeds => [fmt.printf("http://%s:2379", $etcd_ip)],
+			copy_in => [
+				struct{
+					path => "/root/README",
+					dest => "/etc/motd.d/",
+				},
+			],
+		})
+
+		$offset = 69 + $index # XXX: why does it always start at 70?
+		include firewall.rule("555-rule-dnat-ssh-${n}", struct{
+			action => "DNAT",
+			#rule => "DNAT	net	vir:192.168.122.71:22	tcp	222",
+			source => "net",
+			dest => "vir",
+			#source_ips => [],
+			dest_ips => [fmt.printf("192.168.122.%d:22", $offset)],
+			proto => "tcp",
+			port => 2200 + $index,
+			comment => "vm ${n} - ${comment}",
+		})
+
+		file "/root/rsync/${n}.authorized_keys" {
+			state => "exists",
+			content => fmt.printf("${root_sshkey}\n${sshkey}\n%s %s %s\n", $ssh_type, $ssh_key, $ssh_comment),
+
+			Before => File["/root/rsync/${n}.sh"],
+		}
+
+		$s0 = "-avSH -e \"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\" --progress"
+		$s1 = fmt.printf("rsync ${s0} --delete /root/workshop root@192.168.122.%d:/root/\n", $offset)
+		$s2 = fmt.printf("rsync ${s0} /root/rsync/${n}.authorized_keys root@192.168.122.%d:/root/.ssh/authorized_keys\n", $offset)
+		file "/root/rsync/${n}.sh" {
+			state => "exists",
+			content => "#!/bin/bash\n${s1}${s2}",
+			mode => "u=rwx",
+
+			Before => File["/root/rsync/"],
+		}
+		$p0 = fmt.printf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@192.168.122.%d", $offset)
+		$p1 = "${p0} 'echo root:${passwd} | chpasswd'\n"
+		$p2 = "${p0} 'sed -i \"s/^#\\?PermitRootLogin.*/PermitRootLogin yes/\" /etc/ssh/sshd_config'\n"
+		$p3 = "${p0} 'systemctl reload sshd.service'\n"
+		file "/root/passwd/${n}.sh" {
+			state => "exists",
+			content => "#!/bin/bash\n${p1}${p2}${p3}",
+			mode => "u=rwx",
+
+			Before => File["/root/rsync/"],
+		}
+	}
+
+	# add sysctl and disable firewalld
+	include shorewall.prepare()
+	include shorewall.firewall() as firewall
+
+	# TODO: can I pass a list in instead?
+	include firewall.zone("net", struct{})
+	include firewall.zone("vir", struct{})
+
+	# eg: eth0
+	include firewall.interface("${net_dev}", "net", struct{ # default if not specified
+		interface => "NET_IF",
+		options => [
+			#"dhcp",
+			"tcpflags",
+			"nosmurfs",
+			"routefilter",
+			"sourceroute=0",
+			"logmartians",
+		],
+	})
+
+	include firewall.interface("${vir_dev}", "vir", struct{ # default if not specified
+		interface => "VIR_IF",
+		options => [
+			"dhcp",
+			"tcpflags",
+			"nosmurfs",
+			# routeback lets traffic hairpin if we want to do magic:
+			# eg: DNAT loc loc:192.168.201.100:22 tcp 222 - &NET_IF
+			# to pair with: DNAT net loc:192.168.201.100:22 tcp 222
+			"routeback",
+			"routefilter",
+			"logmartians",
+		],
+	})
+
+	include firewall.policy("000-fw-net-ACCEPT", struct{
+		source => "fw",
+		dest => "net",
+		policy => "ACCEPT",
+	})
+	include firewall.policy("000-fw-vir-ACCEPT", struct{
+		source => "fw",
+		dest => "vir",
+		policy => "ACCEPT",
+	})
+	include firewall.policy("000-vir-net-ACCEPT", struct{
+		source => "vir",
+		dest => "net",
+		policy => "ACCEPT",
+	})
+	include firewall.policy("888-net-all-DROP", struct{
+		source => "net",
+		dest => "all",
+		policy => "DROP",
+		log => true,
+	})
+
+	include firewall.policy("999-all-all-REJECT", struct{
+		source => "all",
+		dest => "all",
+		policy => "REJECT",
+		log => true,
+		comment => "THE FOLLOWING POLICY MUST BE LAST",
+	})
+
+	include firewall.snat("masq-net", struct{
+		action => "MASQUERADE",
+		source => ["${vir_network}"], # ip/cidr of the VIR network, eg: 192.168.100.0/24
+		dest => "NET_IF",
+	})
+
+	include firewall.stoppedrule("net-all", struct{
+		action => "ACCEPT",
+		source => "NET_IF",
+		dest => "-", # all
+	})
+	include firewall.stoppedrule("all-net", struct{
+		action => "ACCEPT",
+		source => "-", # all
+		dest => "NET_IF",
+	})
+
+	include firewall.rule("000-invalid-net-all-tcp", struct{
+		action => "Invalid(DROP)",
+		source => "net",
+		dest => "all",
+		proto => "tcp",
+		comment => "Don't allow connection pickup from the net",
+	})
+	include firewall.rule("111-accept-ssh-net-fw", struct{
+		action => "SSH(ACCEPT)",
+		source => "net",
+		#proto => "",
+		#port => 22,
+		dest => "$FW",
+		comment => "remote administration",
+	})
+	include firewall.rule("111-accept-dns-vir-fw", struct{
+		action => "DNS(ACCEPT)",
+		source => "vir",
+		#proto => "",
+		#port => 53,
+		dest => "$FW",
+		comment => "vm's look to the host for dns",
+	})
+	include firewall.rule("997-drop-ping-net-fw", struct{
+		action => "Ping(DROP)",
+		source => "net",
+		dest => "$FW",
+		comment => "Drop Ping from the \"bad\" net zone and prevent your log from being flooded.",
+	})
+	include firewall.rule("998-accept-icmp-fw-vir", struct{
+		action => "ACCEPT",
+		source => "$FW",
+		dest => "vir",
+		proto => "icmp",
+	})
+	include firewall.rule("999-accept-icmp-fw-net", struct{
+		action => "ACCEPT",
+		source => "$FW",
+		dest => "net",
+		proto => "icmp",
+	})
+}

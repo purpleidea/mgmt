@@ -205,6 +205,11 @@ type StmtBind struct {
 
 	data *interfaces.Data
 
+	// singleton is the wrapper around Value which the scope hands to each
+	// use site. It is set by the enclosing StmtProg in SetScope, and is nil
+	// in an iterated scope, where each use infers the value anew.
+	singleton *ExprSingleton
+
 	Ident string
 	Value interfaces.Expr
 	Type  *types.Type
@@ -336,8 +341,16 @@ func (obj *StmtBind) SetScope(scope *interfaces.Scope) error {
 // collection to the caller. It calls TypeCheck for child statements, and
 // Infer/Check for child expressions.
 func (obj *StmtBind) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
+	if obj.singleton == nil { // programming error
+		return nil, fmt.Errorf("bind `%s` has no singleton", obj.Ident)
+	}
+
 	// Don't call obj.Value.Check here!
-	typ, invariants, err := obj.Value.Infer()
+	// Infer through the same singleton that a use site goes through, so
+	// that the value is only ever inferred once, and each use of it sees
+	// the same type. Inferring obj.Value directly would mint a second,
+	// unrelated set of unification variables for the same expression.
+	typ, invariants, err := obj.singleton.Infer()
 	if err != nil {
 		return nil, err
 	}
@@ -6008,13 +6021,15 @@ func (obj *StmtProg) SetScope(scope *interfaces.Scope) error {
 				exprIterated := newExprIterated(bind.Ident, bind.Value)
 				loopScope.Variables[bind.Ident] = exprIterated
 			} else {
+				singleton := &ExprSingleton{
+					Definition: bind.Value,
+
+					mutex: &sync.Mutex{}, // TODO: call Init instead
+				}
+				bind.singleton = singleton // for TypeCheck
 				// add to scope, (overwriting, aka shadowing is ok)
 				loopScope.Variables[bind.Ident] = &ExprTopLevel{
-					Definition: &ExprSingleton{
-						Definition: bind.Value,
-
-						mutex: &sync.Mutex{}, // TODO: call Init instead
-					},
+					Definition:    singleton,
 					CapturedScope: capturedScope,
 				}
 			}
@@ -6247,20 +6262,9 @@ func (obj *StmtProg) TypeCheck() ([]*interfaces.UnificationInvariant, error) {
 	invariants := []*interfaces.UnificationInvariant{}
 
 	for _, x := range obj.Body {
-		// We skip this because it will be instantiated potentially with
-		// different types.
-		if _, ok := x.(*StmtClass); ok {
-			continue
-		}
-
-		// We skip this because it will be instantiated potentially with
-		// different types.
-		if _, ok := x.(*StmtFunc); ok {
-			continue
-		}
-
-		// We skip this one too since we pull it in at the use site.
-		if _, ok := x.(*StmtBind); ok {
+		// Some statements are type checked at their use sites instead,
+		// since they can be instantiated with different types there.
+		if !stmtTypeCheckable(x) {
 			continue
 		}
 

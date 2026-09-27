@@ -122,6 +122,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -135,6 +136,7 @@ import (
 	etcdtypes "go.etcd.io/etcd/client/pkg/v3/types"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -214,8 +216,12 @@ type EmbdEtcd struct { // EMBeddeD etcd
 	// AServerURLscare the server (peer) urls to advertise.
 	AServerURLs etcdtypes.URLs
 
-	// NoNetwork causes this to use unix:// sockets instead of TCP for
-	// connections.
+	// NoNetwork causes this to use a unix:// socket instead of TCP for
+	// client connections. The socket is stored in Prefix, which is made
+	// private, so that only this user can connect to it. No server (peer)
+	// listener is started, so this is only usable as a single member. This
+	// is more secure when running simple standalone examples that don't
+	// require tcp.
 	NoNetwork bool
 
 	// Converger is a converged coordinator object that can be used to track
@@ -287,8 +293,8 @@ func (obj *EmbdEtcd) Validate() error {
 	}
 
 	if obj.NoNetwork {
-		if len(obj.Seeds) != 0 || len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 {
-			return fmt.Errorf("option NoNetwork is mutually exclusive with Seeds, ClientURLs and ServerURLs")
+		if len(obj.Seeds) != 0 || len(obj.ClientURLs) != 0 || len(obj.ServerURLs) != 0 || len(obj.AClientURLs) != 0 || len(obj.AServerURLs) != 0 {
+			return fmt.Errorf("option NoNetwork is mutually exclusive with Seeds, ClientURLs, ServerURLs, AClientURLs and AServerURLs")
 		}
 	}
 
@@ -378,21 +384,34 @@ func (obj *EmbdEtcd) Init() error {
 		obj.ClientURLs = append([]url.URL{*u}, obj.ClientURLs...) // prepend
 	}
 
-	if obj.NoNetwork {
-		var err error
-		// FIXME: convince etcd to store these files in our obj.Prefix!
-		obj.ClientURLs, err = etcdtypes.NewURLs([]string{"unix://clients.sock:0"})
-		if err != nil {
-			return err
-		}
-		obj.ServerURLs, err = etcdtypes.NewURLs([]string{"unix://servers.sock:0"})
-		if err != nil {
-			return err
-		}
+	// Only this process needs access to this, and etcd recommends 0700.
+	if err := os.MkdirAll(obj.Prefix, 0700); err != nil {
+		return errwrap.Wrapf(err, "couldn't mkdir: %s", obj.Prefix)
 	}
 
-	if err := os.MkdirAll(obj.Prefix, 0750); err != nil {
-		return errwrap.Wrapf(err, "couldn't mkdir: %s", obj.Prefix)
+	if obj.NoNetwork {
+		// The socket permissions depend on the umask...
+		//nolint:gosec // G302: this is a directory, so it needs the x bit
+		if err := os.Chmod(obj.Prefix, 0700); err != nil {
+			return errwrap.Wrapf(err, "couldn't chmod: %s", obj.Prefix)
+		}
+
+		clientSock := path.Join(obj.Prefix, "client.sock")
+		// includes the trailing null byte
+		if n := len(unix.RawSockaddrUnix{}.Path); len(clientSock) >= n {
+			return fmt.Errorf("socket path `%s` is longer than %d bytes, use a shorter prefix", clientSock, n-1)
+		}
+		var err error
+		obj.ClientURLs, err = etcdtypes.NewURLs([]string{"unix://" + clientSock})
+		if err != nil {
+			return err
+		}
+		// This socket is never created, since we don't start a server
+		// (peer) listener, but etcd still needs a peer URL to exist.
+		obj.ServerURLs, err = etcdtypes.NewURLs([]string{"unix://" + path.Join(obj.Prefix, "server.sock")})
+		if err != nil {
+			return err
+		}
 	}
 
 	obj.wg = &sync.WaitGroup{}
@@ -417,6 +436,13 @@ func (obj *EmbdEtcd) Cleanup() error {
 	var reterr error
 
 	return reterr
+}
+
+// LocalClientURLs returns the client urls that this server listens on. These
+// are the ones a client in this same process should use to connect. This must
+// be called after Init.
+func (obj *EmbdEtcd) LocalClientURLs() (etcdtypes.URLs, error) {
+	return etcdUtil.CopyURLs(obj.ClientURLs)
 }
 
 // curls returns the client urls that we should use everywhere except for

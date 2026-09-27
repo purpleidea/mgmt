@@ -194,7 +194,9 @@ type Config struct {
 	AdvertiseServerURLs []string `arg:"--advertise-server-urls,separate,env:MGMT_ADVERTISE_SERVER_URLS" help:"list of URLs to listen on for server (peer) traffic"`
 
 	// NoNetwork tells the engine to run a single node instance without
-	// clustering or opening tcp ports to the outside.
+	// clustering or opening tcp ports to the outside. It is recommended to
+	// use this for simple standalone examples as a security precaution when
+	// you don't need tcp.
 	NoNetwork bool `arg:"--no-network,env:MGMT_NO_NETWORK" help:"run single node instance without clustering or opening tcp ports to the outside"`
 
 	// NoPgp disables pgp functionality.
@@ -708,6 +710,13 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 		// XXX: get the actual client URLs being used from obj.embdEtcd.GetCURLs() or something.
 		obj.seeds = obj.clientURLs // XXX: is this right?
+		if obj.NoNetwork {
+			// we only know the socket path after Init
+			obj.seeds, err = obj.embdEtcd.LocalClientURLs()
+			if err != nil {
+				return err
+			}
+		}
 		if len(obj.seeds) == 0 {
 			u, err := url.Parse(etcd.DefaultClientURL)
 			if err != nil {

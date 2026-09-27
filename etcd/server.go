@@ -32,6 +32,7 @@ package etcd
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -74,7 +75,7 @@ func (obj *EmbdEtcd) runServer(ctx context.Context, newCluster bool, peerURLsMap
 	defer obj.Logf("server: runServer: done!")
 	defer obj.serverExitsSignal.Send()
 	dataDir := fmt.Sprintf("%s/", path.Join(obj.Prefix, "server"))
-	if err := os.MkdirAll(dataDir, 0750); err != nil {
+	if err := os.MkdirAll(dataDir, 0700); err != nil { // etcd wants 0700
 		return errwrap.Wrapf(err, "couldn't mkdir: %s", dataDir)
 	}
 
@@ -114,6 +115,12 @@ func (obj *EmbdEtcd) runServer(ctx context.Context, newCluster bool, peerURLsMap
 	cfg.Name = memberName // hostname
 	cfg.Dir = dataDir
 	cfg.ListenPeerUrls = peerURLs
+	if obj.NoNetwork {
+		// A single member doesn't need a peer listener. We can't use a
+		// unix socket here anyways, since etcd ignores the path and
+		// net.Listen then autobinds an unprotected abstract socket.
+		cfg.ListenPeerUrls = []url.URL{}
+	}
 	cfg.ListenClientUrls = obj.ClientURLs
 	cfg.AdvertisePeerUrls = aPUrls
 	cfg.AdvertiseClientUrls = aCUrls

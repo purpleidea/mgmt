@@ -85,7 +85,8 @@ type PasswordRes struct {
 	// Write stores the password in the clear on disk. Without this your
 	// password will be ephemeral for the run of this resource. Once it is
 	// graph swapped away and back, that password will be gone. This also
-	// happens when you restart the mgmt process.
+	// happens when you restart the mgmt process. If you want a password
+	// which is generated once and then kept across runs, set this to true.
 	Write bool `lang:"write" yaml:"write"`
 
 	// Newline spits out a newline at the end of the password. Useful if we
@@ -306,7 +307,7 @@ func (obj *PasswordRes) Watch(ctx context.Context) error {
 // CheckApply method for Password resource. Does nothing, returns happy!
 func (obj *PasswordRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	var refresh = obj.init.Refresh() // do we have a pending reload to apply?
-	var exists bool                  // does the file (aka the token) exist?
+	var exists bool                  // do we already have a password?
 	var generate bool                // do we need to generate a new password?
 
 	if obj.Write {
@@ -319,6 +320,10 @@ func (obj *PasswordRes) CheckApply(ctx context.Context, apply bool) (bool, error
 			obj.password = password // load
 			exists = true
 		}
+	} else {
+		// An ephemeral password lives in memory for the lifetime of
+		// this resource so don't generate a new one on each CheckApply.
+		exists = obj.password != ""
 	}
 
 	if exists {

@@ -1,0 +1,37 @@
+# This program has two different magic functions. They're not actually "magic"
+# but it can feel like it. In contrast with other programming languages which
+# run a function imperatively, all of the functions in the mgmt language (mcl)
+# produce "streams". Some streams only produce a single value, some produce a
+# finite number, and some (like datetime.now) produce an infinite stream.
+#
+# Any time a function changes value, all of the dependent values or resources
+# will update as well. The ultimate goal is to populate resources with values.
+# The collection of resources (and their dependencies) is a "resource graph".
+# Since these can change over time, it means that an mgmt program produces a
+# stream of resource graphs.
+#
+# Every time a new resource graph is produced, the mgmt engine will run it and
+# declaratively (idempotently) change the world to make the desired state. This
+# happens very efficiently.
+
+import "datetime"
+import "golang"
+import "sys"
+
+$now = datetime.now()
+
+$st = struct{now => $now, load => $load}
+
+$load float = sys.load()->x1 # ambiguous so we specify the type!
+
+file "/tmp/mgmt/datetime" {
+	state => $const.res.file.state.exists,
+	content => golang.template("Hello! It is now: {{ datetime_print .now }}\n\nload average: {{ .load }}\n", $st),
+}
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+}
+
+# The system load is another time-varying function.
+# Can you think of some others that we should add?

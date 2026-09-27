@@ -1,0 +1,42 @@
+import "deploy"
+import "fmt"
+
+import "git://github.com/purpleidea/mgmt/modules/workshop/"
+
+$admin = struct{
+	sshkey => struct{
+		ssh_type => "ssh-rsa",
+		ssh_key => "AAAAB3NzaC1yc2EAAAADAQABAAABAQDsGqF80zzpAi2OWIQipdrwySTcIe/I1jZQRLrXDN7QAy41gmSwHVdKOsXR5oOKHAUdQMIfnrt4Ax/jqS/bn71FxM1qoKDT6xRxNvxLf9UJqEQQhj0j4iVIHpL6AgHuTOLmeh5pblx0iJvoqSCYzQJrN3KzwQAj1BEU8T/k8Dk9Lwalm0214KnuiJHcJVOZG+vjM90KIXWqFF4o37TuvD3Lgh9WqWynzA1+uZkC8vM8qhGisRMl38opX0wixjX0HpA2U38c3E91TzCCzCPmmOnXIiNbP3A1LtmnqumVhhKSU6/rIcV1uCsffhrgIe1hcaUX5TDcn/jYsNLhUk/vPbNv",
+		ssh_comment => "james@computer",
+	},
+}
+
+$sshkey = fmt.printf("%s %s %s", $admin->sshkey->ssh_type, $admin->sshkey->ssh_key, $admin->sshkey->ssh_comment)
+
+$json_str = deploy.readfile("/files/data.json")
+
+include workshop.host(struct{
+	json_str => $json_str,
+	distro_uid => "fedora44-x86_64",
+	#passwd => "hunter2", # XXX: set me!
+	sshkey => $sshkey,
+})
+
+file "/root/README" { # required!
+	state => "exists",
+	content => deploy.readfile("/files/README"),
+}
+
+class f($name) {
+	file "/root/workshop/${name}" {
+		state => "exists",
+		content => deploy.readfile("/files/${name}"),
+	}
+}
+include f("00-hello-world.mcl")
+include f("01-streams.mcl")
+include f("02-more-streams.mcl")
+include f("03-pfs.mcl")
+include f("04-values-and-types.mcl")
+include f("05-language-features.mcl")
+include f("06-class-include.mcl")

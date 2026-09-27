@@ -1,0 +1,20 @@
+Welcome to the https://mgmtconfig.com/ workshop!
+
+This machine is provided as a courtesy in a shared environment. Please don't
+use your access to do crimes or to interfere with the host or other machines.
+
+This is not a red teaming exercise. There are no expectations of privacy when
+using this machine, so please act accordingly. Have fun and please share your
+learnings with others!
+
+Nothing in this machine is backed up, please make sure to save any files or
+code that you care about on your personal devices.
+
+Please start by changing the root password to something unique. You can do this
+with the `passwd` command.
+
+You can follow the examples in the workshop/ dir or choose your own adventure.
+
+Thanks,
+James
+@purpleidea

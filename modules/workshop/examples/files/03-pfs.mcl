@@ -1,0 +1,58 @@
+# Canonically for simple use-cases we want to install a package, the configure a
+# config file in /etc/ and finally start a service. Note the dependency
+# relationships (`Depend` and `Before`) between the different resources. By
+# default everything that can run in parallel, does.
+#
+# Notice that each resource kind has it's own unique set of parameters that it
+# accepts. All of the "special" parameters like dependency relationships and
+# "Meta" parameters begin with a capitalized letter. Each parameter accepts a
+# value which must have a precise type. The "mcl" language is strongly-typed for
+# safety and it does not contain a "null" value.
+
+import "golang"
+
+pkg "nginx" {
+	state => "installed",
+}
+
+file "/usr/share/nginx/html/index.html" {
+	content => golang.template("This is nginx on {{ . }} managed by mgmt!\n", $hostname),
+	state => "exists",
+
+	Depend => Pkg["nginx"],
+	Before => Svc["nginx"],
+}
+
+# NOTE: You can also pull the content from a file or even template it, but this
+# was done inline to keep everything self contained for this scenario.
+file "/etc/nginx/nginx.conf" {
+	content => "# this is nginx.conf
+events {}
+
+http {
+	server {
+		listen 80;
+		location / {
+			root /usr/share/nginx/html;
+			index index.html;
+		}
+	}
+}\n",
+	state => "exists",
+
+	Depend => Pkg["nginx"],
+}
+
+svc "nginx" {
+	state => "running",
+	startup => "enabled",
+
+	Depend => File["/etc/nginx/nginx.conf"],
+}
+
+# Think about the collections of resources and logic that work nicely together.
+# How many different resources do you see? How many different "kind"'s of
+# resources do you see?
+#
+# For a list of all available resources you can read the online documentation:
+# https://mgmtconfig.com/docs/resources/

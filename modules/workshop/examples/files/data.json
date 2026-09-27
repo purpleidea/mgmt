@@ -1,0 +1,11 @@
+{
+  "50": {
+    "comment": "test machine for user",
+    "sshkey": "ssh-ed25519 XXX user@host"
+  },
+
+  "99": {
+    "comment": "last machine for james",
+    "sshkey": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDsGqF80zzpAi2OWIQipdrwySTcIe/I1jZQRLrXDN7QAy41gmSwHVdKOsXR5oOKHAUdQMIfnrt4Ax/jqS/bn71FxM1qoKDT6xRxNvxLf9UJqEQQhj0j4iVIHpL6AgHuTOLmeh5pblx0iJvoqSCYzQJrN3KzwQAj1BEU8T/k8Dk9Lwalm0214KnuiJHcJVOZG+vjM90KIXWqFF4o37TuvD3Lgh9WqWynzA1+uZkC8vM8qhGisRMl38opX0wixjX0HpA2U38c3E91TzCCzCPmmOnXIiNbP3A1LtmnqumVhhKSU6/rIcV1uCsffhrgIe1hcaUX5TDcn/jYsNLhUk/vPbNv james@computer"
+  }
+}

@@ -1,0 +1,15 @@
+# This is a simple program which produces a "graph" with one file "resource" in
+# it. The graph is static and does not change shape over time.
+#
+# Run with: mgmt run --tmp-prefix lang 00-hello-world.mcl
+
+file "/tmp/mgmt-hello-world" {
+	content => "welcome to the workshop from @purpleidea\n",
+	state => $const.res.file.state.exists,
+}
+
+# What happens when you rm the /tmp/mgmt-hello-world file while mgmt is running?
+# You can press ^C to exit the running program.
+#
+# If you'd like more detailed informations and background on the theory, follow
+# the documentation guide in parallel: https://mgmtconfig.com/docs/guide/

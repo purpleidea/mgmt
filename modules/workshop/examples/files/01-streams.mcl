@@ -1,0 +1,22 @@
+# This program contains two functions. Can you spot them? Functions can be
+# imported with the "import" statement. Some functions are more magic than
+# others. First run this program...
+
+import "datetime"
+import "golang"
+
+$d = datetime.now()
+file "/tmp/mgmt/datetime" {
+	state => $const.res.file.state.exists,
+	content => golang.template("Hello! It is now: {{ datetime_print . }}\n", $d),
+}
+
+file "/tmp/mgmt/" {
+	state => $const.res.file.state.exists,
+}
+
+# What are the contents of the file? now check again?
+# Does it matter that the directory definition is after the contained file?
+#
+# For a list of all available functions you can read the online documentation:
+# https://mgmtconfig.com/docs/functions/

@@ -1,0 +1,29 @@
+# Mgmt supports a rich type system. It is very similar to the core type system
+# that golang supports. During compilation, it performs a step called "type
+# unification", which ensures that every expression has a known precise type. It
+# also means that unlike with golang, you rarely need to explicitly specify the
+# type of an expression since the mcl compiler can determine this automatically.
+
+import "golang"
+import "iter"
+import "math"
+
+# Here we define a lambda (variable contains a value of type func) but the
+# language also supports defining regular functions as well.
+$fn = func($x) {
+	math.mod($x, 2) == 0 # is even?
+}
+
+$input = [8, -1, 0, 2, 4, 5, 13] # list of int's
+
+# If you want to annotate and force a specific type you can do it like this:
+#$input []int = [8, -1, 0, 2, 4, 5, 13]
+
+$output = iter.filter($input, $fn)
+
+print "output" {
+	msg => golang.template("output: {{ . }}", $output),
+}
+
+# For a list of all available types you can read the online documentation:
+# https://mgmtconfig.com/docs/guide/values-and-types/

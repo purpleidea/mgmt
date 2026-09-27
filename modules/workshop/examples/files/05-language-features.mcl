@@ -1,0 +1,27 @@
+# Mgmt is a DSL (domain-specific language) associated with a class of languages
+# known as FRP (functional reactive programming) and is designed specifically
+# for modelling fancy distributed systems, succinctly.
+
+$s = "hello ${user}!\n" # where does $user come from?
+
+if $user == "james" {
+	panic("change the $user to continue...") # what does this print?
+} else {
+	line "add a line to /tmp/lines" {
+		file => "/tmp/lines", # name isn't important in this scenario
+		state => "exists",
+		content => $s,
+		trim => true,
+	}
+}
+
+$user = "james" # put your name here (if you want to avoid a panic)
+
+# What happens if you define the $user variable twice?
+#
+# Note the ordering of the statements. Do you notice something unusual? It is
+# not recommended to write your code with this ordering most of the time, but
+# it's important to know that it's possible.
+#
+# For more information on some of the language features you can read the online
+# documentation: https://mgmtconfig.com/docs/guide/language-features/

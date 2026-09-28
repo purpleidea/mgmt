@@ -53,6 +53,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/atomicfile"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
 
@@ -716,14 +717,15 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 	}
 
 	_ = dstClose() // unlock file usage so we can write to it (may return os.ErrInvalid)
-	dstFile, err = os.Create(dst)
+
+	newFile, err := atomicfile.New(dst)
 	if err != nil {
 		return sha256sum, false, err
 	}
-	defer dstFile.Close() // TODO: is this redundant because of the earlier deferred Close() ?
+	defer newFile.Close()
 
 	if isFile { // set mode because it's a new file
-		if err := dstFile.Chmod(srcStat.Mode()); err != nil {
+		if err := newFile.Chmod(srcStat.Mode()); err != nil {
 			return sha256sum, false, err
 		}
 	}
@@ -738,12 +740,18 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		obj.init.Logf("copy %d bytes", length)
 	}
 
-	if n, err := io.Copy(dstFile, src); err != nil {
+	if n, err := io.Copy(newFile, src); err != nil {
 		return sha256sum, false, err
 	} else if obj.init.Debug {
 		obj.init.Logf("copied: %v", n)
 	}
-	return sha256sum, false, dstFile.Sync()
+
+	err = newFile.Sync()
+	if err != nil {
+		return sha256sum, false, err
+	}
+
+	return sha256sum, false, newFile.Commit()
 }
 
 // dirCheckApply is the CheckApply operation for an empty directory.

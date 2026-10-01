@@ -516,6 +516,8 @@ class dnf_update($pkg) {
 		"--comment",
 		"dnf update by mgmt",
 		"--assumeyes",
+		"--setopt=fastestmirror=True",
+		"--setopt=max_parallel_downloads=16",
 	]
 	$args = if $pkg == "" {
 		$a

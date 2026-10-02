@@ -1188,7 +1188,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			return false, nil
 		}
 		obj.init.Logf("stopping...")
-		if err := obj.execExit(ctx); err != nil {
+		if err := obj.execExit(ctx, false); err != nil {
 			return false, errwrap.Wrapf(err, "can't stop remote process")
 		}
 		return false, nil // we made a change
@@ -1213,7 +1213,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 				return false, nil
 			}
 			obj.init.Logf("restarting remote process...")
-			if err := obj.execExit(ctx); err != nil {
+			if err := obj.execExit(ctx, false); err != nil {
 				return false, errwrap.Wrapf(err, "can't stop remote process")
 			}
 			running = false
@@ -1290,7 +1290,9 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	}
 	if ctx.Err() != nil {
 		// We're shutting down before the child exited, so stop it with
-		// a fresh context while the connection is still open.
+		// a fresh context while the connection is still open. Propagate
+		// the cancellation as a soft interrupt, so a nested remote's
+		// CheckApply is cancelled too instead of blocking its pause.
 		stopCtx, cancel := context.WithTimeout(context.Background(), remoteShutdownTimeout)
 		defer cancel()
 		wg.Add(1)
@@ -1303,7 +1305,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			}
 		}()
 		obj.init.Logf("transient shutdown...")
-		if err := obj.execExit(stopCtx); err != nil {
+		if err := obj.execExit(stopCtx, true); err != nil {
 			return false, errwrap.Wrapf(err, "can't stop remote process")
 		}
 		tidy = true
@@ -1812,8 +1814,9 @@ func (obj *RemoteRes) waitConvergedExit(ctx context.Context) error {
 
 // execExit stops the remote process if it is running. It sends a SIGINT (^C)
 // signal to it, waits for the process to exit, and if it doesn't exit promptly,
-// it gets sent a force kill.
-func (obj *RemoteRes) execExit(ctx context.Context) error {
+// it gets sent a force kill. You can also use this to send a soft interrupt
+// which sends a second SIGINT so that we cancel the remote in-flight work.
+func (obj *RemoteRes) execExit(ctx context.Context, softInterrupt bool) error {
 	running, err := obj.checkRunning(ctx)
 	if err != nil {
 		return err
@@ -1837,6 +1840,12 @@ func (obj *RemoteRes) execExit(ctx context.Context) error {
 		}
 		is_child || exit 0
 		kill -INT "$pid" 2>/dev/null
+		if %t; then
+			# Delay the second signal to avoid coalescing consecutive SIGINTs.
+			sleep 1
+			is_child || exit 0
+			kill -INT "$pid" 2>/dev/null # soft interrupt (2nd ^C)
+		fi
 		for i in $(seq %d); do
 			is_child || exit 0
 			sleep 1
@@ -1845,7 +1854,7 @@ func (obj *RemoteRes) execExit(ctx context.Context) error {
 		kill -KILL "$pid" 2>/dev/null
 		sleep 1
 		! is_child
-	`, shellescape(obj.pidpath), shellescape(obj.execpath), remoteExitTimeout))
+	`, shellescape(obj.pidpath), shellescape(obj.execpath), softInterrupt, remoteExitTimeout))
 	if out, err := obj.simpleRun(ctx, cmd); err != nil {
 		return errwrap.Wrapf(err, "error stopping remote process: %s", out)
 	}

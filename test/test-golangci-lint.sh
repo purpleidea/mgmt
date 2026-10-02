@@ -155,6 +155,8 @@ linters:
 				  correction: initializes
 				- typo: initialising
 				  correction: initializing
+				- typo: interruptable
+				  correction: interruptible
 				- typo: localise
 				  correction: localize
 				- typo: normalised

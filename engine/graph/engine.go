@@ -717,12 +717,12 @@ func (obj *Engine) interrupted() bool {
 }
 
 // interruptRes runs Interrupt recursively into autogrouped resources. We
-// recurse, because a grouped resource since a parent may not be interruptable
+// recurse, because a grouped resource since a parent may not be interruptible
 // while its children are.
 func (obj *Engine) interruptRes(res engine.Res) error {
 	var reterr error
-	if interruptableRes, ok := res.(engine.InterruptableRes); ok {
-		if err := interruptableRes.Interrupt(); err != nil {
+	if interruptibleRes, ok := res.(engine.InterruptibleRes); ok {
+		if err := interruptibleRes.Interrupt(); err != nil {
 			obj.Logf("%s: could not interrupt: %s", res, engineUtil.CleanError(err))
 			reterr = errwrap.Append(reterr, err)
 		}

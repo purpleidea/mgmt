@@ -358,7 +358,7 @@ func Validate(res Res) error {
 	return res.Validate()
 }
 
-// InterruptableRes is an interface that adds interrupt functionality to
+// InterruptibleRes is an interface that adds interrupt functionality to
 // resources. If the resource implements this interface, the engine will call
 // the Interrupt method to shutdown the resource quickly. Running this method
 // may leave the resource in a partial state, however this may be desired if you
@@ -366,7 +366,7 @@ func Validate(res Res) error {
 // resource complete in a situation where you made an error and you wish to exit
 // quickly to avoid data loss. It is usually triggered after multiple ^C
 // signals.
-type InterruptableRes interface {
+type InterruptibleRes interface {
 	Res
 
 	// Ask the resource to shutdown quickly. This can be called at any point

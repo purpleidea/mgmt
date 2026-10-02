@@ -598,7 +598,7 @@ func (obj *DHCPServerRes) CheckApply(ctx context.Context, apply bool) (bool, err
 	//}()
 	//select {
 	//case <-ch:
-	////case <-obj.interruptChan: // TODO: if we ever support InterruptableRes
+	////case <-obj.interruptChan: // TODO: if we ever support InterruptibleRes
 	//case <-obj.init.DoneCtx.Done(): // closed by the engine to signal shutdown
 	//}
 

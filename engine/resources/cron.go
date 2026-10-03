@@ -455,6 +455,9 @@ func (obj *CronRes) Cmp(r engine.Res) error {
 	if obj.Startup != res.Startup {
 		return fmt.Errorf("the Startup differs")
 	}
+	if obj.Session != res.Session {
+		return fmt.Errorf("session differs: %t vs %t", obj.Session, res.Session)
+	}
 	if obj.Trigger != res.Trigger {
 		return fmt.Errorf("trigger differs: %s vs %s", obj.Trigger, res.Trigger)
 	}
@@ -482,7 +485,18 @@ func (obj *CronRes) Cmp(r engine.Res) error {
 	if err := engineUtil.StrPtrCmp(obj.Description, res.Description); err != nil {
 		return errwrap.Wrapf(err, "the Description differs")
 	}
-	return obj.file.Cmp(r)
+
+	// Compare the nested file resources. We build them here, because the
+	// stored ones only exist after Init, and Cmp can be called before that.
+	file1, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
+	}
+	file2, err := res.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
+	}
+	return file1.Cmp(file2)
 }
 
 // CronUID is a unique resource identifier.

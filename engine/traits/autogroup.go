@@ -39,9 +39,12 @@ import (
 // methods needed to support autogrouping on resources. It may be used as a
 // starting point to avoid re-implementing the straightforward methods.
 type Groupable struct {
-	// Xmeta is the stored meta. It should be called `meta` but it must be
-	// public so that the `encoding/gob` package can encode it properly.
-	Xmeta *engine.AutoGroupMeta
+	// Xautogroup is the stored meta. It should be called `autogroup` but it
+	// must be public so that the `encoding/gob` package can encode it
+	// properly. It is not called Xmeta so that it doesn't collide with the
+	// other traits when an encoder like `encoding/json` flattens a
+	// resource.
+	Xautogroup *engine.AutoGroupMeta
 
 	isGrouped bool                  // am i contained within a group?
 	grouped   []engine.GroupableRes // list of any grouped resources
@@ -54,18 +57,18 @@ type Groupable struct {
 // AutoGroupMeta lets you get or set meta params for the automatic grouping
 // trait.
 func (obj *Groupable) AutoGroupMeta() *engine.AutoGroupMeta {
-	if obj.Xmeta == nil { // set the defaults if previously empty
-		obj.Xmeta = &engine.AutoGroupMeta{
+	if obj.Xautogroup == nil { // set the defaults if previously empty
+		obj.Xautogroup = &engine.AutoGroupMeta{
 			Disabled: false,
 		}
 	}
-	return obj.Xmeta
+	return obj.Xautogroup
 }
 
 // SetAutoGroupMeta lets you set all of the meta params for the automatic
 // grouping trait in a single call.
 func (obj *Groupable) SetAutoGroupMeta(meta *engine.AutoGroupMeta) {
-	obj.Xmeta = meta
+	obj.Xautogroup = meta
 }
 
 // GroupCmp compares two resources and decides if they're suitable for grouping.

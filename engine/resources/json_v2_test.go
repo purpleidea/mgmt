@@ -27,39 +27,26 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-package traits
+//go:build !root && goexperiment.jsonv2
+
+package resources
 
 import (
-	"github.com/purpleidea/mgmt/engine"
+	jsonv2 "encoding/json/v2"
+	"testing"
 )
 
-// Edgeable contains a general implementation with some of the properties and
-// methods needed to support autoedges on resources. It may be used as a start
-// point to avoid re-implementing the straightforward methods.
-type Edgeable struct {
-	// Xautoedge is the stored meta. It should be called `autoedge` but it
-	// must be public so that the `encoding/gob` package can encode it
-	// properly. It is not called Xmeta so that it doesn't collide with the
-	// other traits when an encoder like `encoding/json` flattens a
-	// resource.
-	Xautoedge *engine.AutoEdgeMeta
-
-	// Bug5819 works around issue https://github.com/golang/go/issues/5819
-	Bug5819 interface{} // XXX: workaround
-}
-
-// AutoEdgeMeta lets you get or set meta params for the automatic edges trait.
-func (obj *Edgeable) AutoEdgeMeta() *engine.AutoEdgeMeta {
-	if obj.Xautoedge == nil { // set the defaults if previously empty
-		obj.Xautoedge = &engine.AutoEdgeMeta{
-			Disabled: false,
-		}
+func TestJSONv2RoundTrip(t *testing.T) {
+	opts := jsonv2.JoinOptions(
+		jsonv2.Deterministic(true),
+		jsonv2.FormatNilSliceAsNull(true),
+		jsonv2.FormatNilMapAsNull(true),
+	)
+	enc := func(v any) ([]byte, error) {
+		return jsonv2.Marshal(v, opts)
 	}
-	return obj.Xautoedge
-}
-
-// SetAutoEdgeMeta lets you set all of the meta params for the automatic edges
-// trait in a single call.
-func (obj *Edgeable) SetAutoEdgeMeta(meta *engine.AutoEdgeMeta) {
-	obj.Xautoedge = meta
+	dec := func(b []byte, v any) error {
+		return jsonv2.Unmarshal(b, v, jsonv2.RejectUnknownMembers(true))
+	}
+	testJSONRoundTrip(t, enc, dec)
 }

@@ -37,9 +37,12 @@ import (
 // methods needed to support reversing resources. It may be used as a starting
 // point to avoid re-implementing the straightforward methods.
 type Reversible struct {
-	// Xmeta is the stored meta. It should be called `meta` but it must be
-	// public so that the `encoding/gob` package can encode it properly.
-	Xmeta *engine.ReversibleMeta
+	// Xreversible is the stored meta. It should be called `reversible` but
+	// it must be public so that the `encoding/gob` package can encode it
+	// properly. It is not called Xmeta so that it doesn't collide with the
+	// other traits when an encoder like `encoding/json` flattens a
+	// resource.
+	Xreversible *engine.ReversibleMeta
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819
 	Bug5819 interface{} // XXX: workaround
@@ -47,16 +50,16 @@ type Reversible struct {
 
 // ReversibleMeta lets you get or set meta params for the reversing trait.
 func (obj *Reversible) ReversibleMeta() *engine.ReversibleMeta {
-	if obj.Xmeta == nil { // set the defaults if previously empty
-		obj.Xmeta = &engine.ReversibleMeta{
+	if obj.Xreversible == nil { // set the defaults if previously empty
+		obj.Xreversible = &engine.ReversibleMeta{
 			Disabled: true, // by default we're disabled
 		}
 	}
-	return obj.Xmeta
+	return obj.Xreversible
 }
 
 // SetReversibleMeta lets you set all of the meta params for the reversing trait
 // in a single call.
 func (obj *Reversible) SetReversibleMeta(meta *engine.ReversibleMeta) {
-	obj.Xmeta = meta
+	obj.Xreversible = meta
 }

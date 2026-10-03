@@ -939,6 +939,13 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 					if gapiImpl != nil { // currently running...
 						gapiChan = nil
+						// Wait for etcd clients before
+						// we shutdown the engine and
+						// make etcd unhappy...
+						if err := gapiImpl.Cleanup(); err != nil {
+							Logf("gapi cleanup error: %+v", err)
+							cancelCause(err)
+						}
 					}
 
 					if started {

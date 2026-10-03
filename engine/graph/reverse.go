@@ -110,11 +110,9 @@ func (obj *Engine) Reversals(ctx context.Context) error {
 		}
 
 		val := data[key]
-		// XXX: replace this ResToB64 method with one that stores it in
-		// a human readable format, in case someone wants to hack and
-		// edit it manually.
-		// XXX: we probably want this to be YAML, it works with the diff
-		// too...
+		// NOTE: The stored value is a res as base64 encoded json, which
+		// ReversalInit wrote with ResToB64. See the note there about
+		// storing plain json instead, so that it can be edited by hand.
 		r, err := engineUtil.B64ToRes(val)
 		if err != nil {
 			return errwrap.Wrapf(err, "error decoding res with UID: `%s`", key)
@@ -243,9 +241,9 @@ func (obj *State) ReversalInit(ctx context.Context) error {
 	// erase the reversal state file after we've used it.
 	r.ReversibleMeta().Reversal = true // set this for later...
 
-	// XXX: replace this ResToB64 method with one that stores it in a human
-	// readable format, in case someone wants to hack and edit it manually.
-	// XXX: we probably want this to be YAML, it works with the diff too...
+	// TODO: ResToB64 encodes the resource as json, but then it base64
+	// encodes that, which stops anyone from reading or editing this file by
+	// hand. Store the json directly instead, and indent it so it diffs well.
 	str, err := engineUtil.ResToB64(r)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not encode: %s", res.String())

@@ -32,10 +32,8 @@
 package util
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/gob"
 	"fmt"
 	"io"
 	"os"
@@ -47,7 +45,9 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	utilJSON "github.com/purpleidea/mgmt/util/json"
 
+	"github.com/go-json-experiment/json/jsontext"
 	"github.com/godbus/dbus/v5"
 )
 
@@ -93,33 +93,51 @@ func ResPathUID(res engine.Res) string {
 	return fmt.Sprintf("%s-%s+%s", res.Kind(), encoded, name)
 }
 
+// resJSON is how ResToB64 stores a resource. The kind is kept beside the
+// encoded resource, so that we know what kind of resource to decode it into.
+type resJSON struct {
+	Kind string         `json:"kind"`
+	Res  jsontext.Value `json:"res"`
+}
+
 // ResToB64 encodes a resource to a base64 encoded string (after serialization).
+// We use json instead of gob, because gob doesn't keep the distinction between
+// a nil pointer and a pointer to a zero value, such as nil versus &"".
 func ResToB64(res engine.Res) (string, error) {
-	b := bytes.Buffer{}
-	e := gob.NewEncoder(&b)
-	err := e.Encode(&res) // pass with &
+	b, err := utilJSON.Marshal(res)
 	if err != nil {
-		return "", errwrap.Wrapf(err, "gob failed to encode")
+		return "", errwrap.Wrapf(err, "json failed to encode")
 	}
-	return base64.StdEncoding.EncodeToString(b.Bytes()), nil
+	b, err = utilJSON.Marshal(&resJSON{
+		Kind: res.Kind(),
+		Res:  b,
+	})
+	if err != nil {
+		return "", errwrap.Wrapf(err, "json failed to encode")
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // B64ToRes decodes a resource from a base64 encoded string (after
 // deserialization).
 func B64ToRes(str string) (engine.Res, error) {
-	var output interface{}
-	bb, err := base64.StdEncoding.DecodeString(str)
+	b, err := base64.StdEncoding.DecodeString(str)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "base64 failed to decode")
 	}
-	b := bytes.NewBuffer(bb)
-	d := gob.NewDecoder(b)
-	if err := d.Decode(&output); err != nil { // pass with &
-		return nil, errwrap.Wrapf(err, "gob failed to decode")
+	data := &resJSON{}
+	if err := utilJSON.Unmarshal(b, data); err != nil {
+		return nil, errwrap.Wrapf(err, "json failed to decode")
 	}
-	res, ok := output.(engine.Res)
-	if !ok {
-		return nil, fmt.Errorf("output `%v` is not a Res", output)
+	res, err := engine.NewResource(data.Kind)
+	if err != nil {
+		return nil, err
+	}
+	if err := utilJSON.Unmarshal(data.Res, res); err != nil {
+		return nil, errwrap.Wrapf(err, "json failed to decode a %s", data.Kind)
+	}
+	if kind := res.Kind(); kind != data.Kind { // the res stores it too
+		return nil, fmt.Errorf("decoded kind `%s` is not `%s`", kind, data.Kind)
 	}
 	return res, nil
 }

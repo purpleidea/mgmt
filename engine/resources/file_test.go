@@ -37,6 +37,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -376,4 +377,79 @@ func TestFileModeOctal(t *testing.T) {
 			t.Errorf("mode %q: got %s (%#o), want %s (%#o)", test.mode, m, m, test.out, test.out)
 		}
 	}
+}
+
+// TestFileReversedEncode checks that the reversal of a file resource survives
+// being encoded with ResToB64, which is how it gets stored between runs. Both
+// Content and SELinux use a pointer to an empty string to mean "make it empty"
+// as distinct from nil which means "leave it alone", and gob turned the former
+// into the latter, so a reversal could not restore an empty file, or remove an
+// selinux context which mgmt had added.
+func TestFileReversedEncode(t *testing.T) {
+	// reverse returns the reversal of a file resource, which has the given
+	// content and selinux context, for a file which is originally empty. No
+	// state is set, since the reversal of "exists" would be "absent" which
+	// doesn't keep any content.
+	reverse := func(t *testing.T, content, selinux *string) *FileRes {
+		p := filepath.Join(t.TempDir(), "f1")
+		if err := os.WriteFile(p, []byte{}, 0600); err != nil {
+			t.Fatalf("func WriteFile: %v", err)
+		}
+		res, err := engine.NewNamedResource("file", p)
+		if err != nil {
+			t.Fatalf("func NewNamedResource: %v", err)
+		}
+		fileRes := res.(*FileRes) // must not panic
+		fileRes.Content = content
+		fileRes.SELinux = selinux
+
+		rev, err := fileRes.Reversed(context.Background())
+		if err != nil {
+			t.Fatalf("func Reversed: %v", err)
+		}
+		return rev.(*FileRes) // must not panic
+	}
+
+	// encode returns the file resource after a round trip through the
+	// encoding which is used to store reversals.
+	encode := func(t *testing.T, res *FileRes) *FileRes {
+		s, err := engineUtil.ResToB64(res)
+		if err != nil {
+			t.Fatalf("func ResToB64: %v", err)
+		}
+		out, err := engineUtil.B64ToRes(s)
+		if err != nil {
+			t.Fatalf("func B64ToRes: %v", err)
+		}
+		return out.(*FileRes) // must not panic
+	}
+
+	t.Run("content", func(t *testing.T) {
+		content := "hello\n"
+		rev := reverse(t, &content, nil)
+		if rev.Content == nil || *rev.Content != "" {
+			t.Fatalf("expected the reversal to restore empty content, got: %v", rev.Content)
+		}
+		if out := encode(t, rev); out.Content == nil || *out.Content != "" {
+			t.Errorf("expected decoded empty content, got: %v", out.Content)
+		}
+	})
+
+	t.Run("selinux", func(t *testing.T) {
+		selinux := "system_u:object_r:etc_t:s0"
+		rev := reverse(t, nil, &selinux)
+		if rev.SELinux == nil {
+			t.Fatalf("expected the reversal to have an selinux context")
+		}
+		// The reversal holds the original context, which depends on the
+		// host, so check what we got, and then the empty context, which
+		// is what we get if the file had none, and so must be removed.
+		for _, s := range []string{*rev.SELinux, ""} {
+			*rev.SELinux = s
+			out := encode(t, rev)
+			if out.SELinux == nil || *out.SELinux != s {
+				t.Errorf("expected decoded selinux context %q, got: %v", s, out.SELinux)
+			}
+		}
+	})
 }

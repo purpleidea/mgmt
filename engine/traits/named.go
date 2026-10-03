@@ -34,7 +34,8 @@ package traits
 // re-implementing the straightforward name methods.
 type Named struct {
 	// Xname is the stored name. It should be called `name` but it must be
-	// public so that the `encoding/gob` package can encode it properly.
+	// public so that encoders such as `encoding/json` and `encoding/gob`
+	// can encode it.
 	Xname string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819

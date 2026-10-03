@@ -40,10 +40,10 @@ import (
 // starting point to avoid re-implementing the straightforward methods.
 type Groupable struct {
 	// Xautogroup is the stored meta. It should be called `autogroup` but it
-	// must be public so that the `encoding/gob` package can encode it
-	// properly. It is not called Xmeta so that it doesn't collide with the
-	// other traits when an encoder like `encoding/json` flattens a
-	// resource.
+	// must be public so that encoders such as `encoding/json` and
+	// `encoding/gob` can encode it. It is not called Xmeta so that it
+	// doesn't collide with the other traits when an encoder like
+	// `encoding/json` flattens a resource.
 	Xautogroup *engine.AutoGroupMeta
 
 	isGrouped bool                  // am i contained within a group?

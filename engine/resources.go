@@ -429,7 +429,10 @@ type ExportableRes interface {
 
 	// ToB64 lets the resource provide an alternative implementation of the
 	// usual ResToB64 method. This lets the resource omit, add, or modify
-	// the parameter data before it goes out over the wire.
+	// the parameter data before it goes out over the wire. The output gets
+	// decoded with B64ToRes when the resource is collected, so it must use
+	// the same encoding, eg: by calling ResToB64 on a modified copy of the
+	// resource.
 	ToB64() (string, error)
 
 	// TODO: Do we want to add a FromB64 method for decoding the Resource?

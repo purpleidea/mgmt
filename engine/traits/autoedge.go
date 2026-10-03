@@ -38,10 +38,10 @@ import (
 // point to avoid re-implementing the straightforward methods.
 type Edgeable struct {
 	// Xautoedge is the stored meta. It should be called `autoedge` but it
-	// must be public so that the `encoding/gob` package can encode it
-	// properly. It is not called Xmeta so that it doesn't collide with the
-	// other traits when an encoder like `encoding/json` flattens a
-	// resource.
+	// must be public so that encoders such as `encoding/json` and
+	// `encoding/gob` can encode it. It is not called Xmeta so that it
+	// doesn't collide with the other traits when an encoder like
+	// `encoding/json` flattens a resource.
 	Xautoedge *engine.AutoEdgeMeta
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819

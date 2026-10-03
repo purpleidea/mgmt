@@ -42,7 +42,8 @@ func init() {
 // re-implementing the straightforward kind methods.
 type Kinded struct {
 	// Xkind is the stored kind. It should be called `kind` but it must be
-	// public so that the `encoding/gob` package can encode it properly.
+	// public so that encoders such as `encoding/json` and `encoding/gob`
+	// can encode it.
 	Xkind string
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819

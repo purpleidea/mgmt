@@ -38,7 +38,8 @@ import (
 // re-implementing the straightforward meta methods.
 type Meta struct {
 	// Xmeta is the stored meta. It should be called `meta` but it must be
-	// public so that the `encoding/gob` package can encode it properly.
+	// public so that encoders such as `encoding/json` and `encoding/gob`
+	// can encode it.
 	Xmeta *engine.MetaParams
 
 	// Bug5819 works around issue https://github.com/golang/go/issues/5819

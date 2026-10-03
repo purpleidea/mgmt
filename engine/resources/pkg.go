@@ -30,10 +30,13 @@
 package resources
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"path"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -341,6 +344,8 @@ func (obj *PkgRes) versionNotFoundError(ctx context.Context, bus *packagekit.Con
 	if len(versions) == 0 {
 		return notFoundErr
 	}
+	// packagekit doesn't guarantee any order, so sort them ourselves
+	slices.SortStableFunc(versions, pkgVersionCmp)
 
 	obj.init.Logf("the available versions of '%s' are:", name)
 	for _, ver := range versions {
@@ -901,6 +906,66 @@ func ReturnSvcInFileList(fileList []string) []string {
 // TODO: what should we do about the empty string?
 func stateIsVersion(state string) bool {
 	return (state != PkgStateInstalled && state != PkgStateUninstalled && state != PkgStateNewest) // must be a ver. string
+}
+
+// pkgVersionSegments matches the runs of digits or letters in a version string.
+var pkgVersionSegments = regexp.MustCompile(`[0-9]+|[a-zA-Z]+`)
+
+// pkgVersionCmp compares two [epoch:]version[-release] package version strings,
+// returning -1, 0 or 1. Each part is compared in turn with pkgVersionPartCmp.
+// This is an approximation of rpm's comparison, so only use it for display
+// purposes such as sorting.
+// XXX: improve this to work with .deb packages too...
+func pkgVersionCmp(a, b string) int {
+	split := func(s string) []string {
+		epoch, s, ok := strings.Cut(s, ":")
+		if !ok { // no epoch
+			epoch, s = "0", epoch
+		}
+		version, release := s, ""
+		if i := strings.LastIndex(s, "-"); i >= 0 {
+			version, release = s[:i], s[i+1:]
+		}
+		return []string{epoch, version, release}
+	}
+	x, y := split(a), split(b)
+	for i := range x {
+		if c := pkgVersionPartCmp(x[i], y[i]); c != 0 {
+			return c
+		}
+	}
+	return 0
+}
+
+// pkgVersionPartCmp compares one part of a package version string, returning
+// -1, 0 or 1. It is a simplified rpmvercmp: the strings are split into runs of
+// digits and runs of letters, ignoring separators, and compared run by run.
+// Digits compare numerically and are newer than letters. It doesn't know about
+// the special ~ and ^ characters.
+// XXX: improve this to work with .deb packages too...
+func pkgVersionPartCmp(a, b string) int {
+	x := pkgVersionSegments.FindAllString(a, -1)
+	y := pkgVersionSegments.FindAllString(b, -1)
+	for i := 0; i < len(x) && i < len(y); i++ {
+		xd, yd := x[i][0] >= '0' && x[i][0] <= '9', y[i][0] >= '0' && y[i][0] <= '9'
+		if xd != yd {
+			if xd {
+				return 1 // a number is newer than a letter
+			}
+			return -1
+		}
+		s, t := x[i], y[i]
+		if xd { // numeric compare without parsing, so no overflow
+			s, t = strings.TrimLeft(s, "0"), strings.TrimLeft(t, "0")
+			if c := cmp.Compare(len(s), len(t)); c != 0 {
+				return c
+			}
+		}
+		if c := strings.Compare(s, t); c != 0 {
+			return c
+		}
+	}
+	return cmp.Compare(len(x), len(y)) // more segments is newer
 }
 
 // InstallOnePackage is a helper function which uses the minimum resource

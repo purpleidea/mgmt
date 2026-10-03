@@ -1,0 +1,35 @@
+# Start on host-a with:
+# ./mgmt run --tmp-prefix --hostname host-a lang examples/lang/remote-jump0.mcl
+# Each host receives this same deploy and launches only the next host. Each hop
+# needs SSH keys and known_hosts entries for its next destination already setup.
+
+$hosts = ["host-a", "host-b", "host-c"]
+$user = "root"
+
+for $i, $host in $hosts {
+	if $hostname == $host {
+		print "jump" {
+			msg => "running on ${host}",
+		}
+
+		if $i + 1 < len($hosts) {
+			$next = $hosts[$i + 1]
+			remote "remote0" {
+				hostname => $next, # match the next host's branch in this deploy
+				remote => "ssh://${user}@${next}:22/",
+
+				# if you have other mgmt/etcd's running on 2379
+				#tunnel_addr => "127.0.0.1:0", # not recommended
+
+				tunnelled => true, # tunnel the etcd connection back through ssh
+				transient => true, # stop the remote instance when we shut down
+				caching => true, # cache the remote binary
+			}
+		}
+	}
+}
+
+file "/tmp/mgmt-hello-world" {
+	state => "exists",
+	content => "hello from @purpleidea\n",
+}

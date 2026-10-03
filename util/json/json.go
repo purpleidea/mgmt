@@ -33,6 +33,9 @@
 package json
 
 import (
+	"errors"
+	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/go-json-experiment/json"
@@ -42,13 +45,21 @@ import (
 // jsonOptions are what we use to encode and decode values as json. A nil slice
 // or map is encoded as null so that it stays distinct from an empty one.
 // Complex numbers, which json has no type for, are encoded as strings, which
-// also lets them hold the NaN and Inf values that json numbers can't.
+// also lets them hold the NaN and Inf values that json numbers can't. Floats
+// which are NaN or Inf are encoded as strings for the same reason, but all the
+// other floats are left as json numbers.
 var jsonOptions = json.JoinOptions(
 	json.Deterministic(true),
 	json.FormatNilSliceAsNull(true),
 	json.FormatNilMapAsNull(true),
 	json.RejectUnknownMembers(true),
 	json.WithMarshalers(json.JoinMarshalers(
+		json.MarshalToFunc(func(enc *jsontext.Encoder, f float32) error {
+			return encodeNonFinite(enc, float64(f))
+		}),
+		json.MarshalToFunc(func(enc *jsontext.Encoder, f float64) error {
+			return encodeNonFinite(enc, f)
+		}),
 		json.MarshalToFunc(func(enc *jsontext.Encoder, c complex64) error {
 			return encodeComplex(enc, complex128(c), 64)
 		}),
@@ -57,6 +68,22 @@ var jsonOptions = json.JoinOptions(
 		}),
 	)),
 	json.WithUnmarshalers(json.JoinUnmarshalers(
+		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, f *float32) error {
+			x, err := decodeNonFinite(dec)
+			if err != nil {
+				return err
+			}
+			*f = float32(x)
+			return nil
+		}),
+		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, f *float64) error {
+			x, err := decodeNonFinite(dec)
+			if err != nil {
+				return err
+			}
+			*f = x
+			return nil
+		}),
 		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, c *complex64) error {
 			x, err := decodeComplex(dec, 64)
 			if err != nil {
@@ -75,6 +102,43 @@ var jsonOptions = json.JoinOptions(
 		}),
 	)),
 )
+
+// encodeNonFinite writes a NaN or Inf float as a string, with the same names
+// that the json package uses for its nonfinite format. Any other float returns
+// errors.ErrUnsupported, which makes the json package encode it as a number.
+func encodeNonFinite(enc *jsontext.Encoder, f float64) error {
+	switch {
+	case math.IsNaN(f):
+		return enc.WriteToken(jsontext.String("NaN"))
+	case math.IsInf(f, 1):
+		return enc.WriteToken(jsontext.String("Infinity"))
+	case math.IsInf(f, -1):
+		return enc.WriteToken(jsontext.String("-Infinity"))
+	}
+	return errors.ErrUnsupported
+}
+
+// decodeNonFinite reads a NaN or Inf float from a string. Anything which isn't
+// a string returns errors.ErrUnsupported, which makes the json package decode
+// it normally. Any other string, such as a finite float, is an error.
+func decodeNonFinite(dec *jsontext.Decoder) (float64, error) {
+	if dec.PeekKind() != '"' {
+		return 0, errors.ErrUnsupported
+	}
+	var s string
+	if err := json.UnmarshalDecode(dec, &s); err != nil {
+		return 0, err
+	}
+	switch s {
+	case "NaN":
+		return math.NaN(), nil
+	case "Infinity":
+		return math.Inf(1), nil
+	case "-Infinity":
+		return math.Inf(-1), nil
+	}
+	return 0, fmt.Errorf("invalid float string: %q", s)
+}
 
 // encodeComplex writes a complex number of the given bit size as a string.
 func encodeComplex(enc *jsontext.Encoder, c complex128, bitSize int) error {

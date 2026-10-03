@@ -79,3 +79,73 @@ func TestJSONComplex(t *testing.T) {
 		t.Errorf("expected an error decoding an invalid complex")
 	}
 }
+
+func TestJSONFloat(t *testing.T) {
+	type floats struct {
+		F32 float32
+		F64 float64
+		P   *float64
+		S   []float64
+		M   map[string]float32
+	}
+	values := []float64{
+		0,
+		math.Copysign(0, -1),
+		1.5,
+		math.MaxFloat32,
+		math.SmallestNonzeroFloat64,
+		math.Inf(1),
+		math.Inf(-1),
+		math.NaN(),
+	}
+	// same compares by bits, so that NaN and -0 are checked exactly
+	same := func(a, b float64) bool {
+		return math.Float64bits(a) == math.Float64bits(b)
+	}
+	for _, x := range values {
+		p := x
+		in := floats{
+			F32: float32(x),
+			F64: x,
+			P:   &p,
+			S:   []float64{x},
+			M:   map[string]float32{"x": float32(x)},
+		}
+		b, err := Marshal(in)
+		if err != nil {
+			t.Errorf("func Marshal(%v): %v", x, err)
+			continue
+		}
+		var out floats
+		if err := Unmarshal(b, &out); err != nil {
+			t.Errorf("func Unmarshal(%s): %v", b, err)
+			continue
+		}
+		if !same(float64(in.F32), float64(out.F32)) || !same(in.F64, out.F64) || out.P == nil || !same(*in.P, *out.P) || len(out.S) != 1 || !same(in.S[0], out.S[0]) || !same(float64(in.M["x"]), float64(out.M["x"])) {
+			t.Errorf("round trip of %v differs, encoded as: %s", x, b)
+		}
+	}
+
+	// finite floats should stay as json numbers
+	for x, expected := range map[float64]string{
+		1.5:          `{"F":1.5}`,
+		math.Inf(1):  `{"F":"Infinity"}`,
+		math.Inf(-1): `{"F":"-Infinity"}`,
+	} {
+		b, err := Marshal(struct{ F float64 }{F: x})
+		if err != nil {
+			t.Errorf("func Marshal(%v): %v", x, err)
+			continue
+		}
+		if s := string(b); s != expected {
+			t.Errorf("expected %v to encode as %s, got: %s", x, expected, s)
+		}
+	}
+
+	for _, s := range []string{`{"F64":"1.5"}`, `{"F64":"nan"}`, `{"F32":"Inf"}`} {
+		var out floats
+		if err := Unmarshal([]byte(s), &out); err == nil {
+			t.Errorf("expected an error decoding: %s", s)
+		}
+	}
+}

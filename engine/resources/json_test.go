@@ -32,6 +32,7 @@
 package resources
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -45,10 +46,10 @@ import (
 // decoding it with B64ToRes gives back an identical resource. This catches
 // exported trait fields which collide when an encoder flattens the embedded
 // traits into the resource, since those get silently dropped. It also checks
-// that every field type in use, such as the complex numbers of the test
-// resource, can be encoded. Each kind is checked a second time with all of its
-// nil pointer, slice and map fields set to a pointer to a zero value, or empty,
-// since those must not come back as nil.
+// that every field type in use, such as the complex numbers and the infinite
+// floats of the test resource, can be encoded. Each kind is checked a second
+// time with all of its nil pointer, slice and map fields set to a pointer to a
+// zero value, or empty, since those must not come back as nil.
 func TestResToB64RoundTrip(t *testing.T) {
 	for _, kind := range engine.RegisteredResourcesNames() {
 		for _, empty := range []bool{false, true} {
@@ -86,6 +87,8 @@ func TestResToB64RoundTrip(t *testing.T) {
 				if r, ok := res.(*TestRes); ok {
 					r.Complex64 = 1.5 + 2i
 					r.Complex128 = -3 + 0.25i
+					r.Float32 = float32(math.Inf(-1))
+					r.Float64 = math.Inf(1)
 				}
 				if empty {
 					setEmpty(res)

@@ -299,6 +299,60 @@ func (obj *PkgRes) notFoundError(ctx context.Context, bus *packagekit.Conn, name
 	return fmt.Errorf("can't find package named '%s'; you need to enable one or more of: %s", name, strings.Join(candidates, ", "))
 }
 
+// versionNotFoundError returns the "version is not available" error, and logs
+// the list of versions which are actually available, if any, one per line.
+func (obj *PkgRes) versionNotFoundError(ctx context.Context, bus *packagekit.Conn, name string) error {
+	notFoundErr := fmt.Errorf("version %s of package '%s' is not available", obj.State, name)
+
+	// same filter that pkgMappingHelper uses for a version string state
+	var filter uint64
+	filter |= packagekit.PkFilterEnumArch
+	if !obj.AllowNonFree {
+		filter |= packagekit.PkFilterEnumFree
+	}
+	if !obj.AllowUnsupported {
+		filter |= packagekit.PkFilterEnumSupported
+	}
+
+	resolved, err := bus.ResolvePackages(ctx, []string{name}, filter)
+	if err != nil {
+		obj.init.Logf("can't list available versions: %v", err)
+		return notFoundErr
+	}
+	versions := []string{}
+	installed := make(map[string]bool)
+	for _, packageID := range resolved {
+		// format is: name;version;arch;data
+		s := strings.Split(packageID, ";")
+		if len(s) != 4 || s[0] != name || s[1] == "" {
+			continue
+		}
+		ver, arch, data := s[1], s[2], s[3]
+		if b, err := packagekit.IsMyArch(arch); err != nil || !b {
+			continue
+		}
+		if !util.StrInList(ver, versions) {
+			versions = append(versions, ver)
+		}
+		if packagekit.FlagInData("installed", data) {
+			installed[ver] = true
+		}
+	}
+	if len(versions) == 0 {
+		return notFoundErr
+	}
+
+	obj.init.Logf("the available versions of '%s' are:", name)
+	for _, ver := range versions {
+		if installed[ver] {
+			obj.init.Logf("%s (installed)", ver)
+			continue
+		}
+		obj.init.Logf("%s", ver)
+	}
+	return notFoundErr
+}
+
 // populateFileList fills in the fileList structure with what is in the package.
 // TODO: should this work properly if pkg has been autogrouped ?
 func (obj *PkgRes) populateFileList(ctx context.Context) error {
@@ -417,7 +471,7 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			return true, nil
 		}
 		if data.PackageID == "" {
-			return false, fmt.Errorf("version %s of package '%s' is not available", obj.State, obj.Name())
+			return false, obj.versionNotFoundError(ctx, bus, obj.Name())
 		}
 	}
 

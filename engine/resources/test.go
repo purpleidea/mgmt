@@ -103,7 +103,15 @@ type TestRes struct {
 	AnotherStr string `lang:"anotherstr" yaml:"anotherstr"`
 
 	// Func1 passes the value 42 to the input and returns a string.
-	Func1 func(int) string `lang:"func1" yaml:"func1"`
+	//
+	// XXX: Lang can't set func fields yet (see the *FuncValue case in
+	// types.Into) and a bare func can't be encoded, so omitzero makes
+	// encoding a nil func skip it, and a set one error. To support this,
+	// wrap the func in a type that also stores a description of what func
+	// it was (eg: a builtin name and type) and encode that instead, so it
+	// can be rebuilt after decoding. A pointer to the func can't serve as
+	// its identity, since all reflect.MakeFunc funcs share one pointer.
+	Func1 func(int) string `lang:"func1" yaml:"func1" json:",omitzero"`
 
 	ValidateBool  bool      `lang:"validatebool" yaml:"validate_bool"`   // set to true to cause a validate error
 	ValidateError string    `lang:"validateerror" yaml:"validate_error"` // set to cause a validate error

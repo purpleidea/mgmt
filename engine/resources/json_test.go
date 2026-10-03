@@ -46,7 +46,7 @@ import (
 // embedded traits into the resource, since those get silently dropped.
 func testJSONRoundTrip(t *testing.T, enc func(any) ([]byte, error), dec func([]byte, any) error) {
 	for _, kind := range engine.RegisteredResourcesNames() {
-		if kind == "test" { // TODO: complex64 and func fields can't be json
+		if kind == "test" { // TODO: complex64 fields can't be json
 			continue
 		}
 		t.Run(kind, func(t *testing.T) {

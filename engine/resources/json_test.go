@@ -39,6 +39,8 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	utilJSON "github.com/purpleidea/mgmt/util/json"
+
+	"golang.org/x/time/rate"
 )
 
 // TestResToB64RoundTrip encodes every registered resource kind with ResToB64,
@@ -69,6 +71,7 @@ func TestResToB64RoundTrip(t *testing.T) {
 
 				meta := engine.DefaultMetaParams.Copy()
 				meta.Retry = 3
+				meta.Limit = rate.Limit(math.Inf(1)) // named float
 				meta.Sema = []string{"a:1"}
 				meta.Export = []string{"*"}
 				res.SetMetaParams(meta)

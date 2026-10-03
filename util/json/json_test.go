@@ -37,12 +37,16 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
+
+	"golang.org/x/time/rate"
 )
 
 func TestJSONComplex(t *testing.T) {
+	type named complex64 // a named type must work too
 	type complexes struct {
 		C64  complex64
 		C128 complex128
+		N    named
 	}
 	inf, nan := math.Inf(1), math.NaN()
 	values := []complex128{
@@ -61,7 +65,7 @@ func TestJSONComplex(t *testing.T) {
 			math.Float64bits(imag(a)) == math.Float64bits(imag(b))
 	}
 	for _, x := range values {
-		in := complexes{C64: complex64(x), C128: x}
+		in := complexes{C64: complex64(x), C128: x, N: named(x)}
 		b, err := Marshal(in)
 		if err != nil {
 			t.Errorf("func Marshal(%v): %v", x, err)
@@ -72,7 +76,7 @@ func TestJSONComplex(t *testing.T) {
 			t.Errorf("func Unmarshal(%s): %v", b, err)
 			continue
 		}
-		if !same(complex128(in.C64), complex128(out.C64)) || !same(in.C128, out.C128) {
+		if !same(complex128(in.C64), complex128(out.C64)) || !same(in.C128, out.C128) || !same(complex128(in.N), complex128(out.N)) {
 			t.Errorf("round trip of %v differs, encoded as: %s", x, b)
 		}
 	}
@@ -84,12 +88,15 @@ func TestJSONComplex(t *testing.T) {
 }
 
 func TestJSONFloat(t *testing.T) {
+	type named float32 // a named type must work too
 	type floats struct {
 		F32 float32
 		F64 float64
 		P   *float64
 		S   []float64
 		M   map[string]float32
+		N   named
+		L   rate.Limit // the named float type in the meta params
 	}
 	values := []float64{
 		0,
@@ -113,6 +120,8 @@ func TestJSONFloat(t *testing.T) {
 			P:   &p,
 			S:   []float64{x},
 			M:   map[string]float32{"x": float32(x)},
+			N:   named(x),
+			L:   rate.Limit(x),
 		}
 		b, err := Marshal(in)
 		if err != nil {
@@ -124,7 +133,7 @@ func TestJSONFloat(t *testing.T) {
 			t.Errorf("func Unmarshal(%s): %v", b, err)
 			continue
 		}
-		if !same(float64(in.F32), float64(out.F32)) || !same(in.F64, out.F64) || out.P == nil || !same(*in.P, *out.P) || len(out.S) != 1 || !same(in.S[0], out.S[0]) || !same(float64(in.M["x"]), float64(out.M["x"])) {
+		if !same(float64(in.F32), float64(out.F32)) || !same(in.F64, out.F64) || out.P == nil || !same(*in.P, *out.P) || len(out.S) != 1 || !same(in.S[0], out.S[0]) || !same(float64(in.M["x"]), float64(out.M["x"])) || !same(float64(in.N), float64(out.N)) || !same(float64(in.L), float64(out.L)) {
 			t.Errorf("round trip of %v differs, encoded as: %s", x, b)
 		}
 	}

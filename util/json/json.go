@@ -51,8 +51,9 @@ import (
 // Complex numbers, which json has no type for, are encoded as strings, which
 // also lets them hold the NaN and Inf values that json numbers can't. Floats
 // which are NaN or Inf are encoded as strings for the same reason, but all the
-// other floats are left as json numbers. A value in an interface is encoded
-// with its lang type, so that it can be decoded back into the same golang type.
+// other floats are left as json numbers. This is done by kind, so it includes
+// named types such as rate.Limit. A value in an interface is encoded with its
+// lang type, so that it can be decoded back into the same golang type.
 var jsonOptions = json.JoinOptions(
 	json.Deterministic(true),
 	json.FormatNilSliceAsNull(true),
@@ -61,56 +62,61 @@ var jsonOptions = json.JoinOptions(
 	json.WithMarshalers(json.JoinMarshalers(
 		// This gets called for each value with a type of interface{}.
 		json.MarshalToFunc(encodeInterface),
-		json.MarshalToFunc(func(enc *jsontext.Encoder, f float32) error {
-			return encodeNonFinite(enc, float64(f))
-		}),
-		json.MarshalToFunc(func(enc *jsontext.Encoder, f float64) error {
-			return encodeNonFinite(enc, f)
-		}),
-		json.MarshalToFunc(func(enc *jsontext.Encoder, c complex64) error {
-			return encodeComplex(enc, complex128(c), 64)
-		}),
-		json.MarshalToFunc(func(enc *jsontext.Encoder, c complex128) error {
-			return encodeComplex(enc, c, 128)
-		}),
+		// This gets called for every value.
+		json.MarshalToFunc(encodeNumber),
 	)),
 	json.WithUnmarshalers(json.JoinUnmarshalers(
 		// This gets called for each value with a type of interface{}.
 		json.UnmarshalFromFunc(decodeInterface),
-		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, f *float32) error {
-			x, err := decodeNonFinite(dec)
-			if err != nil {
-				return err
-			}
-			*f = float32(x)
-			return nil
-		}),
-		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, f *float64) error {
-			x, err := decodeNonFinite(dec)
-			if err != nil {
-				return err
-			}
-			*f = x
-			return nil
-		}),
-		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, c *complex64) error {
-			x, err := decodeComplex(dec, 64)
-			if err != nil {
-				return err
-			}
-			*c = complex64(x)
-			return nil
-		}),
-		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, c *complex128) error {
-			x, err := decodeComplex(dec, 128)
-			if err != nil {
-				return err
-			}
-			*c = x
-			return nil
-		}),
+		// This gets called for every value.
+		json.UnmarshalFromFunc(decodeNumber),
 	)),
 )
+
+// encodeNumber writes a value of a float kind which is NaN or Inf, or a value
+// of a complex kind, as a string. Any other value returns errors.ErrUnsupported
+// which makes the json package encode it normally. The json package always
+// passes a pointer to the value, so that's what we look at.
+func encodeNumber(enc *jsontext.Encoder, v interface{}) error {
+	ptr := reflect.ValueOf(v)
+	if ptr.Kind() != reflect.Pointer || ptr.IsNil() {
+		return errors.ErrUnsupported
+	}
+	switch val := ptr.Elem(); val.Kind() {
+	case reflect.Float32, reflect.Float64:
+		return encodeNonFinite(enc, val.Float())
+	case reflect.Complex64, reflect.Complex128:
+		return encodeComplex(enc, val.Complex(), val.Type().Bits())
+	}
+	return errors.ErrUnsupported
+}
+
+// decodeNumber reads a value of a float or complex kind, which was written by
+// encodeNumber. Any other value returns errors.ErrUnsupported, which makes the
+// json package decode it normally.
+func decodeNumber(dec *jsontext.Decoder, v interface{}) error {
+	ptr := reflect.ValueOf(v)
+	if ptr.Kind() != reflect.Pointer || ptr.IsNil() {
+		return errors.ErrUnsupported
+	}
+	switch val := ptr.Elem(); val.Kind() {
+	case reflect.Float32, reflect.Float64:
+		f, err := decodeNonFinite(dec)
+		if err != nil {
+			return err
+		}
+		val.SetFloat(f)
+		return nil
+	case reflect.Complex64, reflect.Complex128:
+		c, err := decodeComplex(dec, val.Type().Bits())
+		if err != nil {
+			return err
+		}
+		val.SetComplex(c)
+		return nil
+	}
+	return errors.ErrUnsupported
+}
 
 // encodeInterface writes a non-nil value from an interface as an object of its
 // lang type and its value, since otherwise it would get decoded with a generic

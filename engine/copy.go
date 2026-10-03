@@ -126,7 +126,9 @@ func ResCopy(r CopyableRes) (CopyableRes, error) {
 			// programming error
 			panic("reversible interfaces are illogical")
 		}
-		dst.SetReversibleMeta(x.ReversibleMeta()) // no need to copy atm
+		// The reversal must not mutate the original resource metadata.
+		rm := *x.ReversibleMeta()
+		dst.SetReversibleMeta(&rm)
 	}
 
 	return res, nil

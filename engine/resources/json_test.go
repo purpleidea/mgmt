@@ -47,9 +47,10 @@ import (
 // exported trait fields which collide when an encoder flattens the embedded
 // traits into the resource, since those get silently dropped. It also checks
 // that every field type in use, such as the complex numbers and the infinite
-// floats of the test resource, can be encoded. Each kind is checked a second
-// time with all of its nil pointer, slice and map fields set to a pointer to a
-// zero value, or empty, since those must not come back as nil.
+// floats of the test resource, or the interface of the value resource, can be
+// encoded. Each kind is checked a second time with all of its nil pointer,
+// slice and map fields set to a pointer to a zero value, or empty, since those
+// must not come back as nil.
 func TestResToB64RoundTrip(t *testing.T) {
 	for _, kind := range engine.RegisteredResourcesNames() {
 		for _, empty := range []bool{false, true} {
@@ -89,6 +90,11 @@ func TestResToB64RoundTrip(t *testing.T) {
 					r.Complex128 = -3 + 0.25i
 					r.Float32 = float32(math.Inf(-1))
 					r.Float64 = math.Inf(1)
+					r.Interface = map[string]int64{"a": 1}
+				}
+				if r, ok := res.(*ValueRes); ok {
+					var x interface{} = []string{"a"}
+					r.Any = &x
 				}
 				if empty {
 					setEmpty(res)

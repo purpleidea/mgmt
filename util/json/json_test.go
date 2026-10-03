@@ -33,7 +33,10 @@ package json
 
 import (
 	"math"
+	"reflect"
 	"testing"
+
+	"github.com/purpleidea/mgmt/lang/types"
 )
 
 func TestJSONComplex(t *testing.T) {
@@ -146,6 +149,84 @@ func TestJSONFloat(t *testing.T) {
 		var out floats
 		if err := Unmarshal([]byte(s), &out); err == nil {
 			t.Errorf("expected an error decoding: %s", s)
+		}
+	}
+}
+
+func TestJSONInterface(t *testing.T) {
+	type holder struct {
+		I interface{}
+		P *interface{}
+		L []interface{}
+	}
+
+	// a struct value, with the golang type that lang uses for it
+	st := reflect.New(types.NewType("struct{a int; b str}").Reflect()).Elem()
+	st.Field(0).SetInt(42)
+	st.Field(1).SetString("hello")
+
+	values := []interface{}{
+		nil,
+		true,
+		"hello",
+		"",
+		int64(0),
+		int64(math.MaxInt64), // too big for a float64
+		1.5,
+		math.Inf(-1), // needs our float encoding inside of the interface
+		[]string{},
+		[]string(nil),
+		[]int64{1, 2},
+		map[string]int64{"a": 1},
+		map[int64]string{2: "b"},
+		[]map[string]float64{{"x": math.Inf(1)}},
+		st.Interface(),
+	}
+	for _, x := range values {
+		in := holder{I: x, L: []interface{}{x}}
+		if x != nil { // a pointer to a nil interface is encoded as null
+			p := x
+			in.P = &p
+		}
+		b, err := Marshal(in)
+		if err != nil {
+			t.Errorf("func Marshal(%#v): %v", x, err)
+			continue
+		}
+		var out holder
+		if err := Unmarshal(b, &out); err != nil {
+			t.Errorf("func Unmarshal(%s): %v", b, err)
+			continue
+		}
+		if !reflect.DeepEqual(in, out) {
+			t.Errorf("round trip of %#v differs, encoded as: %s", x, b)
+		}
+	}
+
+	// golang types which aren't exactly the golang type of a lang type
+	for _, x := range []interface{}{
+		int(1),
+		uint8(1),
+		[]interface{}{"a"},
+		func() {},
+	} {
+		if b, err := Marshal(holder{I: x}); err == nil {
+			t.Errorf("expected an error encoding %T, got: %s", x, b)
+		}
+	}
+
+	for _, s := range []string{
+		`{"I":42}`,
+		`{"I":{"value":42,"type":"int"}}`,
+		`{"I":{"type":"int","value":42,"extra":1}}`,
+		`{"I":{"type":"int","value":"42"}}`,
+		`{"I":{"type":"nope","value":42}}`,
+		`{"I":{"type":"variant","value":42}}`,
+		`{"I":{"type":"[]variant","value":[42]}}`,
+	} {
+		var out holder
+		if err := Unmarshal([]byte(s), &out); err == nil {
+			t.Errorf("expected an error decoding %s, got: %#v", s, out)
 		}
 	}
 }

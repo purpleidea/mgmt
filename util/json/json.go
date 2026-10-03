@@ -36,7 +36,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
+
+	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util/errwrap"
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
@@ -47,13 +51,16 @@ import (
 // Complex numbers, which json has no type for, are encoded as strings, which
 // also lets them hold the NaN and Inf values that json numbers can't. Floats
 // which are NaN or Inf are encoded as strings for the same reason, but all the
-// other floats are left as json numbers.
+// other floats are left as json numbers. A value in an interface is encoded
+// with its lang type, so that it can be decoded back into the same golang type.
 var jsonOptions = json.JoinOptions(
 	json.Deterministic(true),
 	json.FormatNilSliceAsNull(true),
 	json.FormatNilMapAsNull(true),
 	json.RejectUnknownMembers(true),
 	json.WithMarshalers(json.JoinMarshalers(
+		// This gets called for each value with a type of interface{}.
+		json.MarshalToFunc(encodeInterface),
 		json.MarshalToFunc(func(enc *jsontext.Encoder, f float32) error {
 			return encodeNonFinite(enc, float64(f))
 		}),
@@ -68,6 +75,8 @@ var jsonOptions = json.JoinOptions(
 		}),
 	)),
 	json.WithUnmarshalers(json.JoinUnmarshalers(
+		// This gets called for each value with a type of interface{}.
+		json.UnmarshalFromFunc(decodeInterface),
 		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, f *float32) error {
 			x, err := decodeNonFinite(dec)
 			if err != nil {
@@ -102,6 +111,115 @@ var jsonOptions = json.JoinOptions(
 		}),
 	)),
 )
+
+// encodeInterface writes a non-nil value from an interface as an object of its
+// lang type and its value, since otherwise it would get decoded with a generic
+// type, such as a float64 for any number. It errors if the golang type of the
+// value isn't exactly the golang type of its lang type, such as an int instead
+// of an int64, since then it couldn't be decoded as the same golang type. A nil
+// value returns errors.ErrUnsupported, which makes the json package write null.
+func encodeInterface(enc *jsontext.Encoder, v *interface{}) error {
+	if *v == nil {
+		return errors.ErrUnsupported
+	}
+	typ := reflect.TypeOf(*v)
+	t, err := types.TypeOf(typ)
+	if err != nil {
+		return errwrap.Wrapf(err, "can't encode a %s in an interface", typ)
+	}
+	if r, err := reflectType(t); err != nil || r != typ {
+		return fmt.Errorf("can't encode a %s in an interface, it isn't a lang type", typ)
+	}
+
+	if err := enc.WriteToken(jsontext.BeginObject); err != nil {
+		return err
+	}
+	if err := enc.WriteToken(jsontext.String("type")); err != nil {
+		return err
+	}
+	if err := enc.WriteToken(jsontext.String(t.String())); err != nil {
+		return err
+	}
+	if err := enc.WriteToken(jsontext.String("value")); err != nil {
+		return err
+	}
+	if err := json.MarshalEncode(enc, *v); err != nil {
+		return err
+	}
+	return enc.WriteToken(jsontext.EndObject)
+}
+
+// decodeInterface reads a value which was written by encodeInterface, and sets
+// the interface to it, with the golang type of its lang type. Null returns
+// errors.ErrUnsupported, which makes the json package set a nil interface.
+func decodeInterface(dec *jsontext.Decoder, v *interface{}) error {
+	if dec.PeekKind() == 'n' {
+		return errors.ErrUnsupported
+	}
+
+	// readName reads the expected member name of the object.
+	readName := func(name string) error {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind() != '"' || tok.String() != name {
+			return fmt.Errorf("expected `%s` in an interface, got: %s", name, tok)
+		}
+		return nil
+	}
+
+	if tok, err := dec.ReadToken(); err != nil {
+		return err
+	} else if tok.Kind() != '{' {
+		return fmt.Errorf("expected an object for an interface, got: %s", tok)
+	}
+	if err := readName("type"); err != nil {
+		return err
+	}
+	var s string
+	if err := json.UnmarshalDecode(dec, &s); err != nil {
+		return err
+	}
+	t := types.NewType(s)
+	if t == nil {
+		return fmt.Errorf("invalid type in an interface: %s", s)
+	}
+	typ, err := reflectType(t)
+	if err != nil {
+		return err
+	}
+	if err := readName("value"); err != nil {
+		return err
+	}
+	val := reflect.New(typ)
+	if err := json.UnmarshalDecode(dec, val.Interface()); err != nil {
+		return err
+	}
+	if tok, err := dec.ReadToken(); err != nil {
+		return err
+	} else if tok.Kind() != '}' {
+		return fmt.Errorf("unexpected data in an interface: %s", tok)
+	}
+
+	*v = val.Elem().Interface()
+	return nil
+}
+
+// reflectType returns the golang type of a lang type. It returns an error for
+// the types which can't be represented, such as a variant, instead of the panic
+// or nil type that Reflect gives, since the type might come from decoded data.
+func reflectType(t *types.Type) (typ reflect.Type, reterr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			reterr = fmt.Errorf("can't represent type %s: %v", t, r)
+		}
+	}()
+	if typ = t.Reflect(); typ == nil {
+		return nil, fmt.Errorf("can't represent type %s", t)
+	}
+	return typ, nil
+}
 
 // encodeNonFinite writes a NaN or Inf float as a string, with the same names
 // that the json package uses for its nonfinite format. Any other float returns

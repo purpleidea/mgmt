@@ -326,8 +326,17 @@ func (obj *PkgRes) populateFileList(ctx context.Context) error {
 		// common if we made a package name typo or repo doesn't exist!
 		return obj.notFoundError(ctx, bus, obj.Name())
 	}
+	if data.PackageID == "" && stateIsVersion(obj.State) {
+		// The requested version isn't available (yet?) so we can't get
+		// a file list. This isn't an error here, since CheckApply will
+		// report it more usefully. Leave fileList as nil so that we try
+		// again next time, in case a repo starts offering the version.
+		if obj.init != nil {
+			obj.init.Logf("version %s is not available, skipping file list", obj.State)
+		}
+		return nil
+	}
 	if data.PackageID == "" {
-		// this can happen if you specify a bad version like "latest"
 		return fmt.Errorf("empty PackageID found for '%s'", obj.Name())
 	}
 
@@ -406,6 +415,9 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	default: // version string
 		if obj.State == data.Version && data.Version != "" {
 			return true, nil
+		}
+		if data.PackageID == "" {
+			return false, fmt.Errorf("version %s of package '%s' is not available", obj.State, obj.Name())
 		}
 	}
 

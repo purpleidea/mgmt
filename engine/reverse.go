@@ -30,6 +30,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -60,7 +61,7 @@ type ReversibleRes interface {
 	// params in the built value, so keep things simple and have this be a
 	// reversible res. The Res itself doesn't have to implement Reversed()
 	// in a meaningful way, it can just return nil and it will get ignored.
-	Reversed() (ReversibleRes, error)
+	Reversed(context.Context) (ReversibleRes, error)
 }
 
 // ReversibleMeta provides some parameters specific to reversible resources.

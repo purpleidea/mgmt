@@ -335,7 +335,7 @@ func (obj *Engine) Commit(ctx context.Context) error {
 
 			//paused: true, // start paused (set in Init)
 		}
-		if err := state.Init(); err != nil {
+		if err := state.Init(ctx); err != nil {
 			return errwrap.Wrapf(err, "the Res did not Init")
 		}
 

@@ -863,7 +863,7 @@ func TestResources2(t *testing.T) {
 				//logf("triangle reversal") // warn!
 			}
 
-			reversed, err := r.Reversed()
+			reversed, err := r.Reversed(t.Context())
 			if err != nil {
 				return errwrap.Wrapf(err, "could not reverse: %s", r.String())
 			}

@@ -160,7 +160,7 @@ type State struct {
 }
 
 // Init initializes structures like channels.
-func (obj *State) Init() error {
+func (obj *State) Init(ctx context.Context) error {
 	res, isRes := obj.Vertex.(engine.Res)
 	if !isRes {
 		return fmt.Errorf("vertex is not a Res")
@@ -308,7 +308,7 @@ func (obj *State) Init() error {
 	}
 
 	// write the reverse request to the disk...
-	if err := obj.ReversalInit(); err != nil {
+	if err := obj.ReversalInit(ctx); err != nil {
 		return err // TODO: test this code path...
 	}
 

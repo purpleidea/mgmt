@@ -699,7 +699,7 @@ func (obj *NetRes) Copy() engine.CopyableRes {
 
 // Reversed returns the "reverse" or "reciprocal" resource. This is used to
 // "clean" up after a previously defined resource has been removed.
-func (obj *NetRes) Reversed() (engine.ReversibleRes, error) {
+func (obj *NetRes) Reversed(ctx context.Context) (engine.ReversibleRes, error) {
 	cp, err := engine.ResCopy(obj)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not copy")

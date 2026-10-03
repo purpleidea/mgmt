@@ -212,7 +212,7 @@ func (obj *Engine) ReversalList() (map[string]string, error) {
 
 // ReversalInit performs the reversal initialization steps if necessary for this
 // resource.
-func (obj *State) ReversalInit() error {
+func (obj *State) ReversalInit(ctx context.Context) error {
 	res, ok := obj.Vertex.(engine.ReversibleRes)
 	if !ok {
 		return nil // nothing to do
@@ -231,7 +231,7 @@ func (obj *State) ReversalInit() error {
 		obj.Logf("triangle reversal") // warn!
 	}
 
-	r, err := res.Reversed()
+	r, err := res.Reversed(ctx)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not reverse: %s", res.String())
 	}

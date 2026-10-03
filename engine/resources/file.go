@@ -1790,7 +1790,7 @@ func (obj *FileRes) Copy() engine.CopyableRes {
 
 // Reversed returns the "reverse" or "reciprocal" resource. This is used to
 // "clean" up after a previously defined resource has been removed.
-func (obj *FileRes) Reversed() (engine.ReversibleRes, error) {
+func (obj *FileRes) Reversed(ctx context.Context) (engine.ReversibleRes, error) {
 	// NOTE: Previously, we did some more complicated management of reversed
 	// properties. For example, we could add mode and state even when they
 	// weren't originally specified. This code has now been simplified to

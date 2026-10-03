@@ -32,23 +32,22 @@
 package resources
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
+	utilJSON "github.com/purpleidea/mgmt/util/json"
 )
 
-// testJSONRoundTrip encodes every registered resource kind, with non-default
+// TestJSONRoundTrip encodes every registered resource kind, with non-default
 // values in all of its trait meta params, and checks that decoding it into a
 // fresh resource of the same kind gives back an identical resource. This
 // catches exported trait fields which collide when an encoder flattens the
-// embedded traits into the resource, since those get silently dropped.
-func testJSONRoundTrip(t *testing.T, enc func(any) ([]byte, error), dec func([]byte, any) error) {
+// embedded traits into the resource, since those get silently dropped. It also
+// checks that every field type in use, such as the complex numbers of the test
+// resource, can be encoded with our json options.
+func TestJSONRoundTrip(t *testing.T) {
 	for _, kind := range engine.RegisteredResourcesNames() {
-		if kind == "test" { // TODO: complex64 fields can't be json
-			continue
-		}
 		t.Run(kind, func(t *testing.T) {
 			res, err := engine.NewNamedResource(kind, "probe")
 			if err != nil {
@@ -76,8 +75,12 @@ func testJSONRoundTrip(t *testing.T, enc func(any) ([]byte, error), dec func([]b
 					Overwrite: true,
 				})
 			}
+			if r, ok := res.(*TestRes); ok {
+				r.Complex64 = 1.5 + 2i
+				r.Complex128 = -3 + 0.25i
+			}
 
-			b, err := enc(res)
+			b, err := utilJSON.Marshal(res)
 			if err != nil {
 				t.Fatalf("encode: %v", err)
 			}
@@ -85,7 +88,7 @@ func testJSONRoundTrip(t *testing.T, enc func(any) ([]byte, error), dec func([]b
 			if err != nil {
 				t.Fatalf("func NewResource: %v", err)
 			}
-			if err := dec(b, out); err != nil {
+			if err := utilJSON.Unmarshal(b, out); err != nil {
 				t.Fatalf("decode: %v", err)
 			}
 			if !reflect.DeepEqual(res, out) {
@@ -93,8 +96,4 @@ func testJSONRoundTrip(t *testing.T, enc func(any) ([]byte, error), dec func([]b
 			}
 		})
 	}
-}
-
-func TestJSONRoundTrip(t *testing.T) {
-	testJSONRoundTrip(t, json.Marshal, json.Unmarshal)
 }

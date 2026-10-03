@@ -18,6 +18,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-git/go-git/v5 v5.19.2
+	github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/google/nftables v0.2.0
 	github.com/google/uuid v1.6.0

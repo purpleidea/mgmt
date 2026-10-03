@@ -27,26 +27,55 @@
 // additional permission if he deems it necessary to achieve the goals of this
 // additional permission.
 
-//go:build !root && goexperiment.jsonv2
+//go:build !root
 
-package resources
+package json
 
 import (
-	jsonv2 "encoding/json/v2"
+	"math"
 	"testing"
 )
 
-func TestJSONv2RoundTrip(t *testing.T) {
-	opts := jsonv2.JoinOptions(
-		jsonv2.Deterministic(true),
-		jsonv2.FormatNilSliceAsNull(true),
-		jsonv2.FormatNilMapAsNull(true),
-	)
-	enc := func(v any) ([]byte, error) {
-		return jsonv2.Marshal(v, opts)
+func TestJSONComplex(t *testing.T) {
+	type complexes struct {
+		C64  complex64
+		C128 complex128
 	}
-	dec := func(b []byte, v any) error {
-		return jsonv2.Unmarshal(b, v, jsonv2.RejectUnknownMembers(true))
+	inf, nan := math.Inf(1), math.NaN()
+	values := []complex128{
+		0,
+		complex(math.Copysign(0, -1), 0),
+		1 + 2i,
+		complex(-3, 0.25),
+		complex(math.MaxFloat32, math.SmallestNonzeroFloat32),
+		complex(math.MaxFloat64, math.SmallestNonzeroFloat64),
+		complex(inf, -inf),
+		complex(nan, 1),
 	}
-	testJSONRoundTrip(t, enc, dec)
+	// same compares by bits, so that NaN and -0 are checked exactly
+	same := func(a, b complex128) bool {
+		return math.Float64bits(real(a)) == math.Float64bits(real(b)) &&
+			math.Float64bits(imag(a)) == math.Float64bits(imag(b))
+	}
+	for _, x := range values {
+		in := complexes{C64: complex64(x), C128: x}
+		b, err := Marshal(in)
+		if err != nil {
+			t.Errorf("func Marshal(%v): %v", x, err)
+			continue
+		}
+		var out complexes
+		if err := Unmarshal(b, &out); err != nil {
+			t.Errorf("func Unmarshal(%s): %v", b, err)
+			continue
+		}
+		if !same(complex128(in.C64), complex128(out.C64)) || !same(in.C128, out.C128) {
+			t.Errorf("round trip of %v differs, encoded as: %s", x, b)
+		}
+	}
+
+	var out complexes
+	if err := Unmarshal([]byte(`{"C128":"bad"}`), &out); err == nil {
+		t.Errorf("expected an error decoding an invalid complex")
+	}
 }

@@ -1046,11 +1046,15 @@ func (obj *RemoteRes) tunnel(ctx context.Context) error {
 	// reverse `ssh -R` listener to listen on the remote host
 	obj.listener, err = obj.ssh.Listen("tcp", addr) // remote
 	if err != nil {
-		return errwrap.Wrapf(err, "can't listen on remote host")
+		// Is another mgmt already listening on port 2379 on that host?
+		dest := net.JoinHostPort(obj.urlInfo.Host, strconv.FormatUint(uint64(obj.urlInfo.Port), 10))
+		return errwrap.Wrapf(err, "can't listen on remote host %s at %s", dest, addr)
 	}
 	// read back the address in case a port of zero picked a random one
 	obj.tunnelURL = fmt.Sprintf("http://%s", obj.listener.Addr().String())
-	obj.init.Logf("tunnel: %s -> %s", obj.tunnelURL, dialURL)
+	// we start a server "listener" on remote machine at obj.tunnelURL which
+	// forwards connections received there back to our dialURL listener here
+	obj.init.Logf("reverse tunnel: %s -> %s", obj.tunnelURL, dialURL)
 
 	obj.wg.Add(1)
 	go func() {

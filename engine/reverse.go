@@ -54,6 +54,7 @@ type ReversibleRes interface {
 
 	// Reversed returns the "reverse" or "reciprocal" resource. This is used
 	// to "clean" up after a previously defined resource has been removed.
+	// It is called after Init succeeds and before Watch or CheckApply runs.
 	// Interestingly, this could return the core Res interface instead of a
 	// ReversibleRes, because there is no requirement that the reverse of a
 	// Res be the same kind of Res, and the reverse might not be reversible!

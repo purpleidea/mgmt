@@ -846,7 +846,7 @@ func TestResources2(t *testing.T) {
 	}
 	// resReversal runs Reverse on the resource and stores the result in the
 	// rev variable. This should be called before the res CheckApply, and
-	// usually before Init, but after Validate.
+	// after Validate and after Init so that it can use the World API there.
 	resReversal := func(res engine.Res, rev *engine.Res) func() error {
 		return func() error {
 			r, ok := res.(engine.ReversibleRes)

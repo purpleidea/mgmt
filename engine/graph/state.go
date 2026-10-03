@@ -307,17 +307,20 @@ func (obj *State) Init(ctx context.Context) error {
 		obj.Logf("Init(%s)", res)
 	}
 
-	// write the reverse request to the disk...
-	if err := obj.ReversalInit(ctx); err != nil {
-		return err // TODO: test this code path...
-	}
-
 	err := res.Init(obj.init)
 	if obj.Debug {
 		obj.Logf("Init(%s): Return(%s)", res, engineUtil.CleanError(err))
 	}
 	if err != nil {
 		return errwrap.Wrapf(err, "could not Init() resource")
+	}
+
+	// Write the reverse request to the disk... Do it after Init() so Watch
+	// and CheckApply can use the World API.
+	if err := obj.ReversalInit(ctx); err != nil {
+		// TODO: test this code path...
+		e := errwrap.Wrapf(res.Cleanup(), "could not Cleanup() res after reversal Init error")
+		return errwrap.Append(err, e)
 	}
 
 	return nil

@@ -283,14 +283,18 @@ func (obj *NspawnRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the State differs")
 	}
 
-	// TODO: why is res.svc ever nil?
-	if (obj.svc == nil) != (res.svc == nil) { // xor
-		return fmt.Errorf("the svc differs")
+	// Compare the nested svc resources. We build them here, because the
+	// stored ones only exist after Init, and Cmp can be called before that.
+	svc1, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
 	}
-	if obj.svc != nil && res.svc != nil {
-		if err := obj.svc.Cmp(res.svc); err != nil {
-			return errwrap.Wrapf(err, "the svc differs")
-		}
+	svc2, err := res.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
+	}
+	if err := svc1.Cmp(svc2); err != nil {
+		return errwrap.Wrapf(err, "the svc differs")
 	}
 
 	return nil

@@ -442,14 +442,20 @@ func (obj *GsettingsRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the Group differs")
 	}
 
-	// TODO: why is res.exec ever nil?
-	if (obj.exec == nil) != (res.exec == nil) { // xor
-		return fmt.Errorf("the exec differs")
+	// Compare the nested exec resources. We build them here, because the
+	// stored ones only exist after Init, and Cmp can be called before that.
+	// These don't have the env that setEnv adds, but that comes from the
+	// User, which we've compared above.
+	exec1, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
 	}
-	if obj.exec != nil && res.exec != nil {
-		if err := obj.exec.Cmp(res.exec); err != nil {
-			return errwrap.Wrapf(err, "the exec differs")
-		}
+	exec2, err := res.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
+	}
+	if err := exec1.Cmp(exec2); err != nil {
+		return errwrap.Wrapf(err, "the exec differs")
 	}
 
 	return nil

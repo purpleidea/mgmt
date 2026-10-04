@@ -68,11 +68,13 @@ const (
 // which have monotonically increasing state values that represent progression.
 // The one exception is that when this resource receives a refresh signal, then
 // it will set the value to be the exact one if they are not identical already.
+// It supports flipping the state if you ask for it to be reversible.
 type KVRes struct {
 	traits.Base // add the base methods without re-implementation
 	//traits.Groupable // TODO: it could be useful to group our writes and watches!
 	traits.Refreshable
 	traits.Recvable
+	traits.Reversible
 
 	init *engine.Init
 
@@ -375,6 +377,61 @@ func (obj *KVRes) Cmp(r engine.Res) error {
 func (obj *KVRes) Interrupt() error {
 	close(obj.interruptChan)
 	return nil
+}
+
+// Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
+// TODO: should this copy internal state?
+func (obj *KVRes) Copy() engine.CopyableRes {
+	var value *string
+	if obj.Value != nil { // copy the content, not the pointer...
+		s := *obj.Value
+		value = &s
+	}
+	return &KVRes{
+		Key:          obj.Key,
+		Value:        value,
+		Mapped:       obj.Mapped,
+		SkipLessThan: obj.SkipLessThan,
+		SkipCmpStyle: obj.SkipCmpStyle,
+	}
+}
+
+// Reversed returns the "reverse" or "reciprocal" resource. This is used to
+// "clean" up after a previously defined resource has been removed.
+func (obj *KVRes) Reversed(ctx context.Context) (engine.ReversibleRes, error) {
+	cp, err := engine.ResCopy(obj)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "could not copy")
+	}
+	rev, ok := cp.(engine.ReversibleRes)
+	if !ok {
+		return nil, fmt.Errorf("not reversible")
+	}
+	rev.ReversibleMeta().Disabled = true // the reverse shouldn't run again
+
+	res, ok := cp.(*KVRes)
+	if !ok {
+		return nil, fmt.Errorf("copied res was not our kind")
+	}
+
+	// If we're setting a value, the reverse deletes the key. If we're
+	// deleting the key, the reverse restores the value which is stored now.
+	res.Value = nil
+	if obj.Value == nil {
+		value, exists, err := obj.kvGet(ctx, obj.getKey())
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not get value for reversal storage")
+		}
+		if exists {
+			res.Value = &value
+		}
+	}
+
+	// The restored value must be set exactly, even if it's less than what
+	// is stored at the time.
+	res.SkipLessThan = false
+
+	return res, nil
 }
 
 // KVUID is the UID struct for KVRes.

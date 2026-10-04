@@ -34,7 +34,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
@@ -54,10 +53,6 @@ type KVResSkipCmpStyle int
 const (
 	SkipCmpStyleInt KVResSkipCmpStyle = iota
 	SkipCmpStyleString
-)
-
-const (
-	kvCheckApplyTimeout = 5 * time.Second
 )
 
 // KVRes is a resource which writes a key/value pair into cluster wide storage.
@@ -278,7 +273,7 @@ func (obj *KVRes) lessThanCheck(value string) (bool, error) {
 func (obj *KVRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait() // this must be above the defer cancel() call
-	ctx, cancel := context.WithTimeout(ctx, kvCheckApplyTimeout)
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	wg.Add(1)
 	go func() {

@@ -122,6 +122,89 @@ func TestResToB64RoundTrip(t *testing.T) {
 	}
 }
 
+// TestTestResToB64 encodes a test resource with every field set to a string
+// with ResToB64, and checks that decoding it with B64ToRes gives back exactly
+// the same resource. Many of the values are a zero value or empty, since those
+// must not come back as nil, such as an empty string instead of a nil pointer.
+func TestTestResToB64(t *testing.T) {
+	res, err := engine.NewNamedResource("test", "test1")
+	if err != nil {
+		t.Fatalf("func NewNamedResource: %v", err)
+	}
+	r := res.(*TestRes) // must not panic
+
+	r.Bool = true
+	r.Str = "hello"
+	r.Int = -1
+	r.Int8 = math.MinInt8
+	r.Int16 = math.MaxInt16
+	r.Int32 = math.MinInt32
+	r.Int64 = math.MaxInt64 // too big for a float64
+	r.Uint = 1
+	r.Uint8 = math.MaxUint8
+	r.Uint16 = math.MaxUint16
+	r.Uint32 = math.MaxUint32
+	r.Uint64 = math.MaxUint64
+	r.Byte = 'b'
+	r.Rune = '☃'
+	r.Float32 = float32(math.Inf(-1))
+	r.Float64 = 0.1
+	r.Complex64 = 1.5 + 2i
+	r.Complex128 = complex(math.Inf(1), -0.25)
+
+	boolPtr := false
+	r.BoolPtr = &boolPtr
+	stringPtr := "" // the string vs *string case
+	r.StringPtr = &stringPtr
+	int64Ptr := int64(0)
+	r.Int64Ptr = &int64Ptr
+	int8Ptr := int8(-8)
+	r.Int8Ptr = &int8Ptr
+	// leave Uint8Ptr nil, which must stay nil
+
+	int8PtrPtrPtr := int8(0)
+	int8PtrPtr := &int8PtrPtrPtr
+	int8PtrPtrPtrPtr := &int8PtrPtr
+	r.Int8PtrPtrPtr = &int8PtrPtrPtrPtr
+
+	r.SliceString = []string{} // empty, not nil
+	r.MapIntFloat = map[int64]float64{1: math.Inf(1), -2: 2.5}
+	r.MapBoolStr = map[bool]string{true: "a", false: ""}
+	r.MixedStruct.SomeBool = true
+	r.MixedStruct.SomeStr = "some"
+	r.MixedStruct.SomeInt = 42
+	r.MixedStruct.SomeFloat = -0.5
+	r.Interface = map[bool][]string{true: {"x"}, false: {}}
+
+	r.AnotherStr = "another"
+	// leave Func1 nil, since a func can't be encoded
+
+	r.ValidateBool = true
+	r.ValidateError = "error"
+	r.AlwaysGroup = true
+	r.CompareFail = true
+	r.SendValue = "send"
+	expectRecv := []string{} // a pointer to empty, not nil
+	r.ExpectRecv = &expectRecv
+	r.OnlyShow = nil
+	r.WaitForError = 1000
+	r.Comment = "comment"
+
+	str, err := engineUtil.ResToB64(r)
+	if err != nil {
+		t.Fatalf("func ResToB64: %v", err)
+	}
+	out, err := engineUtil.B64ToRes(str)
+	if err != nil {
+		t.Fatalf("func B64ToRes: %v", err)
+	}
+	if !reflect.DeepEqual(r, out) {
+		b1, _ := utilJSON.Marshal(r)
+		b2, _ := utilJSON.Marshal(out)
+		t.Errorf("round trip differs:\nin:  %s\nout: %s", b1, b2)
+	}
+}
+
 // setEmpty sets each nil pointer, slice and map field of the resource to an
 // empty value of that type.
 func setEmpty(res engine.Res) {

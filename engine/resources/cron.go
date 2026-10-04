@@ -227,7 +227,7 @@ func (obj *CronRes) Validate() error {
 		return errwrap.Wrapf(err, "makeComposite failed in validate")
 	}
 	if err := file.Validate(); err != nil { // composite resource
-		return errwrap.Wrapf(err, "validate failed for embedded file: %s", obj.file)
+		return errwrap.Wrapf(err, "validate failed for embedded file: %s", file)
 	}
 	return nil
 }

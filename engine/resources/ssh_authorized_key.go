@@ -473,14 +473,18 @@ func (obj *SSHAuthorizedKeyRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("the Mkdir differs")
 	}
 
-	// TODO: why is res.line ever nil?
-	if (obj.line == nil) != (res.line == nil) { // xor
-		return fmt.Errorf("the line differs")
+	// Compare the nested line resources. We build them here, because the
+	// stored ones only exist after Init, and Cmp can be called before that.
+	line1, err := obj.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
 	}
-	if obj.line != nil && res.line != nil {
-		if err := obj.line.Cmp(res.line); err != nil {
-			return errwrap.Wrapf(err, "the line differs")
-		}
+	line2, err := res.makeComposite()
+	if err != nil {
+		return errwrap.Wrapf(err, "makeComposite failed in cmp")
+	}
+	if err := line1.Cmp(line2); err != nil {
+		return errwrap.Wrapf(err, "the line differs")
 	}
 
 	return nil

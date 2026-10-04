@@ -323,11 +323,17 @@ func (obj *NspawnUID) IFF(uid engine.ResUID) bool {
 // UIDs includes all params to make a unique identification of this object. Most
 // resources only return one although some resources can return multiple.
 func (obj *NspawnRes) UIDs() []engine.ResUID {
-	x := &NspawnUID{
-		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(), // svc name
+	uids := []engine.ResUID{
+		&NspawnUID{
+			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
+			name:    obj.Name(), // svc name
+		},
 	}
-	return append([]engine.ResUID{x}, obj.svc.UIDs()...)
+	// The stored svc only exists after Init, but UIDs can be called before.
+	if svc, err := obj.makeComposite(); err == nil {
+		uids = append(uids, svc.UIDs()...) // add the svc uid if we can
+	}
+	return uids
 }
 
 // UnmarshalYAML is the custom unmarshal handler for this struct. It is

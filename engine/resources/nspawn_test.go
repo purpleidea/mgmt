@@ -80,3 +80,23 @@ func TestNspawnCmp(t *testing.T) {
 		}
 	})
 }
+
+func TestNspawnUIDs(t *testing.T) {
+	res, err := engine.NewNamedResource("nspawn", "nspawn1")
+	if err != nil {
+		t.Fatalf("func NewNamedResource: %v", err)
+	}
+	r := res.(*NspawnRes) // must not panic
+
+	// This hasn't been through Init, which is when autoedges would call it.
+	uids := r.UIDs()
+	if len(uids) != 2 {
+		t.Fatalf("expected the nspawn and the svc uid, got: %d", len(uids))
+	}
+	if _, ok := uids[0].(*NspawnUID); !ok {
+		t.Errorf("expected an nspawn uid first, got: %T", uids[0])
+	}
+	if _, ok := uids[1].(*SvcUID); !ok {
+		t.Errorf("expected a svc uid second, got: %T", uids[1])
+	}
+}

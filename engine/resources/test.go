@@ -91,6 +91,7 @@ type TestRes struct {
 
 	SliceString []string          `lang:"slicestring" yaml:"slicestring"`
 	MapIntFloat map[int64]float64 `lang:"mapintfloat" yaml:"mapintfloat"`
+	MapBoolStr  map[bool]string   `lang:"mapboolstr" yaml:"mapboolstr"`
 	MixedStruct struct {
 		SomeBool         bool    `lang:"somebool" yaml:"somebool"`
 		SomeStr          string  `lang:"somestr" yaml:"somestr"`
@@ -235,6 +236,7 @@ func (obj *TestRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	fakeLogf("SliceString:   %v", obj.SliceString)
 	fakeLogf("MapIntFloat:   %v", obj.MapIntFloat)
+	fakeLogf("MapBoolStr:    %v", obj.MapBoolStr)
 	fakeLogf("MixedStruct:   %v", obj.MixedStruct)
 	fakeLogf("Interface:     %v", obj.Interface)
 
@@ -388,6 +390,9 @@ func (obj *TestRes) Cmp(r engine.Res) error {
 	}
 	if !reflect.DeepEqual(obj.MapIntFloat, res.MapIntFloat) {
 		return fmt.Errorf("the MapIntFloat differs")
+	}
+	if !reflect.DeepEqual(obj.MapBoolStr, res.MapBoolStr) {
+		return fmt.Errorf("the MapBoolStr differs")
 	}
 	if !reflect.DeepEqual(obj.MixedStruct, res.MixedStruct) {
 		return fmt.Errorf("the MixedStruct differs")

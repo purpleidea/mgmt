@@ -168,6 +168,7 @@ func TestLowerStructFieldNameToFieldName2(t *testing.T) {
 
 		"slicestring": "SliceString",
 		"mapintfloat": "MapIntFloat",
+		"mapboolstr":  "MapBoolStr",
 		"mixedstruct": "MixedStruct",
 		"interface":   "Interface",
 

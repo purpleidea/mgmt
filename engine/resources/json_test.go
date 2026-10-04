@@ -93,7 +93,8 @@ func TestResToB64RoundTrip(t *testing.T) {
 					r.Complex128 = -3 + 0.25i
 					r.Float32 = float32(math.Inf(-1))
 					r.Float64 = math.Inf(1)
-					r.Interface = map[string]int64{"a": 1}
+					r.MapBoolStr = map[bool]string{true: "a", false: "b"}
+					r.Interface = map[bool]int64{true: 1} // bool keys
 				}
 				if r, ok := res.(*ValueRes); ok {
 					var x interface{} = []string{"a"}

@@ -239,3 +239,82 @@ func TestJSONInterface(t *testing.T) {
 		}
 	}
 }
+
+func TestJSONMap(t *testing.T) {
+	// a map with struct keys, with the golang type that lang uses for it
+	st := types.NewType("struct{a int; b str}").Reflect()
+	key1 := reflect.New(st).Elem()
+	key1.Field(0).SetInt(1)
+	key1.Field(1).SetString("x")
+	key2 := reflect.New(st).Elem()
+	key2.Field(0).SetInt(2)
+	structs := reflect.MakeMap(reflect.MapOf(st, reflect.TypeOf(true)))
+	structs.SetMapIndex(key1, reflect.ValueOf(true))
+	structs.SetMapIndex(key2, reflect.ValueOf(false))
+
+	values := []struct {
+		x    interface{}
+		lang bool // is this a lang type, which can be in an interface?
+	}{
+		{map[bool]string{true: "a", false: "b"}, true},
+		{map[bool]string{}, true},
+		{map[bool]string(nil), true},
+		{map[bool]float64{true: math.Inf(1)}, true}, // our float encoding
+		{map[bool][]string{true: {}, false: nil}, true},
+		{structs.Interface(), true},
+		{map[[2]int64]string{{1, 2}: "a"}, false},
+		{map[interface{}]string{"x": "a", int64(1): "b", nil: "c"}, false},
+	}
+	for _, v := range values {
+		ins := []interface{}{v.x}
+		if v.lang { // also check it in an interface, as lang would set it
+			ins = append(ins, &struct{ I interface{} }{I: v.x})
+		}
+		for _, in := range ins {
+			b, err := Marshal(in)
+			if err != nil {
+				t.Errorf("func Marshal(%#v): %v", in, err)
+				continue
+			}
+			out := reflect.New(reflect.TypeOf(in))
+			if err := Unmarshal(b, out.Interface()); err != nil {
+				t.Errorf("func Unmarshal(%s): %v", b, err)
+				continue
+			}
+			if !reflect.DeepEqual(in, out.Elem().Interface()) {
+				t.Errorf("round trip of %#v differs, encoded as: %s", in, b)
+			}
+		}
+	}
+
+	// the pairs are sorted, and maps with string keys are still objects
+	for x, expected := range map[string]interface{}{
+		`[[false,"b"],[true,"a"]]`: map[bool]string{true: "a", false: "b"},
+		`[]`:                       map[bool]string{},
+		`null`:                     map[bool]string(nil),
+		`{"a":true,"b":false}`:     map[string]bool{"b": false, "a": true},
+	} {
+		b, err := Marshal(expected)
+		if err != nil {
+			t.Errorf("func Marshal(%#v): %v", expected, err)
+			continue
+		}
+		if s := string(b); s != x {
+			t.Errorf("expected %#v to encode as %s, got: %s", expected, x, s)
+		}
+	}
+
+	for _, s := range []string{
+		`[[true,"a"],[true,"b"]]`, // duplicate key
+		`{"true":"a"}`,
+		`[[true]]`,
+		`[[true,"a","b"]]`,
+		`[true,"a"]`,
+		`[["true","a"]]`,
+	} {
+		var out map[bool]string
+		if err := Unmarshal([]byte(s), &out); err == nil {
+			t.Errorf("expected an error decoding %s, got: %#v", s, out)
+		}
+	}
+}

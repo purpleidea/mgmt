@@ -33,10 +33,13 @@
 package json
 
 import (
+	"bytes"
+	"encoding"
 	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strconv"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -53,7 +56,9 @@ import (
 // which are NaN or Inf are encoded as strings for the same reason, but all the
 // other floats are left as json numbers. This is done by kind, so it includes
 // named types such as rate.Limit. A value in an interface is encoded with its
-// lang type, so that it can be decoded back into the same golang type.
+// lang type, so that it can be decoded back into the same golang type. A map
+// with keys that can't be json object member names, such as bools or structs,
+// is encoded as an array of key and value pairs.
 var jsonOptions = json.JoinOptions(
 	json.Deterministic(true),
 	json.FormatNilSliceAsNull(true),
@@ -62,16 +67,160 @@ var jsonOptions = json.JoinOptions(
 	json.WithMarshalers(json.JoinMarshalers(
 		// This gets called for each value with a type of interface{}.
 		json.MarshalToFunc(encodeInterface),
-		// This gets called for every value.
+		// These get called for every value.
 		json.MarshalToFunc(encodeNumber),
+		json.MarshalToFunc(encodeMap),
 	)),
 	json.WithUnmarshalers(json.JoinUnmarshalers(
 		// This gets called for each value with a type of interface{}.
 		json.UnmarshalFromFunc(decodeInterface),
-		// This gets called for every value.
+		// These get called for every value.
 		json.UnmarshalFromFunc(decodeNumber),
+		json.UnmarshalFromFunc(decodeMap),
 	)),
 )
+
+// textMarshalerType is the type of the encoding.TextMarshaler interface.
+var textMarshalerType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+
+// isMemberName returns true if a map key of this type gets encoded as a json
+// string, which the json package needs, since object member names are strings.
+// This includes the complex and float kinds, which encodeNumber writes as
+// strings when the json package wouldn't.
+func isMemberName(typ reflect.Type) bool {
+	switch typ.Kind() {
+	case reflect.String,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64, reflect.Complex64, reflect.Complex128:
+		return true
+	}
+	return typ.Implements(textMarshalerType) || reflect.PointerTo(typ).Implements(textMarshalerType)
+}
+
+// encodeMap writes a map with keys that can't be json object member names, as
+// an array of key and value pairs, which are sorted by the encoded key so that
+// it's deterministic. Any other value returns errors.ErrUnsupported, which
+// makes the json package encode it normally.
+func encodeMap(enc *jsontext.Encoder, v interface{}) error {
+	ptr := reflect.ValueOf(v)
+	if ptr.Kind() != reflect.Pointer || ptr.IsNil() {
+		return errors.ErrUnsupported
+	}
+	val := ptr.Elem()
+	if val.Kind() != reflect.Map || isMemberName(val.Type().Key()) {
+		return errors.ErrUnsupported
+	}
+	if val.IsNil() {
+		return enc.WriteToken(jsontext.Null)
+	}
+
+	type pair struct {
+		key  jsontext.Value // encoded
+		elem reflect.Value  // pointer to the value
+	}
+	pairs := []pair{}
+	iter := val.MapRange()
+	for iter.Next() {
+		// Encode with pointers, so that the key and value types are the
+		// map's types, which matters if they're interfaces.
+		key := reflect.New(val.Type().Key())
+		key.Elem().Set(iter.Key())
+		b, err := json.Marshal(key.Interface(), enc.Options())
+		if err != nil {
+			return err
+		}
+		elem := reflect.New(val.Type().Elem())
+		elem.Elem().Set(iter.Value())
+		pairs = append(pairs, pair{key: b, elem: elem})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		return bytes.Compare(pairs[i].key, pairs[j].key) < 0
+	})
+
+	if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		if err := enc.WriteToken(jsontext.BeginArray); err != nil {
+			return err
+		}
+		if err := enc.WriteValue(p.key); err != nil {
+			return err
+		}
+		if err := json.MarshalEncode(enc, p.elem.Interface()); err != nil {
+			return err
+		}
+		if err := enc.WriteToken(jsontext.EndArray); err != nil {
+			return err
+		}
+	}
+	return enc.WriteToken(jsontext.EndArray)
+}
+
+// decodeMap reads a map which was written by encodeMap. Any other value returns
+// errors.ErrUnsupported, which makes the json package decode it normally.
+func decodeMap(dec *jsontext.Decoder, v interface{}) error {
+	ptr := reflect.ValueOf(v)
+	if ptr.Kind() != reflect.Pointer || ptr.IsNil() {
+		return errors.ErrUnsupported
+	}
+	val := ptr.Elem()
+	if val.Kind() != reflect.Map || isMemberName(val.Type().Key()) {
+		return errors.ErrUnsupported
+	}
+
+	// readKind reads the next token, which must be of the expected kind.
+	readKind := func(kind jsontext.Kind) error {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind() != kind {
+			return fmt.Errorf("expected %s in a map, got: %s", kind, tok)
+		}
+		return nil
+	}
+
+	if dec.PeekKind() == 'n' {
+		if err := readKind('n'); err != nil {
+			return err
+		}
+		val.SetZero()
+		return nil
+	}
+
+	if err := readKind('['); err != nil {
+		return err
+	}
+	m := reflect.MakeMap(val.Type())
+	for dec.PeekKind() != ']' {
+		if err := readKind('['); err != nil {
+			return err
+		}
+		key := reflect.New(val.Type().Key())
+		if err := json.UnmarshalDecode(dec, key.Interface()); err != nil {
+			return err
+		}
+		elem := reflect.New(val.Type().Elem())
+		if err := json.UnmarshalDecode(dec, elem.Interface()); err != nil {
+			return err
+		}
+		if err := readKind(']'); err != nil {
+			return err
+		}
+		if m.MapIndex(key.Elem()).IsValid() {
+			return fmt.Errorf("duplicate key in a map: %v", key.Elem())
+		}
+		m.SetMapIndex(key.Elem(), elem.Elem())
+	}
+	if err := readKind(']'); err != nil {
+		return err
+	}
+
+	val.Set(m)
+	return nil
+}
 
 // encodeNumber writes a value of a float kind which is NaN or Inf, or a value
 // of a complex kind, as a string. Any other value returns errors.ErrUnsupported

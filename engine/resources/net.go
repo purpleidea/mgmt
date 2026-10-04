@@ -44,6 +44,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -622,6 +623,9 @@ func (obj *NetRes) Cmp(r engine.Res) error {
 	}
 	if obj.Gateway != res.Gateway {
 		return fmt.Errorf("the Gateway differs")
+	}
+	if err := engineUtil.BoolPtrCmp(obj.IPForward, res.IPForward); err != nil {
+		return errwrap.Wrapf(err, "the IPForward differs")
 	}
 
 	return nil

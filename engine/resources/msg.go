@@ -238,6 +238,12 @@ func (obj *MsgRes) Cmp(r engine.Res) error {
 			return fmt.Errorf("the Fields differ")
 		}
 	}
+	if obj.Journal != res.Journal {
+		return fmt.Errorf("the Journal differs")
+	}
+	if obj.Syslog != res.Syslog {
+		return fmt.Errorf("the Syslog differs")
+	}
 
 	return nil
 }

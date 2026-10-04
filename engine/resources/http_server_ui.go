@@ -128,6 +128,17 @@ type HTTPServerUIResData struct {
 	Head string `lang:"head" yaml:"head"`
 }
 
+// Cmp compares two of these and returns an error if they are not equivalent.
+func (obj *HTTPServerUIResData) Cmp(data *HTTPServerUIResData) error {
+	if obj.Title != data.Title {
+		return fmt.Errorf("the Title differs")
+	}
+	if obj.Head != data.Head {
+		return fmt.Errorf("the Head differs")
+	}
+	return nil
+}
+
 // HTTPServerUIRes is a web UI resource that exists within an http server. The
 // name is used as the public path of the ui, unless the path field is
 // specified, and in that case it is used instead. The way this works is that it
@@ -741,6 +752,14 @@ func (obj *HTTPServerUIRes) Cmp(r engine.Res) error {
 	}
 	if obj.Path != res.Path {
 		return fmt.Errorf("the Path differs")
+	}
+	if (obj.Data == nil) != (res.Data == nil) { // xor
+		return fmt.Errorf("the Data differs")
+	}
+	if obj.Data != nil && res.Data != nil {
+		if err := obj.Data.Cmp(res.Data); err != nil {
+			return errwrap.Wrapf(err, "the Data differs")
+		}
 	}
 
 	return nil

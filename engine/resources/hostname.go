@@ -302,6 +302,9 @@ func (obj *HostnameRes) Cmp(r engine.Res) error {
 		return fmt.Errorf("not a %s", obj.Kind())
 	}
 
+	if obj.Hostname != res.Hostname {
+		return fmt.Errorf("the Hostname differs")
+	}
 	if engineUtil.StrPtrCmp(obj.PrettyHostname, res.PrettyHostname) != nil {
 		return fmt.Errorf("the PrettyHostname differs")
 	}

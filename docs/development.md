@@ -65,6 +65,34 @@ To build `mgmt` without docker support please run:
 To build `mgmt` without augeas, libvirt or docker support please run:
 `GOTAGS='noaugeas novirt nodocker' make build`
 
+## Goroutine leak profiling
+
+With golang 1.26, enable the goroutine leak profile at build time:
+
+```bash
+GOEXPERIMENT=goroutineleakprofile make -B build
+```
+
+The `-B` flag forces a rebuild, including when an existing binary was built
+without the experiment. The GOEXPERIMENT field won't be needed in golang 1.27+.
+Start the pprof server with:
+
+```bash
+./mgmt run --pprof=127.0.0.1:6060 --tmp-prefix lang examples/lang/hello0.mcl
+```
+
+Fetch the profile using the usual pprof tools:
+
+```bash
+go tool pprof http://127.0.0.1:6060/debug/pprof/goroutineleak
+```
+
+For a text report, request
+`http://127.0.0.1:6060/debug/pprof/goroutineleak?debug=1`. Fetching the profile
+runs garbage collection with leak detection. Builds without the experiment
+continues to support the other profiles, but the goroutine leak endpoint returns
+HTTP 404.
+
 ## OSX/macOS/Darwin development
 
 Developing and running `mgmt` on macOS is currently not supported (but not

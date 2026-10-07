@@ -79,6 +79,8 @@ func (obj *Server) Run(ctx context.Context) (reterr error) {
 	mux.Handle("/debug/pprof/allocs", pprof.Handler("allocs"))
 	mux.Handle("/debug/pprof/block", pprof.Handler("block"))
 	mux.Handle("/debug/pprof/goroutine", pprof.Handler("goroutine"))
+	// Requires GOEXPERIMENT=goroutineleakprofile when building with golang 1.26.
+	mux.Handle("/debug/pprof/goroutineleak", pprof.Handler("goroutineleak"))
 	mux.Handle("/debug/pprof/heap", pprof.Handler("heap"))
 	mux.Handle("/debug/pprof/mutex", pprof.Handler("mutex"))
 	mux.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))

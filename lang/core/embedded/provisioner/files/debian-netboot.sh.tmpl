@@ -1,0 +1,23 @@
+# Download the debian netboot installer files and check them against the
+# SHA256SUMS file which we store last, so that an interrupted run is redone. The
+# installer kernel must match the kernel module packages in the mirror, which
+# get replaced on each point release, so these come through our cache.
+set -e
+dir='{{ .Dir }}'
+base='{{ .Url }}'
+netboot='netboot/debian-installer/{{ .Debarch }}/'
+tmp=$(/usr/bin/mktemp -d "${dir}tmp.XXXXXX")
+trap '/usr/bin/rm -rf "${tmp}"' EXIT
+/usr/bin/wget --no-verbose -O "${tmp}/SHA256SUMS" "${base}SHA256SUMS"
+# our name:upstream name
+for x in vmlinuz:linux initrd.img:initrd.gz shimx64.efi:bootnetx64.efi grubx64.efi:grubx64.efi; do
+	f="${x%%:*}"
+	u="${x#*:}"
+	sum=$(/usr/bin/awk -v p="./${netboot}${u}" '$2 == p { print $1 }' "${tmp}/SHA256SUMS")
+	/usr/bin/test -n "${sum}"
+	/usr/bin/wget --no-verbose -O "${tmp}/${f}" "${base}${netboot}${u}"
+	echo "${sum}  ${tmp}/${f}" | /usr/bin/sha256sum --check --quiet -
+done
+for f in vmlinuz initrd.img shimx64.efi grubx64.efi SHA256SUMS; do
+	/usr/bin/mv -f "${tmp}/${f}" "${dir}${f}"
+done

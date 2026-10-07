@@ -1,0 +1,13 @@
+set mgmt_menu=1
+set default=0
+set timeout=15
+
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( preseed )' --class debian --class gnu-linux --class gnu --class os {
+	linux /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz {{ .Auto_args }}
+	initrd /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+}
+
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )' --class debian --class gnu-linux --class gnu --class os {
+	linux /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz {{ .Manual_args }}
+	initrd /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+}

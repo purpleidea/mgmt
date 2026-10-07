@@ -1,0 +1,133 @@
+#!/bin/bash
+#
+#	readme
+#
+# This runs inside the installed system at the end of the debian-installer run
+# from the preseed late_command. It's the equivalent of the kickstart %post. As
+# with kickstart, the last command (usually the done signal) sets the result.
+
+{{ if .Luks -}}
+#
+#	luks
+#
+# Change the temporary installer passphrase into the empty one. (This was hard.)
+# Assume only one LUKS root device for now.
+LUKS_DEV=$(blkid -t TYPE=crypto_LUKS -o device --list-one)
+echo -n 'password' > /tmp/password
+echo -n '' > /tmp/empty
+cryptsetup luksChangeKey --key-slot=0 --force-password --key-file=/tmp/password "${LUKS_DEV}" /tmp/empty || exit 1
+rm -f /tmp/password /tmp/empty
+
+# Debian's initramfs-tools doesn't support the try-empty-password option of the
+# systemd crypttab, so we add an initramfs script which does the same thing. It
+# runs before cryptroot, which skips any mapping that is already set up.
+mkdir -p /etc/initramfs-tools/scripts/local-top/
+cat > /etc/initramfs-tools/scripts/local-top/mgmt-try-empty-password << 'EOF'
+#!/bin/sh
+# Installed by the mgmt provisioner. Try an empty passphrase on each encrypted
+# device before cryptroot asks for one, which is what the try-empty-password
+# crypttab option of systemd-cryptsetup does. Once a real passphrase is set,
+# this quietly fails, and cryptroot prompts for the passphrase as usual.
+PREREQ=""
+prereqs() {
+	echo "$PREREQ"
+}
+case "$1" in
+prereqs)
+	prereqs
+	exit 0
+	;;
+esac
+
+. /scripts/functions
+[ -f /lib/cryptsetup/functions ] || exit 0
+. /lib/cryptsetup/functions
+
+empty="/run/mgmt-empty-passphrase" # an empty regular file is an empty passphrase
+
+try_empty_passphrase() {
+	local count=0
+	if dm_blkdevname "$CRYPTTAB_NAME" >/dev/null; then
+		return 0 # already unlocked
+	fi
+	while ! crypttab_resolve_source; do # give slow devices some time
+		if [ "$count" -ge 30 ]; then
+			return 0 # let cryptroot handle it
+		fi
+		sleep 1
+		count=$((count + 1))
+	done
+	crypttab_parse_options --quiet || return 0
+	if [ "$CRYPTTAB_TYPE" != "luks" ]; then
+		return 0
+	fi
+	unlock_mapping "$empty" >/dev/null 2>&1 || true
+}
+
+wait_for_udev 10
+mkdir -p -m 0700 /run/cryptsetup
+modprobe -q dm_crypt
+: > "$empty"
+crypttab_foreach_entry try_empty_passphrase
+rm -f "$empty"
+exit 0
+EOF
+chmod 0755 /etc/initramfs-tools/scripts/local-top/mgmt-try-empty-password || exit 1
+update-initramfs -u -k all || exit 1
+{{ end -}}
+
+#
+#	system
+#
+sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub && update-grub
+
+# Use zram for swap with the same size that fedora uses by default.
+printf '[zram0]\nzram-size = min(ram, 8192)\n' > /etc/systemd/zram-generator.conf
+
+{{ if .Ntp_servers -}}
+mkdir -p /etc/systemd/timesyncd.conf.d/
+printf '[Time]\nNTP=%s\n' '{{ range $i, $x := .Ntp_servers }}{{ if $i }} {{ end }}{{ $x }}{{ end }}' > /etc/systemd/timesyncd.conf.d/mgmt-provisioner.conf
+{{ end -}}
+
+#
+#	security
+#
+{{ if .Password -}}
+# Allow ssh logins with the root password, like kickstart rootpw --allow-ssh.
+mkdir -p /etc/ssh/sshd_config.d/
+echo 'PermitRootLogin yes' > /etc/ssh/sshd_config.d/mgmt-provisioner.conf
+{{ end -}}
+{{ range $user, $pubkey := .Sshkeys -}}
+{{ if $pubkey -}}
+home=$(getent passwd '{{ $user }}' | cut -d: -f6)
+mkdir -p -m 0700 "${home}/.ssh/"
+echo '{{ $pubkey }}' >> "${home}/.ssh/authorized_keys"
+chmod 0600 "${home}/.ssh/authorized_keys"
+chown -R '{{ $user }}:' "${home}/.ssh/"
+{{ end -}}
+{{ end }}
+
+#
+#	repositories
+#
+# The installer used the provisioner as its mirror, but this machine should use
+# the public mirror from now on. The provisioner serves the same paths as it.
+# If a repository couldn't be used during the install, then the installer will
+# have commented it out, so we turn those back on here. Our apt hook let this
+# install use our cached metadata even after it expired, so remove that now.
+rm -f /etc/apt/apt.conf.d/00mgmt-provisioner
+for f in /etc/apt/sources.list /etc/apt/sources.list.d/*; do
+	if [ -f "${f}" ]; then
+		sed -i \
+			-e 's#^\#\(deb http://{{ .Mirror_host }}/\)#\1#' \
+			-e 's#http://{{ .Mirror_host }}/#http://deb.debian.org/#g' \
+			"${f}"
+	fi
+done
+
+#
+#	post
+#
+{{ range $i, $x := .Post -}}
+{{ $x }}
+{{ end -}}

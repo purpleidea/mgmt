@@ -1,0 +1,31 @@
+#!ipxe
+
+menu iPXE Boot Options
+
+item preseed Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( preseed )
+item manual Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )
+item shell iPXE shell
+item exit Exit to BIOS
+
+choose --default preseed --timeout 10000 option && goto ${option}
+
+# The imgfree command works around some bug, which makes our initrd not be seen
+# properly. We would otherwise get a VFS not syncing error on boot.
+
+:preseed
+imgfree
+kernel {{ .Server_base }}{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz initrd=initrd.img {{ .Auto_args }}
+initrd {{ .Server_base }}{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+boot
+
+:manual
+imgfree
+kernel {{ .Server_base }}{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz initrd=initrd.img {{ .Manual_args }}
+initrd {{ .Server_base }}{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+boot
+
+:shell
+shell
+
+:exit
+exit

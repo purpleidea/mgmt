@@ -1,0 +1,202 @@
+{{ if .Comment -}}
+#
+#	{{ .Comment }}
+#
+{{- end }}
+#
+#	readme
+#
+# This is a debian-installer preseed file. Most of these are documented in the
+# example at: https://www.debian.org/releases/stable/example-preseed.txt and the
+# full list of questions can be seen with `debconf-get-selections --installer`
+# on any installed machine. It gets loaded because we boot with auto=true and
+# priority=critical on the kernel command line. The network is already
+# configured when this file is downloaded, which is why the hostname is set on
+# the kernel command line instead of in here.
+#
+# flavour: {{ .Flavour }}
+# part: {{ .Part }}
+# bios: {{ .Bios }}
+
+#
+#	system
+#
+{{ if .Lang -}}
+d-i debian-installer/locale string {{ index .Lang 0 }}
+d-i localechooser/supported-locales multiselect {{ range $i, $x := .Lang }}{{ if $i }}, {{ end }}{{ $x }}{{ end }}
+{{ end -}}
+d-i keyboard-configuration/xkb-keymap select us
+{{ if .Timezone -}}
+d-i time/zone string {{ .Timezone }}
+{{ end -}}
+d-i clock-setup/utc boolean true
+{{ if .Ntp_servers -}}
+# This is only used during the install, the post script sets up the machine.
+d-i clock-setup/ntp boolean true
+d-i clock-setup/ntp-server string {{ index .Ntp_servers 0 }}
+{{ end }}
+#
+#	security
+#
+# We don't make a regular user, so the root account is the only account.
+d-i passwd/root-login boolean true
+d-i passwd/make-user boolean false
+{{ if .Password -}}
+d-i passwd/root-password-crypted password {{ .Password }}
+{{- else -}}
+# This crypted value locks the root password, but root ssh keys still work. A
+# value of exactly "!" would cause the installer to prompt us for a password.
+d-i passwd/root-password-crypted password !*
+{{- end }}
+
+#
+#	networking
+#
+# The kernel command line sets the interface, dhcp timeout and the hostname,
+# since this file is read after the network is already up.
+
+#
+#	partitioning
+#
+# This installs our apt hook which lets the install use our cached metadata even
+# after it expires. Then it picks the first disk that isn't on usb, since we
+# want to ignore ipxe disks for example. On bios machines the bootloader also
+# goes on to that same disk. With luks, this also installs our partman hook,
+# which can encrypt without lvm. We do this here since the hook dirs now exist.
+d-i partman/early_command string \
+	set -e; \
+	mkdir -p /usr/lib/post-base-installer.d; \
+	wget -O /usr/lib/post-base-installer.d/05mgmt-apt '{{ .Apt_hook_url }}'; \
+	chmod 0755 /usr/lib/post-base-installer.d/05mgmt-apt; \
+	disk=""; \
+	for dev in $(list-devices disk); do \
+		if udevadm info --query=property --name="$dev" | grep -q '^ID_BUS=usb'; then continue; fi; \
+		disk="$dev"; \
+		break; \
+	done; \
+	if [ -n "$disk" ]; then \
+		debconf-set partman-auto/disk "$disk"; \
+		debconf-set grub-installer/bootdev "$disk"; \
+	fi
+{{- if .Luks }}; \
+	dir=/lib/partman; \
+	if [ ! -d "$dir/display.d" ]; then dir=/usr/lib/partman; fi; \
+	wget -O "$dir/display.d/20mgmt_crypto" '{{ .Partman_hook_url }}'; \
+	chmod 0755 "$dir/display.d/20mgmt_crypto"
+{{- end }}
+
+# This is like the fedora autopart: an efi partition on uefi, a /boot, and then
+# the root filesystem with the rest of the disk. There is no lvm, and no swap
+# partition, since we use zram for swap like fedora does. Bios machines get an
+# msdos label like in fedora. With luks, the root partition is encrypted by our
+# partman hook. Fedora limits the root to 70GiB, but we use the whole disk.
+d-i partman-partitioning/choose_label select {{ if .Bios }}msdos{{ else }}gpt{{ end }}
+d-i partman-partitioning/default_label string {{ if .Bios }}msdos{{ else }}gpt{{ end }}
+d-i partman-auto/method string regular
+d-i partman-auto/expert_recipe string \
+	mgmt :: \
+{{- if not .Bios }}
+		600 600 600 free \
+			$primary{ } \
+			method{ efi } format{ } \
+		. \
+{{- end }}
+		2048 2048 2048 ext4 \
+			$primary{ } $bootable{ } \
+			method{ format } format{ } \
+			use_filesystem{ } filesystem{ ext4 } \
+			mountpoint{ /boot } \
+		. \
+		4096 10000 -1 $default_filesystem \
+			$primary{ } \
+{{- if .Luks }}
+			method{ crypto } \
+{{- else }}
+			method{ format } format{ } \
+			use_filesystem{ } $default_filesystem{ } \
+			mountpoint{ / } \
+{{- end }}
+		.
+d-i partman-basicfilesystems/no_swap boolean false
+{{ if eq .Part "btrfs" -}}
+d-i partman/default_filesystem string btrfs
+{{ end -}}
+{{ if .Luks -}}
+# The installer doesn't allow an empty passphrase, so we use this temporary one
+# and then set the empty passphrase in the post script, which also installs an
+# initramfs script to try the empty passphrase at boot.
+d-i partman-crypto/passphrase password password
+d-i partman-crypto/passphrase-again password password
+d-i partman-crypto/weak_passphrase boolean true
+d-i partman-crypto/confirm boolean true
+{{ end -}}
+# Remove anything left over from a previous install.
+d-i partman-lvm/device_remove_lvm boolean true
+d-i partman-md/device_remove_md boolean true
+d-i partman-lvm/confirm boolean true
+d-i partman-lvm/confirm_nooverwrite boolean true
+d-i partman-efi/non_efi_system boolean true
+d-i partman-partitioning/confirm_write_new_label boolean true
+d-i partman/choose_partition select finish
+d-i partman/confirm boolean true
+d-i partman/confirm_nooverwrite boolean true
+
+#
+#	repositories
+#
+# The provisioner serves the same paths as deb.debian.org does. The installer
+# hard-codes the /debian-security path, so it also has to be served from there.
+d-i mirror/country string manual
+d-i mirror/protocol string http
+d-i mirror/http/hostname string {{ .Mirror_host }}
+d-i mirror/http/directory string /debian
+d-i mirror/http/proxy string
+d-i mirror/suite string {{ .Codename }}
+d-i mirror/udeb/suite string {{ .Codename }}
+d-i apt-setup/services-select multiselect security, updates
+d-i apt-setup/security_host string {{ .Mirror_host }}
+# Our apt hook lets the install use our cached metadata after it expires. If a
+# repository can't be used anyway, eg: it was never cached, then the installer
+# comments it out, and shows this error, which we skip. The install still works
+# from the main repository, and the post script turns them back on.
+d-i apt-setup/service-failed error
+d-i apt-setup/non-free-firmware boolean true
+d-i apt-setup/non-free boolean false
+d-i apt-setup/contrib boolean false
+d-i apt-setup/cdrom/set-first boolean false
+
+#
+#	packages
+#
+tasksel tasksel/first multiselect standard, ssh-server
+{{- if eq .Flavour "Workstation" }}, desktop, gnome-desktop{{ end }}
+# We need some of these in the post script, and the ntp client is set up there.
+# Workstation gets gnome-initial-setup so that a user is made on first boot.
+# Like fedora, we use zram for swap instead of a swap partition.
+d-i pkgsel/include string openssh-server curl wget ca-certificates systemd-zram-generator
+{{- if .Ntp_servers }} systemd-timesyncd{{ end }}
+{{- if eq .Flavour "Workstation" }} gnome-initial-setup{{ end }}
+{{- range $i, $x := .Packages }} {{ $x }}{{ end }}
+d-i pkgsel/upgrade select safe-upgrade
+d-i pkgsel/update-policy select none
+popularity-contest popularity-contest/participate boolean false
+
+#
+#	bootloader
+#
+d-i grub-installer/only_debian boolean true
+d-i grub-installer/with_other_os boolean true
+
+#
+#	post
+#
+# This runs the post script inside the installed system and fails the install if
+# it fails, just like the kickstart %post --erroronfail does.
+d-i preseed/late_command string \
+	wget -O /target/root/mgmt-post.sh '{{ .Post_url }}' && \
+	in-target /bin/bash -c '/bin/bash /root/mgmt-post.sh > /root/mgmt-post.log 2>&1'
+
+#
+#	reboot after installation
+#
+d-i finish-install/reboot_in_progress note

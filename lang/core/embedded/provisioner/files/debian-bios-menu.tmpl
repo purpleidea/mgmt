@@ -1,0 +1,18 @@
+default vesamenu.c32
+prompt 1
+timeout 150
+
+label preseed
+menu label ^Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( preseed )
+menu default
+kernel {{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz
+append initrd={{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img {{ .Auto_args }}
+
+label manual
+menu label ^Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )
+kernel {{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz
+append initrd={{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img {{ .Manual_args }}
+
+label local
+menu label Boot from ^local drive
+localboot 0xffff

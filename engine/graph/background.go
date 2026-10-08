@@ -53,14 +53,13 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 		return err
 	}
 
-	var reterr error
 	wg := &sync.WaitGroup{} // wg.Wait() in StopBackground
 	// This bgCtx should not depend on the incoming ctx for this function.
 	// This is for the lifecycle of the background worker, and the ctx of
 	// this function is to let this start process to exit sooner if asked.
 	bgCtx, cancel := context.WithCancel(context.Background())
 	ready := make(chan struct{})
-	//exit := make(chan struct{})
+	exit := make(chan struct{}) // closed after state.err is set
 	state := &bgState{
 		wg:     wg,
 		ctx:    bgCtx,
@@ -83,17 +82,17 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		//defer close(exit)
+		defer close(exit)
 		defer cancel() // make sure to free the memory on early exit
-		reterr = backgroundFunc(bgCtx, ready)
-		if reterr == context.Canceled { // ignore these, we asked for it
-			reterr = nil
+		err := backgroundFunc(bgCtx, ready)
+		if err == context.Canceled { // ignore these, we asked for it
+			err = nil
 		}
-		state.err = err // read by StopBackground after the wg.Wait()
+		state.err = err // read after the exit chan closes or wg.Wait()
 
-		if reterr != nil {
+		if err != nil {
 			// Run a shutdown of the main graph engine, we're broken!
-			obj.Cancel(reterr) // trigger an exit!
+			obj.Cancel(err) // trigger an exit!
 		}
 	}()
 
@@ -101,8 +100,19 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 	select {
 	case <-ready:
 		return nil
-	//case <-exit: // exited early before ready
-	//	return reterr
+	case <-exit: // exited early, but maybe it was ready first
+		select {
+		case <-ready:
+			return nil // same as above, so StopBackground gets the error
+		default:
+		}
+		wg.Wait() // the goroutine is finishing, so this is quick
+		delete(obj.bgState, kind)
+		if err := state.err; err != nil {
+			return err
+		}
+		// It's not running, so anything that needs it can't work.
+		return fmt.Errorf("background(%s) exited before it was ready", kind)
 	case <-ctx.Done(): // exited early before ready, so cleanup early
 		cancel()  // main ctx died, something is wrong, kill bgCtx
 		wg.Wait() // wait for the background goroutine to finish

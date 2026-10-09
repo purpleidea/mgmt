@@ -1,0 +1,11 @@
+import "deploy"
+
+file "/tmp/foo/" {
+	state => "exists",
+	# The deploy.directory function does some secret magic: it pulls the
+	# files out of the deploy and puts them into some magic path on the
+	# computer. That path will be inside our internal $vardir. You can use
+	# that path as the source argument to copy them elsewhere!
+	source => deploy.directory("/files/foo/"),
+	recurse => true, # for a source dir
+}

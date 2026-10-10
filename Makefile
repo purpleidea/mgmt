@@ -94,6 +94,11 @@ ifneq ($(MGMT_NOAUGEASDLOPEN),true)
 		GOTAGS += augeas_dlopen
 	endif
 endif
+ifneq ($(MGMT_NOLIBVIRTDLOPEN),true)
+	ifeq ($(filter libvirt_dlopen,$(GOTAGS)),)
+		GOTAGS += libvirt_dlopen
+	endif
+endif
 
 ifneq ($(GOTAGS),)
 	BUILD_FLAGS = -tags '$(GOTAGS)'

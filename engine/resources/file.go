@@ -446,12 +446,11 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	exit := make(chan struct{})
-	// TODO: should this be after (later in the file) than the `defer recWatcher.Cleanup()` ?
-	// TODO: should this be after (later in the file) the `defer recWatcher.Cleanup()` ?
-	defer close(exit)
+	ctx, cancel := context.WithCancel(ctx)
+	// Cancel on every return, before waiting for the forwarding goroutines.
+	defer cancel()
 
-	recWatcher, err := recwatch.NewRecWatcher(context.Background(), obj.getPath(), obj.Recurse)
+	recWatcher, err := recwatch.NewRecWatcher(ctx, obj.getPath(), obj.Recurse)
 	if err != nil {
 		return err
 	}
@@ -461,7 +460,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 	if obj.Source != "" {
 		// This block is virtually identical to the below one.
 		recurse := strings.HasSuffix(obj.Source, "/") // isDir
-		rw, err := recwatch.NewRecWatcher(context.Background(), obj.Source, recurse)
+		rw, err := recwatch.NewRecWatcher(ctx, obj.Source, recurse)
 		if err != nil {
 			return err
 		}
@@ -476,7 +475,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 				var shutdown bool
 				select {
 				case event, ok = <-rw.Events(): // recv
-				case <-exit: // unblock
+				case <-ctx.Done(): // unblock
 					return
 				}
 
@@ -491,7 +490,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 					if shutdown { // optimization to free early
 						return
 					}
-				case <-exit: // unblock
+				case <-ctx.Done(): // unblock
 					return
 				}
 			}
@@ -501,7 +500,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 		// This block is virtually identical to the above one.
 		recurse := false // TODO: is it okay for depth==1 dirs?
 		//recurse := strings.HasSuffix(frag, "/") // isDir
-		rw, err := recwatch.NewRecWatcher(context.Background(), frag, recurse)
+		rw, err := recwatch.NewRecWatcher(ctx, frag, recurse)
 		if err != nil {
 			return err
 		}
@@ -516,7 +515,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 				var shutdown bool
 				select {
 				case event, ok = <-rw.Events(): // recv
-				case <-exit: // unblock
+				case <-ctx.Done(): // unblock
 					return
 				}
 
@@ -531,7 +530,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 					if shutdown { // optimization to free early
 						return
 					}
-				case <-exit: // unblock
+				case <-ctx.Done(): // unblock
 					return
 				}
 			}
@@ -549,10 +548,10 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 
 		select {
 		case event, ok := <-recWatcher.Events():
+			if err := ctx.Err(); err != nil {
+				return err // engine is shutting us down
+			}
 			if !ok { // channel shutdown
-				// TODO: Should this be an error? Previously it
-				// was a `return nil`, and i'm not sure why...
-				//return nil
 				return fmt.Errorf("unexpected close")
 			}
 			if event == nil {
@@ -567,6 +566,9 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 			}
 
 		case event, ok := <-inputEvents:
+			if err := ctx.Err(); err != nil {
+				return err // engine is shutting us down
+			}
 			if !ok {
 				return fmt.Errorf("unexpected close")
 			}
@@ -686,7 +688,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 		if sha256sum == "" { // cache is invalid
 			hash := sha256.New()
 			// TODO: file existence test?
-			if _, err := io.Copy(hash, src); err != nil {
+			if _, err := util.CopyContext(ctx, hash, src); err != nil {
 				return "", false, err
 			}
 			sha256sum = hex.EncodeToString(hash.Sum(nil))
@@ -699,7 +701,7 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 
 		// dst hash
 		hash := sha256.New()
-		if _, err := io.Copy(hash, dstFile); err != nil {
+		if _, err := util.CopyContext(ctx, hash, dstFile); err != nil {
 			return "", false, err
 		}
 		if h := hex.EncodeToString(hash.Sum(nil)); h == sha256sum {
@@ -710,6 +712,9 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 	// state is not okay, no work done, exit, but without error
 	if !apply {
 		return sha256sum, false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return sha256sum, false, err
 	}
 	if obj.init.Debug {
 		obj.init.Logf("apply: %v -> %s", src, dst)
@@ -731,14 +736,13 @@ func (obj *FileRes) fileCheckApply(ctx context.Context, apply bool, src io.ReadS
 	// TODO: attempt to reflink with Splice() and int(file.Fd()) as input...
 	// syscall.Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n int64, err error)
 
-	// TODO: should we offer a way to cancel the copy on ^C ?
 	if isFile {
 		obj.init.Logf("copy %d bytes from: %v", length, src)
 	} else if isBytes {
 		obj.init.Logf("copy %d bytes", length)
 	}
 
-	if n, err := io.Copy(dstFile, src); err != nil {
+	if n, err := util.CopyContext(ctx, dstFile, src); err != nil {
 		return sha256sum, false, err
 	} else if obj.init.Debug {
 		obj.init.Logf("copied: %v", n)
@@ -1465,6 +1469,10 @@ func (obj *FileRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		// if we received on Content, and it changed, invalidate the cache!
 		obj.init.Logf("contentCheckApply: invalidating sha256sum of `content`")
 		obj.sha256sum = "" // invalidate!!
+	}
+
+	if err := ctx.Err(); err != nil {
+		return false, err
 	}
 
 	checkOK := true

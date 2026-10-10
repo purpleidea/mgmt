@@ -43,6 +43,85 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+func TestStartupPermissionError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("permission checks require an unprivileged user")
+	}
+
+	for _, name := range []string{"file", "parent"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			target := filepath.Join(dir, "file.txt")
+			if err := os.WriteFile(target, []byte("contents\n"), 0600); err != nil {
+				t.Fatalf("could not create target file: %v", err)
+			}
+
+			blocked := target
+			mode := os.FileMode(0600)
+			if name == "parent" {
+				blocked = dir
+				mode = 0700
+			}
+			if err := os.Chmod(blocked, 0000); err != nil {
+				t.Fatalf("could not remove permissions: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := os.Chmod(blocked, mode); err != nil {
+					t.Errorf("could not restore permissions: %v", err)
+				}
+			})
+
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			rw, err := NewRecWatcher(ctx, target, false)
+			defer rw.Cleanup()
+			if err == nil || !strings.Contains(err.Error(), "permission denied adding a watch") {
+				t.Fatalf("expected startup permission error, got: %v", err)
+			}
+			select {
+			case _, ok := <-rw.Events():
+				if ok {
+					t.Fatal("unexpected event after failed startup")
+				}
+			default:
+				t.Fatal("events channel is still open after failed startup")
+			}
+			if err := rw.watcher.Add(target); err != fsnotify.ErrClosed {
+				t.Fatalf("expected watcher to be closed, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestWatchRuntimeError(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "file.txt")
+	if err := os.WriteFile(target, []byte("contents\n"), 0600); err != nil {
+		t.Fatalf("could not create target file: %v", err)
+	}
+
+	rw, err := NewRecWatcher(context.Background(), target, false)
+	if err != nil {
+		t.Fatalf("could not create watcher: %v", err)
+	}
+	defer rw.Cleanup()
+
+	watchErr := fmt.Errorf("test watcher error")
+	select {
+	case rw.watcher.Errors <- watchErr:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out injecting watcher error")
+	}
+
+	select {
+	case event := <-rw.Events():
+		if event == nil || event.Error == nil || !strings.Contains(event.Error.Error(), watchErr.Error()) {
+			t.Fatalf("expected runtime watcher error, got: %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for runtime watcher error")
+	}
+}
+
 func TestWatchDoesNotDescendPastLeaf(t *testing.T) {
 	dir := t.TempDir()
 	parent := filepath.Join(dir, "parent")

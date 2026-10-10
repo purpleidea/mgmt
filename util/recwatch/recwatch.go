@@ -73,7 +73,7 @@ type RecWatcher struct {
 	events   chan *Event // one channel for events and err...
 	wg       *sync.WaitGroup
 	cancel   context.CancelFunc // shuts down the watch goroutine
-	ready    func()
+	ready    func(error)
 }
 
 // NewRecWatcher creates and initializes a new recursive watcher. This returns
@@ -96,6 +96,7 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 	defer func() {
 		if reterr != nil {
 			obj.cancel() // startup failed, nobody will call Cleanup
+			obj.wg.Wait()
 		}
 	}()
 	obj.wg = &sync.WaitGroup{}
@@ -135,10 +136,10 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 		}
 	}
 
-	ready := make(chan struct{})
+	ready := make(chan error, 1)
 	once := &sync.Once{}
-	obj.ready = func() {
-		once.Do(func() { close(ready) })
+	obj.ready = func(err error) {
+		once.Do(func() { ready <- err })
 	}
 
 	obj.wg.Add(1)
@@ -151,6 +152,7 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 			_ = obj.watcher.Close()
 		}()
 		err := obj.watch(ctx)
+		obj.ready(err) // report failure if startup never completed
 		if err == nil {
 			return
 		}
@@ -161,8 +163,8 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 	}()
 
 	select {
-	case <-ready:
-		return nil // startup completed
+	case err := <-ready:
+		return err
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -233,7 +235,7 @@ func (obj *RecWatcher) watch(ctx context.Context) error {
 			return fmt.Errorf("unknown error: %v", err)
 		}
 
-		obj.ready() // obj.watcher.Add(...) above has now completed...
+		obj.ready(nil) // obj.watcher.Add(...) above has now completed...
 
 		select {
 		case event, ok := <-obj.watcher.Events:

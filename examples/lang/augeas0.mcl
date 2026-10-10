@@ -1,0 +1,12 @@
+# Edit this one file in a way that's safer than using sed. It's obviously better
+# to template the entire thing but this can be used as a brownfield last resort.
+augeas "sshd" {
+	file => "/etc/ssh/sshd_config",
+	lens => "Sshd.lns",
+	sets => [
+		struct{
+			path => "PermitRootLogin",
+			value => "yes",
+		},
+	],
+}

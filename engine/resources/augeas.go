@@ -38,11 +38,10 @@ import (
 	"strings"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources/augeas"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
-
-	"honnef.co/go/augeas"
 )
 
 const (
@@ -124,6 +123,13 @@ func (obj *AugeasRes) Validate() error {
 // Init initializes the resource.
 func (obj *AugeasRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
+
+	// The library might be loaded at runtime, so check that we can use it
+	// now, and fail early with a useful error, instead of in CheckApply.
+	if err := augeas.Available(); err != nil {
+		// TODO: print the possible pkg to install on this distro
+		return errwrap.Wrapf(err, "can't use augeas, is it installed?")
+	}
 
 	return nil
 }
@@ -243,7 +249,7 @@ func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 
 	checkOK := true
 	for _, set := range obj.Sets {
-		if setCheckOK, err := obj.checkApplySet(ctx, apply, &ag, set); err != nil {
+		if setCheckOK, err := obj.checkApplySet(ctx, apply, ag, set); err != nil {
 			return false, errwrap.Wrapf(err, "augeas: error during CheckApply of one Set")
 		} else if !setCheckOK {
 			checkOK = false

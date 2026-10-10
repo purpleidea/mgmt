@@ -52,7 +52,6 @@ require (
 	golang.org/x/tools v0.48.0
 	google.golang.org/grpc v1.83.2
 	gopkg.in/yaml.v2 v2.4.0
-	honnef.co/go/augeas v0.0.0-20161110001225-ca62e35ed6b8
 	libvirt.org/go/libvirt v1.11006.0
 	libvirt.org/go/libvirtxml v1.11006.0
 )

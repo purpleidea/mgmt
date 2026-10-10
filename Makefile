@@ -86,6 +86,15 @@ RPM = rpmbuild/RPMS/$(PROGRAM)-$(VERSION)-$(RELEASE).$(ARCH).rpm
 USERNAME := $(shell cat ~/.config/copr 2>/dev/null | grep username | awk -F '=' '{print $$2}' | tr -d ' ')
 SERVER = 'dl.fedoraproject.org'
 REMOTE_PATH = '/srv/pub/alt/$(USERNAME)/$(PROGRAM)'
+
+# Load at runtime instead of linking against it, so that the binary can at least
+# still run on machines which don't have the symbols available.
+ifneq ($(MGMT_NOAUGEASDLOPEN),true)
+	ifeq ($(filter augeas_dlopen,$(GOTAGS)),)
+		GOTAGS += augeas_dlopen
+	endif
+endif
+
 ifneq ($(GOTAGS),)
 	BUILD_FLAGS = -tags '$(GOTAGS)'
 endif

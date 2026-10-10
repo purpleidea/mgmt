@@ -38,7 +38,8 @@ SHELL = bash
 # a large amount of output from this `find`, can cause `make` to be much slower!
 GO_FILES_FIND = find * -name '*.go' -not -path 'old/*' -not -path 'tmp/*'
 MCL_FILES_FIND = find lang/ -name '*.mcl' -not -path 'old/*' -not -path 'tmp/*'
-MISC_FILES_FIND = find engine/resources/http_server_ui/
+# these are the other files that are embedded with go:embed into the binary
+MISC_FILES_FIND = find engine/resources/http_server_ui/ lang/core/embedded/provisioner/ data/fwattr.json COPYING
 PO_FILES_FIND = find * -name '*.po' -not -path 'old/*' -not -path 'tmp/*'
 GO_FILES := $(shell $(GO_FILES_FIND))
 MCL_FILES := $(shell $(MCL_FILES_FIND))

@@ -173,7 +173,24 @@ tasksel tasksel/first multiselect standard, ssh-server
 # We need some of these in the post script, and the ntp client is set up there.
 # Workstation gets gnome-initial-setup so that a user is made on first boot.
 # Like fedora, we use zram for swap instead of a swap partition.
+#
+# We add dosfstools for uefi, since the installer only adds it some of the time.
+# The installer uses its own dosfstools-udeb to format the efi partition, and
+# then partman-basicfilesystems (finish.d/aptinstall_basicfilesystems) adds the
+# real dosfstools package to the installed system, but only if it detected a fat
+# filesystem on the efi partition. That detection happens before the partition
+# gets formatted, so it sees whatever was on the disk before at that location!
+# When we reinstall over one of our debian installs, the efi partition from our
+# recipe is in the same place as before, and its old fat filesystem is found, so
+# dosfstools gets installed. When the disk was empty, or had a fedora install on
+# it whose 600 MiB efi partition is bigger than ours (600 MB), nothing is found
+# and dosfstools is silently skipped. Since it's an optional install whose error
+# is ignored, an uncached package when offline would also go unnoticed. Listing
+# it here makes this the same every time. It gets cached every time we're online
+# and if it's missing when we're offline, the install fails loudly about it. The
+# installed machine needs it anyways for fsck.vfat to check the efi partition.
 d-i pkgsel/include string openssh-server curl wget ca-certificates systemd-zram-generator
+{{- if not .Bios }} dosfstools{{ end }}
 {{- if .Ntp_servers }} systemd-timesyncd{{ end }}
 {{- if eq .Flavour "Workstation" }} gnome-initial-setup{{ end }}
 {{- range $i, $x := .Packages }} {{ $x }}{{ end }}

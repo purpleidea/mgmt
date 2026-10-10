@@ -11312,6 +11312,23 @@ func (obj *ExprCall) Infer() (*types.Type, []*interfaces.UnificationInvariant, e
 	}
 	invariants = append(invariants, invar)
 
+	// If we're calling a lambda, then hand the types of the args we were
+	// called with to its params now, before the body gets inferred below.
+	// Unification would tie the two together eventually anyway, but the
+	// FuncInfer of a builtin used in that body, such as a struct lookup on
+	// one of the params, runs during Infer, and can only pin its return
+	// type if it can see the struct type at that point. Each call site
+	// has its own copy of the lambda, with its own params, so this can't
+	// leak into another call.
+	if isFn && exprFunc.Function == nil && exprFunc.Body != nil {
+		for i, param := range exprFunc.params {
+			if i >= len(ordered) {
+				break // the arg count mismatch is reported in Infer
+			}
+			invariants = append(invariants, param.hint(mapped[ordered[i]])...)
+		}
+	}
+
 	// We run this Check for all cases. (So refactor it to here.)
 	invars, err := obj.expr.Check(typFunc)
 	if err != nil {
@@ -12142,6 +12159,27 @@ func (obj *ExprParam) Infer() (*types.Type, []*interfaces.UnificationInvariant, 
 	}
 
 	return typ, invariants, nil
+}
+
+// hint sets the type of this param, before Infer would give it a fresh
+// unification variable, and returns the invariant for it, so that it gets
+// solved like any other expr. If the type is already set, then this does
+// nothing. A call site uses it to hand the type of the arg it was called with
+// to the matching param of the lambda, so that anything in the body which needs
+// to see that type during Infer, such as a struct lookup, can do so.
+func (obj *ExprParam) hint(typ *types.Type) []*interfaces.UnificationInvariant {
+	if obj.typ != nil {
+		return nil
+	}
+	obj.typ = typ
+
+	invar := &interfaces.UnificationInvariant{
+		Node:   obj,
+		Expr:   obj,
+		Expect: typ,
+		Actual: typ,
+	}
+	return []*interfaces.UnificationInvariant{invar}
 }
 
 // Check is checking that the input type is equal to the object that Check is

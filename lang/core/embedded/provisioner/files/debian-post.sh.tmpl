@@ -81,6 +81,13 @@ update-initramfs -u -k all || exit 1
 #
 sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=1/' /etc/default/grub && update-grub
 
+# If the dhcp lease had no name servers, then the installer used our ip, which
+# doesn't serve dns, and it copied it into here. A lease without them wouldn't
+# replace it, so we remove it now. Name servers that dhcp gave us are kept.
+if [ -f /etc/resolv.conf ] && [ ! -L /etc/resolv.conf ]; then
+	sed -i '/^nameserver {{ .Router_ip }}$/d' /etc/resolv.conf
+fi
+
 # Use zram for swap with the same size that fedora uses by default.
 printf '[zram0]\nzram-size = min(ram, 8192)\n' > /etc/systemd/zram-generator.conf
 

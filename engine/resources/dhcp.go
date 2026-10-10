@@ -1281,6 +1281,12 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
 			resp.Options.Update(*opt67)
 		}
+		// Some clients only look at the file field in the header. For
+		// example, shim loads its grub from that same directory, and if
+		// the field is empty, it looks for grub at the tftp root.
+		if p != "" {
+			resp.BootFileName = p
+		}
 		if obj.init.Debug {
 			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)
 		}
@@ -1948,6 +1954,12 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		}
 		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
 			resp.Options.Update(*opt67)
+		}
+		// Some clients only look at the file field in the header. For
+		// example, shim loads its grub from that same directory, and if
+		// the field is empty, it looks for grub at the tftp root.
+		if p != "" {
+			resp.BootFileName = p
 		}
 		if obj.init.Debug {
 			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)

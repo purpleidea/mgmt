@@ -206,7 +206,7 @@ func (obj *AugeasRes) checkApplySet(ctx context.Context, apply bool, ag *augeas.
 	}
 
 	if err := ag.Set(fullpath, set.Value); err != nil {
-		return false, errwrap.Wrapf(err, "augeas: error while setting value")
+		return false, errwrap.Wrapf(err, "error while setting value")
 	}
 
 	return false, nil
@@ -227,7 +227,7 @@ func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	// Initiate augeas
 	ag, err := augeas.New("/", "", opts)
 	if err != nil {
-		return false, errwrap.Wrapf(err, "augeas: error while initializing")
+		return false, errwrap.Wrapf(err, "error while initializing")
 	}
 	defer ag.Close()
 
@@ -237,20 +237,20 @@ func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		// We do not pick Mgmt as in the future there might be an Mgmt lens.
 		// https://github.com/hercules-team/augeas/wiki/Loading-specific-files
 		if err = ag.Set(fmt.Sprintf("/augeas/load/%s/lens", NS), obj.Lens); err != nil {
-			return false, errwrap.Wrapf(err, "augeas: error while initializing lens")
+			return false, errwrap.Wrapf(err, "error while initializing lens")
 		}
 		if err = ag.Set(fmt.Sprintf("/augeas/load/%s/incl", NS), obj.File); err != nil {
-			return false, errwrap.Wrapf(err, "augeas: error while initializing incl")
+			return false, errwrap.Wrapf(err, "error while initializing incl")
 		}
 		if err = ag.Load(); err != nil {
-			return false, errwrap.Wrapf(err, "augeas: error while loading")
+			return false, errwrap.Wrapf(err, "error while loading")
 		}
 	}
 
 	checkOK := true
 	for _, set := range obj.Sets {
 		if setCheckOK, err := obj.checkApplySet(ctx, apply, ag, set); err != nil {
-			return false, errwrap.Wrapf(err, "augeas: error during CheckApply of one Set")
+			return false, errwrap.Wrapf(err, "error during CheckApply of one Set")
 		} else if !setCheckOK {
 			checkOK = false
 		}
@@ -263,14 +263,14 @@ func (obj *AugeasRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 
 	obj.init.Logf("changes needed, saving")
 	if err = ag.Save(); err != nil {
-		return false, errwrap.Wrapf(err, "augeas: error while saving augeas values")
+		return false, errwrap.Wrapf(err, "error while saving augeas values")
 	}
 
 	// FIXME: Workaround for https://github.com/dominikh/go-augeas/issues/13
 	// To be fixed upstream.
 	if obj.File != "" {
 		if _, err := os.Stat(obj.File); os.IsNotExist(err) {
-			return false, errwrap.Wrapf(err, "augeas: error: file does not exist")
+			return false, errwrap.Wrapf(err, "file does not exist")
 		}
 	}
 

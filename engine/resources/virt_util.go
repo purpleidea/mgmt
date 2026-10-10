@@ -65,6 +65,21 @@ const (
 	lxcURI
 )
 
+// libvirtAvailable returns an error if we can't use the libvirt library. It is
+// normally loaded at runtime instead of being linked, so this is called in the
+// Init method of the virt resources, so they can fail early with a useful error
+// instead of later on, when something first tries to use libvirt. The mutex is
+// held since the first call is what loads the library, which isn't thread-safe.
+func libvirtAvailable() error {
+	libvirtMutex.Lock()
+	defer libvirtMutex.Unlock()
+
+	if _, err := libvirt.GetVersion(); err != nil {
+		return errwrap.Wrapf(err, "can't use libvirt, is it installed?")
+	}
+	return nil
+}
+
 // libvirtInit is called in the Init method of any virt resource or instead in
 // the Background method if that exists. It must be run before any connection to
 // the hypervisor is made! It only has to be done once for all virt resources.

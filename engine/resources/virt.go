@@ -189,6 +189,11 @@ func (obj *VirtRes) Validate() error {
 func (obj *VirtRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	// XXX: Can we move this to CheckApply so mgmt runs can get the deps?
+	if err := libvirtAvailable(); err != nil {
+		return err
+	}
+
 	var u *url.URL
 	var err error
 	if u, err = url.Parse(obj.URI); err != nil {

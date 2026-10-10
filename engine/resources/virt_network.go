@@ -256,6 +256,11 @@ func (obj *VirtNetworkRes) Validate() error {
 func (obj *VirtNetworkRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
+	// XXX: Can we move this to CheckApply so mgmt runs can get the deps?
+	if err := libvirtAvailable(); err != nil {
+		return err
+	}
+
 	// Nothing to init after this because all we want to do is nuke it!
 	if obj.Transient && obj.State == VirtNetworkStateDown {
 		return nil

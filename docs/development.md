@@ -43,12 +43,14 @@ listed below:
 | Resource | Dependency        | Version                     | Check version with                                        |
 |----------|-------------------|-----------------------------|-----------------------------------------------------------|
 | augeas   | augeas-devel      | `augeas 1.6` or greater     | `dnf info augeas-devel` or `apt-cache show libaugeas-dev` |
+| augeas   | augeas-libs       | `augeas 1.6` or greater     | `dnf info augeas-libs` or `apt-cache show libaugeas0`     |
 | file     | inotify           | `Linux 2.6.27` or greater   | `uname -a`                                                |
 | hostname | systemd-hostnamed | `systemd 25` or greater     | `systemctl --version`                                     |
 | nspawn   | systemd-nspawn    | `systemd ???` or greater    | `systemctl --version`                                     |
 | pkg      | packagekitd       | `packagekit 1.x` or greater | `pkcon --version`                                         |
 | svc      | systemd           | `systemd ???` or greater    | `systemctl --version`                                     |
 | virt     | libvirt-devel     | `libvirt 1.2.0` or greater  | `dnf info libvirt-devel` or `apt-cache show libvirt-dev`  |
+| virt     | libvirt-libs      | `libvirt 1.2.0` or greater  | `dnf info libvirt-libs` or `apt-cache show libvirt0`      |
 | virt     | libvirtd          | `libvirt 1.2.0` or greater  | `libvirtd --version`                                      |
 
 For building a visual representation of the graph, `graphviz` is required.
@@ -64,6 +66,19 @@ To build `mgmt` without docker support please run:
 
 To build `mgmt` without augeas, libvirt or docker support please run:
 `GOTAGS='noaugeas novirt nodocker' make build`
+
+### Linking against augeas or libvirt
+
+By default, mgmt loads augeas and libvirt at runtime, only when a resource needs
+them, instead of linking against them. This lets the binary run on machines with
+older versions of them, or none at all, and lets you build it without their
+development headers. If you wish to link against them instead, you can use the
+following commands:
+
+```
+MGMT_NOAUGEASDLOPEN=true make build
+MGMT_NOLIBVIRTDLOPEN=true make build
+```
 
 ## Goroutine leak profiling
 

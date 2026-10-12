@@ -53,6 +53,7 @@ $preseed_suffix = "preseed/"
 $ipxe_iso_filename = "ipxe.iso"
 $ipxe_iso_default = "https://boot.ipxe.org/${ipxe_iso_filename}" # default download source
 $ipxe_efi_x86_64_default = "https://boot.ipxe.org/x86_64-efi/ipxe.efi"
+$ipxe_efi_aarch64_default = "https://boot.ipxe.org/arm64-efi/ipxe.efi"
 $ipxe_autoexec_filename = "autoexec.ipxe"
 
 # ipxe_efi_filename returns the name of the iPXE UEFI executable that we serve
@@ -173,6 +174,7 @@ class base($config) {
 	# an architecture here to support it. An empty source disables it.
 	$ipxe_efi_sources = {
 		"x86_64" => $config->ipxe_efi_x86_64 <|> $ipxe_efi_x86_64_default,
+		"aarch64" => $config->ipxe_efi_aarch64 <|> $ipxe_efi_aarch64_default,
 	}
 	$ipxe_efi_x86_64_source = $ipxe_efi_sources["x86_64"] <|> ""
 	$ipxe_efi_x86_64 = if $ipxe_efi_x86_64_source == "" {

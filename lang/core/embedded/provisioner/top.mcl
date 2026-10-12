@@ -68,7 +68,7 @@ $handoff = if provisioner.cli_handoff_code() != "" { # TODO: check other types
 		""
 	}
 }
-include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
+$host_config = struct{
 	#repo => $repo.uid, # type unification performance is very slow here
 	repo => $uid,
 	flavour => provisioner.cli_flavour(),
@@ -87,7 +87,13 @@ include base.host("host0", struct{ # TODO: do we need a usable name anywhere?
 	handoff_module_path => provisioner.cli_handoff_module_path(),
 	handoff_hostname => provisioner.cli_handoff_hostname(),
 	bmc_uri => provisioner.cli_bmc_uri(),
-}) as host0
+}
+# TODO: do we need a usable name anywhere?
+if provisioner.cli_mac() == "" { # provision any host which asks
+	include base.range("host0", $host_config) as host0
+} else {
+	include base.host("host0", $host_config) as host0
+}
 
 #if $host0.provisioned {
 #	print "provisioned" {

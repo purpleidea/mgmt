@@ -916,29 +916,16 @@ class base:host($name, $config) {
 	}
 	$nbp = "tftp://${router_ip}${nbp_path}"
 
-	if $network != "" {
-		if $mac != "" {
-			dhcp:host "${name}" { # the hostname
-				mac => $mac,
-				ip => $ip, # cidr notation is required
+	# Without a mac address, the range class adds the dhcp part.
+	if $network != "" and $mac != "" {
+		dhcp:host "${name}" { # the hostname
+			mac => $mac,
+			ip => $ip, # cidr notation is required
 
-				nbp => $provision ?: $nbp,
-				nbp_path => $provision ?: $nbp_path, # with leading slash
+			nbp => $provision ?: $nbp,
+			nbp_path => $provision ?: $nbp_path, # with leading slash
 
-				Depend => Tftp:Server[":69"],
-			}
-		} else {
-			# Handle ANY mac address since we don't have one specified!
-			# TODO: Our dhcp:range could send/recv a map from ip => mac address!
-			dhcp:range "${name}" {
-				network => "${network}", # eg: 192.168.42.0/24
-				skip => [$router], # eg: 192.168.42.1/24
-
-				nbp => $provision ?: $nbp,
-				nbp_path => $provision ?: $nbp_path, # with leading slash
-
-				Depend => Tftp:Server[":69"],
-			}
+			Depend => Tftp:Server[":69"],
 		}
 	}
 
@@ -1363,6 +1350,32 @@ class base:host($name, $config) {
 			Meta:export => ["*"], # TODO: get the etcd hostname?
 		}
 	}
+}
+
+# The range class provisions any host that boots from our network, since we
+# don't have a mac address for it. It's a host without a mac, which serves the
+# default menus and installer files, plus a dhcp range which hands them out.
+class base:range($name, $config) {
+	$mac = $config->mac <|> ""
+	panic($mac != "", "provisioner:range $mac must be empty")
+
+	include host($name, $config) as host0
+
+	if $network != "" {
+		# TODO: Our dhcp:range could send/recv a map from ip => mac address!
+		dhcp:range "${name}" {
+			network => "${network}", # eg: 192.168.42.0/24
+			skip => [$router], # eg: 192.168.42.1/24
+
+			nbp => $host0.provision ?: $host0.nbp,
+			nbp_path => $host0.provision ?: $host0.nbp_path, # with leading slash
+
+			Depend => Tftp:Server[":69"],
+		}
+	}
+
+	$provisioned = $host0.provisioned # export this value to parent scope
+	$host_sshkey = $host0.host_sshkey # export this value to parent scope
 }
 
 class base:runner($config) {

@@ -104,7 +104,9 @@ class base($config) {
 	}
 	$router_ip = net.cidr_to_ip($router) # removes cidr suffix
 
-	$dns = $config->dns <|> ["8.8.8.8", "1.1.1.1"] # maybe google/cloudflare will sponsor!
+	# The hosts only talk to us while provisioning, so they don't need any dns,
+	# and we shouldn't send them a public one that can't work offline.
+	$dns = $config->dns <|> [] # eg: ["8.8.8.8", "1.1.1.1"] # maybe google/cloudflare will sponsor!
 
 	$prefix = $config->prefix <|> ""
 	panic($prefix == "", "provisioner:base $prefix is empty") # panic if prefix is empty
@@ -124,9 +126,6 @@ class base($config) {
 	$server_base = "http://${router_ip}:${http_port_str}/" # private lan online, no https!
 
 	$syslinux_root = "/usr/share/syslinux/"
-
-	$nbp_bios = "tftp://${router_ip}/pxelinux.0" # for bios clients
-	$nbp_uefi = "tftp://${router_ip}/uefi/shim.efi" # for uefi clients
 
 	# Fetch an iPXE ISO once and serve the cached copy from the provisioner.
 	# An explicit empty source disables it. The exported $ipxe_iso is then
@@ -408,12 +407,9 @@ class base:repo($config) {
 	$rsync = $config->rsync <|> ""
 
 	$is_fedora = $distro == "fedora"
+	panic(not $is_fedora, "provisioner:repo ${distro} is not supported")
 
 	$distroarch_tftp_prefix = "${tftp_prefix}${uid}/"
-	$distroarch_uefi_prefix = "${uefi_prefix}${uid}/"
-	$distroarch_http_prefix = "${http_prefix}${uid}/"
-	$distroarch_release_http_prefix = "${distroarch_http_prefix}release/"
-	$distroarch_updates_http_prefix = "${distroarch_http_prefix}updates/"
 
 	file "${distroarch_tftp_prefix}" { # dir
 		state => $const.res.file.state.exists,
@@ -422,140 +418,10 @@ class base:repo($config) {
 
 		Depend => File["${tftp_prefix}"],
 	}
-	file "${distroarch_uefi_prefix}" { # dir
-		state => $const.res.file.state.exists,
 
-		Depend => File["${uefi_prefix}"],
-	}
-	file "${distroarch_http_prefix}" { # root http dir
-		state => $const.res.file.state.exists,
-
-		Depend => File["${http_prefix}"],
-	}
-	file "${distroarch_release_http_prefix}" {
-		state => $const.res.file.state.exists,
-
-		Depend => File["${distroarch_http_prefix}"],
-	}
-	file "${distroarch_updates_http_prefix}" {
-		state => $const.res.file.state.exists,
-
-		Depend => File["${distroarch_http_prefix}"],
-	}
-
-	#
-	#	uefi bootloader images
-	#
-	$uefi_download_dir = "${distroarch_uefi_prefix}download/"
-	$uefi_extract_dir = "${distroarch_uefi_prefix}extract/"
-
-	file "${uefi_extract_dir}" { # mkdir
-		state => $const.res.file.state.exists,
-
-		Depend => Exec["uefi-download-${uid}"],
-		Before => Exec["uefi-extract-${uid}"],
-	}
-
-	# Download the shim and grub2-efi packages. If your server is a BIOS
-	# system, you must download the packages to a temporary install root.
-	# Installing them directly on a BIOS machine will attempt to configure
-	# the system for UEFI booting and cause problems.
-	$pkgs_uefi_string = golang_strings.join($pkgs_uefi, " ")
-	$repoidname = "local"
-	# eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/releases/39/Everything/x86_64/os/
-	$repo_url = "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/"
-
-	exec "uefi-download-${uid}" {
-		# no inner quotes because it's not bash handling this!
-		# the dnf download command makes the download destination dir
-		# With DNF5 (provisioning OS Fedora 41+) it's --destdir.
-		# Previously it's --downloaddir and no idea why the API break.
-		cmd => "/usr/bin/dnf download ${pkgs_uefi_string} --assumeyes --disablerepo=* --repofrompath ${repoidname},${repo_url} --destdir=${uefi_download_dir} --releasever ${version}",
-
-		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
-		ifcmd => "! test -s '${uefi_download_dir}shim-x64'*",
-		ifshell => "/usr/bin/bash",
-
-		Depend => Http:Server[":${http_port_str}"],
-	}
-
-	exec "uefi-extract-${uid}" {
-		# we use rpm2archive instead of cpio since the latter is deprecated for big files
-		# we do this in a loop for all the rpm files
-		# fedora44 stores the raw RPM payload in versioned /usr/lib/efi/
-		# directories. Older releases have the files in $uefi_root.
-		cmd => golang_strings.join([
-			"for i in ${uefi_download_dir}*.rpm",
-			"do /usr/bin/rpm2archive \$i | /usr/bin/tar -xvz --directory ${uefi_extract_dir} --exclude ./etc",
-			"done",
-			"if ! /usr/bin/test -s '${uefi_shim}'",
-			"then /usr/bin/mkdir -p '${uefi_root}' && /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shim.efi '${uefi_shim}'",
-			"fi",
-			"if ! /usr/bin/test -s '${uefi_shimx64}'",
-			"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shimx64.efi '${uefi_shimx64}'",
-			"fi",
-			"if ! /usr/bin/test -s '${uefi_grubx64}'",
-			"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/grub2/'*/EFI/fedora/grubx64.efi '${uefi_grubx64}'",
-			"fi",
-			"/usr/bin/test -s '${uefi_shim}' && /usr/bin/test -s '${uefi_shimx64}' && /usr/bin/test -s '${uefi_grubx64}'",
-		], "; "),
-		shell => "/usr/bin/bash",
-
-		# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
-		ifcmd => "! /usr/bin/test -s '${uefi_shim}' || ! /usr/bin/test -s '${uefi_shimx64}' || ! /usr/bin/test -s '${uefi_grubx64}'",
-		ifshell => "/usr/bin/bash",
-		watchfiles => [
-			$uefi_shim,
-			$uefi_shimx64,
-			$uefi_grubx64,
-		],
-
-		Depend => Exec["uefi-download-${uid}"],
-		Before => Tftp:Server[":69"],
-	}
-
-	$uefi_root = "${uefi_extract_dir}/boot/efi/EFI/fedora/"
-	$uefi_shim = "${uefi_root}shim.efi"
-	$uefi_shimx64 = "${uefi_root}shimx64.efi"
-	$uefi_grubx64 = "${uefi_root}grubx64.efi"
-	tftp:file "/uefi/shim.efi" { # needs leading slash
-		path => $uefi_shim, # TODO: add autoedges
-
-		Depend => Exec["uefi-extract-${uid}"],
-	}
-	tftp:file "/uefi/shimx64.efi" { # needs leading slash
-		path => $uefi_shimx64, # TODO: add autoedges
-
-		Depend => Exec["uefi-extract-${uid}"],
-	}
-	tftp:file "/uefi/grubx64.efi" { # sometimes used?
-		path => $uefi_grubx64, # TODO: add autoedges
-
-		Depend => Exec["uefi-extract-${uid}"],
-	}
-	tftp:file "grubx64.efi" { # no leading slash
-		path => $uefi_grubx64, # TODO: add autoedges
-
-		Depend => Exec["uefi-extract-${uid}"],
-	}
-
-	# XXX: replace with a download resource
-	# XXX: allow send->recv to pass this file to tftp:file->data to keep it in mem!
+	# Each distro downloads these two files in its own way.
 	$vmlinuz_file = "${distroarch_tftp_prefix}vmlinuz"
-	exec "vmlinuz-${uid}" {
-		cmd => "/usr/bin/wget",
-		args => [
-			"--no-verbose",
-			"${repo_url}images/pxeboot/vmlinuz",
-			"-O",
-			$vmlinuz_file,
-		],
-		creates => $vmlinuz_file,
-
-		Depend => File[$distroarch_tftp_prefix],
-		Depend => Http:Server[":${http_port_str}"],
-		Before => Print["ready"],
-	}
+	$initrd_file = "${distroarch_tftp_prefix}initrd.img"
 
 	tftp:file "/${uid}/vmlinuz" {
 		path => $vmlinuz_file, # TODO: add autoedges
@@ -566,22 +432,6 @@ class base:repo($config) {
 		path => $vmlinuz_file, # TODO: add autoedges
 
 		#Depend => Pkg[$pkgs],
-	}
-
-	$initrd_file = "${distroarch_tftp_prefix}initrd.img"
-	exec "initrd-${uid}" {
-		cmd => "/usr/bin/wget",
-		args => [
-			"--no-verbose",
-			"${repo_url}images/pxeboot/initrd.img",
-			"-O",
-			$initrd_file,
-		],
-		creates => $initrd_file,
-
-		Depend => File[$distroarch_tftp_prefix],
-		Depend => Http:Server[":${http_port_str}"],
-		Before => Print["ready"],
 	}
 
 	tftp:file "/${uid}/initrd.img" {
@@ -595,101 +445,257 @@ class base:repo($config) {
 		#Depend => Pkg[$pkgs],
 	}
 
-	# this file resource serves the entire rsync directory over http
-	if $mirror == "" { # and $rsync != ""
-		http:server:file "/fedora/releases/${version}/Everything/${arch}/os/" {
-			path => $distroarch_release_http_prefix,
-		}
-		http:server:file "/fedora/updates/${version}/Everything/${arch}/" {
-			path => $distroarch_updates_http_prefix,
-		}
-	} else {
-		# same as the above http:server:file path would have been
-		http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {
-			sub => "/fedora/", # we remove this from the name!
-			head => $mirror,
+	if $is_fedora {
+		$distroarch_uefi_prefix = "${uefi_prefix}${uid}/"
+		$distroarch_http_prefix = "${http_prefix}${uid}/"
+		$distroarch_release_http_prefix = "${distroarch_http_prefix}release/"
+		$distroarch_updates_http_prefix = "${distroarch_http_prefix}updates/"
 
-			cache => $distroarch_release_http_prefix, # $prefix/http/fedora39-x86_64/release/
+		file "${distroarch_uefi_prefix}" { # dir
+			state => $const.res.file.state.exists,
+
+			Depend => File["${uefi_prefix}"],
+		}
+		file "${distroarch_http_prefix}" { # root http dir
+			state => $const.res.file.state.exists,
+
+			Depend => File["${http_prefix}"],
+		}
+		file "${distroarch_release_http_prefix}" {
+			state => $const.res.file.state.exists,
+
+			Depend => File["${distroarch_http_prefix}"],
+		}
+		file "${distroarch_updates_http_prefix}" {
+			state => $const.res.file.state.exists,
+
+			Depend => File["${distroarch_http_prefix}"],
 		}
 
-		# XXX: if we had both of these in the same http_prefix, we could overlap them with an rsync :/ hmm...
-		http:server:proxy "/fedora/updates/${version}/Everything/${arch}/" { # no os/ dir at the end
-			sub => "/fedora/", # we remove this from the name!
-			head => $mirror,
+		#
+		#	uefi bootloader images
+		#
+		$uefi_download_dir = "${distroarch_uefi_prefix}download/"
+		$uefi_extract_dir = "${distroarch_uefi_prefix}extract/"
 
-			cache => $distroarch_updates_http_prefix, # $prefix/http/fedora39-x86_64/updates/
+		file "${uefi_extract_dir}" { # mkdir
+			state => $const.res.file.state.exists,
+
+			Depend => Exec["uefi-download-${uid}"],
+			Before => Exec["uefi-extract-${uid}"],
 		}
+
+		# Download the shim and grub2-efi packages. If your server is a BIOS
+		# system, you must download the packages to a temporary install root.
+		# Installing them directly on a BIOS machine will attempt to configure
+		# the system for UEFI booting and cause problems.
+		$pkgs_uefi_string = golang_strings.join($pkgs_uefi, " ")
+		$repoidname = "local"
+		# eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/releases/39/Everything/x86_64/os/
+		$repo_url = "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/"
+
+		exec "uefi-download-${uid}" {
+			# no inner quotes because it's not bash handling this!
+			# the dnf download command makes the download destination dir
+			# With DNF5 (provisioning OS Fedora 41+) it's --destdir.
+			# Previously it's --downloaddir and no idea why the API break.
+			cmd => "/usr/bin/dnf download ${pkgs_uefi_string} --assumeyes --disablerepo=* --repofrompath ${repoidname},${repo_url} --destdir=${uefi_download_dir} --releasever ${version}",
+
+			# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
+			ifcmd => "! test -s '${uefi_download_dir}shim-x64'*",
+			ifshell => "/usr/bin/bash",
+
+			Depend => Http:Server[":${http_port_str}"],
+		}
+
+		exec "uefi-extract-${uid}" {
+			# we use rpm2archive instead of cpio since the latter is deprecated for big files
+			# we do this in a loop for all the rpm files
+			# fedora44 stores the raw RPM payload in versioned /usr/lib/efi/
+			# directories. Older releases have the files in $uefi_root.
+			cmd => golang_strings.join([
+				"for i in ${uefi_download_dir}*.rpm",
+				"do /usr/bin/rpm2archive \$i | /usr/bin/tar -xvz --directory ${uefi_extract_dir} --exclude ./etc",
+				"done",
+				"if ! /usr/bin/test -s '${uefi_shim}'",
+				"then /usr/bin/mkdir -p '${uefi_root}' && /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shim.efi '${uefi_shim}'",
+				"fi",
+				"if ! /usr/bin/test -s '${uefi_shimx64}'",
+				"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/shim/'*/EFI/fedora/shimx64.efi '${uefi_shimx64}'",
+				"fi",
+				"if ! /usr/bin/test -s '${uefi_grubx64}'",
+				"then /usr/bin/cp '${uefi_extract_dir}usr/lib/efi/grub2/'*/EFI/fedora/grubx64.efi '${uefi_grubx64}'",
+				"fi",
+				"/usr/bin/test -s '${uefi_shim}' && /usr/bin/test -s '${uefi_shimx64}' && /usr/bin/test -s '${uefi_grubx64}'",
+			], "; "),
+			shell => "/usr/bin/bash",
+
+			# TODO: add an optional expiry mtime check that deletes these old files with an || rm * && false
+			ifcmd => "! /usr/bin/test -s '${uefi_shim}' || ! /usr/bin/test -s '${uefi_shimx64}' || ! /usr/bin/test -s '${uefi_grubx64}'",
+			ifshell => "/usr/bin/bash",
+			watchfiles => [
+				$uefi_shim,
+				$uefi_shimx64,
+				$uefi_grubx64,
+			],
+
+			Depend => Exec["uefi-download-${uid}"],
+			Before => Tftp:Server[":69"],
+		}
+
+		$uefi_root = "${uefi_extract_dir}/boot/efi/EFI/fedora/"
+		$uefi_shim = "${uefi_root}shim.efi"
+		$uefi_shimx64 = "${uefi_root}shimx64.efi"
+		$uefi_grubx64 = "${uefi_root}grubx64.efi"
+		tftp:file "/uefi/shim.efi" { # needs leading slash
+			path => $uefi_shim, # TODO: add autoedges
+
+			Depend => Exec["uefi-extract-${uid}"],
+		}
+		tftp:file "/uefi/shimx64.efi" { # needs leading slash
+			path => $uefi_shimx64, # TODO: add autoedges
+
+			Depend => Exec["uefi-extract-${uid}"],
+		}
+		tftp:file "/uefi/grubx64.efi" { # sometimes used?
+			path => $uefi_grubx64, # TODO: add autoedges
+
+			Depend => Exec["uefi-extract-${uid}"],
+		}
+		tftp:file "grubx64.efi" { # no leading slash
+			path => $uefi_grubx64, # TODO: add autoedges
+
+			Depend => Exec["uefi-extract-${uid}"],
+		}
+
+		# XXX: replace with a download resource
+		# XXX: allow send->recv to pass this file to tftp:file->data to keep it in mem!
+		exec "vmlinuz-${uid}" {
+			cmd => "/usr/bin/wget",
+			args => [
+				"--no-verbose",
+				"${repo_url}images/pxeboot/vmlinuz",
+				"-O",
+				$vmlinuz_file,
+			],
+			creates => $vmlinuz_file,
+
+			Depend => File[$distroarch_tftp_prefix],
+			Depend => Http:Server[":${http_port_str}"],
+			Before => Print["ready"],
+		}
+
+		exec "initrd-${uid}" {
+			cmd => "/usr/bin/wget",
+			args => [
+				"--no-verbose",
+				"${repo_url}images/pxeboot/initrd.img",
+				"-O",
+				$initrd_file,
+			],
+			creates => $initrd_file,
+
+			Depend => File[$distroarch_tftp_prefix],
+			Depend => Http:Server[":${http_port_str}"],
+			Before => Print["ready"],
+		}
+
+		# this file resource serves the entire rsync directory over http
+		if $mirror == "" { # and $rsync != ""
+			http:server:file "/fedora/releases/${version}/Everything/${arch}/os/" {
+				path => $distroarch_release_http_prefix,
+			}
+			http:server:file "/fedora/updates/${version}/Everything/${arch}/" {
+				path => $distroarch_updates_http_prefix,
+			}
+		} else {
+			# same as the above http:server:file path would have been
+			http:server:proxy "/fedora/releases/${version}/Everything/${arch}/os/" {
+				sub => "/fedora/", # we remove this from the name!
+				head => $mirror,
+
+				cache => $distroarch_release_http_prefix, # $prefix/http/fedora39-x86_64/release/
+			}
+
+			# XXX: if we had both of these in the same http_prefix, we could overlap them with an rsync :/ hmm...
+			http:server:proxy "/fedora/updates/${version}/Everything/${arch}/" { # no os/ dir at the end
+				sub => "/fedora/", # we remove this from the name!
+				head => $mirror,
+
+				cache => $distroarch_updates_http_prefix, # $prefix/http/fedora39-x86_64/updates/
+			}
+		}
+
+		# .repo files
+		#$fedora_repo_template = struct{
+		#	name => "fedora",
+		#	distro => $distro,
+		#	version => $version, # 39 for fedora 39
+		#	arch => $arch, # could also be aarch64
+		#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
+		#	extra => "releases",
+		#
+		#	baseurl => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
+		#}
+		#$updates_repo_template = struct{
+		#	name => "updates",
+		#	distro => $distro,
+		#	version => $version, # 39 for fedora 39
+		#	arch => $arch, # could also be aarch64
+		#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
+		#	extra => "updates",
+		#
+		#	baseurl => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
+		#}
+		#http:server:file "/fedora/${uid}/fedora.repo" {
+		#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $fedora_repo_template),
+		#}
+		#http:server:file "/fedora/${uid}/updates.repo" {
+		#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $updates_repo_template),
+		#}
+
+		#
+		#	rsync
+		#
+		#$source_pattern = if $is_fedora {
+		#	"${rsync}releases/${version}/Everything/${arch}/os/" # source
+		#} else {
+		#	"" # XXX: not implemented
+		#}
+		#panic($source_pattern == "") # distro is not specified
+		# TODO: combine release and updates?
+		#$is_safe = $distroarch_release_http_prefix != "" and $distroarch_release_http_prefix != "/"
+		#if $rsync != "" and $source_pattern != "" and $is_safe {
+		#
+		#	$mtime_file = "${http_prefix}rsync-${uid}.mtime"
+		#	$delta = convert.int_to_str(60 * 60 * 24 * 7) # ~1 week in seconds: 604800
+		#	exec "rsync-${uid}" {
+		#		cmd => "/usr/bin/rsync",
+		#		args => [
+		#			"-avSH",
+		#			"--progress",
+		#			# This flavour must always be Everything to work.
+		#			# The Workstation flavour doesn't have an os/ dir.
+		#			$source_pattern, # source
+		#			$distroarch_release_http_prefix, # dest
+		#		],
+		#
+		#		# run this when cmd completes successfully
+		#		donecmd => "/usr/bin/date --utc > ${mtime_file}",
+		#		doneshell => "/usr/bin/bash",
+		#
+		#		# Run if the difference between the current date and the
+		#		# saved date (both converted to sec) is greater than the
+		#		# delta! (Or if the mtime file does not even exist yet.)
+		#		ifcmd => "! /usr/bin/test -e ${mtime_file} || /usr/bin/test \$((`/usr/bin/date +%s` - `/usr/bin/stat -c %Y '${mtime_file}'`)) -gt ${delta}",
+		#
+		#		ifshell => "/usr/bin/bash",
+		#
+		#		Before => Http:Server[":${http_port_str}"],
+		#		Before => File[$distroarch_release_http_prefix],
+		#	}
+		#}
 	}
-
-	# .repo files
-	#$fedora_repo_template = struct{
-	#	name => "fedora",
-	#	distro => $distro,
-	#	version => $version, # 39 for fedora 39
-	#	arch => $arch, # could also be aarch64
-	#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
-	#	extra => "releases",
-	#
-	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/releases/${version}/Everything/${arch}/os/",
-	#}
-	#$updates_repo_template = struct{
-	#	name => "updates",
-	#	distro => $distro,
-	#	version => $version, # 39 for fedora 39
-	#	arch => $arch, # could also be aarch64
-	#	#flavour => "Everything", # The install repo uses "Everything" even for "Workstation" or "Server"
-	#	extra => "updates",
-	#
-	#	baseurl => "http://${router_ip}:${http_port_str}/fedora/updates/${version}/Everything/${arch}/",
-	#}
-	#http:server:file "/fedora/${uid}/fedora.repo" {
-	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $fedora_repo_template),
-	#}
-	#http:server:file "/fedora/${uid}/updates.repo" {
-	#	data => golang.template(deploy.readfile("/files/repo.tmpl"), $updates_repo_template),
-	#}
-
-	#
-	#	rsync
-	#
-	#$source_pattern = if $is_fedora {
-	#	"${rsync}releases/${version}/Everything/${arch}/os/" # source
-	#} else {
-	#	"" # XXX: not implemented
-	#}
-	#panic($source_pattern == "") # distro is not specified
-	# TODO: combine release and updates?
-	#$is_safe = $distroarch_release_http_prefix != "" and $distroarch_release_http_prefix != "/"
-	#if $rsync != "" and $source_pattern != "" and $is_safe {
-	#
-	#	$mtime_file = "${http_prefix}rsync-${uid}.mtime"
-	#	$delta = convert.int_to_str(60 * 60 * 24 * 7) # ~1 week in seconds: 604800
-	#	exec "rsync-${uid}" {
-	#		cmd => "/usr/bin/rsync",
-	#		args => [
-	#			"-avSH",
-	#			"--progress",
-	#			# This flavour must always be Everything to work.
-	#			# The Workstation flavour doesn't have an os/ dir.
-	#			$source_pattern, # source
-	#			$distroarch_release_http_prefix, # dest
-	#		],
-	#
-	#		# run this when cmd completes successfully
-	#		donecmd => "/usr/bin/date --utc > ${mtime_file}",
-	#		doneshell => "/usr/bin/bash",
-	#
-	#		# Run if the difference between the current date and the
-	#		# saved date (both converted to sec) is greater than the
-	#		# delta! (Or if the mtime file does not even exist yet.)
-	#		ifcmd => "! /usr/bin/test -e ${mtime_file} || /usr/bin/test \$((`/usr/bin/date +%s` - `/usr/bin/stat -c %Y '${mtime_file}'`)) -gt ${delta}",
-	#
-	#		ifshell => "/usr/bin/bash",
-	#
-	#		Before => Http:Server[":${http_port_str}"],
-	#		Before => File[$distroarch_release_http_prefix],
-	#	}
-	#}
 }
 
 # The host class is used for each physical host we want to provision.
@@ -708,6 +714,9 @@ class base:host($name, $config) {
 	panic($version == "", "provisioner:host $version is empty")
 	panic($arch == "", "provisioner:host $arch is empty")
 	$flavour = $config->flavour <|> ""
+
+	$is_fedora = $distro == "fedora"
+	panic(not $is_fedora, "provisioner:host ${distro} is not supported")
 
 	$mac = $config->mac <|> ""
 	#panic($mac == "") # provision anyone by default
@@ -779,6 +788,7 @@ class base:host($name, $config) {
 	} else {
 		"/uefi/shim.efi" # for uefi clients
 	}
+	$nbp = "tftp://${router_ip}${nbp_path}"
 
 	if $network != "" {
 		if $mac != "" {
@@ -786,11 +796,7 @@ class base:host($name, $config) {
 				mac => $mac,
 				ip => $ip, # cidr notation is required
 
-				nbp => $provision ?: if $bios { # XXX: do we want this from the base class?
-					$nbp_bios # from base class
-				} else {
-					$nbp_uefi # from base class
-				},
+				nbp => $provision ?: $nbp,
 				nbp_path => $provision ?: $nbp_path, # with leading slash
 
 				Depend => Tftp:Server[":69"],
@@ -802,11 +808,7 @@ class base:host($name, $config) {
 				network => "${network}", # eg: 192.168.42.0/24
 				skip => [$router], # eg: 192.168.42.1/24
 
-				nbp => $provision ?: if $bios { # XXX: do we want this from the base class?
-					$nbp_bios # from base class
-				} else {
-					$nbp_uefi # from base class
-				},
+				nbp => $provision ?: $nbp,
 				nbp_path => $provision ?: $nbp_path, # with leading slash
 
 				Depend => Tftp:Server[":69"],
@@ -858,12 +860,12 @@ class base:host($name, $config) {
 
 	if $bios {
 		tftp:file "${bios_menu}" { # for bios
-			data => golang.template(deploy.readfile("/files/bios-menu.tmpl"), $menu_template),
+			data => golang.template(deploy.readfile("/files/${distro}-bios-menu.tmpl"), $menu_template),
 		}
 	} else {
 		tftp:file "${uefi_menu}" { # for uefi
 			# XXX: linuxefi & initrdefi VS. kernel & append ?
-			data => golang.template(deploy.readfile("/files/uefi-menu.tmpl"), $menu_template),
+			data => golang.template(deploy.readfile("/files/${distro}-uefi-menu.tmpl"), $menu_template),
 
 			#Depend => Pkg[$pkgs_uefi],
 			#Depend => Exec["uefi-extract"],
@@ -872,11 +874,11 @@ class base:host($name, $config) {
 
 	# https://<ip>:4280/${mac}.ipxe # works for ipxe scripts!
 	http:server:file "/${ipxe_menu}" { # for ipxe
-		data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
+		data => golang.template(deploy.readfile("/files/${distro}-ipxe-menu.tmpl"), $menu_template),
 	}
 	if $mac != "" { # generate old one but never the menu.ipxe default
 		http:server:file "/${old_mac}.ipxe" { # for ipxe
-			data => golang.template(deploy.readfile("/files/ipxe-menu.tmpl"), $menu_template),
+			data => golang.template(deploy.readfile("/files/${distro}-ipxe-menu.tmpl"), $menu_template),
 		}
 	}
 
@@ -999,15 +1001,37 @@ class base:host($name, $config) {
 	# TODO: Do we want to signal an http:server:flag if we're a "default" host?
 	$provisioning_done = "/usr/bin/curl --data-urlencode 'done=true' --data-urlencode 'password=sha1TODO' --data-urlencode 'sshtype=ssh-${sshkey_type}' --data-urlencode \"${sshkey_flag}=\$(cut -d ' ' -f 2 '${sshkey_path}.pub')\" --data-urlencode 'sshcomment=root@${handoff_hostname}' -o - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'"
 
+	# These install settings can be shared by the installers of each distro.
+	$install_comment = "hello!"
+	$install_lang = [
+		"en_CA.UTF-8",
+		"fr_CA.UTF-8",
+		"en_US.UTF-8",
+	]
+	$install_timezone = "UTC" # real servers all run in UTC
+	$install_ntp_servers = ["0.pool.ntp.org", "1.pool.ntp.org"] # TODO: set your own?
+	# We need $handoff_packages installed in the _KICKSTART_ environ
+	# so that we can actually run mgmt to do our work for us below!
+	$install_packages = list.concat($packages, $handoff_packages)
+	$install_sshkeys = {
+		"root" => "${sshkey}", # root ssh pub key to add
+	}
+	$install_post = [
+		$setup_sshkey, # setup the ssh key
+		$handoff_binary, # copy over the binary
+		$handoff_cpcode, # copy over a bundle of code
+		$handoff_service, # install a service for mgmt
+		$handoff_firstboot, # install firstboot service
+		$handoff_firstboot_exec, # install a firstboot script to exec
+		$handoff_firstboot_code, # install a firstboot script to deploy
+		$provisioning_done, # send a done signal back here
+	]
+
 	$http_kickstart_template = struct{
-		comment => "hello!",
-		lang => [
-			"en_CA.UTF-8",
-			"fr_CA.UTF-8",
-			"en_US.UTF-8",
-		],
-		timezone => "UTC", # real servers all run in UTC
-		ntp_servers => ["0.pool.ntp.org", "1.pool.ntp.org"], # TODO: set your own?
+		comment => $install_comment,
+		lang => $install_lang,
+		timezone => $install_timezone,
+		ntp_servers => $install_ntp_servers,
 		password => $password, # salted
 		bios => $bios,
 		part => $part,
@@ -1022,9 +1046,7 @@ class base:host($name, $config) {
 		#	"fedora" => "https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-\$releasever&arch=\$basearch",
 		#	"updates" => "https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f\$releasever&arch=\$basearch",
 		#},
-		# We need $handoff_packages installed in the _KICKSTART_ environ
-		# so that we can actually run mgmt to do our work for us below!
-		packages => list.concat($packages, $handoff_packages),
+		packages => $install_packages,
 		# XXX: is wget segfaulting in the kickstart environment? curl is OK.
 		#pre => [
 		#	"/usr/bin/mkdir /etc/yum.repos.d/",
@@ -1033,34 +1055,25 @@ class base:host($name, $config) {
 		#	"/usr/bin/dnf --enablerepo=fedora,updates install --assumeyes ${handoff_packages_string}",
 		#],
 		hostname => $handoff_hostname,
-		sshkeys => {
-			"root" => "${sshkey}", # root ssh pub key to add
-		},
-		post => [
-			$setup_sshkey, # setup the ssh key
-			$handoff_binary, # copy over the binary
-			$handoff_cpcode, # copy over a bundle of code
-			$handoff_service, # install a service for mgmt
-			$handoff_firstboot, # install firstboot service
-			$handoff_firstboot_exec, # install a firstboot script to exec
-			$handoff_firstboot_code, # install a firstboot script to deploy
-			$provisioning_done, # send a done signal back here
-		],
+		sshkeys => $install_sshkeys,
+		post => $install_post,
 	}
 
-	$kickstart_file = "${kickstart_http_prefix}${hkey}.ks"
-	file "${kickstart_file}" {
-		state => $const.res.file.state.exists,
-		content => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+	if $is_fedora {
+		$kickstart_file = "${kickstart_http_prefix}${hkey}.ks"
+		file "${kickstart_file}" {
+			state => $const.res.file.state.exists,
+			content => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 
-		Depend => File["${kickstart_http_prefix}"],
-	}
+			Depend => File["${kickstart_http_prefix}"],
+		}
 
-	http:server:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
-		#data => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
-		path => $kickstart_file,
+		http:server:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
+			#data => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
+			path => $kickstart_file,
 
-		Before => Print["ready"],
+			Before => Print["ready"],
+		}
 	}
 
 	if "${bmc_uri}" != "" {

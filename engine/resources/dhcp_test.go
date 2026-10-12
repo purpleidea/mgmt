@@ -43,6 +43,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
+	"github.com/insomniacslk/dhcp/iana"
 )
 
 func TestDHCPServerValidateNBP(t *testing.T) {
@@ -331,5 +332,146 @@ func TestDHCPRangeSkipsHostIPs(t *testing.T) {
 	}
 	if ip := lease(5); ip != nil {
 		t.Fatalf("range should be full, but got: %s", ip)
+	}
+}
+
+func TestDHCPProxy(t *testing.T) {
+	init := &engine.Init{
+		Event: func(ctx context.Context) error { return nil },
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("dhcp: "+format, v...)
+		},
+	}
+
+	newServer := func(group ...engine.GroupableRes) (*DHCPServerRes, error) {
+		serverID := "192.0.2.1"
+		server := &DHCPServerRes{
+			ServerID: &serverID,
+			NBP:      "tftp://192.0.2.1/uefi/shim.efi",
+		}
+		server.SetName("server")
+		for i, res := range group {
+			res.SetName(fmt.Sprintf("res%d", i))
+			res.SetParent(server)
+		}
+		server.SetGroup(group)
+		return server, server.Init(init)
+	}
+
+	host := &DHCPHostRes{Mac: "de:ad:be:ef:00:01", IP: "198.51.100.42/24", Proxy: true}
+	bios := &DHCPHostRes{Mac: "de:ad:be:ef:00:02", Proxy: true} // no ip to check
+	full := &DHCPHostRes{Mac: "de:ad:be:ef:00:03", IP: "192.0.2.3/24"}
+	rng := &DHCPRangeRes{Network: "198.51.100.0/24", Proxy: true}
+	server, err := newServer(host, bios, full, rng)
+	if err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+
+	unknown := "de:ad:be:ef:00:04"
+	discover := func(mac string, class string, arch iana.Arch) *dhcpv4.DHCPv4 {
+		hw, err := net.ParseMAC(mac)
+		if err != nil {
+			t.Fatalf("func ParseMAC: %v", err)
+		}
+		req, err := dhcpv4.NewDiscovery(hw,
+			dhcpv4.WithOption(dhcpv4.OptClassIdentifier(class)),
+			dhcpv4.WithOption(dhcpv4.OptClientArch(arch)),
+		)
+		if err != nil {
+			t.Fatalf("func NewDiscovery: %v", err)
+		}
+		return req
+	}
+	offer := func(req *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		return server.proxyOfferHandler4(req, resp)
+	}
+	uefi := "PXEClient:Arch:00007:UNDI:003016"
+	legacy := "PXEClient:Arch:00000:UNDI:002001"
+
+	// A regular host is left for the lease handlers.
+	if _, stop := offer(discover(full.Mac, uefi, iana.EFI_X86_64)); stop {
+		t.Fatalf("regular host was handled as a proxy")
+	}
+
+	// A uefi client is told to ask us for its nbp later, without option 43.
+	resp, stop := offer(discover(host.Mac, uefi, iana.EFI_X86_64))
+	if !stop || resp == nil {
+		t.Fatalf("no proxy offer for a uefi host")
+	}
+	if !resp.ServerIPAddr.Equal(net.ParseIP("192.0.2.1")) || resp.BootFileName != "" {
+		t.Fatalf("bad proxy offer: %s", resp.Summary())
+	}
+	if resp.ClassIdentifier() != dhcpPXEClient || resp.Options.Has(dhcpv4.OptionVendorSpecificInformation) {
+		t.Fatalf("bad proxy offer options: %s", resp.Summary())
+	}
+	if resp.Options.Has(dhcpv4.OptionIPAddressLeaseTime) || !resp.YourIPAddr.IsUnspecified() {
+		t.Fatalf("proxy offer has a lease: %s", resp.Summary())
+	}
+
+	// The request for the lease is for the other server.
+	req := discover(host.Mac, uefi, iana.EFI_X86_64)
+	req.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest))
+	if resp, stop := offer(req); !stop || resp != nil {
+		t.Fatalf("proxy host got a reply to a request")
+	}
+
+	// Anyone else is matched by the proxy range, but only if it's pxe.
+	if resp, stop := offer(discover(unknown, "something else", iana.EFI_X86_64)); !stop || resp != nil {
+		t.Fatalf("non-pxe client got a proxy offer")
+	}
+	if resp, _ := offer(discover(unknown, uefi, iana.EFI_X86_64)); resp == nil {
+		t.Fatalf("no proxy offer for a uefi client in the range")
+	}
+
+	// A bios client gets the nbp right away, so it must have no ip to check.
+	if resp, stop := offer(discover(unknown, legacy, iana.INTEL_X86PC)); !stop || resp != nil {
+		t.Fatalf("bios client in a proxy range got an offer")
+	}
+	if resp, stop := offer(discover(host.Mac, legacy, iana.INTEL_X86PC)); !stop || resp != nil {
+		t.Fatalf("bios host with an ip got an offer")
+	}
+	resp, _ = offer(discover(bios.Mac, legacy, iana.INTEL_X86PC))
+	if resp == nil || resp.BootFileName != "/uefi/shim.efi" || !resp.Options.Has(dhcpv4.OptionVendorSpecificInformation) {
+		t.Fatalf("bad bios proxy offer: %v", resp)
+	}
+
+	// On the pxe boot server port, we know the ip of the client.
+	for _, x := range []struct {
+		mac string
+		ip  string
+		nbp bool
+	}{
+		{host.Mac, "198.51.100.42", true},
+		{host.Mac, "198.51.100.43", false}, // in the range, but not ours
+		{bios.Mac, "203.0.113.7", true},
+		{full.Mac, "192.0.2.3", false},
+		{unknown, "198.51.100.7", true},
+		{unknown, "203.0.113.7", false},
+	} {
+		nbp, err := server.proxyNBP4(x.mac, netip.MustParseAddr(x.ip))
+		if err != nil {
+			t.Fatalf("func proxyNBP4: %v", err)
+		}
+		if (nbp != nil) != x.nbp {
+			t.Fatalf("mac %s with ip %s got nbp: %v", x.mac, x.ip, nbp)
+		}
+	}
+
+	// Some proxy setups don't make sense.
+	if _, err := newServer(
+		&DHCPRangeRes{Network: "198.51.100.0/24", Proxy: true},
+		&DHCPRangeRes{Network: "198.51.100.128/25", Proxy: true},
+	); err == nil {
+		t.Fatalf("overlapping proxy ranges were allowed")
+	}
+	if _, err := newServer(
+		&DHCPRangeRes{Network: "198.51.100.0/24", Proxy: true},
+		&DHCPRangeRes{Network: "203.0.113.0/24"},
+	); err == nil {
+		t.Fatalf("mixed proxy and regular ranges were allowed")
 	}
 }

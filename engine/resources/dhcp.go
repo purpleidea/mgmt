@@ -923,8 +923,8 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
 		case dhcpv4.MessageTypeDecline:
 			// If mask is not set, some DHCP clients will DECLINE.
-			obj.init.Logf("handler4: Unhandled decline message: %+v", req)
-			return
+			obj.decline4(req)
+			return // there is never a reply to a decline
 		default:
 			obj.init.Logf("handler4: Unhandled message type: %v", mt)
 			return
@@ -1043,6 +1043,59 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 
 		return // department of redundancy department
 	}
+}
+
+// decline4 handles a DHCPDECLINE message from an IPv4 client. The client sends
+// this when it finds that the ip we gave it is already in use by another host.
+// If we leased it from a range, then that range stops handing it out for a
+// while, and gives this client a different ip the next time that it asks.
+func (obj *DHCPServerRes) decline4(req *dhcpv4.DHCPv4) {
+	mac := req.ClientHWAddr.String()
+	addr, ok := netip.AddrFromSlice(req.RequestedIPAddress().To4()) // net.IP -> netip.Addr
+	if !ok || addr.IsUnspecified() {
+		obj.init.Logf("decline from MAC %s is missing the ip", mac)
+		return
+	}
+
+	// The client sends this to every server, so ignore any that aren't ours.
+	if sid := req.ServerIdentifier(); sid != nil {
+		obj.sidMutex.Lock()
+		serverID := obj.serverID
+		obj.sidMutex.Unlock()
+		if serverID != nil && !sid.Equal(serverID) {
+			if obj.init.Debug {
+				obj.init.Logf("decline is for server ID %s, not ours", sid)
+			}
+			return
+		}
+	}
+
+	// Keep the ip for at least one lease, since the other host might be one
+	// that got a lease from us before we restarted, and forgot about it.
+	hold := obj.leaseTime
+	if hold <= 0 { // lease time was disabled
+		hold, _ = time.ParseDuration(DHCPDefaultLeaseTime) // checked in init
+	}
+
+	for _, x := range obj.GetGroup() { // grouped elements
+		switch res := x.(type) { // convert from Res
+		case *DHCPHostRes:
+			if mac != res.Mac {
+				continue
+			}
+			// We can't change a static assignment, so it's up to the
+			// user to fix this.
+			obj.init.Logf("static ip %s for MAC %s is in use by another host", addr, mac)
+			return
+
+		case *DHCPRangeRes:
+			if res.decline4(mac, addr, hold) {
+				return
+			}
+		}
+	}
+
+	obj.init.Logf("decline of ip %s from MAC %s is not for a lease of ours", addr, mac)
 }
 
 // DHCPHostRes is a representation of a static host assignment in DHCP.
@@ -1389,11 +1442,16 @@ type DHCPRangeRes struct {
 	// TODO: consider persisting this to disk (with the Local API)
 	records map[string]*HostRecord // key is mac address
 
+	// declined are the ip's that a client found in use by another host. We
+	// keep them allocated, but without a record, until this many seconds
+	// since the epoch so that we don't hand them out again in the meantime.
+	declined map[netip.Addr]int
+
 	// TODO: port the allocator to use the net/netip types
 	// TODO: add a new allocator that can work on multiple hosts over etcd
 	allocator allocators.Allocator
 
-	// mutex guards access to records and allocator when running.
+	// mutex guards access to records, declined and allocator when running.
 	mutex *sync.Mutex
 
 	from netip.Addr
@@ -1641,6 +1699,7 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 	}
 
 	obj.records = make(map[string]*HostRecord)
+	obj.declined = make(map[netip.Addr]int)
 	// TODO: consider persisting this to disk
 	if obj.Persist {
 		return fmt.Errorf("persist not implemented")
@@ -2018,8 +2077,55 @@ func (obj *DHCPRangeRes) leaseClean() (time.Duration, error) {
 		return 0, err // actual unknown error
 	}
 
+	for addr, expires := range obj.declined { // deleting here is safe
+		expiry := time.Unix(int64(expires), 0)   // 0 is nsec
+		if delta := expiry.Sub(now); delta > 0 { // positive if not expired
+			if min == -1 { // initialize
+				min = delta
+			}
+			min = minDuration(min, delta) // soonest time to wakeup
+			continue
+		}
+
+		free := net.IPNet{IP: net.IP(addr.AsSlice())} // netip.Addr -> net.IP
+		err := obj.allocator.Free(free)
+		delete(obj.declined, addr)
+		obj.init.Logf("unallocated (free) declined ip %s", addr)
+		if err == nil {
+			continue
+		}
+		if dblErr, ok := err.(*allocators.ErrDoubleFree); ok {
+			// programming error
+			obj.init.Logf("double free programming error on: %v", dblErr.Loc)
+			continue
+		}
+		return 0, err // actual unknown error
+	}
+
 	//if min >= 0 // schedule in `min * time.Second` seconds
 	return min, nil
+}
+
+// decline4 handles a decline from a client of the ip that we leased to it. Some
+// other host is using that ip, so we keep it allocated for the hold duration,
+// and remove the lease, so that this mac gets a different ip next time it asks.
+// This returns false if the ip isn't what we leased to this mac address.
+func (obj *DHCPRangeRes) decline4(mac string, addr netip.Addr, hold time.Duration) bool {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	record, exists := obj.records[mac]
+	if !exists || record.IP != addr {
+		return false
+	}
+
+	// The ip stays allocated, it's just not leased to anyone anymore.
+	delete(obj.records, mac)
+	expiry := time.Now().Add(hold).Round(time.Second)
+	obj.declined[addr] = int(expiry.Unix())
+	obj.init.Logf("ip %s for MAC %s is in use by another host, holding it until: %s", addr, mac, expiry.Format(time.RFC3339))
+
+	return true
 }
 
 // HostRecord is some information that we store about each reservation that we

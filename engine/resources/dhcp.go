@@ -371,7 +371,12 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 	// NOTE: If we don't Init anything that's autogrouped, then it won't
 	// even get an Init call on it.
 	// TODO: should we do this in the engine? Do we want to decide it here?
+	// Only the hosts get Init here, since we need their ip's to reserve
+	// them before the ranges get Init, which is further below.
 	for _, res := range obj.GetGroup() { // grouped elements
+		if _, ok := res.(*DHCPHostRes); !ok {
+			continue
+		}
 		if err := res.Init(init); err != nil {
 			return errwrap.Wrapf(err, "autogrouped Init failed")
 		}
@@ -428,7 +433,8 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 
 			// TODO: reserve res.Mac as well
 
-			addr, ok := netip.AddrFromSlice(res.ipv4Addr) // net.IP -> netip.Addr
+			// We need To4, or this would be an IPv4-mapped IPv6 address.
+			addr, ok := netip.AddrFromSlice(res.ipv4Addr.To4()) // net.IP -> netip.Addr
 			if !ok {
 				// programming error
 				return fmt.Errorf("could not convert ip: %s", res.ipv4Addr)
@@ -442,6 +448,16 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 			obj.reservedIPs[addr] = res // reserve!
 
 		case *DHCPRangeRes:
+		}
+	}
+
+	// The ranges allocate the reserved ip's in their Init, so they go last.
+	for _, res := range obj.GetGroup() { // grouped elements
+		if _, ok := res.(*DHCPHostRes); ok {
+			continue // already done
+		}
+		if err := res.Init(init); err != nil {
+			return errwrap.Wrapf(err, "autogrouped Init failed")
 		}
 	}
 
@@ -1725,7 +1741,16 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 		return fmt.Errorf("unexpected parent resource")
 	}
 	// TODO: res.reservedMutex?
+	// These are the ip's of the static host assignments, which the server
+	// collected before our Init. A host can be anywhere, so we only take
+	// the ones that are in our range. The allocator would give us some
+	// other ip for any others.
+	reserved := make(map[netip.Addr]struct{})
 	for addr := range res.reservedIPs {
+		if addr.Less(obj.from) || obj.to.Less(addr) {
+			continue // not ours
+		}
+		reserved[addr] = struct{}{}
 		ip := net.IP(addr.AsSlice()) // netip.Addr -> net.IP
 		hint := net.IPNet{IP: ip}
 		ipNet, err := obj.allocator.Allocate(hint) // (net.IPNet, error)
@@ -1771,6 +1796,9 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 	}
 
 	for _, ip := range obj.skip {
+		if _, exists := reserved[ip]; exists {
+			continue // already allocated for a static host
+		}
 		// Allocate what the config already chose to skip statically.
 		// NOTE: The API lets us request an ip, but it's not guaranteed.
 		hint := net.IPNet{IP: net.IP(ip.AsSlice())} // netip.Addr -> net.IP

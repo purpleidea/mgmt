@@ -34,8 +34,10 @@ package resources
 import (
 	"context"
 	"net"
+	"net/netip"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 
@@ -123,4 +125,129 @@ func TestDHCPHostNBPHandlerNoRace(t *testing.T) {
 
 	close(start)
 	wg.Wait()
+}
+
+func TestDHCPRangeDecline(t *testing.T) {
+	init := &engine.Init{
+		Event: func(ctx context.Context) error { return nil },
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("dhcp: "+format, v...)
+		},
+	}
+
+	serverID := net.ParseIP("192.0.2.1").To4()
+	server := &DHCPServerRes{}
+	server.SetName("server")
+	server.init = init
+	server.leaseTime = 10 * time.Minute
+	server.sidMutex = &sync.Mutex{}
+	server.serverID = serverID
+
+	rng := &DHCPRangeRes{
+		Network: "192.0.2.0/24",
+		Skip:    []string{"192.0.2.1/24"},
+	}
+	rng.SetName("range")
+	rng.SetParent(server)
+	server.SetGroup([]engine.GroupableRes{rng})
+	if err := rng.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+
+	mac := func(s string) net.HardwareAddr {
+		hw, err := net.ParseMAC(s)
+		if err != nil {
+			t.Fatalf("func ParseMAC: %v", err)
+		}
+		return hw
+	}
+	macA := mac("de:ad:be:ef:00:01")
+	macB := mac("de:ad:be:ef:00:02")
+
+	discover := func(hw net.HardwareAddr) netip.Addr {
+		req, err := dhcpv4.NewDiscovery(hw)
+		if err != nil {
+			t.Fatalf("func NewDiscovery: %v", err)
+		}
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		handler, err := rng.handler4(nil)
+		if err != nil {
+			t.Fatalf("func handler4: %v", err)
+		}
+		resp, _ = handler(req, resp)
+		if resp == nil {
+			t.Fatalf("no response for %s", hw)
+		}
+		addr, ok := netip.AddrFromSlice(resp.YourIPAddr.To4())
+		if !ok {
+			t.Fatalf("bad ip for %s: %s", hw, resp.YourIPAddr)
+		}
+		return addr
+	}
+
+	decline := func(hw net.HardwareAddr, addr netip.Addr, sid net.IP) {
+		req, err := dhcpv4.New(
+			dhcpv4.WithMessageType(dhcpv4.MessageTypeDecline),
+			dhcpv4.WithHwAddr(hw),
+			dhcpv4.WithOption(dhcpv4.OptRequestedIPAddress(net.IP(addr.AsSlice()))),
+			dhcpv4.WithOption(dhcpv4.OptServerIdentifier(sid)),
+		)
+		if err != nil {
+			t.Fatalf("func New: %v", err)
+		}
+		server.decline4(req)
+	}
+
+	ip1 := discover(macA)
+
+	// A decline for another server's lease changes nothing.
+	decline(macA, ip1, net.ParseIP("192.0.2.254"))
+	if ip := discover(macA); ip != ip1 {
+		t.Fatalf("lease changed after a decline for another server: %s != %s", ip, ip1)
+	}
+
+	// After our decline, this mac gets a different ip, and so does a new one.
+	decline(macA, ip1, serverID)
+	ip2 := discover(macA)
+	if ip2 == ip1 {
+		t.Fatalf("got declined ip %s again", ip1)
+	}
+	ipB := discover(macB)
+	if ipB == ip1 {
+		t.Fatalf("new mac got declined ip %s", ip1)
+	}
+
+	// A decline of an ip that isn't the lease of this mac changes nothing.
+	decline(macB, ip2, serverID)
+	if ip := discover(macB); ip != ipB {
+		t.Fatalf("lease changed after a decline of someone else's ip: %s != %s", ip, ipB)
+	}
+	if ip := discover(macA); ip != ip2 {
+		t.Fatalf("lease changed after someone else declined it: %s != %s", ip, ip2)
+	}
+
+	// Once the hold is over, the declined ip can be allocated again.
+	if _, err := rng.leaseClean(); err != nil {
+		t.Fatalf("func leaseClean: %v", err)
+	}
+	if _, exists := rng.declined[ip1]; !exists {
+		t.Fatalf("declined ip %s was freed before its hold was over", ip1)
+	}
+	rng.declined[ip1] = int(time.Now().Add(-time.Second).Unix())
+	if _, err := rng.leaseClean(); err != nil {
+		t.Fatalf("func leaseClean: %v", err)
+	}
+	if _, exists := rng.declined[ip1]; exists {
+		t.Fatalf("declined ip %s was not freed after its hold was over", ip1)
+	}
+	ipNet, err := rng.allocator.Allocate(net.IPNet{IP: net.IP(ip1.AsSlice())})
+	if err != nil {
+		t.Fatalf("func Allocate: %v", err)
+	}
+	if !ipNet.IP.Equal(net.IP(ip1.AsSlice())) {
+		t.Fatalf("declined ip %s is still allocated, got: %s", ip1, ipNet.IP)
+	}
 }

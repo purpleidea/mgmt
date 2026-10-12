@@ -497,14 +497,12 @@ func (obj *DHCPServerRes) Cleanup() error {
 	return nil
 }
 
-// Watch is the primary listener for this resource and it outputs events.
-func (obj *DHCPServerRes) Watch(ctx context.Context) error {
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(context.Canceled)
-
-	addr, err := net.ResolveUDPAddr("udp", obj.getAddress()) // *net.UDPAddr
+// listen4 opens a DHCPv4 listener on the address. Nothing gets handled until
+// the returned server is served.
+func (obj *DHCPServerRes) listen4(address string, handler server4.Handler, logger server4.Logger) (*server4.Server, net.PacketConn, error) {
+	addr, err := net.ResolveUDPAddr("udp", address) // *net.UDPAddr
 	if err != nil {
-		return errwrap.Wrapf(err, "could not resolve address")
+		return nil, nil, errwrap.Wrapf(err, "could not resolve address")
 	}
 
 	//conn, err := net.ListenUDP("udp", addr)
@@ -513,7 +511,28 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	//}
 	//defer conn.Close()
 
-	opts := []server4.ServerOpt{}
+	conn, err := server4.NewIPv4UDPConn(obj.Interface, addr)
+	if err != nil {
+		return nil, nil, errwrap.Wrapf(err, "could not start listener")
+	}
+
+	opts := []server4.ServerOpt{
+		server4.WithLogger(logger),
+		server4.WithConn(conn),
+	}
+	server, err := server4.NewServer(obj.Interface, addr, handler, opts...)
+	if err != nil {
+		_ = conn.Close()
+		return nil, nil, errwrap.Wrapf(err, "could not start listener")
+	}
+
+	return server, conn, nil
+}
+
+// Watch is the primary listener for this resource and it outputs events.
+func (obj *DHCPServerRes) Watch(ctx context.Context) error {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
 
 	// This is the variant for the simple interface as seen in:
 	// https://github.com/insomniacslk/dhcp/pull/373
@@ -534,57 +553,59 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 			obj.init.Logf("%s", util.EscapeLog(s))
 		},
 	}
-	logOpt := server4.WithLogger(newLogger)
-	opts = append(opts, logOpt)
 
-	conn, err := server4.NewIPv4UDPConn(obj.Interface, addr)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not start listener")
-	}
-	opts = append(opts, server4.WithConn(conn))
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
 
-	server, err := server4.NewServer(obj.Interface, addr, obj.handler4(), opts...)
+	// Closing a server closes its conn too. This runs before the wait.
+	servers := []*server4.Server{}
+	conns := []net.PacketConn{}
+	defer func() {
+		for _, server := range servers {
+			_ = server.Close()
+		}
+	}()
+
+	server, conn, err := obj.listen4(obj.getAddress(), obj.handler4(), newLogger)
 	if err != nil {
-		_ = conn.Close()
-		return errwrap.Wrapf(err, "could not start listener")
+		return err
 	}
+	servers = append(servers, server)
+	conns = append(conns, conn)
 
 	if err := obj.init.Event(ctx); err != nil {
-		_ = server.Close()
 		return err
 	}
 
 	select {
 	case <-obj.start: // opened by CheckApply after runtime checks succeed
 	case <-ctx.Done(): // closed by the engine to signal shutdown
-		_ = server.Close()
 		return context.Cause(ctx)
 	}
-	if err := dhcpDrainPacketConn(conn); err != nil {
-		_ = server.Close()
-		return errwrap.Wrapf(err, "could not drain queued packets")
+	for _, conn := range conns {
+		if err := dhcpDrainPacketConn(conn); err != nil {
+			return errwrap.Wrapf(err, "could not drain queued packets")
+		}
 	}
 	//defer obj.mutex.RLock()
 	//obj.mutex.RUnlock() // it's safe to let CheckApply proceed
 
-	wg := &sync.WaitGroup{}
-	defer wg.Wait()
+	for _, server := range servers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		err := server.Serve() // blocks until Close() is called I hope!
-		// TODO: getting this error is probably a bug, please see:
-		// https://github.com/insomniacslk/dhcp/issues/376
-		isClosing := errors.Is(err, net.ErrClosed)
-		if err == nil || isClosing {
-			cancel(nil)
-			return
-		}
-		cancel(errwrap.Wrapf(err, "the server errored"))
-	}()
-	defer server.Close()
+			err := server.Serve() // blocks until Close() is called I hope!
+			// TODO: getting this error is probably a bug, please see:
+			// https://github.com/insomniacslk/dhcp/issues/376
+			isClosing := errors.Is(err, net.ErrClosed)
+			if err == nil || isClosing {
+				cancel(nil)
+				return
+			}
+			cancel(errwrap.Wrapf(err, "the server errored"))
+		}()
+	}
 
 	select {
 	case <-ctx.Done(): // closed by the engine to signal shutdown

@@ -304,11 +304,12 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		x := "192.168.42.13/24"
 		obj.localArgs.IP = &x
 	}
-	hostIP, _, err := net.ParseCIDR(*obj.localArgs.Router)
+	hostIP, _, err := net.ParseCIDR(*obj.localArgs.IP)
 	if err != nil {
 		return nil, err
 	}
-	if !netIPnet.Contains(hostIP) {
+	// The ip is only used for a host, which needs a mac address.
+	if obj.localArgs.Mac != nil && !netIPnet.Contains(hostIP) {
 		return nil, fmt.Errorf("network %s does not contain %s", *obj.localArgs.Network, *obj.localArgs.IP)
 	}
 

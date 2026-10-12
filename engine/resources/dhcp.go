@@ -1309,35 +1309,10 @@ func (obj *DHCPHostRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 // of multiple "plugins" inside of coredhcp. It includes "file" and also "nbp"
 // and others.
 func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool), error) {
-	nbp := ""
-	if data != nil {
-		nbp = data.NBP // from server
-	}
-	if obj.NBP != "" { // host-specific override
-		nbp = obj.NBP
-	}
-	result, err := url.Parse(nbp)
+	nbp, err := obj.nbp4(data)
 	if err != nil {
-		// this should have been checked in Validate :/
-		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
+		return nil, err
 	}
-	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	var opt66 *dhcpv4.Option
-	if result.Host != "" {
-		opt66 = &otsn
-	}
-	p := result.Path
-	if obj.NBPPath != "" { // override the path if this is specified
-		p = obj.NBPPath
-	}
-	obfn := dhcpv4.OptBootFileName(p)
-	var opt67 *dhcpv4.Option
-	if p != "" {
-		opt67 = &obfn
-	}
-	// Most pxe firmware ignores the tftp server name option, and uses the
-	// siaddr (next server) header field instead, so set it when we can.
-	siaddr := net.ParseIP(result.Hostname()).To4() // nil if not ipv4
 
 	return func(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
 		// Might not be *this* reservation, but another one...
@@ -1363,28 +1338,26 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		// If mask is not set, some DHCP clients will DECLINE.
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.ipv4Mask)) // net.IPMask
 
-		// nbp section
-		if siaddr != nil { // overrides the server id default
-			resp.ServerIPAddr = siaddr
-		}
-		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
-			resp.Options.Update(*opt66)
-		}
-		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
-			resp.Options.Update(*opt67)
-		}
-		// Some clients only look at the file field in the header. For
-		// example, shim loads its grub from that same directory, and if
-		// the field is empty, it looks for grub at the tftp root.
-		if p != "" {
-			resp.BootFileName = p
-		}
+		nbp.update4(req, resp)
 		if obj.init.Debug {
-			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)
+			obj.init.Logf("added NBP server %q and path %q to reply", nbp.server, nbp.path)
 		}
 
 		return resp, true
 	}, nil
+}
+
+// nbp4 returns the network boot program information for this host. It uses the
+// nbp url from the server unless we specify our own.
+func (obj *DHCPHostRes) nbp4(data *HostData) (*dhcpNBP4, error) {
+	nbp := ""
+	if data != nil {
+		nbp = data.NBP // from server
+	}
+	if obj.NBP != "" { // host-specific override
+		nbp = obj.NBP
+	}
+	return newDHCPNBP4(nbp, obj.NBPPath)
 }
 
 // DHCPRangeRes is a representation of a range allocator in DHCP. To declare a
@@ -1947,35 +1920,10 @@ func (obj *DHCPRangeRes) UnmarshalYAML(unmarshal func(interface{}) error) error 
 // of multiple "plugins" inside of coredhcp. It includes "file" and also "nbp"
 // and others.
 func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool), error) {
-	nbp := ""
-	if data != nil {
-		nbp = data.NBP // from server
-	}
-	if obj.NBP != "" { // host-specific override
-		nbp = obj.NBP
-	}
-	result, err := url.Parse(nbp)
+	nbp, err := obj.nbp4(data)
 	if err != nil {
-		// this should have been checked in Validate :/
-		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
+		return nil, err
 	}
-	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	var opt66 *dhcpv4.Option
-	if result.Host != "" {
-		opt66 = &otsn
-	}
-	p := result.Path
-	if obj.NBPPath != "" { // override the path if this is specified
-		p = obj.NBPPath
-	}
-	obfn := dhcpv4.OptBootFileName(p)
-	var opt67 *dhcpv4.Option
-	if p != "" {
-		opt67 = &obfn
-	}
-	// Most pxe firmware ignores the tftp server name option, and uses the
-	// siaddr (next server) header field instead, so set it when we can.
-	siaddr := net.ParseIP(result.Hostname()).To4() // nil if not ipv4
 
 	res, ok := obj.Parent().(*DHCPServerRes)
 	if !ok {
@@ -2064,28 +2012,26 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		// If mask is not set, some DHCP clients will DECLINE.
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
 
-		// nbp section
-		if siaddr != nil { // overrides the server id default
-			resp.ServerIPAddr = siaddr
-		}
-		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
-			resp.Options.Update(*opt66)
-		}
-		if opt67 != nil && req.IsOptionRequested(dhcpv4.OptionBootfileName) {
-			resp.Options.Update(*opt67)
-		}
-		// Some clients only look at the file field in the header. For
-		// example, shim loads its grub from that same directory, and if
-		// the field is empty, it looks for grub at the tftp root.
-		if p != "" {
-			resp.BootFileName = p
-		}
+		nbp.update4(req, resp)
 		if obj.init.Debug {
-			obj.init.Logf("Added NBP %s / %s to request", opt66, opt67)
+			obj.init.Logf("added NBP server %q and path %q to reply", nbp.server, nbp.path)
 		}
 
 		return resp, true
 	}, nil
+}
+
+// nbp4 returns the network boot program information for this range. It uses the
+// nbp url from the server unless we specify our own.
+func (obj *DHCPRangeRes) nbp4(data *HostData) (*dhcpNBP4, error) {
+	nbp := ""
+	if data != nil {
+		nbp = data.NBP // from server
+	}
+	if obj.NBP != "" { // range-specific override
+		nbp = obj.NBP
+	}
+	return newDHCPNBP4(nbp, obj.NBPPath)
 }
 
 // leaseClean frees any expired leases. It also returns the duration till the
@@ -2239,6 +2185,61 @@ func checkValidNetmask(netmask net.IPMask) bool {
 // 255.255.255.0 instead of ffffff00 which is what's seen when you print it now.
 func netmaskAsQuadString(netmask net.IPMask) string {
 	return fmt.Sprintf("%d.%d.%d.%d", netmask[0], netmask[1], netmask[2], netmask[3])
+}
+
+// dhcpNBP4 is the network boot program information that we send to a DHCPv4
+// client.
+type dhcpNBP4 struct {
+	// server is the tftp server name, which is sent as option 66.
+	server string
+
+	// siaddr is the tftp server address for the siaddr (next server) header
+	// field. Most pxe firmware ignores option 66 and uses this instead. It
+	// is nil if the server is not an ipv4 address.
+	siaddr net.IP
+
+	// path is the boot file name, which is sent as option 67 and also in
+	// the file header field.
+	path string
+}
+
+// newDHCPNBP4 parses the nbp url into the information that we send. The path,
+// if it's not empty, overrides the path from the url.
+func newDHCPNBP4(nbp, path string) (*dhcpNBP4, error) {
+	u, err := url.Parse(nbp)
+	if err != nil {
+		// this should have been checked in Validate :/
+		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
+	}
+	if path == "" {
+		path = u.Path
+	}
+
+	return &dhcpNBP4{
+		server: u.Host,
+		siaddr: net.ParseIP(u.Hostname()).To4(), // nil if not ipv4
+		path:   path,
+	}, nil
+}
+
+// update4 adds the nbp information to the reply for a client request.
+func (obj *dhcpNBP4) update4(req, resp *dhcpv4.DHCPv4) {
+	if obj.siaddr != nil { // overrides the server id default
+		resp.ServerIPAddr = obj.siaddr
+	}
+	if obj.server != "" && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
+		resp.Options.Update(dhcpv4.OptTFTPServerName(obj.server))
+	}
+	if obj.path == "" {
+		return
+	}
+	if req.IsOptionRequested(dhcpv4.OptionBootfileName) {
+		resp.Options.Update(dhcpv4.OptBootFileName(obj.path))
+	}
+	// Some clients only look at the file field in the header. For example,
+	// shim loads its grub from that same directory, and if the field is
+	// empty, it looks for grub at the tftp root.
+	resp.BootFileName = obj.path
 }
 
 // validateDHCPv4NBP is a simpler validator for the network boot program URL.

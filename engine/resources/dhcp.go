@@ -1659,6 +1659,13 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 			//obj.init.Logf("MAC address %s is unknown", req.ClientHWAddr.String())
 			return resp, false
 		}
+		// A client that asks for some other ip has to start over.
+		if req.MessageType() == dhcpv4.MessageTypeRequest {
+			if addr, ok := requestedIP4(req); ok && !obj.ipv4Addr.Equal(net.IP(addr.AsSlice())) {
+				obj.init.Logf("MAC %s asked for ip %s instead of %s", obj.Mac, addr, obj.ipv4Addr)
+				return nak4(req, resp), true
+			}
+		}
 		if obj.init.Debug || true { // TODO: should we silence this?
 			obj.init.Logf("found IP address %s for MAC %s", obj.IP, req.ClientHWAddr.String())
 		}
@@ -2307,12 +2314,37 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 			obj.init.Logf("range lookup for mac %s", mac)
 		}
 
+		// A request is for a specific ip. If it's not in our range then
+		// it's not for us, but it might be for another range. If it is,
+		// then it must be the ip we leased to this client or if we have
+		// no lease for it, which happens if we restarted, it can have
+		// it if it's still free.
+		var want net.IP // nil means any ip
+		if req.MessageType() == dhcpv4.MessageTypeRequest {
+			addr, ok := requestedIP4(req)
+			if !ok || !obj.contains(addr) {
+				return resp, false
+			}
+			if record, exists := obj.records[mac]; exists && record.IP != addr {
+				obj.init.Logf("MAC %s asked for ip %s instead of %s", mac, addr, record.IP)
+				return nak4(req, resp), true
+			}
+			want = net.IP(addr.AsSlice()) // netip.Addr -> net.IP
+		}
+
 		update := false
 		record, ok := obj.records[mac]
 		if !ok {
-			ipNet, err := obj.allocator.Allocate(net.IPNet{}) // (net.IPNet, error)
+			ipNet, err := obj.allocator.Allocate(net.IPNet{IP: want}) // (net.IPNet, error)
+			if err == nil && want != nil && !ipNet.IP.Equal(want) {
+				_ = obj.allocator.Free(ipNet) // we got some other ip
+				err = fmt.Errorf("ip %s is not available", want)
+			}
 			if err != nil {
 				obj.init.Logf("could not allocate for mac %s: %v", mac, err)
+				if want != nil {
+					return nak4(req, resp), true
+				}
 				return nil, true
 			}
 			// TODO: Do we need to use ipNet.Mask ?
@@ -2621,6 +2653,35 @@ func validateDHCPv4NBP(nbp string) error {
 	}
 
 	return nil
+}
+
+// requestedIP4 returns the ip that a client asks for in a request. It's in the
+// requested ip option, unless the client is renewing a lease that it has, and
+// then it's the client ip. It returns false if there's no ip in the request.
+func requestedIP4(req *dhcpv4.DHCPv4) (netip.Addr, bool) {
+	ip := req.RequestedIPAddress()
+	if ip == nil || ip.IsUnspecified() {
+		ip = req.ClientIPAddr
+	}
+	addr, ok := netip.AddrFromSlice(ip.To4()) // net.IP -> netip.Addr
+	return addr, ok && !addr.IsUnspecified()
+}
+
+// nak4 returns a DHCPNAK reply to the request, which tells the client that it
+// can't have the ip that it asked for, and must start over with a discover. Of
+// the reply that the other handlers built, it only keeps the server id.
+func nak4(req, resp *dhcpv4.DHCPv4) *dhcpv4.DHCPv4 {
+	mods := []dhcpv4.Modifier{
+		dhcpv4.WithMessageType(dhcpv4.MessageTypeNak),
+	}
+	if sid := resp.ServerIdentifier(); sid != nil {
+		mods = append(mods, dhcpv4.WithOption(dhcpv4.OptServerIdentifier(sid)))
+	}
+	nak, err := dhcpv4.NewReplyFromRequest(req, mods...)
+	if err != nil {
+		return nil // the request gets dropped
+	}
+	return nak
 }
 
 // proxyReply4 adds the options that every proxy dhcp reply needs. Strangely,

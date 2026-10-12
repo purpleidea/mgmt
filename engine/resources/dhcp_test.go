@@ -475,3 +475,87 @@ func TestDHCPProxy(t *testing.T) {
 		t.Fatalf("mixed proxy and regular ranges were allowed")
 	}
 }
+
+func TestDHCPRangeRequest(t *testing.T) {
+	init := &engine.Init{
+		Event: func(ctx context.Context) error { return nil },
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("dhcp: "+format, v...)
+		},
+	}
+
+	server := &DHCPServerRes{}
+	server.SetName("server")
+	server.leaseTime = 10 * time.Minute
+
+	rng := &DHCPRangeRes{
+		Network: "192.0.2.0/24",
+		Skip:    []string{"192.0.2.1/24"},
+	}
+	rng.SetName("range")
+	rng.SetParent(server)
+	server.SetGroup([]engine.GroupableRes{rng})
+	if err := rng.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+	handler, err := rng.handler4(nil)
+	if err != nil {
+		t.Fatalf("func handler4: %v", err)
+	}
+
+	send := func(mt dhcpv4.MessageType, mac, ip string) (*dhcpv4.DHCPv4, bool) {
+		hw, err := net.ParseMAC(mac)
+		if err != nil {
+			t.Fatalf("func ParseMAC: %v", err)
+		}
+		mods := []dhcpv4.Modifier{
+			dhcpv4.WithMessageType(mt),
+			dhcpv4.WithHwAddr(hw),
+		}
+		if ip != "" {
+			mods = append(mods, dhcpv4.WithOption(dhcpv4.OptRequestedIPAddress(net.ParseIP(ip))))
+		}
+		req, err := dhcpv4.New(mods...)
+		if err != nil {
+			t.Fatalf("func New: %v", err)
+		}
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		return handler(req, resp)
+	}
+	ack := func(mac, ip string) {
+		resp, stop := send(dhcpv4.MessageTypeRequest, mac, ip)
+		if !stop || resp == nil || resp.MessageType() == dhcpv4.MessageTypeNak || resp.YourIPAddr.String() != ip {
+			t.Fatalf("request of ip %s from %s was not acked: %v", ip, mac, resp)
+		}
+	}
+	nak := func(mac, ip string) {
+		resp, stop := send(dhcpv4.MessageTypeRequest, mac, ip)
+		if !stop || resp == nil || resp.MessageType() != dhcpv4.MessageTypeNak {
+			t.Fatalf("request of ip %s from %s did not get a nak: %v", ip, mac, resp)
+		}
+	}
+
+	macA := "de:ad:be:ef:00:01"
+	resp, _ := send(dhcpv4.MessageTypeDiscover, macA, "")
+	if resp == nil {
+		t.Fatalf("no offer for %s", macA)
+	}
+	ip1 := resp.YourIPAddr.String()
+
+	ack(macA, ip1)
+	nak(macA, "192.0.2.200") // we leased it a different ip
+
+	// An ip outside of the range is not for us, but maybe for another range.
+	if _, stop := send(dhcpv4.MessageTypeRequest, macA, "198.51.100.5"); stop {
+		t.Fatalf("request for an ip outside of the range was handled")
+	}
+
+	// Without a lease, which happens if we restarted, it can have a free ip.
+	ack("de:ad:be:ef:00:02", "192.0.2.100")
+	nak("de:ad:be:ef:00:03", ip1)         // leased to someone else
+	nak("de:ad:be:ef:00:03", "192.0.2.1") // skipped
+	ack("de:ad:be:ef:00:03", "192.0.2.101")
+}

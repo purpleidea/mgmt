@@ -53,6 +53,7 @@ import (
 	"github.com/coredhcp/coredhcp/plugins/allocators/bitmap"
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
+	"github.com/insomniacslk/dhcp/iana"
 	"go4.org/netipx" // extension of unmerged parts from net/netip
 )
 
@@ -70,6 +71,13 @@ const (
 	// DHCPDefaultLeaseTime is the default lease time used when one was not
 	// specified explicitly.
 	DHCPDefaultLeaseTime = "10m" // common default from dhcpd
+
+	// dhcpProxyPort is the "pxe boot server" port. In proxy mode, clients
+	// ask us for their network boot program here once they have a lease.
+	dhcpProxyPort = "4011"
+
+	// dhcpPXEClient is the vendor class identifier prefix of pxe clients.
+	dhcpPXEClient = "PXEClient"
 )
 
 // DHCPServerRes is a simple dhcp server resource. It responds to dhcp client
@@ -78,6 +86,13 @@ const (
 // it is used instead. The resource can offer up dhcp client leases from any
 // number of dhcp:host resources which will get autogrouped into this resource
 // at runtime.
+//
+// It can also act as a proxy dhcp server for any dhcp:host or dhcp:range which
+// has the proxy field set. Those clients get their leases from another dhcp
+// server on the network, and we only send them their network boot program. In
+// this mode we also listen on the "pxe boot server" port of 4011 on the same
+// address, which is where these clients ask for it once they have a lease. A
+// mix of proxy and regular hosts and ranges can be served at the same time.
 //
 // This server is not meant as a featureful replacement for the venerable dhcpd,
 // but rather as a simple, dynamic, integrated alternative for bootstrapping new
@@ -112,7 +127,9 @@ type DHCPServerRes struct {
 	// Please note that if you attempt to automatically determine this from
 	// the specified interface, then this only happens at runtime when the
 	// first DHCP request needs this or during CheckApply, either of which
-	// could fail if for some reason it is not available.
+	// could fail if for some reason it is not available. In proxy mode it
+	// can't be skipped, and it must be an address of this machine, since
+	// that is where the clients send their pxe boot requests to.
 	ServerID *string `lang:"serverid" yaml:"serverid"`
 
 	// LeaseTime is the default lease duration in a format that is parseable
@@ -149,6 +166,12 @@ type DHCPServerRes struct {
 	serverID    net.IP      // can be nil
 	dnsServers4 []net.IP
 	routers4    []net.IP
+
+	// proxy is true if any grouped resource is in proxy mode.
+	proxy bool
+
+	// proxyRanges are the grouped ranges that are in proxy mode.
+	proxyRanges []*DHCPRangeRes
 
 	//mutex *sync.RWMutex
 
@@ -455,6 +478,10 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 
 			// TODO: reserve res.Mac as well
 
+			if res.ipv4Addr == nil { // a proxy host without an ip
+				continue
+			}
+
 			// We need To4, or this would be an IPv4-mapped IPv6 address.
 			addr, ok := netip.AddrFromSlice(res.ipv4Addr.To4()) // net.IP -> netip.Addr
 			if !ok {
@@ -483,8 +510,75 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 		}
 	}
 
+	// This needs the ranges to have been parsed in their Init.
+	if err := obj.initProxy(); err != nil {
+		return err
+	}
+
 	obj.once = &sync.Once{}
 	obj.start = make(chan struct{})
+
+	return nil
+}
+
+// initProxy checks that the grouped resources in proxy mode make sense, and it
+// collects what the proxy handlers need.
+func (obj *DHCPServerRes) initProxy() error {
+	data := &HostData{
+		NBP: obj.NBP,
+	}
+	obj.proxy = false
+	obj.proxyRanges = []*DHCPRangeRes{}
+	regularRanges := false
+
+	for _, x := range obj.GetGroup() { // grouped elements
+		var nbp *dhcpNBP4
+		var err error
+		switch res := x.(type) { // convert from Res
+		case *DHCPHostRes:
+			if !res.Proxy {
+				continue
+			}
+			nbp, err = res.nbp4(data)
+
+		case *DHCPRangeRes:
+			if !res.Proxy {
+				regularRanges = true
+				continue
+			}
+			// We pick the range by the client's ip, so it must be
+			// unique. Two ranges overlap if one contains the start
+			// of the other one.
+			for _, r := range obj.proxyRanges {
+				if res.contains(r.from) || r.contains(res.from) {
+					return fmt.Errorf("%s overlaps with %s", res, r)
+				}
+			}
+			obj.proxyRanges = append(obj.proxyRanges, res)
+			nbp, err = res.nbp4(data)
+
+		default:
+			continue
+		}
+		if err != nil {
+			return errwrap.Wrapf(err, "%s: invalid nbp", x)
+		}
+		// Pxe firmware gets the tftp server from the siaddr field,
+		// which can only be an address, and not a name.
+		if nbp.siaddr == nil || nbp.path == "" {
+			return fmt.Errorf("%s: proxy needs an nbp with an ipv4 tftp server and a path", x)
+		}
+		obj.proxy = true
+	}
+
+	// A regular range would give a lease to every client, so the proxy
+	// ranges would never get to see any of them.
+	if regularRanges && len(obj.proxyRanges) > 0 {
+		return fmt.Errorf("proxy ranges can't be mixed with regular ranges")
+	}
+	if obj.proxy && obj.ServerID != nil && *obj.ServerID == "" {
+		return fmt.Errorf("proxy mode needs a ServerID")
+	}
 
 	return nil
 }
@@ -572,6 +666,20 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 	}
 	servers = append(servers, server)
 	conns = append(conns, conn)
+
+	if obj.proxy { // also listen for pxe boot requests on the same host
+		host, _, err := net.SplitHostPort(obj.getAddress())
+		if err != nil {
+			return errwrap.Wrapf(err, "the Address is in an invalid format")
+		}
+		address := net.JoinHostPort(host, dhcpProxyPort)
+		server, conn, err := obj.listen4(address, obj.proxyHandler4(), newLogger)
+		if err != nil {
+			return err
+		}
+		servers = append(servers, server)
+		conns = append(conns, conn)
+	}
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err
@@ -980,6 +1088,12 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 
 		handlers := []handler.Handler4{}
 
+		// This must run first, so that a proxy reply doesn't get any of
+		// the lease options which the core handlers add.
+		if obj.proxy {
+			handlers = append(handlers, obj.proxyOfferHandler4)
+		}
+
 		// These are the core handlers from our own server struct. The
 		// order of these matters in theory, and possibly in practice.
 		handlers = append(handlers, obj.leasetimeHandler4)
@@ -1003,6 +1117,9 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 
 			switch res := x.(type) { // convert from Res
 			case *DHCPHostRes:
+				if res.Proxy { // see proxyOfferHandler4
+					continue
+				}
 				// NOTE: this is not changed if we do send/recv.
 				// If we want to support that, we need to patch!
 				data := &HostData{
@@ -1019,6 +1136,9 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 				hostHandlers = append(hostHandlers, h)
 
 			case *DHCPRangeRes:
+				if res.Proxy { // see proxyOfferHandler4
+					continue
+				}
 				// TODO: should all handlers have the same signature?
 				data := &HostData{
 					NBP: obj.NBP,
@@ -1134,7 +1254,7 @@ func (obj *DHCPServerRes) decline4(req *dhcpv4.DHCPv4) {
 	for _, x := range obj.GetGroup() { // grouped elements
 		switch res := x.(type) { // convert from Res
 		case *DHCPHostRes:
-			if mac != res.Mac {
+			if mac != res.Mac || res.Proxy { // proxy leases aren't ours
 				continue
 			}
 			// We can't change a static assignment, so it's up to the
@@ -1143,13 +1263,184 @@ func (obj *DHCPServerRes) decline4(req *dhcpv4.DHCPv4) {
 			return
 
 		case *DHCPRangeRes:
-			if res.decline4(mac, addr, hold) {
+			if !res.Proxy && res.decline4(mac, addr, hold) {
 				return
 			}
 		}
 	}
 
 	obj.init.Logf("decline of ip %s from MAC %s is not for a lease of ours", addr, mac)
+}
+
+// proxyOfferHandler4 handles DHCPv4 packets from the clients that we serve in
+// proxy mode, since another dhcp server gives them their leases. Our offer has
+// no lease, and only tells the client to ask us for its network boot program on
+// the pxe boot server port once it has its lease. We decide what to send it at
+// that point, since that's when we know its ip. The pxe spec requires option 43
+// in this offer, but many uefi firmwares only boot reliably without it, so we
+// leave it out. Legacy bios clients ignore an offer without it, and never ask
+// on that port, so they get the nbp right away, but only if they're a host that
+// has no ip for us to check.
+func (obj *DHCPServerRes) proxyOfferHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
+	host := obj.host4(req.ClientHWAddr.String())
+	if host != nil && !host.Proxy {
+		return resp, false // we give this host a lease
+	}
+	if host == nil && len(obj.proxyRanges) == 0 {
+		return resp, false // a regular range might give it a lease
+	}
+
+	// This client is ours to proxy, so it never gets a lease from us, and
+	// any request it sends here is for the lease from the other server.
+	// Once it's booted, it also gets its leases without being a pxe client.
+	if mt := req.MessageType(); mt != dhcpv4.MessageTypeDiscover {
+		if obj.init.Debug {
+			obj.init.Logf("ignoring %s from proxy client %s", mt, req.ClientHWAddr)
+		}
+		return nil, true
+	}
+	if !isPXEClient4(req) {
+		if obj.init.Debug {
+			obj.init.Logf("ignoring non-pxe discover from proxy client %s", req.ClientHWAddr)
+		}
+		return nil, true
+	}
+	bios := isBIOS4(req)
+	if bios && (host == nil || host.ipv4Addr != nil) {
+		if obj.init.Debug {
+			obj.init.Logf("can't check the ip of bios client %s", req.ClientHWAddr)
+		}
+		return nil, true
+	}
+
+	serverID, err := obj.serverID4()
+	if err != nil || serverID == nil { // the nil was checked in Init
+		obj.init.Logf("could not determine the ServerID during runtime")
+		return nil, true
+	}
+	proxyReply4(req, resp, serverID)
+
+	if !bios {
+		resp.ServerIPAddr = serverID.To4() // where to send the boot request
+		obj.init.Logf("sending a proxy offer to MAC %s", req.ClientHWAddr)
+		return resp, true
+	}
+
+	nbp, err := host.nbp4(&HostData{NBP: obj.NBP})
+	if err != nil {
+		obj.init.Logf("%s: invalid nbp: %v", host, err)
+		return nil, true
+	}
+	nbp.update4(req, resp)
+	// The pxe discovery control option (tag 6) with bit 3 set (8) means to
+	// boot the file in this offer, instead of looking for a boot server.
+	// The 255 is the tag that ends the list of pxe options.
+	resp.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, []byte{6, 1, 8, 255}))
+	obj.init.Logf("sending a proxy offer with nbp %s to bios MAC %s", nbp.path, req.ClientHWAddr)
+
+	return resp, true
+}
+
+// proxyHandler4 handles the pxe boot requests that the clients we serve in
+// proxy mode send to us once they have their lease. We now know their ip, so
+// this is where we decide which network boot program they get, if any.
+func (obj *DHCPServerRes) proxyHandler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCPv4) {
+	return func(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) {
+		mac := req.ClientHWAddr.String()
+		if obj.init.Debug {
+			obj.init.Logf("received a pxe boot request from: %s", mac)
+			obj.init.Logf("received from pxe peer: %s", peer)
+			obj.init.Logf("received a pxe boot request: %s", util.EscapeLog(req.Summary()))
+		}
+
+		if req.OpCode != dhcpv4.OpcodeBootRequest || req.MessageType() != dhcpv4.MessageTypeRequest || !isPXEClient4(req) {
+			if obj.init.Debug {
+				obj.init.Logf("proxyHandler4: not a pxe boot request from %s", mac)
+			}
+			return
+		}
+
+		// The client should send us the ip from its lease, but we can
+		// also tell what it is from where the packet came from.
+		ip := req.ClientIPAddr
+		if udp, ok := peer.(*net.UDPAddr); ok && ip.IsUnspecified() {
+			ip = udp.IP
+		}
+		addr, ok := netip.AddrFromSlice(ip.To4()) // net.IP -> netip.Addr
+		if !ok || !addr.IsGlobalUnicast() {
+			obj.init.Logf("pxe boot request from MAC %s is missing the ip", mac)
+			return
+		}
+
+		nbp, err := obj.proxyNBP4(mac, addr)
+		if err != nil {
+			obj.init.Logf("proxyHandler4: invalid nbp: %v", err)
+			return
+		}
+		if nbp == nil {
+			obj.init.Logf("no nbp for MAC %s with ip %s", mac, addr)
+			return
+		}
+
+		serverID, err := obj.serverID4()
+		if err != nil || serverID == nil { // the nil was checked in Init
+			obj.init.Logf("could not determine the ServerID during runtime")
+			return
+		}
+		resp, err := dhcpv4.NewReplyFromRequest(req, dhcpv4.WithMessageType(dhcpv4.MessageTypeAck))
+		if err != nil {
+			obj.init.Logf("proxyHandler4: failed to build reply: %v", err)
+			return
+		}
+		proxyReply4(req, resp, serverID)
+		nbp.update4(req, resp)
+
+		obj.init.Logf("sending nbp %s to MAC %s with ip %s", nbp.path, mac, addr)
+		if obj.init.Debug {
+			obj.init.Logf("sending a pxe boot reply: %s", util.EscapeLog(resp.Summary()))
+		}
+		if _, err := conn.WriteTo(resp.ToBytes(), peer); err != nil {
+			obj.init.Logf("proxyHandler4: conn.Write to %v failed: %v", peer, err)
+		}
+	}
+}
+
+// proxyNBP4 returns the network boot program for a client in proxy mode, or nil
+// if it should not get one. A host with the client's mac address always gets to
+// decide, so that we never fall through to a range when its ip doesn't match.
+func (obj *DHCPServerRes) proxyNBP4(mac string, addr netip.Addr) (*dhcpNBP4, error) {
+	data := &HostData{
+		NBP: obj.NBP,
+	}
+
+	if host := obj.host4(mac); host != nil {
+		if !host.Proxy {
+			return nil, nil // we gave it a lease, so this is confused
+		}
+		if host.ipv4Addr != nil && !host.ipv4Addr.Equal(net.IP(addr.AsSlice())) {
+			obj.init.Logf("%s: got ip %s from the other server instead of %s", host, addr, host.ipv4Addr)
+			return nil, nil
+		}
+		return host.nbp4(data)
+	}
+
+	for _, res := range obj.proxyRanges {
+		if res.contains(addr) {
+			return res.nbp4(data)
+		}
+	}
+
+	return nil, nil
+}
+
+// host4 returns the grouped host with this mac address, or nil if there's none.
+func (obj *DHCPServerRes) host4(mac string) *DHCPHostRes {
+	for _, x := range obj.GetGroup() { // grouped elements
+		if res, ok := x.(*DHCPHostRes); ok && res.Mac == mac {
+			return res
+		}
+	}
+	return nil
 }
 
 // DHCPHostRes is a representation of a static host assignment in DHCP.
@@ -1174,7 +1465,9 @@ type DHCPHostRes struct {
 	// IP is the IPv4 address with the CIDR suffix. The suffix is required
 	// because it specifies the netmask to be used in the DHCPv4 protocol.
 	// For example, you might specify 192.0.2.42/24 which represents a mask
-	// of 255.255.255.0 that will be sent.
+	// of 255.255.255.0 that will be sent. In proxy mode, this is optional,
+	// and the suffix is ignored. If it's set, then the host only gets the
+	// network boot program if this is the ip that the other server gave it.
 	IP string `lang:"ip" yaml:"ip"`
 
 	// NBP is the network boot program URL. This is used for the tftp server
@@ -1193,7 +1486,13 @@ type DHCPHostRes struct {
 	// slash. This is sometimes desirable for legacy tftp setups.
 	NBPPath string `lang:"nbp_path" yaml:"nbp_path"`
 
-	ipv4Addr net.IP // XXX: port to netip.Addr
+	// Proxy should be true if this host gets its lease from another dhcp
+	// server, and we should only send it the network boot program, in the
+	// way that a standard proxy dhcp server does. A legacy bios client can
+	// only be served this way if the IP field is not set.
+	Proxy bool `lang:"proxy" yaml:"proxy"`
+
+	ipv4Addr net.IP // XXX: port to netip.Addr, nil for a proxy without IP
 	ipv4Mask net.IPMask
 }
 
@@ -1211,12 +1510,14 @@ func (obj *DHCPHostRes) Validate() error {
 		return fmt.Errorf("the mac address is not in the canonical format of: %s", s)
 	}
 
-	ipv4Addr, _, err := net.ParseCIDR(obj.IP)
-	if err != nil {
-		return errwrap.Wrapf(err, "invalid IP/CIDR address")
-	}
-	if ipv4Addr.To4() == nil {
-		return fmt.Errorf("only IPv4 is currently supported")
+	if obj.IP != "" || !obj.Proxy { // optional in proxy mode
+		ipv4Addr, _, err := net.ParseCIDR(obj.IP)
+		if err != nil {
+			return errwrap.Wrapf(err, "invalid IP/CIDR address")
+		}
+		if ipv4Addr.To4() == nil {
+			return fmt.Errorf("only IPv4 is currently supported")
+		}
 	}
 
 	// If we didn't require the CIDR, then we could do this...
@@ -1237,6 +1538,10 @@ func (obj *DHCPHostRes) Validate() error {
 // Init runs some startup code for this resource.
 func (obj *DHCPHostRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
+
+	if obj.IP == "" { // a proxy without an ip
+		return nil
+	}
 
 	ipv4Addr, ipv4Net, err := net.ParseCIDR(obj.IP)
 	if err != nil {
@@ -1303,6 +1608,9 @@ func (obj *DHCPHostRes) Cmp(r engine.Res) error {
 	}
 	if obj.NBPPath != res.NBPPath {
 		return fmt.Errorf("the NBPPath differs")
+	}
+	if obj.Proxy != res.Proxy {
+		return fmt.Errorf("the Proxy differs")
 	}
 
 	return nil
@@ -1474,6 +1782,14 @@ type DHCPRangeRes struct {
 	// that. This is useful if you require a path that doesn't start with a
 	// slash. This is sometimes desirable for legacy tftp setups.
 	NBPPath string `lang:"nbp_path" yaml:"nbp_path"`
+
+	// Proxy should be true if the clients in this range get their leases
+	// from another dhcp server, and we should only send them the network
+	// boot program, in the way that a standard proxy dhcp server does. A
+	// client only gets it if the ip that the other server gave it is in
+	// this range. Since nothing gets allocated, the skip and persist fields
+	// can't be used. Legacy bios clients can't be served this way.
+	Proxy bool `lang:"proxy" yaml:"proxy"`
 
 	// TODO: consider persisting this to disk (with the Local API)
 	records map[string]*HostRecord // key is mac address
@@ -1718,6 +2034,10 @@ func (obj *DHCPRangeRes) Validate() error {
 		return err
 	}
 
+	if obj.Proxy && (len(obj.Skip) > 0 || obj.Persist) {
+		return fmt.Errorf("skip and persist can't be used in proxy mode")
+	}
+
 	return nil
 }
 
@@ -1728,6 +2048,10 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 	// This sets some private struct fields if it doesn't error.
 	if err := obj.parse(true); err != nil {
 		return err
+	}
+
+	if obj.Proxy { // nothing gets allocated
+		return nil
 	}
 
 	if err := obj.parseSkip(true); err != nil {
@@ -1767,7 +2091,7 @@ func (obj *DHCPRangeRes) Init(init *engine.Init) error {
 	// other ip for any others.
 	reserved := make(map[netip.Addr]struct{})
 	for addr := range res.reservedIPs {
-		if addr.Less(obj.from) || obj.to.Less(addr) {
+		if !obj.contains(addr) {
 			continue // not ours
 		}
 		reserved[addr] = struct{}{}
@@ -1914,6 +2238,9 @@ func (obj *DHCPRangeRes) Cmp(r engine.Res) error {
 	}
 	if obj.NBPPath != res.NBPPath {
 		return fmt.Errorf("the NBPPath differs")
+	}
+	if obj.Proxy != res.Proxy {
+		return fmt.Errorf("the Proxy differs")
 	}
 
 	return nil
@@ -2158,6 +2485,11 @@ func (obj *DHCPRangeRes) decline4(mac string, addr netip.Addr, hold time.Duratio
 	return true
 }
 
+// contains returns true if the ip is in this range.
+func (obj *DHCPRangeRes) contains(addr netip.Addr) bool {
+	return !addr.Less(obj.from) && !obj.to.Less(addr)
+}
+
 // HostRecord is some information that we store about each reservation that we
 // allocated. This struct is stored as a value which is mapped to by a mac
 // address key, which is why the mac address is not stored in this record.
@@ -2285,6 +2617,28 @@ func validateDHCPv4NBP(nbp string) error {
 	}
 
 	return nil
+}
+
+// proxyReply4 adds the options that every proxy dhcp reply needs. Strangely,
+// the pxe spec says the server must identify itself as a pxe client too.
+func proxyReply4(req, resp *dhcpv4.DHCPv4, serverID net.IP) {
+	resp.UpdateOption(dhcpv4.OptServerIdentifier(serverID))
+	resp.UpdateOption(dhcpv4.OptClassIdentifier(dhcpPXEClient))
+	if guid := req.Options.Get(dhcpv4.OptionClientMachineIdentifier); guid != nil {
+		resp.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionClientMachineIdentifier, guid))
+	}
+}
+
+// isPXEClient4 returns true if the request is from a pxe client.
+func isPXEClient4(req *dhcpv4.DHCPv4) bool {
+	return strings.HasPrefix(req.ClassIdentifier(), dhcpPXEClient)
+}
+
+// isBIOS4 returns true if the request is from a legacy bios client. A client
+// that doesn't send its architecture is from before uefi existed.
+func isBIOS4(req *dhcpv4.DHCPv4) bool {
+	arch := req.ClientArch()
+	return len(arch) == 0 || arch[0] == iana.INTEL_X86PC
 }
 
 // dhcpDrainPacketConn discards datagrams queued while Watch was waiting for the

@@ -182,6 +182,12 @@ type localArgs struct {
 	// Bios should be set true if you want to provision legacy machines.
 	Bios bool `arg:"--bios" help:"should we use bios or uefi" func:"cli_bios"`
 
+	// IPXE should be true if you want the host to boot through ipxe, which
+	// then loads everything else over http, which is much faster than tftp.
+	// This is needed for debian 12 with proxy dhcp. Stock ipxe isn't
+	// signed, so secure boot must be disabled on the host.
+	IPXE bool `arg:"--ipxe" help:"boot through ipxe, which needs secure boot disabled" func:"cli_ipxe"`
+
 	// Password is an `openssl passwd -6` salted password. If you don't
 	// specify this, you will be prompted to enter the actual unhashed
 	// password, and it will be salted and hashed for you.
@@ -451,7 +457,19 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.localArgs.Mirror = util.DebianDownloadURL // a CDN, no need to resolve
 	}
 
+	if obj.localArgs.IPXE && obj.localArgs.Bios {
+		return nil, fmt.Errorf("--ipxe can't be used with --bios")
+	}
+	// The debian 12 grub doesn't look at our proxy dhcp offer, so it can't
+	// find its config, but it works with ipxe or with debian 13 and newer.
+	if obj.localArgs.Proxy && obj.localArgs.Distro == "debian" && obj.localArgs.Version == "12" && !obj.localArgs.IPXE {
+		return nil, fmt.Errorf("debian 12 needs --ipxe with --proxy, or use a newer debian")
+	}
+
 	obj.init.Logf("distro uid: %s%s-%s", obj.localArgs.Distro, obj.localArgs.Version, obj.localArgs.Arch)
+	if obj.localArgs.IPXE {
+		obj.init.Logf("ipxe: true (secure boot must be disabled on the host)")
+	}
 	obj.init.Logf("flavour: %+v", flavour)
 	obj.init.Logf("mirror: %+v", obj.localArgs.Mirror)
 	if len(obj.localArgs.Packages) > 0 {

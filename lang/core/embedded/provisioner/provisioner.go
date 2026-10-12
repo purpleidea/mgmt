@@ -284,33 +284,55 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		x := "192.168.42.0/24"
 		obj.localArgs.Network = &x
 	}
-	_, netIPnet, err := net.ParseCIDR(*obj.localArgs.Network)
-	if err != nil {
-		return nil, err
-	}
+	// An empty network means that we're on an existing network, where we
+	// don't do any dhcp ourselves. Our router ip is then our address on it,
+	// which comes from the interface, unless it's specified.
+	existing := *obj.localArgs.Network == ""
+
 	if s := obj.localArgs.Router; s == nil {
 		x := "192.168.42.1/24"
+		if existing {
+			x = "" // use the address of the interface
+		}
 		obj.localArgs.Router = &x
 	}
-	routerIP, _, err := net.ParseCIDR(*obj.localArgs.Router)
-	if err != nil {
-		return nil, err
-	}
-	if !netIPnet.Contains(routerIP) {
-		return nil, fmt.Errorf("network %s does not contain %s", *obj.localArgs.Network, *obj.localArgs.Router)
-	}
-
 	if s := obj.localArgs.IP; s == nil {
 		x := "192.168.42.13/24"
+		if existing {
+			x = "" // we don't give out any leases
+		}
 		obj.localArgs.IP = &x
 	}
-	hostIP, _, err := net.ParseCIDR(*obj.localArgs.IP)
-	if err != nil {
-		return nil, err
-	}
-	// The ip is only used for a host, which needs a mac address.
-	if obj.localArgs.Mac != nil && !netIPnet.Contains(hostIP) {
-		return nil, fmt.Errorf("network %s does not contain %s", *obj.localArgs.Network, *obj.localArgs.IP)
+
+	if existing {
+		for _, s := range []string{*obj.localArgs.Router, *obj.localArgs.IP} {
+			if s == "" {
+				continue
+			}
+			if _, _, err := net.ParseCIDR(s); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		_, netIPnet, err := net.ParseCIDR(*obj.localArgs.Network)
+		if err != nil {
+			return nil, err
+		}
+		routerIP, _, err := net.ParseCIDR(*obj.localArgs.Router)
+		if err != nil {
+			return nil, err
+		}
+		if !netIPnet.Contains(routerIP) {
+			return nil, fmt.Errorf("network %s does not contain %s", *obj.localArgs.Network, *obj.localArgs.Router)
+		}
+		hostIP, _, err := net.ParseCIDR(*obj.localArgs.IP)
+		if err != nil {
+			return nil, err
+		}
+		// The ip is only used for a host, which needs a mac address.
+		if obj.localArgs.Mac != nil && !netIPnet.Contains(hostIP) {
+			return nil, fmt.Errorf("network %s does not contain %s", *obj.localArgs.Network, *obj.localArgs.IP)
+		}
 	}
 
 	// TODO: add more validation

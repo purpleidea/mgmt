@@ -642,6 +642,12 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 
 	newLogger := &overEngineeredLogger{
 		logf: func(format string, v ...interface{}) {
+			// The library logs every packet, and on a network with
+			// another dhcp server, most of them aren't for us. Any
+			// errors that matter are returned to us anyways.
+			if !obj.init.Debug {
+				return
+			}
 			// Once we've started exiting, the library logs the
 			// closed conn read garbage that we don't care about.
 			s := fmt.Sprintf(format, v...)
@@ -1058,8 +1064,10 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 	return func(conn net.PacketConn, peer net.Addr, req *dhcpv4.DHCPv4) {
 		// req is the incoming message from the dhcp client
 		// peer is who we're replying to (often a broadcast address)
-		obj.init.Logf("received a DHCPv4 packet from: %s", req.ClientHWAddr.String())
+		// On a network with another dhcp server, most packets aren't
+		// for us, so we only log what we do, and not everything else.
 		if obj.init.Debug {
+			obj.init.Logf("received a DHCPv4 packet from: %s", req.ClientHWAddr.String())
 			obj.init.Logf("received from DHCPv4 peer: %s", peer)
 			obj.init.Logf("received a DHCPv4 packet: %s", util.EscapeLog(req.Summary()))
 		}
@@ -1223,7 +1231,7 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 				obj.init.Logf("handler4: conn.Write to %v failed: %v", peer, err)
 			}
 
-		} else {
+		} else if obj.init.Debug { // the handler that dropped it logs why
 			obj.init.Logf("handler4: dropping request because response is nil")
 		}
 

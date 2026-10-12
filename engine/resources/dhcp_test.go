@@ -661,3 +661,80 @@ func TestDHCPRangeReleaseInform(t *testing.T) {
 		t.Fatalf("inform from outside of the range was handled")
 	}
 }
+
+func TestDHCPIPXE(t *testing.T) {
+	hw, err := net.ParseMAC("de:ad:be:ef:00:01")
+	if err != nil {
+		t.Fatalf("func ParseMAC: %v", err)
+	}
+	reply := func(nbp *dhcpNBP4, ipxe bool) *dhcpv4.DHCPv4 {
+		mods := []dhcpv4.Modifier{
+			dhcpv4.WithRequestedOptions(dhcpv4.OptionTFTPServerName, dhcpv4.OptionBootfileName),
+		}
+		if ipxe {
+			mods = append(mods, dhcpv4.WithOption(dhcpv4.OptUserClass("iPXE")))
+		}
+		req, err := dhcpv4.NewDiscovery(hw, mods...)
+		if err != nil {
+			t.Fatalf("func NewDiscovery: %v", err)
+		}
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		nbp.update4(req, resp)
+		return resp
+	}
+
+	script := "http://192.0.2.1:4280/menu.ipxe"
+	nbp, err := newDHCPNBP4("tftp://192.0.2.1/ipxe.x86_64.efi", "", script)
+	if err != nil {
+		t.Fatalf("func newDHCPNBP4: %v", err)
+	}
+
+	// The firmware gets ipxe itself over tftp.
+	resp := reply(nbp, false)
+	if resp.BootFileName != "/ipxe.x86_64.efi" || resp.GetOneOption(dhcpv4.OptionBootfileName) == nil {
+		t.Fatalf("firmware didn't get the nbp: %s", resp.Summary())
+	}
+	if !resp.ServerIPAddr.Equal(net.ParseIP("192.0.2.1")) || resp.TFTPServerName() != "192.0.2.1" {
+		t.Fatalf("firmware didn't get the tftp server: %s", resp.Summary())
+	}
+
+	// Once ipxe is running, it gets the script, so it doesn't load itself.
+	resp = reply(nbp, true)
+	if resp.BootFileName != script || resp.BootFileNameOption() != script {
+		t.Fatalf("ipxe didn't get the script: %s", resp.Summary())
+	}
+	// The ipxe dhcp_has_pxeopts() function ignores a proxy dhcp reply with
+	// no next server, even if the file is a URL, so this needs to be set.
+	if resp.ServerIPAddr.IsUnspecified() {
+		t.Fatalf("ipxe didn't get a next server with the script: %s", resp.Summary())
+	}
+	if resp.Options.Has(dhcpv4.OptionTFTPServerName) {
+		t.Fatalf("ipxe got the tftp server name with the script: %s", resp.Summary())
+	}
+
+	// Without a script, ipxe gets the nbp like anyone else.
+	nbp, err = newDHCPNBP4("tftp://192.0.2.1/ipxe.x86_64.efi", "", "")
+	if err != nil {
+		t.Fatalf("func newDHCPNBP4: %v", err)
+	}
+	if resp := reply(nbp, true); resp.BootFileName != "/ipxe.x86_64.efi" {
+		t.Fatalf("ipxe without a script didn't get the nbp: %s", resp.Summary())
+	}
+
+	for _, x := range []struct {
+		ipxe string
+		ok   bool
+	}{
+		{"", true},
+		{script, true},
+		{"https://192.0.2.1/menu.ipxe", true},
+		{"tftp://192.0.2.1/menu.ipxe", false},
+	} {
+		if err := validateDHCPv4IPXE(x.ipxe); (err == nil) != x.ok {
+			t.Fatalf("ipxe url %q validated as %v: %v", x.ipxe, err == nil, err)
+		}
+	}
+}

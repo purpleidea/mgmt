@@ -33,6 +33,7 @@ package resources
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
 	"sync"
@@ -249,5 +250,86 @@ func TestDHCPRangeDecline(t *testing.T) {
 	}
 	if !ipNet.IP.Equal(net.IP(ip1.AsSlice())) {
 		t.Fatalf("declined ip %s is still allocated, got: %s", ip1, ipNet.IP)
+	}
+}
+
+func TestDHCPRangeSkipsHostIPs(t *testing.T) {
+	init := &engine.Init{
+		Event: func(ctx context.Context) error { return nil },
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("dhcp: "+format, v...)
+		},
+	}
+
+	server := &DHCPServerRes{}
+	server.SetName("server")
+
+	rng := &DHCPRangeRes{
+		Network: "192.0.2.0/29", // 192.0.2.1 to 192.0.2.7
+		Skip:    []string{"192.0.2.1/29"},
+	}
+	rng.SetName("range")
+	rng.SetParent(server)
+
+	group := []engine.GroupableRes{rng}
+	for i, ip := range []string{
+		"192.0.2.5/29",    // in the range
+		"198.51.100.5/24", // outside of the range
+		"192.0.2.1/29",    // also skipped by the range
+	} {
+		host := &DHCPHostRes{
+			Mac: fmt.Sprintf("de:ad:be:ef:01:%02x", i),
+			IP:  ip,
+		}
+		host.SetName(fmt.Sprintf("host%d", i))
+		host.SetParent(server)
+		group = append(group, host)
+	}
+	server.SetGroup(group)
+
+	if err := server.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+
+	handler, err := rng.handler4(nil)
+	if err != nil {
+		t.Fatalf("func handler4: %v", err)
+	}
+	lease := func(i int) net.IP {
+		hw, err := net.ParseMAC(fmt.Sprintf("de:ad:be:ef:02:%02x", i))
+		if err != nil {
+			t.Fatalf("func ParseMAC: %v", err)
+		}
+		req, err := dhcpv4.NewDiscovery(hw)
+		if err != nil {
+			t.Fatalf("func NewDiscovery: %v", err)
+		}
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		resp, _ = handler(req, resp)
+		if resp == nil {
+			return nil
+		}
+		return resp.YourIPAddr
+	}
+
+	// Everything but the skipped and reserved ip's gets handed out.
+	got := map[string]struct{}{}
+	for i := 0; i < 5; i++ {
+		ip := lease(i)
+		if ip == nil {
+			t.Fatalf("no lease for client %d", i)
+		}
+		got[ip.String()] = struct{}{}
+	}
+	for _, ip := range []string{"192.0.2.2", "192.0.2.3", "192.0.2.4", "192.0.2.6", "192.0.2.7"} {
+		if _, exists := got[ip]; !exists {
+			t.Fatalf("ip %s was not handed out, got: %v", ip, got)
+		}
+	}
+	if ip := lease(5); ip != nil {
+		t.Fatalf("range should be full, but got: %s", ip)
 	}
 }

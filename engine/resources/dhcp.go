@@ -286,6 +286,28 @@ func (obj *DHCPServerRes) getServerID() (net.IP, error) {
 	return ip, nil
 }
 
+// serverID4 returns our server ID. It gets looked up and cached the first time
+// that it's needed. This returns nil if we were asked to skip the server ID.
+func (obj *DHCPServerRes) serverID4() (net.IP, error) {
+	// We've been explicitly asked to skip this.
+	if obj.ServerID != nil && *obj.ServerID == "" {
+		return nil, nil
+	}
+
+	// Mutex guards the cached obj.serverID value.
+	defer obj.sidMutex.Unlock()
+	obj.sidMutex.Lock()
+
+	if obj.serverID == nil { // lookup the server ID and cache it here...
+		var err error
+		if obj.serverID, err = obj.getServerID(); err != nil {
+			return nil, err
+		}
+	}
+
+	return obj.serverID, nil
+}
+
 // Validate checks if the resource data structure was populated correctly.
 func (obj *DHCPServerRes) Validate() error {
 	// FIXME: https://github.com/insomniacslk/dhcp/issues/372
@@ -573,21 +595,9 @@ func (obj *DHCPServerRes) Watch(ctx context.Context) error {
 // sidCheckApply runs the server ID cache operation in CheckApply, which can
 // help CheckApply fail before the handler runs, so at least we see an error.
 func (obj *DHCPServerRes) sidCheckApply(ctx context.Context, apply bool) (bool, error) {
-	// Mutex guards the cached obj.serverID value.
-	defer obj.sidMutex.Unlock()
-	obj.sidMutex.Lock()
-
-	// We've been explicitly asked to skip this handler.
-	if obj.ServerID != nil && *obj.ServerID == "" {
-		return true, nil
-	}
-
-	if obj.serverID == nil { // lookup the server ID and cache it here...
-		var err error
-		if obj.serverID, err = obj.getServerID(); err != nil {
-			obj.init.Logf("could not determine the ServerID during CheckApply")
-			return false, err
-		}
+	if _, err := obj.serverID4(); err != nil {
+		obj.init.Logf("could not determine the ServerID during CheckApply")
+		return false, err
 	}
 
 	return true, nil
@@ -835,23 +845,16 @@ func (obj *DHCPServerRes) leasetimeHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.D
 // serverIDHandler4 handles DHCPv4 packets for the serverid component. Modified
 // from: https://github.com/coredhcp/coredhcp/blob/b4aa45e6f7268cc4c52f863b130bd8eb388647b2/plugins/serverid/plugin.go#L78
 func (obj *DHCPServerRes) serverIDHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
-	// We've been explicitly asked to skip this handler.
-	if obj.ServerID != nil && *obj.ServerID == "" {
+	serverID, err := obj.serverID4()
+	if err != nil {
+		obj.init.Logf("could not determine the ServerID during runtime")
+		return nil, true
+	}
+	if serverID == nil { // We've been explicitly asked to skip this handler.
 		return resp, false
 	}
 
-	// Mutex guards the cached obj.serverID value.
-	defer obj.sidMutex.Unlock()
-	obj.sidMutex.Lock()
-	if obj.serverID == nil { // lookup the server ID and cache it here...
-		var err error
-		if obj.serverID, err = obj.getServerID(); err != nil {
-			obj.init.Logf("could not determine the ServerID during runtime")
-			return nil, true
-		}
-	}
-
-	v4ServerID := obj.serverID.To4()
+	v4ServerID := serverID.To4()
 	if v4ServerID == nil { // We already checked this in Validate!
 		panic("unexpected nil serverID")
 	}

@@ -1023,6 +1023,12 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 				break
 			}
 		}
+		if !stop { // no host or range claimed this client
+			if obj.init.Debug {
+				obj.init.Logf("handler4: ignoring unknown MAC %s", req.ClientHWAddr)
+			}
+			return
+		}
 
 		if resp != nil {
 			if obj.init.Debug {

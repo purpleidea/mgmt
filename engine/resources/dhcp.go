@@ -176,8 +176,8 @@ type DHCPServerRes struct {
 	//mutex *sync.RWMutex
 
 	// Global pool where allocated resources are tracked.
-	//reservedMacs map[string]engine.Res // net.HardwareAddr is not comparable :(
-	reservedIPs map[netip.Addr]engine.Res // track which res reserved
+	reservedMacs map[string]engine.Res     // net.HardwareAddr is not comparable :(
+	reservedIPs  map[netip.Addr]engine.Res // track which res reserved
 
 	// TODO: add in ipv6 support here or in a separate resource?
 
@@ -469,14 +469,18 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 	//obj.mutex = &sync.RWMutex{}
 	//obj.mutex.RLock()
 
-	//obj.reservedMacs = make(map[string]engine.Res)
+	obj.reservedMacs = make(map[string]engine.Res)
 	obj.reservedIPs = make(map[netip.Addr]engine.Res)
 
 	for _, x := range obj.GetGroup() { // grouped elements
 		switch res := x.(type) { // convert from Res
 		case *DHCPHostRes:
 
-			// TODO: reserve res.Mac as well
+			// The mac is in canonical form, which Validate checks.
+			if r, exists := obj.reservedMacs[res.Mac]; exists {
+				return fmt.Errorf("res %s already reserved mac: %s", r, res.Mac)
+			}
+			obj.reservedMacs[res.Mac] = res // reserve!
 
 			if res.ipv4Addr == nil { // a proxy host without an ip
 				continue

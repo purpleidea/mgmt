@@ -1335,6 +1335,9 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 	if p != "" {
 		opt67 = &obfn
 	}
+	// Most pxe firmware ignores the tftp server name option, and uses the
+	// siaddr (next server) header field instead, so set it when we can.
+	siaddr := net.ParseIP(result.Hostname()).To4() // nil if not ipv4
 
 	return func(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
 		// Might not be *this* reservation, but another one...
@@ -1361,6 +1364,9 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.ipv4Mask)) // net.IPMask
 
 		// nbp section
+		if siaddr != nil { // overrides the server id default
+			resp.ServerIPAddr = siaddr
+		}
 		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
 			resp.Options.Update(*opt66)
 		}
@@ -1967,6 +1973,9 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 	if p != "" {
 		opt67 = &obfn
 	}
+	// Most pxe firmware ignores the tftp server name option, and uses the
+	// siaddr (next server) header field instead, so set it when we can.
+	siaddr := net.ParseIP(result.Hostname()).To4() // nil if not ipv4
 
 	res, ok := obj.Parent().(*DHCPServerRes)
 	if !ok {
@@ -2056,6 +2065,9 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
 
 		// nbp section
+		if siaddr != nil { // overrides the server id default
+			resp.ServerIPAddr = siaddr
+		}
 		if opt66 != nil && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
 			resp.Options.Update(*opt66)
 		}

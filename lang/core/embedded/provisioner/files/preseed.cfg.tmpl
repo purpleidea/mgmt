@@ -189,7 +189,21 @@ tasksel tasksel/first multiselect standard, ssh-server
 # it here makes this the same every time. It gets cached every time we're online
 # and if it's missing when we're offline, the install fails loudly about it. The
 # installed machine needs it anyways for fsck.vfat to check the efi partition.
+#
+# Like fedora with linux-firmware, we always install the non-free firmware. The
+# installer is supposed to detect missing firmware and add the packages for it,
+# but when netbooting there's no firmware media for it to look in, so it skips
+# them, and the installer kernel never loads most gpu drivers so it can't notice
+# those anyways. Without it, nouveau can't run newer nvidia cards (eg: TU117) so
+# gnome-shell crashes, and gdm gives up without ever showing the login screen.
+# In bookworm, firmware-linux-nonfree depends on all of the gpu firmware. Since
+# trixie the nvidia and intel gpu firmware are split from firmware-misc-nonfree
+# into their own packages, which it only recommends, so we name them explicitly.
+# That way they're still installed if someone turns off recommends, and if they
+# ever get renamed or removed, then the install fails loudly about it instead.
 d-i pkgsel/include string openssh-server curl wget ca-certificates systemd-zram-generator
+{{- " firmware-linux-nonfree firmware-iwlwifi firmware-realtek" }}
+{{- if ne .Codename "bookworm" }} firmware-nvidia-graphics firmware-intel-graphics{{ end }}
 {{- if not .Bios }} dosfstools{{ end }}
 {{- if .Ntp_servers }} systemd-timesyncd{{ end }}
 {{- if eq .Flavour "Workstation" }} gnome-initial-setup{{ end }}

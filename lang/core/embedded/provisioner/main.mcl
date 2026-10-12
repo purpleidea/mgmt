@@ -1023,13 +1023,15 @@ class base:host($name, $config) {
 			"/debian-installer/${debarch}/grub/grub.cfg-" + golang_strings.to_lower($mac)
 		}
 	} else {
+		# The fedora grub has this dir built in, just like the debian
+		# one does. It also tries the dir of the boot file in the dhcp
+		# ack first, but that isn't there with proxy dhcp, since grub
+		# doesn't look at the reply from our pxe boot server.
 		if $mac == "" {
-			# XXX: add the front slash!?
-			#"pxelinux/uefi" # TODO: Did some machines use this?
-			"/uefi/grub.cfg"
+			"/EFI/fedora/grub.cfg"
 		} else {
-			# /uefi/grub.cfg-01-00-11-22-33-44-55-66
-			"/uefi/grub.cfg-01-${old_mac}"
+			# /EFI/fedora/grub.cfg-01-00-11-22-33-44-55-66
+			"/EFI/fedora/grub.cfg-01-${old_mac}"
 		}
 	}
 

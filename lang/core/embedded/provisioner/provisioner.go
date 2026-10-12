@@ -91,6 +91,26 @@ type localArgs struct {
 	// DNS are the list of upstream DNS servers to use during this process.
 	DNS []string `arg:"--dns,separate" help:"upstream dns servers to use" func:"cli_dns"` // eg: ["8.8.8.8", "1.1.1.1"]
 
+	// Proxy specifies that we use proxy dhcp on an existing network, where
+	// another dhcp server gives out the leases, and we only send the
+	// network boot program. The network must be empty, and our ip is the
+	// address of the interface, unless the router is specified. With a mac
+	// address, the ip is optional, and if it's set, then the host is only
+	// provisioned if the other dhcp server gave it that ip. Without a mac
+	// address, you must specify either ProxyRange or ProxyForce.
+	Proxy bool `arg:"--proxy" help:"use proxy dhcp with an existing dhcp server" func:"cli_proxy"`
+
+	// ProxyRange is the network with cidr that the other dhcp server must
+	// give a uefi host an ip in, for it to be provisioned with proxy dhcp.
+	// This is only used without a mac address.
+	ProxyRange string `arg:"--proxy-range" help:"with --proxy, only provision hosts that get an ip in this network" func:"cli_proxy_range"` // eg: 192.168.1.200/29
+
+	// ProxyForce allows us to provision any uefi host on the whole existing
+	// network with proxy dhcp. This will erase the disk of every host which
+	// tries to boot from the network, so be careful! This is only used
+	// without a mac address.
+	ProxyForce bool `arg:"--proxy-force" help:"with --proxy, provision any host on the whole network" func:"-"` // cli only
+
 	// Prefix is a directory to store some provisioner specific state such
 	// as cached distro packages. It can be safely deleted. If you don't
 	// specify this value, one will be chosen automatically.
@@ -154,7 +174,9 @@ type localArgs struct {
 	Mac *net.HardwareAddr `arg:"--mac" help:"mac address to provision" func:"cli_mac"`
 
 	// IP is the address of the host to provision. It must include the /cidr
-	// and be contained in the above network that was specified.
+	// and be contained in the above network that was specified. With proxy
+	// dhcp, it's optional, and it's the ip that the other dhcp server must
+	// give to the host for it to be provisioned.
 	IP *string `arg:"--ip" help:"ip address with cidr of the host to provision" func:"cli_ip"` // eg: "192.168.42.114/24"
 
 	// Bios should be set true if you want to provision legacy machines.
@@ -282,6 +304,9 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	if s := obj.localArgs.Network; s == nil {
 		x := "192.168.42.0/24"
+		if obj.localArgs.Proxy {
+			x = "" // proxy dhcp is for an existing network
+		}
 		obj.localArgs.Network = &x
 	}
 	// An empty network means that we're on an existing network, where we
@@ -302,6 +327,10 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 			x = "" // we don't give out any leases
 		}
 		obj.localArgs.IP = &x
+	}
+
+	if err := obj.checkProxy(existing); err != nil {
+		return nil, err
 	}
 
 	if existing {
@@ -564,6 +593,57 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 	runArgs.Config = libConfig // store any changes we made
 	return runArgs, nil
+}
+
+// checkProxy validates the proxy dhcp args. They're for an existing network, so
+// without a mac address, any host in the proxy range gets provisioned. This is
+// why we never use the whole network unless it's explicitly forced.
+func (obj *provisioner) checkProxy(existing bool) error {
+	args := obj.localArgs
+	if !args.Proxy {
+		if args.ProxyRange != "" || args.ProxyForce {
+			return fmt.Errorf("--proxy-range and --proxy-force need --proxy")
+		}
+		return nil
+	}
+
+	if !existing {
+		return fmt.Errorf("--network must be empty with --proxy")
+	}
+	if args.ProxyRange != "" && args.ProxyForce {
+		return fmt.Errorf("--proxy-range and --proxy-force can't be used together")
+	}
+
+	if args.Mac != nil { // a single host
+		if args.ProxyRange != "" || args.ProxyForce {
+			return fmt.Errorf("--proxy-range and --proxy-force can't be used with --mac")
+		}
+		// A bios host never asks us for its nbp once it has its lease,
+		// so we could never check its ip, and it would never boot.
+		if args.Bios && *args.IP != "" {
+			return fmt.Errorf("--ip can't be used for a --bios host with --proxy")
+		}
+		obj.init.Logf("proxy: host %s", args.Mac.String())
+		return nil
+	}
+
+	// Any host in the range gets provisioned, which erases its disk!
+	if args.ProxyRange == "" && !args.ProxyForce {
+		return fmt.Errorf("--proxy without --mac needs --proxy-range, or --proxy-force for the whole network")
+	}
+	if args.Bios {
+		return fmt.Errorf("--bios hosts can't be provisioned with --proxy without --mac")
+	}
+	if args.ProxyRange == "" {
+		obj.init.Logf("proxy: any uefi host on the network of %s (forced)", *args.Interface)
+		return nil
+	}
+	if _, _, err := net.ParseCIDR(args.ProxyRange); err != nil {
+		return errwrap.Wrapf(err, "invalid --proxy-range")
+	}
+	obj.init.Logf("proxy: any uefi host with an ip in %s", args.ProxyRange)
+
+	return nil
 }
 
 // Register generates some functions that expose the output of our local CLI.

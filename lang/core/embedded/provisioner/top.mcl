@@ -40,6 +40,7 @@ include provisioner.base(struct{
 	network => provisioner.cli_network(),
 	router => provisioner.cli_router(),
 	dns => provisioner.cli_dns(),
+	proxy => provisioner.cli_proxy(), # the master switch
 
 	prefix => provisioner.cli_prefix(),
 	firewalld => provisioner.cli_firewalld(),
@@ -75,6 +76,8 @@ $host_config = struct{
 	mac => provisioner.cli_mac(),
 	ip => provisioner.cli_ip(),
 	bios => provisioner.cli_bios(), # false or absent means use uefi
+	proxy => provisioner.cli_proxy(),
+	network => provisioner.cli_proxy_range(), # only used by a proxy range
 	password => provisioner.cli_password(), # openssl passwd -6
 	part => provisioner.cli_part(),
 	luks => provisioner.cli_luks(),

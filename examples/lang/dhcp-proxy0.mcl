@@ -1,0 +1,111 @@
+# This is an example of a proxy dhcp server. It's useful when you want to
+# network boot machines on a network that already has a dhcp server (often the
+# router) which hands out the leases, and that you can't or don't want to
+# change. The machines still get their ip address from that server, and we only
+# send them their network boot program (nbp), which we also serve over tftp.
+# This needs to run as root, since these are all privileged ports.
+#
+# A uefi client gets an offer from us without any boot file in it, and once it
+# has its lease from the other server, it asks us for one on port 4011. That's
+# when we know its ip, so that's when we decide what to send it, if anything. A
+# legacy bios client never asks on that port, so it can only be served by a
+# proxy dhcp:host without an ip, and then it gets its nbp right away.
+
+$iface = "eth0" # replace with your interface on the existing network
+$addr = "192.168.1.10" # the static ip of this machine on that network
+$root = "/srv/tftp/" # put shimx64.efi, grubx64.efi, pxelinux.0 and so on here
+
+file $root {
+	state => $const.res.file.state.exists,
+}
+
+tftp:server ":69" {
+	root => $root,
+
+	Depend => File[$root], # TODO: add autoedges
+}
+
+http:server ":80" { # serves the script for the ipxe host below
+}
+
+# A real script would load a kernel and an initrd over http, but this one just
+# drops you into the ipxe shell, so that you can see that it worked.
+http:server:file "/boot.ipxe" {
+	data => "#!ipxe\necho hello from the ipxe script\nshell\n",
+}
+
+dhcp:server ":67" { # in proxy mode, we also listen on :4011 automatically
+	interface => $iface, # required for now
+	serverid => $addr, # clients send their pxe boot requests to this ip
+
+	# This is the default nbp for all of the hosts and ranges below. The
+	# tftp server must be an ip, since pxe firmware can't look up a name.
+	nbp => "tftp://${addr}/shimx64.efi",
+
+	# This is the default script for any ipxe client, which is inherited in
+	# the same way, but we only set it on the ipxe host below.
+	#ipxe => "http://${addr}/boot.ipxe",
+
+	# These are only sent to the clients that get their lease from us.
+	leasetime => "10m",
+	dns => ["192.168.1.1"],
+	routers => ["192.168.1.1"],
+}
+
+# A uefi machine that we always boot, whatever ip the other server gives it.
+dhcp:host "uefi1" {
+	mac => "00:11:22:33:44:55", # replace with your own!
+	proxy => true,
+}
+
+# This one only boots if the other server gave it the ip that we expect. If not,
+# we log a message about it, and the machine moves on to its next boot entry.
+dhcp:host "uefi2" {
+	mac => "00:11:22:33:44:66", # replace with your own!
+	ip => "192.168.1.42/24", # the suffix is ignored in proxy mode
+	proxy => true,
+}
+
+# A legacy bios machine never asks us on port 4011, so there's no way to check
+# its ip, which is why a proxy host for one must not have an ip set.
+dhcp:host "bios1" {
+	mac => "00:11:22:33:44:77", # replace with your own!
+	nbp => "tftp://${addr}/pxelinux.0", # overrides the server's default
+	proxy => true,
+}
+
+# This one boots ipxe, which then loads everything else over http, which is much
+# faster than tftp. When ipxe starts up, it gets a new dhcp lease, so it would
+# load itself forever, which is why we send it the URL of its script instead. We
+# know it's ipxe since it sends its name as the user class. Stock ipxe isn't
+# signed, so secure boot must be disabled on this machine.
+dhcp:host "ipxe1" {
+	mac => "00:11:22:33:44:99", # replace with your own!
+	nbp => "tftp://${addr}/ipxe.efi", # from https://boot.ipxe.org/
+	ipxe => "http://${addr}/boot.ipxe", # the script that ipxe runs
+	proxy => true,
+}
+
+# Any other uefi machine boots as well, if the other server gave it an ip in
+# this range. Proxy ranges can't overlap, and they can't be mixed with any
+# regular range on the same server, since that would give a lease to every
+# client. The skip and persist fields can't be used, since nothing gets
+# allocated here.
+dhcp:range "lab" {
+	from => "192.168.1.200/24",
+	to => "192.168.1.249/24",
+	nbp_path => "/lab/shimx64.efi", # shim loads grub from this same dir
+	proxy => true,
+}
+
+# Regular hosts can be mixed in too. This one gets its whole lease from us, so
+# make sure that the other server ignores its mac, or it will get two offers.
+dhcp:host "static1" {
+	mac => "00:11:22:33:44:88", # replace with your own!
+	ip => "192.168.1.50/24", # cidr notation is required
+
+	# This is the same as the default that it would inherit from the server
+	# if we left it out, just like the uefi hosts above do. Every host and
+	# range can set its own nbp, nbp_path or both, to override it.
+	nbp => "tftp://${addr}/shimx64.efi",
+}

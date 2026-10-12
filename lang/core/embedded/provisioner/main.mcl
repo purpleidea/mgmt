@@ -52,10 +52,14 @@ $kickstart_suffix = "kickstart/"
 $preseed_suffix = "preseed/"
 $ipxe_iso_filename = "ipxe.iso"
 $ipxe_iso_default = "https://boot.ipxe.org/${ipxe_iso_filename}" # default download source
-# TODO: add more architectures
-$ipxe_efi_x86_64_filename = "ipxe.x86_64.efi" # .efi must be last for it to work!
 $ipxe_efi_x86_64_default = "https://boot.ipxe.org/x86_64-efi/ipxe.efi"
 $ipxe_autoexec_filename = "autoexec.ipxe"
+
+# ipxe_efi_filename returns the name of the iPXE UEFI executable that we serve
+# for an architecture. The .efi must be last for it to work!
+func ipxe_efi_filename($arch) {
+	"ipxe.${arch}.efi" # eg: ipxe.x86_64.efi
+}
 
 # Debian uses codenames in its mirror paths, and has its own names for each of
 # the architectures. Our distro uid's always use the version and our arch name.
@@ -164,14 +168,17 @@ class base($config) {
 	}
 
 	# Fetch architecture-specific iPXE UEFI executables once and serve them
-	# forever. Each architecture has an explicit variable and a stable root
-	# URL, while every executable shares the root autoexec.ipxe below.
-	$ipxe_efi_x86_64_source = $config->ipxe_efi_x86_64 <|> $ipxe_efi_x86_64_default
-	$ipxe_efi_x86_64_file = "${http_prefix}${ipxe_efi_x86_64_filename}"
+	# forever. Each architecture has an explicit source and a stable root
+	# URL, while every executable shares the root autoexec.ipxe below. Add
+	# an architecture here to support it. An empty source disables it.
+	$ipxe_efi_sources = {
+		"x86_64" => $config->ipxe_efi_x86_64 <|> $ipxe_efi_x86_64_default,
+	}
+	$ipxe_efi_x86_64_source = $ipxe_efi_sources["x86_64"] <|> ""
 	$ipxe_efi_x86_64 = if $ipxe_efi_x86_64_source == "" {
 		""
 	} else {
-		"${server_base}${ipxe_efi_x86_64_filename}"
+		$server_base + ipxe_efi_filename("x86_64")
 	}
 	$ipxe_autoexec_template = struct{
 		server_base => $server_base,
@@ -320,25 +327,33 @@ class base($config) {
 		}
 	}
 
-	if $ipxe_efi_x86_64_source != "" {
-		exec "provisioner-ipxe-efi-x86-64" {
+	class ipxe_efi($arch, $source) {
+		$ipxe_efi_filename = ipxe_efi_filename($arch)
+		$ipxe_efi_file = "${http_prefix}${ipxe_efi_filename}"
+
+		exec "provisioner-ipxe-efi-${arch}" {
 			cmd => "/usr/bin/wget",
 			args => [
 				"--no-verbose",
-				$ipxe_efi_x86_64_source,
+				$source,
 				"-O",
-				$ipxe_efi_x86_64_file,
+				$ipxe_efi_file,
 			],
-			creates => $ipxe_efi_x86_64_file,
+			creates => $ipxe_efi_file,
 
 			Depend => File["${http_prefix}"],
 		}
 
-		http:server:file "/${ipxe_efi_x86_64_filename}" {
-			path => $ipxe_efi_x86_64_file,
+		http:server:file "/${ipxe_efi_filename}" {
+			path => $ipxe_efi_file,
 
-			Depend => Exec["provisioner-ipxe-efi-x86-64"],
+			Depend => Exec["provisioner-ipxe-efi-${arch}"],
 			Before => Print["ready"],
+		}
+	}
+	forkv $arch, $source in $ipxe_efi_sources {
+		if $source != "" {
+			include ipxe_efi($arch, $source)
 		}
 	}
 

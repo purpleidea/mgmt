@@ -1322,7 +1322,10 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
 	}
 	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	opt66 := &otsn
+	var opt66 *dhcpv4.Option
+	if result.Host != "" {
+		opt66 = &otsn
+	}
 	p := result.Path
 	if obj.NBPPath != "" { // override the path if this is specified
 		p = obj.NBPPath
@@ -1951,7 +1954,10 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 		return nil, errwrap.Wrapf(err, "unexpected invalid nbp URL")
 	}
 	otsn := dhcpv4.OptTFTPServerName(result.Host)
-	opt66 := &otsn
+	var opt66 *dhcpv4.Option
+	if result.Host != "" {
+		opt66 = &otsn
+	}
 	p := result.Path
 	if obj.NBPPath != "" { // override the path if this is specified
 		p = obj.NBPPath

@@ -91,16 +91,27 @@ class base($config) {
 	$http_port = $config->http_port <|> 4280 # using :4280 avoids needing root and isn't in /etc/services
 	$http_port_str = convert.int_to_str($http_port)
 
+	# This is the master switch which allows hosts and ranges to each turn
+	# on proxy dhcp. It's for an existing network where another dhcp server
+	# is giving out the leases, and we only send the network boot program.
+	$proxy = $config->proxy <|> false
+
 	# if $network is the empty string, then we don't do any dhcp ourselves!
 	# if $network is the empty string, then we don't bring up the interface!
 	# an unspecified network uses the private default, while an explicitly
-	# empty network uses the address already assigned to the interface.
-	$network_def = if sys.hasenv("MGMT_PROVISIONER_NETWORK") {
-		sys.getenv("MGMT_PROVISIONER_NETWORK")
+	# empty network uses the address already assigned to the interface. The
+	# proxy mode is only for an existing network, so it's empty by default.
+	$network_def = if $proxy {
+		""
 	} else {
-		"192.168.42.0/24"
+		if sys.hasenv("MGMT_PROVISIONER_NETWORK") {
+			sys.getenv("MGMT_PROVISIONER_NETWORK")
+		} else {
+			"192.168.42.0/24"
+		}
 	}
 	$network = $config->network <|> "${network_def}"
+	panic($proxy and $network != "", "provisioner:base $network must be empty with $proxy")
 
 	$router_config = $config->router <|> ""
 	$router = if $router_config == "" {
@@ -205,12 +216,17 @@ class base($config) {
 	#
 	#	firewalld
 	#
+	$proxy_services = if $proxy {
+		["proxy-dhcp"] # the pxe boot server port of 4011
+	} else {
+		[]
+	}
 	if $firewalld {
 		firewalld "provisioner" { # name is irrelevant
-			services => [
+			services => list.concat([
 				"tftp",
 				"dhcp",
-			],
+			], $proxy_services),
 			ports => ["${http_port_str}/tcp"],
 
 			state => $const.res.firewalld.state.exists,
@@ -258,8 +274,8 @@ class base($config) {
 	#
 	#	dhcp
 	#
-	if $network != "" {
-		dhcp:server ":67" {
+	if $network != "" or $proxy {
+		dhcp:server ":67" { # in proxy mode, it also listens on :4011
 			interface => $interface, # required for now
 			leasetime => "10m", # seems some clients refresh half way at 5m
 			dns => $dns, # pick your own better ones!
@@ -843,6 +859,12 @@ class base:host($name, $config) {
 	#panic($mac == "") # provision anyone by default
 	$ip = $config->ip <|> "" # XXX: auto-generate it inside of the above network somehow (see below)
 
+	# This needs the master switch in the base class to be on as well. With
+	# proxy dhcp, the ip is optional, and if it's set, then the host is only
+	# provisioned if the other dhcp server gave it this ip.
+	$host_proxy = $config->proxy <|> false
+	panic($host_proxy and not $proxy, "provisioner:host $proxy is not enabled in the base")
+
 	if $network != "" and $mac != "" {
 		panic($ip == "", "provisioner:host $ip is empty")
 	}
@@ -853,6 +875,9 @@ class base:host($name, $config) {
 	#}
 	#$ip = $config->ip <|> magic.pool($ns, [1,2,3,4], $name) # XXX: if $ns is "", then don't allocate. Otherwise get from list. Reuse based on $name hash.
 	$bios = $config->bios <|> false
+	# A bios client never asks us for its nbp once it has its lease, so we
+	# could never check its ip, and it would never get provisioned.
+	panic($host_proxy and $bios and $ip != "", "provisioner:host $ip must be empty for a bios host with $proxy")
 	$password = $config->password <|> "" # empty means disabled
 	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
 	$sshkey = golang_strings.trim_space($config->sshkey <|> "") # root ssh pub key to add
@@ -917,13 +942,15 @@ class base:host($name, $config) {
 	$nbp = "tftp://${router_ip}${nbp_path}"
 
 	# Without a mac address, the range class adds the dhcp part.
-	if $network != "" and $mac != "" {
+	if $mac != "" and ($network != "" or $host_proxy) {
 		dhcp:host "${name}" { # the hostname
 			mac => $mac,
-			ip => $ip, # cidr notation is required
+			ip => $ip, # cidr notation is required, optional with proxy
 
 			nbp => $provision ?: $nbp,
 			nbp_path => $provision ?: $nbp_path, # with leading slash
+
+			proxy => $host_proxy,
 
 			Depend => Tftp:Server[":69"],
 		}
@@ -1359,16 +1386,38 @@ class base:range($name, $config) {
 	$mac = $config->mac <|> ""
 	panic($mac != "", "provisioner:range $mac must be empty")
 
+	# This needs the master switch in the base class to be on as well. With
+	# proxy dhcp any uefi host that the other dhcp server gives an ip in our
+	# network gets provisioned. Unless you specify a smaller network for the
+	# range here, that's the whole existing network that we're on! A legacy
+	# bios client never asks us for its nbp once it has its lease, so we can
+	# never check its ip, and it would never get provisioned.
+	$range_proxy = $config->proxy <|> false
+	panic($range_proxy and not $proxy, "provisioner:range $proxy is not enabled in the base")
+	panic($range_proxy and ($config->bios <|> false), "provisioner:range $bios can't be used with $proxy")
+	$range_network = if $range_proxy {
+		$config->network <|> $router # the existing network, eg: 192.168.1.0/24
+	} else {
+		$network
+	}
+	$range_skip []str = if $range_proxy {
+		[] # nothing gets allocated in proxy mode
+	} else {
+		[$router] # eg: 192.168.42.1/24
+	}
+
 	include host($name, $config) as host0
 
-	if $network != "" {
+	if $network != "" or $range_proxy {
 		# TODO: Our dhcp:range could send/recv a map from ip => mac address!
 		dhcp:range "${name}" {
-			network => "${network}", # eg: 192.168.42.0/24
-			skip => [$router], # eg: 192.168.42.1/24
+			network => $range_network, # eg: 192.168.42.0/24
+			skip => $range_skip,
 
 			nbp => $host0.provision ?: $host0.nbp,
 			nbp_path => $host0.provision ?: $host0.nbp_path, # with leading slash
+
+			proxy => $range_proxy,
 
 			Depend => Tftp:Server[":69"],
 		}

@@ -188,7 +188,15 @@ func (obj *Runner) Name() string {
 //
 // XXX: This function is analogous to the cli/cli.go:CLI() function. Could it be
 // shared with what's there already or extended to get used for the method too?
-func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) error {
+func (obj *Runner) CLI(ctx context.Context, data *cliUtil.Data) (reterr error) {
+	// Log any error we're about to return so that we don't fail silently.
+	// Without this, the top-level main would only set the exit code.
+	defer func() {
+		if reterr != nil && data != nil && data.Flags.Logf != nil {
+			data.Flags.Logf("error: %v", reterr)
+		}
+	}()
+
 	// obj.data comes from what the user Registered(): trust this less
 	// cli.data comes from what the mgmt compiler specified: trust this more
 

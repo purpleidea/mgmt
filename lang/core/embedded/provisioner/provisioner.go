@@ -103,20 +103,23 @@ type localArgs struct {
 
 	// repo
 
-	// Distro specifies the distribution to use. Currently only `fedora` is
-	// supported.
+	// Distro specifies the distribution to use. Currently `fedora` and
+	// `debian` are supported.
 	Distro string `arg:"--distro" default:"fedora" help:"distribution to use" func:"cli_distro"`
 
 	// Version is the distribution version. This is a string, not an int.
-	Version string `arg:"--dversion" help:"distribution version" func:"cli_version"` // eg: "38"
+	// For debian, this is the major version number, not the codename.
+	Version string `arg:"--dversion" help:"distribution version" func:"cli_version"` // eg: "38" or "13"
 
 	// Arch is the distro architecture to use. Only x86_64 and aarch64 are
-	// currently supported. Patches welcome.
+	// currently supported. Patches welcome. We use these names for every
+	// distro, even if the distro itself uses a different name for it.
 	Arch string `arg:"--arch" default:"x86_64" help:"architecture to use" func:"cli_arch"`
 
 	// Flavour describes a flavour of distribution to provision. The value
 	// and what it does is highly dependent on the distro you specified. The
-	// default is set automatically depending on your distro variable.
+	// default is set automatically depending on your distro variable. Both
+	// fedora and debian support `Workstation` and `Server`.
 	Flavour *string `arg:"--flavour" help:"flavour of distribution" func:"cli_flavour"` // eg: "Workstation" or "Server"
 
 	// Mirror is the mirror to provision from. Pick one that supports both
@@ -128,7 +131,9 @@ type localArgs struct {
 	// local mirror near you. If you have issues with the installer exiting,
 	// and 404's or similar issues happening, specify a mirror here. Some
 	// users can get inconsistent repository views if the particular
-	// location they connect from picks different mirrors.
+	// location they connect from picks different mirrors. For debian, this
+	// defaults to: https://deb.debian.org/debian/ and the security updates
+	// always come from: https://deb.debian.org/debian-security/ instead.
 	// TODO: Do we need to do a special step of checking the signature of
 	// the initrd or vmlinuz or the install.img file we first load?
 	Mirror string `arg:"--mirror" help:"https mirror for proxy provisioning" func:"cli_mirror"`
@@ -346,12 +351,19 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 	if obj.localArgs.Distro == "" {
 		return nil, fmt.Errorf("distro was not specified")
 	}
-	if obj.localArgs.Distro != "fedora" { // TODO: add other distros!
-		return nil, fmt.Errorf("only fedora is currently supported")
+	if d := obj.localArgs.Distro; d != "fedora" && d != "debian" { // TODO: add other distros!
+		return nil, fmt.Errorf("only fedora and debian are currently supported")
 	}
 
 	if obj.localArgs.Distro == "fedora" && obj.localArgs.Version == "" {
 		version, err := util.LatestFedoraVersion(ctx, obj.localArgs.Arch) // get a default for fedora
+		if err != nil {
+			return nil, err
+		}
+		obj.localArgs.Version = version
+	}
+	if obj.localArgs.Distro == "debian" && obj.localArgs.Version == "" {
+		version, err := util.LatestDebianVersion(ctx) // get a default for debian
 		if err != nil {
 			return nil, err
 		}
@@ -365,23 +377,26 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.localArgs.Arch = "x86_64"
 	}
 
-	if obj.localArgs.Distro == "fedora" && (obj.localArgs.Flavour == nil || *obj.localArgs.Flavour == "") {
-		flavour := "Workstation" // set a default for fedora
+	if obj.localArgs.Flavour == nil || *obj.localArgs.Flavour == "" {
+		flavour := "Workstation" // set a default for fedora and debian
 		obj.localArgs.Flavour = &flavour
 	}
 	flavour := *obj.localArgs.Flavour
 
-	if obj.localArgs.Distro == "fedora" && flavour != strings.Title(flavour) {
+	if flavour != strings.Title(flavour) {
 		return nil, fmt.Errorf("distro flavour should be in Title case")
 	}
 
 	if obj.localArgs.Distro == "fedora" && obj.localArgs.Mirror == "" {
-		obj.localArgs.Mirror = "https://download.fedoraproject.org/pub/fedora/linux/" // default
+		obj.localArgs.Mirror = util.FedoraDownloadURL // default
 		// This will auto-resolve once we get going.
 		m, err := util.GetFedoraDownloadURL(ctx)
 		if err == nil {
 			obj.localArgs.Mirror = m
 		}
+	}
+	if obj.localArgs.Distro == "debian" && obj.localArgs.Mirror == "" {
+		obj.localArgs.Mirror = util.DebianDownloadURL // a CDN, no need to resolve
 	}
 
 	obj.init.Logf("distro uid: %s%s-%s", obj.localArgs.Distro, obj.localArgs.Version, obj.localArgs.Arch)

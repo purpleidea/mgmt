@@ -49,12 +49,26 @@ $http_suffix = "http/"
 $tftp_suffix = "tftp/"
 $uefi_suffix = "uefi/"
 $kickstart_suffix = "kickstart/"
+$preseed_suffix = "preseed/"
 $ipxe_iso_filename = "ipxe.iso"
 $ipxe_iso_default = "https://boot.ipxe.org/${ipxe_iso_filename}" # default download source
 # TODO: add more architectures
 $ipxe_efi_x86_64_filename = "ipxe.x86_64.efi" # .efi must be last for it to work!
 $ipxe_efi_x86_64_default = "https://boot.ipxe.org/x86_64-efi/ipxe.efi"
 $ipxe_autoexec_filename = "autoexec.ipxe"
+
+# Debian uses codenames in its mirror paths, and has its own names for each of
+# the architectures. Our distro uid's always use the version and our arch name.
+$debian_codenames = {
+	"12" => "bookworm",
+	"13" => "trixie",
+	"14" => "forky",
+	"15" => "duke",
+}
+$debian_arches = {
+	"x86_64" => "amd64",
+	"aarch64" => "arm64",
+}
 
 # The base class is the core provisioner which can also spawn child classes.
 class base($config) {
@@ -330,6 +344,15 @@ class base($config) {
 		Depend => File["${http_prefix}"],
 	}
 
+	$preseed_http_prefix = "${http_prefix}${preseed_suffix}"
+	file "${preseed_http_prefix}" {
+		state => $const.res.file.state.exists,
+		recurse => true,
+		purge => true, # remove unmanaged files in here
+
+		Depend => File["${http_prefix}"],
+	}
+
 	$vardir = local.vardir("provisioner/")
 	$binary_path = deploy.binary_path()
 
@@ -399,7 +422,7 @@ class base:repo($config) {
 	#$flavour = $config->flavour <|> "" # is flavour needed for repo sync?
 
 	# export this value to parent scope for base:host to consume
-	$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
+	$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64 or debian13-x86_64
 
 	# TODO: We need a way to pick a good default because if a lot of people
 	# use this, then most won't change it to one in their country...
@@ -407,7 +430,8 @@ class base:repo($config) {
 	$rsync = $config->rsync <|> ""
 
 	$is_fedora = $distro == "fedora"
-	panic(not $is_fedora, "provisioner:repo ${distro} is not supported")
+	$is_debian = $distro == "debian"
+	panic(not $is_fedora and not $is_debian, "provisioner:repo ${distro} is not supported")
 
 	$distroarch_tftp_prefix = "${tftp_prefix}${uid}/"
 
@@ -696,6 +720,101 @@ class base:repo($config) {
 		#	}
 		#}
 	}
+
+	if $is_debian {
+		# Debian uses codenames in its paths and its own arch names.
+		$codename = $debian_codenames[$version] <|> ""
+		$debarch = $debian_arches[$arch] <|> ""
+		panic($codename == "", "provisioner:repo debian ${version} is unknown")
+		panic($debarch == "", "provisioner:repo debian ${arch} is unknown")
+
+		# The security repository is usually not on the regular mirrors.
+		$mirror_security = $config->mirror_security <|> "https://deb.debian.org/debian-security/"
+
+		# The debian mirror layout is shared by every version and arch,
+		# so we serve the same paths that deb.debian.org does. This is
+		# required since the installer uses the /debian-security/ path
+		# for security updates on our host, no matter what else we say.
+		# Everything is cached forever, so that once we've done a first
+		# install, we can do the next ones without the internet. These
+		# identical resources from different versions get merged. With
+		# no mirror, this only serves what is already in the cache.
+		# NOTE: The security metadata (and updates since trixie) expires
+		# a week after it was first cached, so our apt hook tells apt to
+		# ignore those dates during the install, which lets it get the
+		# updates that we have. The installed machine checks as usual.
+		http:server:proxy "/debian/" {
+			sub => "/debian/", # we remove this from the name!
+			head => $mirror,
+
+			cache => "${http_prefix}debian/", # $prefix/http/debian/
+		}
+		http:server:proxy "/debian-security/" {
+			sub => "/debian-security/", # we remove this from the name!
+			head => $mirror_security,
+
+			cache => "${http_prefix}debian-security/", # $prefix/http/debian-security/
+		}
+
+		# The automatic partitioner can only encrypt with lvm, so our
+		# recipe marks the root partition for encryption, and then the
+		# installer downloads this hook which sets that up without lvm.
+		http:server:file "/${preseed_suffix}debian-partman-crypto.sh" {
+			data => deploy.readfile("/files/debian-partman-crypto.sh"),
+		}
+		http:server:file "/${preseed_suffix}debian-apt-hook.sh" {
+			data => deploy.readfile("/files/debian-apt-hook.sh"),
+		}
+
+		# The netboot installer gives us the kernel and the initrd, and
+		# also the signed shim and grub for uefi. This grub always reads
+		# its config from a hard-coded path so a shared file there picks
+		# the host specific menu by mac address. These come through our
+		# cache so they match the kernel modules that the installer gets
+		# from it. If you clear the cache, then clear these files too.
+		# eg: https://deb.debian.org/debian/dists/trixie/main/installer-amd64/current/images/
+		$netboot_url = "http://${router_ip}:${http_port_str}/debian/dists/${codename}/main/installer-${debarch}/current/images/"
+		$netboot_template = struct{
+			dir => $distroarch_tftp_prefix,
+			url => $netboot_url,
+			debarch => $debarch,
+		}
+		$uefi_shim = "${distroarch_tftp_prefix}shimx64.efi"
+		$uefi_grub = "${distroarch_tftp_prefix}grubx64.efi"
+
+		exec "netboot-${uid}" {
+			cmd => golang.template(deploy.readfile("/files/debian-netboot.sh.tmpl"), $netboot_template),
+			shell => "/usr/bin/bash",
+
+			# Run if any of the files are missing.
+			ifcmd => golang_strings.join([
+				"for f in vmlinuz initrd.img shimx64.efi grubx64.efi SHA256SUMS",
+				"do /usr/bin/test -s '${distroarch_tftp_prefix}'\$f || exit 0",
+				"done",
+				"exit 1",
+			], "; "),
+			ifshell => "/usr/bin/bash",
+
+			Depend => File[$distroarch_tftp_prefix],
+			Depend => Http:Server[":${http_port_str}"],
+			Before => Tftp:Server[":69"],
+			Before => Print["ready"],
+		}
+
+		tftp:file "/uefi/${uid}/shimx64.efi" { # needs leading slash
+			path => $uefi_shim, # TODO: add autoedges
+
+			Depend => Exec["netboot-${uid}"],
+		}
+		tftp:file "/uefi/${uid}/grubx64.efi" { # the shim loads this from its dir
+			path => $uefi_grub, # TODO: add autoedges
+
+			Depend => Exec["netboot-${uid}"],
+		}
+		tftp:file "/debian-installer/${debarch}/grub/grub.cfg" { # shared
+			data => deploy.readfile("/files/debian-uefi-grub.cfg"),
+		}
+	}
 }
 
 # The host class is used for each physical host we want to provision.
@@ -716,7 +835,14 @@ class base:host($name, $config) {
 	$flavour = $config->flavour <|> ""
 
 	$is_fedora = $distro == "fedora"
-	panic(not $is_fedora, "provisioner:host ${distro} is not supported")
+	$is_debian = $distro == "debian"
+	panic(not $is_fedora and not $is_debian, "provisioner:host ${distro} is not supported")
+
+	# Debian uses codenames in its paths and its own arch names.
+	$codename = $debian_codenames[$version] <|> ""
+	$debarch = $debian_arches[$arch] <|> ""
+	panic($is_debian and $codename == "", "provisioner:host debian ${version} is unknown")
+	panic($is_debian and $debarch == "", "provisioner:host debian ${arch} is unknown")
 
 	$mac = $config->mac <|> ""
 	#panic($mac == "") # provision anyone by default
@@ -786,7 +912,12 @@ class base:host($name, $config) {
 	$nbp_path = if $bios {
 		"/pxelinux.0" # for bios clients
 	} else {
-		"/uefi/shim.efi" # for uefi clients
+		if $is_debian {
+			# the debian shim loads its grub from the same dir
+			"/uefi/${repouid}/shimx64.efi" # for uefi clients
+		} else {
+			"/uefi/shim.efi" # for uefi clients
+		}
 	}
 	$nbp = "tftp://${router_ip}${nbp_path}"
 
@@ -825,7 +956,26 @@ class base:host($name, $config) {
 		ks => "http://${router_ip}:${http_port_str}/fedora/kickstart/${hkey}.ks", # usually $mac or `default`
 		inst_repo_base => $inst_repo_base,
 		server_base => $server_base,
+
+		auto_args => $debian_auto_args,
+		manual_args => $debian_manual_args,
 	}
+
+	# The preseed file is downloaded after the network is configured, so the
+	# network settings and the hostname must be on the kernel command line.
+	# The manual install still uses our mirror, but asks everything else.
+	# The installer asks for name servers if the dhcp lease has none, and it
+	# ignores an empty answer here, so we give it our own ip. It never needs
+	# dns since it only talks to us, and with nothing listening, any lookups
+	# fail right away. The post script removes this from the installed host.
+	$mirror_host = "${router_ip}:${http_port_str}" # we are the debian mirror
+	$debian_hostname_arg = if $handoff_hostname == "" {
+		""
+	} else {
+		" netcfg/hostname=${handoff_hostname}"
+	}
+	$debian_auto_args = "auto=true priority=critical url=http://${mirror_host}/${preseed_suffix}${hkey}.cfg interface=auto netcfg/dhcp_timeout=60 netcfg/get_nameservers=${router_ip}${debian_hostname_arg}"
+	$debian_manual_args = "mirror/country=manual mirror/http/hostname=${mirror_host} mirror/http/directory=/debian mirror/suite=${codename} apt-setup/security_host=${mirror_host}"
 
 	#
 	#	default menus
@@ -843,13 +993,23 @@ class base:host($name, $config) {
 		# /pxelinux.cfg/01-00-11-22-33-44-55-66
 		"/pxelinux.cfg/01-${old_mac}"
 	}
-	$uefi_menu = if $mac == "" {
-		# XXX: add the front slash!?
-		#"pxelinux/uefi" # TODO: Did some machines use this?
-		"/uefi/grub.cfg"
+	$uefi_menu = if $is_debian {
+		# The shared debian grub.cfg picks one of these by mac address.
+		if $mac == "" {
+			"/debian-installer/${debarch}/grub/grub.cfg-default"
+		} else {
+			# /debian-installer/amd64/grub/grub.cfg-00:11:22:33:44:55
+			"/debian-installer/${debarch}/grub/grub.cfg-" + golang_strings.to_lower($mac)
+		}
 	} else {
-		# /uefi/grub.cfg-01-00-11-22-33-44-55-66
-		"/uefi/grub.cfg-01-${old_mac}"
+		if $mac == "" {
+			# XXX: add the front slash!?
+			#"pxelinux/uefi" # TODO: Did some machines use this?
+			"/uefi/grub.cfg"
+		} else {
+			# /uefi/grub.cfg-01-00-11-22-33-44-55-66
+			"/uefi/grub.cfg-01-${old_mac}"
+		}
 	}
 
 	$ipxe_menu = if $mac == "" {
@@ -1071,6 +1231,58 @@ class base:host($name, $config) {
 		http:server:file "/fedora/kickstart/${hkey}.ks" { # usually $mac or `default`
 			#data => golang.template(deploy.readfile("/files/kickstart.ks.tmpl"), $http_kickstart_template),
 			path => $kickstart_file,
+
+			Before => Print["ready"],
+		}
+	}
+
+	# The debian installer uses the same settings as the kickstart does, but
+	# the post commands are in a separate script which preseed downloads.
+	$preseed_template = struct{
+		comment => $install_comment,
+		lang => $install_lang,
+		timezone => $install_timezone,
+		ntp_servers => $install_ntp_servers,
+		password => $password, # salted
+		bios => $bios,
+		part => $part,
+		luks => $luks, # set empty password
+		flavour => $flavour,
+		packages => $install_packages,
+		sshkeys => $install_sshkeys,
+		post => $install_post,
+
+		router_ip => $router_ip,
+		mirror_host => $mirror_host,
+		codename => $codename,
+		post_url => "http://${mirror_host}/${preseed_suffix}${hkey}.sh",
+		partman_hook_url => "http://${mirror_host}/${preseed_suffix}debian-partman-crypto.sh",
+		apt_hook_url => "http://${mirror_host}/${preseed_suffix}debian-apt-hook.sh",
+	}
+
+	if $is_debian {
+		$preseed_file = "${preseed_http_prefix}${hkey}.cfg"
+		file "${preseed_file}" {
+			state => $const.res.file.state.exists,
+			content => golang.template(deploy.readfile("/files/preseed.cfg.tmpl"), $preseed_template),
+
+			Depend => File["${preseed_http_prefix}"],
+		}
+		http:server:file "/${preseed_suffix}${hkey}.cfg" { # usually $mac or `default`
+			path => $preseed_file,
+
+			Before => Print["ready"],
+		}
+
+		$post_file = "${preseed_http_prefix}${hkey}.sh"
+		file "${post_file}" {
+			state => $const.res.file.state.exists,
+			content => golang.template(deploy.readfile("/files/debian-post.sh.tmpl"), $preseed_template),
+
+			Depend => File["${preseed_http_prefix}"],
+		}
+		http:server:file "/${preseed_suffix}${hkey}.sh" { # usually $mac or `default`
+			path => $post_file,
 
 			Before => Print["ready"],
 		}

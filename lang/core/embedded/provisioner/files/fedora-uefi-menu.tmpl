@@ -21,3 +21,10 @@ menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )'  --class
 	linuxefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz ip=dhcp inst.repo={{ .Inst_repo_base }}releases/{{ .Version }}/{{ .Flavour }}/{{ .Arch }}/os/
 	initrdefi /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
 }
+
+# XXX: This loads the kernel and initrd over http, which is much faster than
+# tftp. Make it the default once we know that it works everywhere.
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( kickstart, http )'  --class fedora --class gnu-linux --class gnu --class os {
+	linuxefi (http,{{ .Http_host }})/{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz ip=dhcp inst.repo={{ .Inst_repo_base }}releases/{{ .Version }}/{{ .Flavour }}/{{ .Arch }}/os/ inst.ks={{ .Ks }}
+	initrdefi (http,{{ .Http_host }})/{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+}

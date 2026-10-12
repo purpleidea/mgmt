@@ -11,3 +11,10 @@ menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( manual )' --class 
 	linux /{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz {{ .Manual_args }}
 	initrd /{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
 }
+
+# XXX: This loads the kernel and initrd over http, which is much faster than
+# tftp. Make it the default once we know that it works everywhere.
+menuentry 'Install {{ .Distro }} {{ .Version }} {{ .Arch }} ( preseed, http )' --class debian --class gnu-linux --class gnu --class os {
+	linux (http,{{ .Http_host }})/{{ .Distro }}{{ .Version }}-{{ .Arch }}/vmlinuz {{ .Auto_args }}
+	initrd (http,{{ .Http_host }})/{{ .Distro }}{{ .Version }}-{{ .Arch }}/initrd.img
+}

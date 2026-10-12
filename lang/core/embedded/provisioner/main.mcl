@@ -965,6 +965,7 @@ class base:host($name, $config) {
 		ks => "http://${router_ip}:${http_port_str}/fedora/kickstart/${hkey}.ks", # usually $mac or `default`
 		inst_repo_base => $inst_repo_base,
 		server_base => $server_base,
+		http_host => "${router_ip}:${http_port_str}", # for grub, eg: (http,192.168.42.1:4280)
 
 		auto_args => $debian_auto_args,
 		manual_args => $debian_manual_args,

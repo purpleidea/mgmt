@@ -723,7 +723,7 @@ func (obj *DHCPServerRes) Cmp(r engine.Res) error {
 		}
 	}
 
-	if len(obj.NBP) != len(res.NBP) {
+	if obj.NBP != res.NBP {
 		return fmt.Errorf("the NBP field differs")
 	}
 

@@ -78,6 +78,9 @@ const (
 
 	// dhcpPXEClient is the vendor class identifier prefix of pxe clients.
 	dhcpPXEClient = "PXEClient"
+
+	// dhcpIPXE is the user class that iPXE sends.
+	dhcpIPXE = "iPXE"
 )
 
 // DHCPServerRes is a simple dhcp server resource. It responds to dhcp client
@@ -158,6 +161,13 @@ type DHCPServerRes struct {
 	// default for all dhcp:host resources. You can specify this here, and
 	// the NBPPath per-resource and they will successfully combine.
 	NBP string `lang:"nbp" yaml:"nbp"`
+
+	// IPXE is the http or https URL of an iPXE script, which is sent to any
+	// iPXE client instead of the NBP. This is what you need if the NBP is
+	// iPXE itself, since it gets a new dhcp lease when it starts up, and it
+	// would otherwise load itself forever. This value is used as the
+	// default for all dhcp:host and dhcp:range resources.
+	IPXE string `lang:"ipxe" yaml:"ipxe"`
 
 	// These private fields are ordered in the handler order, the above
 	// public fields are ordered in the human logical order.
@@ -405,6 +415,9 @@ func (obj *DHCPServerRes) Validate() error {
 	if err := validateDHCPv4NBP(obj.NBP); err != nil {
 		return err
 	}
+	if err := validateDHCPv4IPXE(obj.IPXE); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -529,7 +542,8 @@ func (obj *DHCPServerRes) Init(init *engine.Init) error {
 // collects what the proxy handlers need.
 func (obj *DHCPServerRes) initProxy() error {
 	data := &HostData{
-		NBP: obj.NBP,
+		NBP:  obj.NBP,
+		IPXE: obj.IPXE,
 	}
 	obj.proxy = false
 	obj.proxyRanges = []*DHCPRangeRes{}
@@ -875,6 +889,9 @@ func (obj *DHCPServerRes) Cmp(r engine.Res) error {
 	if obj.NBP != res.NBP {
 		return fmt.Errorf("the NBP field differs")
 	}
+	if obj.IPXE != res.IPXE {
+		return fmt.Errorf("the IPXE field differs")
+	}
 
 	return nil
 }
@@ -908,6 +925,7 @@ func (obj *DHCPServerRes) Copy() engine.CopyableRes {
 		DNS:       dns,
 		Routers:   routers,
 		NBP:       obj.NBP,
+		IPXE:      obj.IPXE,
 	}
 }
 
@@ -1143,7 +1161,8 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 				// NOTE: this is not changed if we do send/recv.
 				// If we want to support that, we need to patch!
 				data := &HostData{
-					NBP: obj.NBP,
+					NBP:  obj.NBP,
+					IPXE: obj.IPXE,
 				}
 				h, err := res.handler4(data)
 				if err != nil {
@@ -1161,7 +1180,8 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 				}
 				// TODO: should all handlers have the same signature?
 				data := &HostData{
-					NBP: obj.NBP,
+					NBP:  obj.NBP,
+					IPXE: obj.IPXE,
 				}
 				h, err := res.handler4(data)
 				if err != nil {
@@ -1386,7 +1406,7 @@ func (obj *DHCPServerRes) proxyOfferHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.
 		return resp, true
 	}
 
-	nbp, err := host.nbp4(&HostData{NBP: obj.NBP})
+	nbp, err := host.nbp4(&HostData{NBP: obj.NBP, IPXE: obj.IPXE})
 	if err != nil {
 		obj.init.Logf("%s: invalid nbp: %v", host, err)
 		return nil, true
@@ -1396,7 +1416,7 @@ func (obj *DHCPServerRes) proxyOfferHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.
 	// boot the file in this offer, instead of looking for a boot server.
 	// The 255 is the tag that ends the list of pxe options.
 	resp.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, []byte{6, 1, 8, 255}))
-	obj.init.Logf("sending a proxy offer with nbp %s to bios MAC %s", nbp.path, req.ClientHWAddr)
+	obj.init.Logf("sending a proxy offer with nbp %s to bios MAC %s", nbp.file4(req), req.ClientHWAddr)
 
 	return resp, true
 }
@@ -1455,7 +1475,7 @@ func (obj *DHCPServerRes) proxyHandler4() func(net.PacketConn, net.Addr, *dhcpv4
 		proxyReply4(req, resp, serverID)
 		nbp.update4(req, resp)
 
-		obj.init.Logf("sending nbp %s to MAC %s with ip %s", nbp.path, mac, addr)
+		obj.init.Logf("sending nbp %s to MAC %s with ip %s", nbp.file4(req), mac, addr)
 		if obj.init.Debug {
 			obj.init.Logf("sending a pxe boot reply: %s", util.EscapeLog(resp.Summary()))
 		}
@@ -1470,7 +1490,8 @@ func (obj *DHCPServerRes) proxyHandler4() func(net.PacketConn, net.Addr, *dhcpv4
 // decide, so that we never fall through to a range when its ip doesn't match.
 func (obj *DHCPServerRes) proxyNBP4(mac string, addr netip.Addr) (*dhcpNBP4, error) {
 	data := &HostData{
-		NBP: obj.NBP,
+		NBP:  obj.NBP,
+		IPXE: obj.IPXE,
 	}
 
 	if host := obj.host4(mac); host != nil {
@@ -1546,6 +1567,13 @@ type DHCPHostRes struct {
 	// slash. This is sometimes desirable for legacy tftp setups.
 	NBPPath string `lang:"nbp_path" yaml:"nbp_path"`
 
+	// IPXE is the http or https URL of an iPXE script, which is sent to any
+	// iPXE client instead of the NBP. This is what you need if the NBP is
+	// iPXE itself, since it gets a new dhcp lease when it starts up, and it
+	// would otherwise load itself forever. If this is not specified, then
+	// the value from the server is used.
+	IPXE string `lang:"ipxe" yaml:"ipxe"`
+
 	// Proxy should be true if this host gets its lease from another dhcp
 	// server, and we should only send it the network boot program, in the
 	// way that a standard proxy dhcp server does. A legacy bios client can
@@ -1589,6 +1617,9 @@ func (obj *DHCPHostRes) Validate() error {
 	//}
 
 	if err := validateDHCPv4NBP(obj.NBP); err != nil {
+		return err
+	}
+	if err := validateDHCPv4IPXE(obj.IPXE); err != nil {
 		return err
 	}
 
@@ -1669,6 +1700,9 @@ func (obj *DHCPHostRes) Cmp(r engine.Res) error {
 	if obj.NBPPath != res.NBPPath {
 		return fmt.Errorf("the NBPPath differs")
 	}
+	if obj.IPXE != res.IPXE {
+		return fmt.Errorf("the IPXE differs")
+	}
 	if obj.Proxy != res.Proxy {
 		return fmt.Errorf("the Proxy differs")
 	}
@@ -1743,7 +1777,7 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 
 		nbp.update4(req, resp)
 		if obj.init.Debug {
-			obj.init.Logf("added NBP server %q and path %q to reply", nbp.server, nbp.path)
+			obj.init.Logf("added NBP server %q and file %q to reply", nbp.server, nbp.file4(req))
 		}
 
 		return resp, true
@@ -1751,16 +1785,20 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 }
 
 // nbp4 returns the network boot program information for this host. It uses the
-// nbp url from the server unless we specify our own.
+// nbp and ipxe urls from the server unless we specify our own.
 func (obj *DHCPHostRes) nbp4(data *HostData) (*dhcpNBP4, error) {
-	nbp := ""
-	if data != nil {
-		nbp = data.NBP // from server
+	nbp, ipxe := "", ""
+	if data != nil { // from server
+		nbp = data.NBP
+		ipxe = data.IPXE
 	}
 	if obj.NBP != "" { // host-specific override
 		nbp = obj.NBP
 	}
-	return newDHCPNBP4(nbp, obj.NBPPath)
+	if obj.IPXE != "" { // host-specific override
+		ipxe = obj.IPXE
+	}
+	return newDHCPNBP4(nbp, obj.NBPPath, ipxe)
 }
 
 // DHCPRangeRes is a representation of a range allocator in DHCP. To declare a
@@ -1853,6 +1891,13 @@ type DHCPRangeRes struct {
 	// that. This is useful if you require a path that doesn't start with a
 	// slash. This is sometimes desirable for legacy tftp setups.
 	NBPPath string `lang:"nbp_path" yaml:"nbp_path"`
+
+	// IPXE is the http or https URL of an iPXE script, which is sent to any
+	// iPXE client instead of the NBP. This is what you need if the NBP is
+	// iPXE itself, since it gets a new dhcp lease when it starts up, and it
+	// would otherwise load itself forever. If this is not specified, then
+	// the value from the server is used.
+	IPXE string `lang:"ipxe" yaml:"ipxe"`
 
 	// Proxy should be true if the clients in this range get their leases
 	// from another dhcp server, and we should only send them the network
@@ -2104,6 +2149,9 @@ func (obj *DHCPRangeRes) Validate() error {
 	if err := validateDHCPv4NBP(obj.NBP); err != nil {
 		return err
 	}
+	if err := validateDHCPv4IPXE(obj.IPXE); err != nil {
+		return err
+	}
 
 	if obj.Proxy && (len(obj.Skip) > 0 || obj.Persist) {
 		return fmt.Errorf("skip and persist can't be used in proxy mode")
@@ -2310,6 +2358,9 @@ func (obj *DHCPRangeRes) Cmp(r engine.Res) error {
 	if obj.NBPPath != res.NBPPath {
 		return fmt.Errorf("the NBPPath differs")
 	}
+	if obj.IPXE != res.IPXE {
+		return fmt.Errorf("the IPXE differs")
+	}
 	if obj.Proxy != res.Proxy {
 		return fmt.Errorf("the Proxy differs")
 	}
@@ -2472,7 +2523,7 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 
 		nbp.update4(req, resp)
 		if obj.init.Debug {
-			obj.init.Logf("added NBP server %q and path %q to reply", nbp.server, nbp.path)
+			obj.init.Logf("added NBP server %q and file %q to reply", nbp.server, nbp.file4(req))
 		}
 
 		return resp, true
@@ -2480,16 +2531,20 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 }
 
 // nbp4 returns the network boot program information for this range. It uses the
-// nbp url from the server unless we specify our own.
+// nbp and ipxe urls from the server unless we specify our own.
 func (obj *DHCPRangeRes) nbp4(data *HostData) (*dhcpNBP4, error) {
-	nbp := ""
-	if data != nil {
-		nbp = data.NBP // from server
+	nbp, ipxe := "", ""
+	if data != nil { // from server
+		nbp = data.NBP
+		ipxe = data.IPXE
 	}
 	if obj.NBP != "" { // range-specific override
 		nbp = obj.NBP
 	}
-	return newDHCPNBP4(nbp, obj.NBPPath)
+	if obj.IPXE != "" { // range-specific override
+		ipxe = obj.IPXE
+	}
+	return newDHCPNBP4(nbp, obj.NBPPath, ipxe)
 }
 
 // leaseClean frees any expired leases. It also returns the duration till the
@@ -2635,6 +2690,9 @@ type HostRecord struct {
 type HostData struct {
 	// NBP is the network boot program URL. See the resources for more docs.
 	NBP string
+
+	// IPXE is the URL of the iPXE script. See the resources for more docs.
+	IPXE string
 }
 
 // overEngineeredLogger is a helper struct that fulfills the over-engineered
@@ -2687,11 +2745,16 @@ type dhcpNBP4 struct {
 	// path is the boot file name, which is sent as option 67 and also in
 	// the file header field.
 	path string
+
+	// ipxe is the URL of an iPXE script, which an iPXE client gets as its
+	// boot file name instead of the path. It can be empty.
+	ipxe string
 }
 
 // newDHCPNBP4 parses the nbp url into the information that we send. The path,
-// if it's not empty, overrides the path from the url.
-func newDHCPNBP4(nbp, path string) (*dhcpNBP4, error) {
+// if it's not empty, overrides the path from the url. The ipxe URL is sent to
+// iPXE clients instead, if it's not empty.
+func newDHCPNBP4(nbp, path, ipxe string) (*dhcpNBP4, error) {
 	u, err := url.Parse(nbp)
 	if err != nil {
 		// this should have been checked in Validate :/
@@ -2705,27 +2768,47 @@ func newDHCPNBP4(nbp, path string) (*dhcpNBP4, error) {
 		server: u.Host,
 		siaddr: net.ParseIP(u.Hostname()).To4(), // nil if not ipv4
 		path:   path,
+		ipxe:   ipxe,
 	}, nil
+}
+
+// ipxe4 returns true if this client gets the iPXE script instead of the nbp.
+// When iPXE starts up, it gets a new lease, so if the nbp is iPXE itself, then
+// it would otherwise load itself forever.
+func (obj *dhcpNBP4) ipxe4(req *dhcpv4.DHCPv4) bool {
+	return obj.ipxe != "" && isIPXE4(req)
+}
+
+// file4 returns the boot file name that we send to this client.
+func (obj *dhcpNBP4) file4(req *dhcpv4.DHCPv4) string {
+	if obj.ipxe4(req) {
+		return obj.ipxe
+	}
+	return obj.path
 }
 
 // update4 adds the nbp information to the reply for a client request.
 func (obj *dhcpNBP4) update4(req, resp *dhcpv4.DHCPv4) {
+	// This is needed even for the iPXE script, since iPXE ignores a proxy
+	// dhcp reply without a next server, even when the file is a URL.
 	if obj.siaddr != nil { // overrides the server id default
 		resp.ServerIPAddr = obj.siaddr
 	}
-	if obj.server != "" && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
+	// The tftp server isn't used for the iPXE script.
+	if obj.server != "" && !obj.ipxe4(req) && req.IsOptionRequested(dhcpv4.OptionTFTPServerName) {
 		resp.Options.Update(dhcpv4.OptTFTPServerName(obj.server))
 	}
-	if obj.path == "" {
+	file := obj.file4(req)
+	if file == "" {
 		return
 	}
 	if req.IsOptionRequested(dhcpv4.OptionBootfileName) {
-		resp.Options.Update(dhcpv4.OptBootFileName(obj.path))
+		resp.Options.Update(dhcpv4.OptBootFileName(file))
 	}
 	// Some clients only look at the file field in the header. For example,
 	// shim loads its grub from that same directory, and if the field is
 	// empty, it looks for grub at the tftp root.
-	resp.BootFileName = obj.path
+	resp.BootFileName = file
 }
 
 // validateDHCPv4NBP is a simpler validator for the network boot program URL.
@@ -2744,6 +2827,23 @@ func validateDHCPv4NBP(nbp string) error {
 	// TODO: remove this check when we support DHCPv6.
 	if u.Scheme != "tftp" {
 		return fmt.Errorf("the scheme must be `tftp` for DHCPv4")
+	}
+
+	return nil
+}
+
+// validateDHCPv4IPXE is a simple validator for the URL of the iPXE script.
+func validateDHCPv4IPXE(ipxe string) error {
+	if ipxe == "" {
+		return nil
+	}
+
+	u, err := url.Parse(ipxe)
+	if err != nil {
+		return errwrap.Wrapf(err, "invalid ipxe URL")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("the ipxe scheme must be `http` or `https`")
 	}
 
 	return nil
@@ -2791,6 +2891,17 @@ func proxyReply4(req, resp *dhcpv4.DHCPv4, serverID net.IP) {
 // isPXEClient4 returns true if the request is from a pxe client.
 func isPXEClient4(req *dhcpv4.DHCPv4) bool {
 	return strings.HasPrefix(req.ClassIdentifier(), dhcpPXEClient)
+}
+
+// isIPXE4 returns true if the request is from iPXE, which sends its name as the
+// user class.
+func isIPXE4(req *dhcpv4.DHCPv4) bool {
+	for _, x := range req.UserClass() {
+		if x == dhcpIPXE {
+			return true
+		}
+	}
+	return false
 }
 
 // isBIOS4 returns true if the request is from a legacy bios client. A client

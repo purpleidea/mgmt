@@ -967,6 +967,9 @@ func (obj *DHCPServerRes) leasetimeHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.D
 	if req.OpCode != dhcpv4.OpcodeBootRequest {
 		return resp, false
 	}
+	if req.MessageType() == dhcpv4.MessageTypeInform { // there's no lease
+		return resp, false
+	}
 	// Set lease time unless it has already been set.
 	if !resp.Options.Has(dhcpv4.OptionIPAddressLeaseTime) {
 		resp.Options.Update(dhcpv4.OptIPAddressLeaseTime(obj.leaseTime))
@@ -1081,10 +1084,15 @@ func (obj *DHCPServerRes) handler4() func(net.PacketConn, net.Addr, *dhcpv4.DHCP
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeOffer))
 		case dhcpv4.MessageTypeRequest:
 			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
+		case dhcpv4.MessageTypeInform: // only wants options, not a lease
+			tmp.UpdateOption(dhcpv4.OptMessageType(dhcpv4.MessageTypeAck))
 		case dhcpv4.MessageTypeDecline:
 			// If mask is not set, some DHCP clients will DECLINE.
 			obj.decline4(req)
 			return // there is never a reply to a decline
+		case dhcpv4.MessageTypeRelease:
+			obj.release4(req)
+			return // there is never a reply to a release
 		default:
 			obj.init.Logf("handler4: Unhandled message type: %v", mt)
 			return
@@ -1236,16 +1244,11 @@ func (obj *DHCPServerRes) decline4(req *dhcpv4.DHCPv4) {
 	}
 
 	// The client sends this to every server, so ignore any that aren't ours.
-	if sid := req.ServerIdentifier(); sid != nil {
-		obj.sidMutex.Lock()
-		serverID := obj.serverID
-		obj.sidMutex.Unlock()
-		if serverID != nil && !sid.Equal(serverID) {
-			if obj.init.Debug {
-				obj.init.Logf("decline is for server ID %s, not ours", sid)
-			}
-			return
+	if obj.otherServer4(req) {
+		if obj.init.Debug {
+			obj.init.Logf("decline is for server ID %s, not ours", req.ServerIdentifier())
 		}
+		return
 	}
 
 	// Keep the ip for at least one lease, since the other host might be one
@@ -1274,6 +1277,51 @@ func (obj *DHCPServerRes) decline4(req *dhcpv4.DHCPv4) {
 	}
 
 	obj.init.Logf("decline of ip %s from MAC %s is not for a lease of ours", addr, mac)
+}
+
+// release4 handles a DHCPRELEASE message from an IPv4 client. The client sends
+// this when it's done with its lease. If we leased it from a range, then that
+// ip is freed right away, instead of once the lease would have expired.
+func (obj *DHCPServerRes) release4(req *dhcpv4.DHCPv4) {
+	mac := req.ClientHWAddr.String()
+	addr, ok := netip.AddrFromSlice(req.ClientIPAddr.To4()) // net.IP -> netip.Addr
+	if !ok || addr.IsUnspecified() {
+		obj.init.Logf("release from MAC %s is missing the ip", mac)
+		return
+	}
+
+	if obj.otherServer4(req) {
+		if obj.init.Debug {
+			obj.init.Logf("release is for server ID %s, not ours", req.ServerIdentifier())
+		}
+		return
+	}
+
+	for _, x := range obj.GetGroup() { // grouped elements
+		if res, ok := x.(*DHCPRangeRes); ok && !res.Proxy && res.release4(mac, addr) {
+			return
+		}
+	}
+
+	// This is normal for a static host, since there is nothing to free.
+	if obj.init.Debug {
+		obj.init.Logf("release of ip %s from MAC %s is not for a range lease of ours", addr, mac)
+	}
+}
+
+// otherServer4 returns true if the client sent this message to another server.
+// Until we've looked up our own server ID, we assume that it's for us.
+func (obj *DHCPServerRes) otherServer4(req *dhcpv4.DHCPv4) bool {
+	sid := req.ServerIdentifier()
+	if sid == nil {
+		return false
+	}
+
+	obj.sidMutex.Lock()
+	serverID := obj.serverID
+	obj.sidMutex.Unlock()
+
+	return serverID != nil && !sid.Equal(serverID)
 }
 
 // proxyOfferHandler4 handles DHCPv4 packets from the clients that we serve in
@@ -1670,7 +1718,11 @@ func (obj *DHCPHostRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.D
 			obj.init.Logf("found IP address %s for MAC %s", obj.IP, req.ClientHWAddr.String())
 		}
 
-		resp.YourIPAddr = obj.ipv4Addr // TODO: make a copy for this?
+		// An inform is from a client that already has an ip, and only
+		// wants the other options.
+		if req.MessageType() != dhcpv4.MessageTypeInform {
+			resp.YourIPAddr = obj.ipv4Addr // TODO: make a copy for this?
+		}
 
 		// XXX: This is done in the standalone leasetime handler for now
 		//resp.Options.Update(dhcpv4.OptIPAddressLeaseTime(obj.LeaseTime.Round(time.Second)))
@@ -2314,6 +2366,17 @@ func (obj *DHCPRangeRes) handler4(data *HostData) (func(*dhcpv4.DHCPv4, *dhcpv4.
 			obj.init.Logf("range lookup for mac %s", mac)
 		}
 
+		// An inform is from a client that already has an ip, and only
+		// wants the other options, so there's no lease to give it.
+		if req.MessageType() == dhcpv4.MessageTypeInform {
+			addr, ok := netip.AddrFromSlice(req.ClientIPAddr.To4()) // net.IP -> netip.Addr
+			if !ok || !obj.contains(addr) {
+				return resp, false // maybe for another range
+			}
+			resp.Options.Update(dhcpv4.OptSubnetMask(obj.mask)) // net.IPMask
+			return resp, true
+		}
+
 		// A request is for a specific ip. If it's not in our range then
 		// it's not for us, but it might be for another range. If it is,
 		// then it must be the ip we leased to this client or if we have
@@ -2517,6 +2580,29 @@ func (obj *DHCPRangeRes) decline4(mac string, addr netip.Addr, hold time.Duratio
 	expiry := time.Now().Add(hold).Round(time.Second)
 	obj.declined[addr] = int(expiry.Unix())
 	obj.init.Logf("ip %s for MAC %s is in use by another host, holding it until: %s", addr, mac, expiry.Format(time.RFC3339))
+
+	return true
+}
+
+// release4 handles a release from a client of the ip that we leased to it. The
+// ip is freed right away. This returns false if the ip isn't what we leased to
+// this mac address.
+func (obj *DHCPRangeRes) release4(mac string, addr netip.Addr) bool {
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	record, exists := obj.records[mac]
+	if !exists || record.IP != addr {
+		return false
+	}
+
+	delete(obj.records, mac)
+	free := net.IPNet{IP: net.IP(addr.AsSlice())} // netip.Addr -> net.IP
+	if err := obj.allocator.Free(free); err != nil {
+		// programming error
+		obj.init.Logf("could not free released ip %s: %v", addr, err)
+	}
+	obj.init.Logf("released ip %s for MAC %s", addr, mac)
 
 	return true
 }

@@ -559,3 +559,105 @@ func TestDHCPRangeRequest(t *testing.T) {
 	nak("de:ad:be:ef:00:03", "192.0.2.1") // skipped
 	ack("de:ad:be:ef:00:03", "192.0.2.101")
 }
+
+func TestDHCPRangeReleaseInform(t *testing.T) {
+	init := &engine.Init{
+		Event: func(ctx context.Context) error { return nil },
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("dhcp: "+format, v...)
+		},
+	}
+
+	serverID := net.ParseIP("192.0.2.1").To4()
+	server := &DHCPServerRes{}
+	server.SetName("server")
+	server.init = init
+	server.leaseTime = 10 * time.Minute
+	server.sidMutex = &sync.Mutex{}
+	server.serverID = serverID
+
+	rng := &DHCPRangeRes{
+		Network: "192.0.2.0/24",
+		Skip:    []string{"192.0.2.1/24"},
+	}
+	rng.SetName("range")
+	rng.SetParent(server)
+	server.SetGroup([]engine.GroupableRes{rng})
+	if err := rng.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+	handler, err := rng.handler4(nil)
+	if err != nil {
+		t.Fatalf("func handler4: %v", err)
+	}
+
+	newPacket := func(mt dhcpv4.MessageType, mac, ip string, sid net.IP) *dhcpv4.DHCPv4 {
+		hw, err := net.ParseMAC(mac)
+		if err != nil {
+			t.Fatalf("func ParseMAC: %v", err)
+		}
+		mods := []dhcpv4.Modifier{
+			dhcpv4.WithMessageType(mt),
+			dhcpv4.WithHwAddr(hw),
+			dhcpv4.WithClientIP(net.ParseIP(ip)),
+		}
+		if sid != nil {
+			mods = append(mods, dhcpv4.WithOption(dhcpv4.OptServerIdentifier(sid)))
+		}
+		req, err := dhcpv4.New(mods...)
+		if err != nil {
+			t.Fatalf("func New: %v", err)
+		}
+		return req
+	}
+	reply := func(req *dhcpv4.DHCPv4) (*dhcpv4.DHCPv4, bool) {
+		resp, err := dhcpv4.NewReplyFromRequest(req)
+		if err != nil {
+			t.Fatalf("func NewReplyFromRequest: %v", err)
+		}
+		return handler(req, resp)
+	}
+	discover := func(mac string) string {
+		resp, _ := reply(newPacket(dhcpv4.MessageTypeDiscover, mac, "0.0.0.0", nil))
+		if resp == nil {
+			t.Fatalf("no offer for %s", mac)
+		}
+		return resp.YourIPAddr.String()
+	}
+
+	macA := "de:ad:be:ef:00:01"
+	macB := "de:ad:be:ef:00:02"
+	ip1 := discover(macA)
+
+	// A release for another server or of someone else's ip changes nothing.
+	server.release4(newPacket(dhcpv4.MessageTypeRelease, macA, ip1, net.ParseIP("192.0.2.254")))
+	server.release4(newPacket(dhcpv4.MessageTypeRelease, macB, ip1, serverID))
+	if ip := discover(macB); ip == ip1 {
+		t.Fatalf("got ip %s which wasn't released", ip)
+	}
+
+	// Once it's released, it's free right away.
+	server.release4(newPacket(dhcpv4.MessageTypeRelease, macA, ip1, serverID))
+	if _, exists := rng.records[macA]; exists {
+		t.Fatalf("lease of %s was not released", macA)
+	}
+	if ip := discover("de:ad:be:ef:00:03"); ip != ip1 {
+		t.Fatalf("released ip %s was not free, got: %s", ip1, ip)
+	}
+
+	// An inform gets the options, but no lease.
+	inform := newPacket(dhcpv4.MessageTypeInform, "de:ad:be:ef:00:04", "192.0.2.200", nil)
+	resp, stop := reply(inform)
+	if !stop || resp == nil || !resp.YourIPAddr.IsUnspecified() || resp.SubnetMask() == nil {
+		t.Fatalf("bad reply to an inform: %v", resp)
+	}
+	if _, exists := rng.records["de:ad:be:ef:00:04"]; exists {
+		t.Fatalf("inform got a lease")
+	}
+	if resp, _ := server.leasetimeHandler4(inform, resp); resp.Options.Has(dhcpv4.OptionIPAddressLeaseTime) {
+		t.Fatalf("reply to an inform has a lease time")
+	}
+	if _, stop := reply(newPacket(dhcpv4.MessageTypeInform, "de:ad:be:ef:00:04", "198.51.100.5", nil)); stop {
+		t.Fatalf("inform from outside of the range was handled")
+	}
+}

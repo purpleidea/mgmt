@@ -581,12 +581,7 @@ class base:repo($config) {
 
 			Depend => Exec["uefi-extract-${uid}"],
 		}
-		tftp:file "/uefi/grubx64.efi" { # sometimes used?
-			path => $uefi_grubx64, # TODO: add autoedges
-
-			Depend => Exec["uefi-extract-${uid}"],
-		}
-		tftp:file "grubx64.efi" { # no leading slash
+		tftp:file "/uefi/grubx64.efi" {
 			path => $uefi_grubx64, # TODO: add autoedges
 
 			Depend => Exec["uefi-extract-${uid}"],

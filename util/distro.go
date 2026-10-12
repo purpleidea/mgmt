@@ -30,6 +30,7 @@
 package util
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -37,6 +38,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -48,6 +50,14 @@ const (
 	// FedoraReleasesEndpointJSON is the location of the fedora release data
 	// as specified in json format.
 	FedoraReleasesEndpointJSON = "https://fedoraproject.org/releases.json"
+
+	// DebianDownloadURL is the default debian mirror. It's a CDN which
+	// should automatically pick something near you.
+	DebianDownloadURL = "https://deb.debian.org/debian/"
+
+	// DebianStableReleaseURL is the Release file of the current debian
+	// stable release.
+	DebianStableReleaseURL = DebianDownloadURL + "dists/stable/Release"
 )
 
 // GetFedoraDownloadURL gets an https base path of a mirror to use for
@@ -143,4 +153,44 @@ func LatestFedoraVersion(ctx context.Context, arch string) (string, error) {
 	}
 	//fmt.Printf("max: %d\n", m)
 	return strconv.Itoa(m), nil
+}
+
+// LatestDebianVersion returns the major version number (as a string) of the
+// latest debian stable release known. This reads the Release file of the stable
+// suite, which contains a line such as: `Version: 13.1`.
+func LatestDebianVersion(ctx context.Context) (string, error) {
+	client := &http.Client{}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, DebianStableReleaseURL, nil)
+	if err != nil {
+		return "", err
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status: %d", res.StatusCode)
+	}
+
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		value, found := strings.CutPrefix(scanner.Text(), "Version:")
+		if !found {
+			continue
+		}
+		major, _, _ := strings.Cut(strings.TrimSpace(value), ".")
+		if _, err := strconv.Atoi(major); err != nil {
+			return "", fmt.Errorf("unexpected version: %s", value)
+		}
+		return major, nil
+	}
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return "", fmt.Errorf("no version found")
 }

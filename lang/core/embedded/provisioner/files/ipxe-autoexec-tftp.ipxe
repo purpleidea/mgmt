@@ -1,0 +1,41 @@
+#!ipxe
+
+# We were loaded over tftp, and we run this first. We get a new dhcp lease,
+# which should come with the URL of our script as the boot filename. With proxy
+# dhcp, if the other dhcp server replies before our proxy server does, then we
+# might not have one yet, so we keep on trying until we do. We always show what
+# we got from dhcp, and pause so that it can be read, since it's very useful for
+# debugging. A failing command stops an ipxe script, and so does pressing
+# Ctrl-C during one, so every one that can fail is followed by || here.
+
+# The ipxe banner prompt goes by too quickly, so we give a longer chance first.
+prompt --key 0x02 --timeout 5000 Press Ctrl-B for the iPXE shell... && shell ||
+
+:retry
+dhcp || goto failed
+
+echo
+echo ============ mgmt provisioner ============
+echo ipxe: ${version} ${platform} ${buildarch}
+echo mac: ${netX/mac}
+echo ip: ${netX/ip}
+echo netmask: ${netX/netmask}
+echo gateway: ${netX/gateway}
+echo dns: ${dns}
+echo dhcp server: ${dhcp-server}
+echo next server: ${next-server}
+echo filename: ${filename}
+echo proxydhcp server: ${proxydhcp/dhcp-server}
+echo proxydhcp next server: ${proxydhcp/next-server}
+echo proxydhcp filename: ${proxydhcp/filename}
+echo ==========================================
+echo
+sleep 5 ||
+
+isset ${filename} || goto failed
+echo Booting from ${filename}
+chain ${filename} || goto failed
+
+:failed
+prompt --key 0x02 --timeout 5000 Press Ctrl-B for the iPXE shell, or wait to retry... && shell ||
+goto retry

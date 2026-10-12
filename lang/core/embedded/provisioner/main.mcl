@@ -352,6 +352,12 @@ class base($config) {
 			Depend => Exec["provisioner-ipxe-efi-${arch}"],
 			Before => Print["ready"],
 		}
+
+		tftp:file "/${ipxe_efi_filename}" { # when a host uses ipxe
+			path => $ipxe_efi_file,
+
+			Depend => Exec["provisioner-ipxe-efi-${arch}"],
+		}
 	}
 	forkv $arch, $source in $ipxe_efi_sources {
 		if $source != "" {
@@ -365,6 +371,15 @@ class base($config) {
 		data => golang.template(deploy.readfile("/files/ipxe-autoexec.tmpl"), $ipxe_autoexec_template),
 
 		Before => Print["ready"],
+	}
+
+	# When a host uses ipxe, it's loaded over tftp, and then it runs this
+	# script from the same dir first. It gets its script from dhcp, which
+	# can be slow with proxy dhcp, so it keeps on trying until it has one.
+	# The ipxe executables are at the root, and ipxe asks for this without
+	# a leading slash, so it must be named that way.
+	tftp:file "${ipxe_autoexec_filename}" {
+		data => deploy.readfile("/files/ipxe-autoexec-tftp.ipxe"),
 	}
 
 	$kickstart_http_prefix = "${http_prefix}${kickstart_suffix}"
@@ -895,6 +910,20 @@ class base:host($name, $config) {
 	# A bios client never asks us for its nbp once it has its lease, so we
 	# could never check its ip, and it would never get provisioned.
 	panic($host_proxy and $bios and $ip != "", "provisioner:host $ip must be empty for a bios host with $proxy")
+
+	# With ipxe, the firmware loads ipxe, which then loads its script from
+	# our http server, which loads everything else over http. We only have
+	# uefi ipxe executables, and only for the architectures that we have a
+	# source for. Stock ipxe isn't signed, so secure boot must be disabled.
+	$host_ipxe = $config->ipxe <|> false
+	panic($host_ipxe and $bios, "provisioner:host $ipxe can't be used with $bios")
+	panic($host_ipxe and ($ipxe_efi_sources[$arch] <|> "") == "", "provisioner:host $ipxe isn't available for ${arch}")
+	$ipxe_script = "${server_base}${ipxe_menu}" # the menu from our http server
+
+	# The debian 12 grub doesn't look at our proxy dhcp offer, so it can't
+	# find its config, but it works with ipxe or with debian 13 and newer.
+	panic($host_proxy and $codename == "bookworm" and not $host_ipxe, "provisioner:host debian 12 needs $ipxe with $proxy")
+
 	$password = $config->password <|> "" # empty means disabled
 	panic(len($password) != 0 and len($password) != 106, "provisioner:host $password (salted) is wrong length") # length of salted password
 	$sshkey = golang_strings.trim_space($config->sshkey <|> "") # root ssh pub key to add
@@ -949,11 +978,15 @@ class base:host($name, $config) {
 	$nbp_path = if $bios {
 		"/pxelinux.0" # for bios clients
 	} else {
-		if $is_debian {
-			# the debian shim loads its grub from the same dir
-			"/uefi/${repouid}/shimx64.efi" # for uefi clients
+		if $host_ipxe {
+			"/" + ipxe_efi_filename($arch) # for uefi clients with ipxe
 		} else {
-			"/uefi/shim.efi" # for uefi clients
+			if $is_debian {
+				# the debian shim loads its grub from the same dir
+				"/uefi/${repouid}/shimx64.efi" # for uefi clients
+			} else {
+				"/uefi/shim.efi" # for uefi clients
+			}
 		}
 	}
 	$nbp = "tftp://${router_ip}${nbp_path}"
@@ -966,6 +999,7 @@ class base:host($name, $config) {
 
 			nbp => $provision ?: $nbp,
 			nbp_path => $provision ?: $nbp_path, # with leading slash
+			ipxe => $host_ipxe ?: $ipxe_script, # ipxe gets this instead
 
 			proxy => $host_proxy,
 
@@ -1441,6 +1475,7 @@ class base:range($name, $config) {
 
 			nbp => $host0.provision ?: $host0.nbp,
 			nbp_path => $host0.provision ?: $host0.nbp_path, # with leading slash
+			ipxe => $host0.host_ipxe ?: $host0.ipxe_script, # ipxe gets this instead
 
 			proxy => $range_proxy,
 

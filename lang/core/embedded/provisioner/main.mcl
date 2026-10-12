@@ -969,7 +969,19 @@ class base:host($name, $config) {
 	} else {
 		" netcfg/hostname=${handoff_hostname}"
 	}
-	$debian_auto_args = "auto=true priority=critical url=http://${mirror_host}/${preseed_suffix}${hkey}.cfg interface=auto netcfg/dhcp_timeout=60 netcfg/get_nameservers=${router_ip}${debian_hostname_arg}"
+	# Before it starts the network, the installer looks for missing firmware
+	# (eg: rtl_nic for r8169) and offers to load it from removable media. A
+	# netboot has no firmware media to look on, and since trixie it can hang
+	# there forever so we turn this off. The firmware gets installed anyways
+	# since the preseed always includes the firmware packages. We only do it
+	# for trixie, since this also turns off the firmware that the installer
+	# would have added for some of the hardware that it found.
+	$debian_firmware_arg = if $codename == "trixie" {
+		" hw-detect/firmware-lookup=never" # XXX: workaround trixie bug?
+	} else {
+		""
+	}
+	$debian_auto_args = "auto=true priority=critical url=http://${mirror_host}/${preseed_suffix}${hkey}.cfg interface=auto netcfg/dhcp_timeout=60 netcfg/get_nameservers=${router_ip}${debian_hostname_arg}${debian_firmware_arg}"
 	$debian_manual_args = "mirror/country=manual mirror/http/hostname=${mirror_host} mirror/http/directory=/debian mirror/suite=${codename} apt-setup/security_host=${mirror_host}"
 
 	#

@@ -871,6 +871,14 @@ func (obj *DHCPServerRes) serverIDHandler4(req, resp *dhcpv4.DHCPv4) (*dhcpv4.DH
 		}
 		return nil, true
 	}
+	// A client accepts one offer by sending a request to every server with
+	// the id of the chosen one, so we must not answer if it chose another.
+	if sid := req.ServerIdentifier(); req.MessageType() == dhcpv4.MessageTypeRequest && sid != nil && !sid.Equal(v4ServerID) {
+		if obj.init.Debug {
+			obj.init.Logf("request is for server ID %s, not ours", sid)
+		}
+		return nil, true
+	}
 
 	resp.ServerIPAddr = make(net.IP, net.IPv4len)
 	copy(resp.ServerIPAddr[:], v4ServerID)

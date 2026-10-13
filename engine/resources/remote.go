@@ -1473,9 +1473,10 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 	} else {
 		// XXX: can we display some sort of progress indicator?
 		obj.init.Logf("copying binary, please be patient...")
+		tmppath := obj.execpath + ".tmp"
 		if err := obj.sftpOperation(ctx, func() error {
 			// NOTE: Not os.Executable, see remoteSelfExe for why.
-			resultChan, cancelFunc := obj.simpleCopy(remoteSelfExe, obj.execpath)
+			resultChan, cancelFunc := obj.simpleCopy(remoteSelfExe, tmppath)
 			defer cancelFunc()
 			select {
 			case result, ok := <-resultChan:
@@ -1491,6 +1492,14 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 			}
 		}); err != nil {
 			return err
+		}
+
+		// Swap it in atomically, so an interrupted copy can't leave a
+		// truncated binary, and we never write into a running one.
+		if err := obj.sftpOperation(ctx, func() error {
+			return obj.sftp.PosixRename(tmppath, obj.execpath)
+		}); err != nil {
+			return errwrap.Wrapf(err, "can't replace binary")
 		}
 	}
 

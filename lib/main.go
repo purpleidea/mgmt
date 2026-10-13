@@ -154,6 +154,10 @@ type Config struct {
 	// this many seconds. Use 0 to disable this.
 	MaxRuntime uint `arg:"--max-runtime,env:MGMT_MAX_RUNTIME" help:"exit after a maximum of approximately this many seconds"`
 
+	// RemoteJSON is the JSON encoded remote data which a remote resource
+	// passes to the child that it starts. It's empty otherwise.
+	RemoteJSON string `arg:"--remote-json" help:"json data from the remote resource which started us"`
+
 	// SSHURL can be specified if we want to transport the SSH client
 	// connection over SSH. If this is specified, the second hop is made
 	// with the Seeds values, but they connect from this destination. You
@@ -235,6 +239,8 @@ type Main struct {
 	serverURLs          etcdtypes.URLs // processed server urls value
 	advertiseClientURLs etcdtypes.URLs // processed advertise client urls value
 	advertiseServerURLs etcdtypes.URLs // processed advertise server urls value
+
+	remote *local.Remote // processed remote json value, nil if unused
 
 	pgpKeys *pgp.PGP // agent key pair
 
@@ -325,6 +331,13 @@ func (obj *Main) Init() error {
 	)
 	if err != nil && len(obj.AdvertiseServerURLs) > 0 {
 		return errwrap.Wrapf(err, "the AdvertiseServerURLs didn't parse correctly")
+	}
+
+	if obj.RemoteJSON != "" {
+		obj.remote, err = local.DecodeRemote(obj.RemoteJSON)
+		if err != nil {
+			return errwrap.Wrapf(err, "the RemoteJSON didn't parse correctly")
+		}
 	}
 
 	obj.cleanup = []func() error{}
@@ -758,6 +771,7 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 
 	// implementation of the Local API (we only expect just this single one)
 	localAPI := (&local.API{
+		Remote: obj.remote,
 		Cancel: cancelCause, // async handle to use to shut it all down
 		Prefix: fmt.Sprintf("%s/", path.Join(prefix, "local")),
 		Debug:  obj.Debug,

@@ -51,6 +51,10 @@ import (
 // would be an interface instead, and different packages would implement it.
 // Since this is not the expectation for the local API, it's all self-contained.
 type API struct {
+	// Remote is the information that a remote resource passed to us if we
+	// were started by one. It's nil otherwise.
+	Remote *Remote
+
 	Cancel context.CancelCauseFunc
 
 	Prefix string

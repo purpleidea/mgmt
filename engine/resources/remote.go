@@ -47,6 +47,7 @@ import (
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/util"
 	distroUtil "github.com/purpleidea/mgmt/util/distro"
@@ -175,9 +176,12 @@ var (
 // The spawned process connects as a client to our etcd world backend, and as a
 // result it receives the currently active deploy the same way any other member
 // of the cluster would, so there is no need to copy over any code or graphs.
-// That cluster might be served by the host running this resource, or it might
-// be a bigger cluster which we are ourselves only a client of. This resource
-// uses the EndpointsWorld API to figure out which addresses to hand out.
+// Since that code is the same everywhere, the spawned process is told who its
+// parent is, so that code can use the `is_child` and `parent` functions from
+// the `res/remote` package to behave differently on each side. That cluster
+// might be served by the host running this resource, or it might be a bigger
+// cluster which we are ourselves only a client of. This resource uses the
+// EndpointsWorld API to figure out which addresses to hand out.
 //
 // One advantage of this agent-less approach, is that while multiple of these
 // remote mgmt transient agents are running, they can still exchange data and
@@ -1682,10 +1686,20 @@ func (obj *RemoteRes) exec(ctx context.Context, seeds string) error {
 		return err
 	}
 
+	// lets the child know it was started by us, and who we are
+	remote := &local.Remote{
+		Parent: obj.init.Hostname,
+	}
+	remoteJSON, err := remote.Encode()
+	if err != nil {
+		return errwrap.Wrapf(err, "could not encode the remote info")
+	}
+
 	args := []string{
 		"--hostname", shellescape(h),
 		"--seeds", shellescape(seeds),
 		"--prefix", shellescape(obj.childPrefix),
+		"--remote-json", shellescape(remoteJSON),
 	}
 	convergerTimeout := obj.convergerTimeout()
 	if convergerTimeout != nil {

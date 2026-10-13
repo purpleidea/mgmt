@@ -62,6 +62,7 @@ func init() {
 	engine.RegisterResource("remote", func() engine.Res { return &RemoteRes{} })
 
 	remotePasswordStdinLock = make(chan struct{}, 1) // init (once for all remotes)
+	remoteSelfHashMutex = &sync.Mutex{}
 }
 
 const (
@@ -114,6 +115,16 @@ const (
 	// remote process when this resource is shutting down.
 	remoteShutdownTimeout = 60 * time.Second
 
+	// remoteSelfExe is the path that we read our own binary from, so that
+	// we can hash it and push it. This always refers to the binary which
+	// this process is actually running, even if the file it came from has
+	// since been replaced, eg: by a package upgrade. We deliberately don't
+	// use os.Executable for this, because it only returns a path, (and on
+	// Linux it even strips the " (deleted)" suffix which marks a replaced
+	// file) so opening that path would read the new file, and we'd push a
+	// different version than the one which is running here.
+	remoteSelfExe = "/proc/self/exe"
+
 	remoteDefaultUser              = "root"           // default user
 	remoteDefaultPort       uint16 = 22               // default port
 	remoteDefaultTunnelAddr        = "127.0.0.1:2379" // default tunnel listen addr
@@ -134,6 +145,13 @@ var (
 	// and accidentally send the wrong password to the wrong remote server!
 	// XXX: We should have a feature that lets any resource read user input
 	remotePasswordStdinLock chan struct{}
+
+	// remoteSelfHash caches the sha256 hash of the binary which this
+	// process is running. It can't change during our lifetime, so it's
+	// computed once and shared by all of the remote resources. The mutex
+	// guards it.
+	remoteSelfHash      string
+	remoteSelfHashMutex *sync.Mutex
 )
 
 // RemoteRes provides facilities for remote execution over SSH as a resource.
@@ -1381,11 +1399,7 @@ func (obj *RemoteRes) checkRunning(ctx context.Context) (bool, error) {
 // binaryMatches returns whether the remote executable is identical to the
 // executable which is running this resource.
 func (obj *RemoteRes) binaryMatches(ctx context.Context) (bool, error) {
-	selfpath, err := os.Executable()
-	if err != nil {
-		return false, errwrap.Wrapf(err, "can't get executable path")
-	}
-	return obj.sftpHash(ctx, selfpath, obj.execpath)
+	return obj.sftpHash(ctx, obj.execpath)
 }
 
 // getSeeds returns the seeds argument that the remote process should use to
@@ -1443,13 +1457,6 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 		return fmt.Errorf("remote working directory is not safe")
 	}
 
-	// we run local operations first so that remote clean up is easier...
-	selfpath, err := os.Executable()
-	if err != nil {
-		return errwrap.Wrapf(err, "can't get executable path")
-	}
-	obj.init.Logf("self executable is: %s", selfpath)
-
 	obj.init.Logf("remote working directory is: %s", obj.remotewd)
 
 	var same bool
@@ -1457,7 +1464,7 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 		_, err := obj.sftp.Stat(obj.execpath)
 		return err
 	}); err == nil {
-		same, _ = obj.sftpHash(ctx, selfpath, obj.execpath) // ignore errors
+		same, _ = obj.sftpHash(ctx, obj.execpath) // ignore errors
 	} else if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -1467,7 +1474,8 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 		// XXX: can we display some sort of progress indicator?
 		obj.init.Logf("copying binary, please be patient...")
 		if err := obj.sftpOperation(ctx, func() error {
-			resultChan, cancelFunc := obj.simpleCopy(selfpath, obj.execpath)
+			// NOTE: Not os.Executable, see remoteSelfExe for why.
+			resultChan, cancelFunc := obj.simpleCopy(remoteSelfExe, obj.execpath)
 			defer cancelFunc()
 			select {
 			case result, ok := <-resultChan:
@@ -1497,21 +1505,13 @@ func (obj *RemoteRes) sftpPush(ctx context.Context) error {
 	return nil
 }
 
-// sftpHash hashes a local file, and compares that hash to the result of a
-// remote hashing command run on the second file path.
-func (obj *RemoteRes) sftpHash(ctx context.Context, local, remote string) (bool, error) {
-	// TODO: we could run both hash operations in parallel! :)
-	hash := sha256.New()
-	f, err := os.Open(local)
+// sftpHash compares the hash of the binary which this process is running, to
+// the result of a remote hashing command run on the remote file path.
+func (obj *RemoteRes) sftpHash(ctx context.Context, remote string) (bool, error) {
+	sha256sum, err := selfHash()
 	if err != nil {
 		return false, err
 	}
-	defer f.Close()
-
-	if _, err := io.Copy(hash, f); err != nil {
-		return false, err
-	}
-	sha256sum := hex.EncodeToString(hash.Sum(nil))
 	if obj.init.Debug {
 		obj.init.Logf("sha256sum: %s", sha256sum)
 	}
@@ -1530,6 +1530,30 @@ func (obj *RemoteRes) sftpHash(ctx context.Context, local, remote string) (bool,
 		return true, nil
 	}
 	return false, nil // files were different
+}
+
+// selfHash returns the sha256 hash of the binary which this process is running.
+// A failure isn't cached, so that a later call can try again.
+func selfHash() (string, error) {
+	remoteSelfHashMutex.Lock()
+	defer remoteSelfHashMutex.Unlock()
+	if remoteSelfHash != "" {
+		return remoteSelfHash, nil
+	}
+
+	// NOTE: Not os.Executable, see the remoteSelfExe comment for why.
+	f, err := os.Open(remoteSelfExe)
+	if err != nil {
+		return "", errwrap.Wrapf(err, "can't open our own binary")
+	}
+	defer f.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, f); err != nil {
+		return "", errwrap.Wrapf(err, "can't hash our own binary")
+	}
+	remoteSelfHash = hex.EncodeToString(hash.Sum(nil))
+	return remoteSelfHash, nil
 }
 
 // sftpClean removes the remote working directory and everything in it.

@@ -471,6 +471,14 @@ func (obj *RemoteRes) Validate() error {
 		return fmt.Errorf("cleartext password found in URL")
 	}
 
+	// The child validates this at startup too, but that error would only
+	// show up in the remote log, so we catch it here.
+	if obj.Hostname != "" {
+		if err := util.ValidHostname(obj.Hostname); err != nil {
+			return errwrap.Wrapf(err, "invalid Hostname")
+		}
+	}
+
 	if obj.State != RemoteStateRunning && obj.State != RemoteStateStopped {
 		return fmt.Errorf("invalid State: %s", obj.State)
 	}
@@ -1200,6 +1208,15 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	}
 
 	// obj.State == RemoteStateRunning
+
+	// hostnames must be unique in the cluster, so don't clobber ours
+	h, err := obj.hostname(ctx) // cached, so exec gets it for free
+	if err != nil {
+		return false, err
+	}
+	if h == obj.init.Hostname {
+		return false, fmt.Errorf("remote hostname is the same as ours: %s", h)
+	}
 
 	// A running child needs restarting if its binary is stale, or if it is
 	// tunnelled, because the tunnel it seeded through belonged to a
@@ -1934,11 +1951,8 @@ func (obj *RemoteRes) hostname(ctx context.Context) (string, error) {
 		return "", errwrap.Wrapf(err, "error running hostname command")
 	}
 	h = strings.TrimSpace(h) // trim any trailing newline
-	if h == "" {
-		return "", fmt.Errorf("hostname is empty")
-	}
-	if strings.ContainsAny(h, " \t\n") {
-		return "", fmt.Errorf("hostname contains whitespace: %s", h)
+	if err := util.ValidHostname(h); err != nil {
+		return "", errwrap.Wrapf(err, "invalid remote hostname: %s", h)
 	}
 	obj.cachedHostname = h // cache to avoid future expensive lookups
 	return h, nil

@@ -311,8 +311,8 @@ type RemoteRes struct {
 	listener net.Listener // ssh tunnel listener
 
 	// tunnelURL is the seed URL that the remote process uses to get back
-	// through the tunnel. It is set in Watch before the first event, and
-	// only read afterwards in CheckApply, so it doesn't need any locking.
+	// through the tunnel. It is set by tunnel and read by getSeeds, both in
+	// the same CheckApply call, so it doesn't need any locking.
 	tunnelURL string
 
 	// sshInWatch specifies whether Watch holds the persistent SSH
@@ -616,10 +616,11 @@ func (obj *RemoteRes) Cleanup() error {
 }
 
 // connect is used for the common connect and disconnect code that runs in
-// CheckApply. The returned func contains the disconnect routines to run after a
-// successful connection. On error, this cleans up anything that it opened and
-// returns a nil cleanup func. This function is not thread-safe, and we assume
-// it's only run from one caller for resource.
+// either Watch or CheckApply, depending on sshInWatch. The returned func
+// contains the disconnect routines to run after a successful connection. On
+// error, this cleans up anything that it opened and returns a nil cleanup func.
+// This function is not thread-safe, but only one of those ever calls it for a
+// given resource.
 func (obj *RemoteRes) connect(ctx context.Context) (func() error, error) {
 	var err error
 	obj.auth, err = obj.getAuth(ctx, obj.urlInfo)

@@ -75,7 +75,8 @@ var (
 	// commentPrefixTrimmed is a trimmed copy of the CommentPrefix constant.
 	commentPrefixTrimmed = strings.TrimRightFunc(CommentPrefix, unicode.IsSpace)
 
-	// commentDirectivePattern matches other special golang directive comments.
+	// commentDirectivePattern matches other special golang directive
+	// comments.
 	commentDirectivePattern = regexp.MustCompile(`^//(line |extern |export |[a-z0-9]+:[a-z0-9])`)
 )
 
@@ -169,10 +170,7 @@ func docCommentGroups(f *ast.File) []docCommentGroup {
 		} else if x, ok := node.(*ast.GenDecl); ok {
 			switch x.Tok {
 			case token.IMPORT: // i don't think this is needed, aiui
-			case token.VAR:
-				// TODO: recurse into https://golang.org/pkg/go/ast/#ValueSpec
-				appendGroup(x.Doc, false)
-			case token.CONST:
+			case token.VAR, token.CONST:
 				appendGroup(x.Doc, false)
 				for _, spec := range x.Specs {
 					valueSpec, ok := spec.(*ast.ValueSpec)

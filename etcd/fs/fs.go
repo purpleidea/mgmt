@@ -74,7 +74,8 @@ const (
 var (
 	IsPathSeparator = os.IsPathSeparator
 
-	// ErrNotImplemented is returned when something is not implemented by design.
+	// ErrNotImplemented is returned when something is not implemented by
+	// design.
 	ErrNotImplemented = errors.New("not implemented")
 
 	// ErrExist is returned when requested path already exists.

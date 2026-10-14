@@ -53,7 +53,8 @@ const (
 )
 
 var (
-	// httpServerProxyRWMutex synchronizes against reads and writes to the cache.
+	// httpServerProxyRWMutex synchronizes against reads and writes to the
+	// cache.
 	// TODO: we could instead have a per-cache path individual mutex, but to
 	// keep things simple for now, we just lumped them all together.
 	httpServerProxyRWMutex *sync.RWMutex

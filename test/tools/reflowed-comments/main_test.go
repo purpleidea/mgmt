@@ -378,6 +378,52 @@ const (
 	}
 }
 
+func TestVarSpecDoc(t *testing.T) {
+	dir := t.TempDir()
+	filename := filepath.Join(dir, "doc.go")
+	data := []byte(`package doc
+
+var (
+	// remoteSelfHash caches the sha256 hash of the binary which this process
+	// is running. It can't change during our lifetime, so it's computed once
+	// and shared by all of the remote resources. The mutex guards it.
+	remoteSelfHashMutex *sync.Mutex
+	remoteSelfHash      string
+)
+`)
+	want := `package doc
+
+var (
+	// remoteSelfHash caches the sha256 hash of the binary which this
+	// process is running. It can't change during our lifetime, so it's
+	// computed once and shared by all of the remote resources. The mutex
+	// guards it.
+	remoteSelfHashMutex *sync.Mutex
+	remoteSelfHash      string
+)
+`
+
+	if err := os.WriteFile(filename, data, 0600); err != nil {
+		t.Fatalf("could not write test file: %+v", err)
+	}
+
+	if err := Check(filename); err == nil {
+		t.Fatalf("expected var spec doc reflow error")
+	}
+
+	if err := Reflow(filename); err != nil {
+		t.Fatalf("could not reflow test file: %+v", err)
+	}
+
+	result, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("could not read test file: %+v", err)
+	}
+	if string(result) != want {
+		t.Fatalf("unexpected reflow result:\n%s", result)
+	}
+}
+
 func TestReflowPreservesCommentedOutConstSpec(t *testing.T) {
 	dir := t.TempDir()
 	filename := filepath.Join(dir, "doc.go")

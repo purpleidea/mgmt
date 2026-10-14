@@ -271,15 +271,15 @@ type SchedulerWorld interface {
 // agent where to connect to.
 type EndpointsWorld interface {
 	// LocalEndpoints returns the URLs that this process can currently use
-	// to reach the world backend. They are only guaranteed to be valid
-	// from this hosts perspective, eg: they may be localhost URLs.
+	// to reach the world backend. They are only guaranteed to be valid from
+	// this hosts perspective, eg: they may be localhost URLs.
 	LocalEndpoints(ctx context.Context) ([]string, error)
 
 	// AdvertisedEndpoints returns a map from hostname to the URLs which
 	// that host advertises for anyone to connect to the world backend.
 	// These may or may not be reachable from any given network location,
-	// eg: they may be localhost URLs if that host didn't advertise
-	// anything publicly routable.
+	// eg: they may be localhost URLs if that host didn't advertise anything
+	// publicly routable.
 	AdvertisedEndpoints(ctx context.Context) (map[string][]string, error)
 
 	// WatchEndpoints returns a channel which sends an event on any possible

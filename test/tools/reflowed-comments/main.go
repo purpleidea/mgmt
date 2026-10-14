@@ -161,6 +161,31 @@ func docCommentGroups(f *ast.File) []docCommentGroup {
 			})
 		}
 	}
+	// Walk declaration types in source order, including nested members.
+	var appendTypeGroups func(ast.Expr)
+	appendTypeGroups = func(expr ast.Expr) {
+		if expr == nil {
+			return
+		}
+		ast.Inspect(expr, func(node ast.Node) bool {
+			var fields *ast.FieldList
+			switch x := node.(type) {
+			case *ast.StructType:
+				fields = x.Fields
+			case *ast.InterfaceType:
+				fields = x.Methods
+			case *ast.FuncLit:
+				return false // exclude local declarations in function bodies
+			default:
+				return true
+			}
+			for _, field := range fields.List {
+				appendGroup(field.Doc, true)
+				appendTypeGroups(field.Type)
+			}
+			return false // members were already visited above
+		})
+	}
 	appendGroup(f.Doc, false)
 
 	for _, node := range f.Decls {
@@ -178,6 +203,7 @@ func docCommentGroups(f *ast.File) []docCommentGroup {
 						continue
 					}
 					appendGroup(valueSpec.Doc, true)
+					appendTypeGroups(valueSpec.Type)
 				}
 			case token.TYPE: // struct, usually
 				appendGroup(x.Doc, false)
@@ -187,13 +213,7 @@ func docCommentGroups(f *ast.File) []docCommentGroup {
 						continue
 					}
 					appendGroup(typeSpec.Doc, false)
-					structType, ok := typeSpec.Type.(*ast.StructType)
-					if !ok {
-						continue
-					}
-					for _, field := range structType.Fields.List {
-						appendGroup(field.Doc, true)
-					}
+					appendTypeGroups(typeSpec.Type)
 				}
 			default:
 			}

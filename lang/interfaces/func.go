@@ -145,8 +145,8 @@ type Func interface {
 
 	// Info returns some information about the function in question, which
 	// includes the function signature. For a polymorphic function, this
-	// might not be known until after Build was called. As a result, the
-	// sig should be allowed to return a type that includes unification
+	// might not be known until after Build was called. As a result, the sig
+	// should be allowed to return a type that includes unification
 	// variables if it is not known yet. This is because the Info method
 	// might be called speculatively to aid in type unification elsewhere.
 	Info() *Info
@@ -163,8 +163,8 @@ type Func interface {
 	// This may be called speculatively. If the function cannot accept a
 	// speculative call at that time, it must return funcs.ErrCantSpeculate.
 	//
-	// XXX: Should we have another custom error for conditions such as
-	// "not enough args" and other programming mistakes?
+	// XXX: Should we have another custom error for conditions such as "not
+	// enough args" and other programming mistakes?
 	Call(ctx context.Context, args []types.Value) (types.Value, error)
 }
 
@@ -261,10 +261,10 @@ type BuildableFunc interface {
 	// Build takes the known or unified type signature for this function and
 	// finalizes this structure so that it is now determined, and ready to
 	// function as a normal function would. (The normal methods in the Func
-	// interface are all that should be needed or used after this point.)
-	// Of note, the names of the specific input args shouldn't matter as
-	// long as they are unique. Their position doesn't matter. This is so
-	// that unification can use "arg0", "arg1", "argN"... if they can't be
+	// interface are all that should be needed or used after this point.) Of
+	// note, the names of the specific input args shouldn't matter as long
+	// as they are unique. Their position doesn't matter. This is so that
+	// unification can use "arg0", "arg1", "argN"... if they can't be
 	// determined statically. Build can transform them into it's desired
 	// form, and must return the type (with the correct arg names) that it
 	// will use. These are used when constructing the function graphs. This
@@ -496,8 +496,8 @@ type Txn interface {
 	// implicitly add them, but the Reverse operation will not necessarily
 	// know that. As a result, it's recommended to not perform operations
 	// that have implicit Adds or Deletes. Notwithstanding the above, the
-	// initial Txn implementation can and does try to track these changes
-	// so that it can correctly reverse them, but this is not guaranteed by
+	// initial Txn implementation can and does try to track these changes so
+	// that it can correctly reverse them, but this is not guaranteed by
 	// API, and it could contain bugs.
 	Reverse() error
 

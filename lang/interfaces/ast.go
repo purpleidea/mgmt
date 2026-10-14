@@ -635,8 +635,8 @@ type TextDisplayer interface {
 	// Byline returns a simple version of the error location.
 	Byline() string
 
-	// HighlightText returns a textual representation of this definition
-	// for this node in source.
+	// HighlightText returns a textual representation of this definition for
+	// this node in source.
 	HighlightText() string
 }
 

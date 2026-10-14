@@ -306,7 +306,7 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 	lines := []string{}
 	for _, comment := range comments {
 		line := strings.TrimPrefix(comment.Text, commentPrefixTrimmed)
-		if strings.HasPrefix(line, "\t") {
+		if strings.HasPrefix(line, "\t") || strings.HasPrefix(line, " \t") {
 			lines = append(lines, line)
 			continue
 		}
@@ -318,7 +318,7 @@ func reflowCommentGroup(src []byte, fset *token.FileSet, doc *ast.CommentGroup, 
 		switch {
 		case line == "":
 			formatted = append(formatted, commentPrefixTrimmed)
-		case strings.HasPrefix(line, "\t"):
+		case strings.HasPrefix(line, "\t") || strings.HasPrefix(line, " \t"):
 			formatted = append(formatted, commentPrefixTrimmed+line)
 		default:
 			formatted = append(formatted, CommentPrefix+line)
@@ -381,7 +381,7 @@ func reflowLines(lines []string, length int) []string {
 			}
 			continue
 		}
-		if strings.HasPrefix(line, "\t") {
+		if strings.HasPrefix(line, "\t") || strings.HasPrefix(line, " \t") {
 			flush()
 			result = append(result, line)
 			continue

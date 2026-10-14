@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+import "res/remote"
+
+# The test harness is never started by a remote resource.
+test [fmt.printf("is_child: %t", remote.is_child())] {}
+test [fmt.printf("parent: '%s'", remote.parent())] {}
+-- OUTPUT --
+Vertex: test[is_child: false]
+Vertex: test[parent: '']

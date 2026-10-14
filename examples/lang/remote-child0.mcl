@@ -1,0 +1,35 @@
+# This demonstrates how code can tell if it is running as a child which was
+# started by a remote resource. The remote child receives the same deploy as
+# every other cluster member, including the host which started it, so without a
+# check like this, the child would try to start a remote child of its own! The
+# res/remote package lets each side pick its own branch. The child also learns
+# the unique hostname of the parent which started it. Since the parent function
+# returns the empty string when we're not a child, comparing it to the empty
+# string is equivalent to using the is_child function.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-child0.mcl
+#
+# The child will print the name of its parent which you can read in its log file
+# in the remote working directory on the remote host.
+
+import "fmt"
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+	print "child" {
+		msg => fmt.printf("i am %s and i was started by %s", $hostname, remote.parent()),
+	}
+} else {
+	remote "remote0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # stop the remote instance when we shut down
+		tunnelled => true, # tunnel the etcd connection back through ssh
+	}
+}

@@ -56,6 +56,7 @@ import (
 	_ "github.com/purpleidea/mgmt/lang/core/regexp"
 	_ "github.com/purpleidea/mgmt/lang/core/res"
 	_ "github.com/purpleidea/mgmt/lang/core/res/password"
+	_ "github.com/purpleidea/mgmt/lang/core/res/remote"
 	_ "github.com/purpleidea/mgmt/lang/core/strings"
 	_ "github.com/purpleidea/mgmt/lang/core/sys"
 	_ "github.com/purpleidea/mgmt/lang/core/sys/fwupd"

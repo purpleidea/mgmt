@@ -599,7 +599,8 @@ func IsWrappedProperly(lines []string, length int) error {
 			return fmt.Errorf("line %d wasn't trimmed properly: %s", lineno, line)
 		}
 
-		if strings.Contains(line, "  ") { // double spaces
+		// Reject double spaces outside inline code spans.
+		if strings.Contains(line, "  ") && strings.Join(commentWords(line), " ") != line {
 			return fmt.Errorf("line %d contained multiple spaces", lineno)
 		}
 

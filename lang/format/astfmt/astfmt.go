@@ -166,8 +166,8 @@ type printer struct {
 	// idx is the index of the next comment which was not yet printed.
 	idx int
 
-	// lastRow is the source row of the last content that was printed, or
-	// -1 if nothing was printed yet.
+	// lastRow is the source row of the last content that was printed, or -1
+	// if nothing was printed yet.
 	lastRow int
 
 	// started is true after the first line was printed. It is used to

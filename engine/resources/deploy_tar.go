@@ -451,8 +451,7 @@ func (obj *DeployTar) addFS(tw *tar.Writer, fsys fs.FS) error {
 
 // addFs is an edited copy of archive/tar's *Writer.AddFs function but for our
 // own filesystem API, which is not the io/fs one that it expects. This version
-// correctly adds the directories too!
-// https://github.com/golang/go/issues/69459
+// correctly adds the directories too! https://github.com/golang/go/issues/69459
 func (obj *DeployTar) addFs(tw *tar.Writer, fsys engine.Fs) error {
 	return util.FsWalk(fsys, "/", func(name string, info fs.FileInfo, err error) error {
 		if err != nil {

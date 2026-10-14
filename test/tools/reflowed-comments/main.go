@@ -560,7 +560,7 @@ func checkCommentGroup(filename string, src []byte, fset *token.FileSet, doc *as
 
 	if err := IsWrappedProperly(block, length); err != nil {
 		m := strings.Join(block, "\n")
-		msg := filename + " " + strings.Repeat(".", maxLength-len(filename+" "+"V")) + fmt.Sprintf("V\n%+v\n", m)
+		msg := filename + " " + strings.Repeat(".", max(0, maxLength-len(filename+" "+"V"))) + fmt.Sprintf("V\n%+v\n", m)
 		fmt.Fprintf(os.Stderr, "%s", msg)
 		return fmt.Errorf("block (%s) failed: %+v", ident, err) // TODO: errwrap ?
 	}

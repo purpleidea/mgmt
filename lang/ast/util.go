@@ -592,6 +592,33 @@ func unwrapSynthetic(node interfaces.Node) interfaces.Node {
 	}
 }
 
+// stmtTypeCheckable reports whether a statement should be type checked as part
+// of the program which contains it, or whether it is checked at its use sites
+// instead. Classes and functions are skipped, since they get instantiated with
+// potentially different types at each use. Binds are pulled in at the use site
+// as well, through the scope, so that a bound function can be instantiated with
+// different types at each call. That means a bind which is never used is never
+// checked, and a type error in it would go unnoticed. When it has a type
+// annotation we can check it where it is defined too, through the same
+// singleton that a use site goes through, so the value is still only inferred
+// once. Without one, a value whose type is only known once something consumes
+// it, such as a bound function, or a lookup on the result of a call, would get
+// reported as ambiguous. A bind in an iterated scope has no singleton, and is
+// skipped as well, since each use of it infers the value anew.
+func stmtTypeCheckable(stmt interfaces.Stmt) bool {
+	switch x := stmt.(type) {
+	case *StmtClass:
+		return false
+	case *StmtFunc:
+		return false
+	case *StmtBind:
+		return x.singleton != nil && x.Type != nil
+
+	default:
+		return true
+	}
+}
+
 // newExprParam is a helper function to create an ExprParam with the internal
 // key set to the pointer of the thing we're creating.
 func newExprParam(name string, typ *types.Type) *ExprParam {

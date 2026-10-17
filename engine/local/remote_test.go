@@ -35,13 +35,15 @@ import (
 
 func TestRemoteEncode(t *testing.T) {
 	remote := &Remote{
-		Parent: "h1",
+		Parent:    "h1",
+		Name:      "ssh://root@h2:22/",
+		Transient: true,
 	}
 	s, err := remote.Encode()
 	if err != nil {
 		t.Fatalf("func Encode: %v", err)
 	}
-	if exp := `{"parent":"h1"}`; s != exp {
+	if exp := `{"parent":"h1","name":"ssh://root@h2:22/","transient":true}`; s != exp {
 		t.Errorf("func Encode: got: %s, expected: %s", s, exp)
 	}
 
@@ -56,32 +58,40 @@ func TestRemoteEncode(t *testing.T) {
 	if _, err := (&Remote{}).Encode(); err == nil {
 		t.Errorf("func Encode: expected error for an empty parent")
 	}
-	if _, err := (&Remote{Parent: "bad host"}).Encode(); err == nil {
+	if _, err := (&Remote{Parent: "bad host", Name: "r0"}).Encode(); err == nil {
 		t.Errorf("func Encode: expected error for an invalid parent")
+	}
+	if _, err := (&Remote{Parent: "h1"}).Encode(); err == nil {
+		t.Errorf("func Encode: expected error for an empty name")
 	}
 }
 
 func TestRemoteDecodeInvalid(t *testing.T) {
+	// Each of these differs from a valid encoding in one way only.
 	invalid := []string{
 		``,
 		`{}`,
 		`null`,
-		`{"parent":null}`,
-		`{"parent":""}`,
-		`{"parent":"bad host"}`,
-		`{"parent":"h1","evil":1}`,       // unknown member
-		`{"PARENT":"h1"}`,                // case mismatch
-		`{"parent":"h1","parent":"h2"}`,  // duplicate member
-		"{\"parent\":\"h\xff1\"}",        // invalid UTF-8
-		`{"parent":"h1"} {}`,             // trailing data
-		`{"parent":"h1"}{"parent":"h2"}`, // trailing data
-		` {"parent":"h1"}`,               // whitespace
-		`{"parent":"h1"} `,               // whitespace
-		`{"parent": "h1"}`,               // whitespace
-		"{\"\\u0070arent\":\"h1\"}",      // escaped member name
-		"{\"parent\":\"h\\u0031\"}",      // escaped value
-		`{"parent":1}`,
-		`{"parent":["h1"]}`,
+		`{"parent":null,"name":"r0","transient":true}`,
+		`{"parent":"","name":"r0","transient":true}`,
+		`{"parent":"bad host","name":"r0","transient":true}`,
+		`{"parent":"h1","name":"","transient":true}`,
+		`{"parent":"h1","name":"r0"}`,                                  // missing member
+		`{"parent":"h1","transient":true}`,                             // missing member
+		`{"parent":"h1","name":"r0","transient":"true"}`,               // wrong type
+		`{"parent":"h1","name":"r0","transient":true,"evil":1}`,        // unknown member
+		`{"PARENT":"h1","name":"r0","transient":true}`,                 // case mismatch
+		`{"parent":"h1","parent":"h2","name":"r0","transient":true}`,   // duplicate member
+		"{\"parent\":\"h\xff1\",\"name\":\"r0\",\"transient\":true}",   // invalid UTF-8
+		`{"parent":"h1","name":"r0","transient":true} {}`,              // trailing data
+		` {"parent":"h1","name":"r0","transient":true}`,                // whitespace
+		`{"parent":"h1","name":"r0","transient":true} `,                // whitespace
+		`{"parent": "h1","name":"r0","transient":true}`,                // whitespace
+		`{"name":"r0","parent":"h1","transient":true}`,                 // order
+		"{\"\\u0070arent\":\"h1\",\"name\":\"r0\",\"transient\":true}", // escaped member name
+		"{\"parent\":\"h\\u0031\",\"name\":\"r0\",\"transient\":true}", // escaped value
+		`{"parent":1,"name":"r0","transient":true}`,
+		`{"parent":["h1"],"name":"r0","transient":true}`,
 		`["h1"]`,
 		`"h1"`,
 		`h1`,

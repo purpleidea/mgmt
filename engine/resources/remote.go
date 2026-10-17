@@ -1701,7 +1701,9 @@ func (obj *RemoteRes) exec(ctx context.Context, seeds string) error {
 
 	// lets the child know it was started by us, and who we are
 	remote := &local.Remote{
-		Parent: obj.init.Hostname,
+		Parent:    obj.init.Hostname,
+		Name:      obj.Name(),
+		Transient: obj.Transient,
 	}
 	remoteJSON, err := remote.Encode()
 	if err != nil {

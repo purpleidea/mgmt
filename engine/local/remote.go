@@ -55,6 +55,14 @@ var remoteJSONOptions = json.JoinOptions(
 type Remote struct {
 	// Parent is the unique hostname of the parent which started us.
 	Parent string `json:"parent"`
+
+	// Name is the name of the remote resource in the parent which started
+	// us. Together with Parent, it identifies that resource uniquely.
+	Name string `json:"name"`
+
+	// Transient is true if the remote resource which started us is
+	// transient, which means that it waits for us to exit.
+	Transient bool `json:"transient"`
 }
 
 // Validate checks that the remote information is sane.
@@ -64,6 +72,9 @@ func (obj *Remote) Validate() error {
 	}
 	if err := util.ValidHostname(obj.Parent); err != nil {
 		return errwrap.Wrapf(err, "invalid parent hostname: %s", obj.Parent)
+	}
+	if obj.Name == "" {
+		return fmt.Errorf("empty resource name")
 	}
 	return nil
 }

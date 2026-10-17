@@ -112,6 +112,18 @@ const (
 	// make while waiting for the remote process to start up successfully.
 	remoteStartupRetries = 3
 
+	// remoteSigintsExit is the number of SIGINTs (^C) which asks a remote
+	// mgmt process to exit gracefully.
+	remoteSigintsExit = 1
+
+	// remoteSigintsSoft is the number of SIGINTs (^C) which causes a soft
+	// interrupt of a remote mgmt process.
+	remoteSigintsSoft = 2
+
+	// remoteSigintsHard is the number of SIGINTs (^C) which causes a hard
+	// interrupt of a remote mgmt process.
+	remoteSigintsHard = 3
+
 	// remoteShutdownTimeout bounds the time we spend stopping a transient
 	// remote process when this resource is shutting down.
 	remoteShutdownTimeout = 60 * time.Second
@@ -1224,7 +1236,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			return false, nil
 		}
 		obj.init.Logf("stopping...")
-		if err := obj.execExit(ctx, false); err != nil {
+		if err := obj.execExit(ctx, remoteSigintsExit); err != nil {
 			return false, errwrap.Wrapf(err, "can't stop remote process")
 		}
 		return false, nil // we made a change
@@ -1258,7 +1270,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 				return false, nil
 			}
 			obj.init.Logf("restarting remote process...")
-			if err := obj.execExit(ctx, false); err != nil {
+			if err := obj.execExit(ctx, remoteSigintsExit); err != nil {
 				return false, errwrap.Wrapf(err, "can't stop remote process")
 			}
 			running = false
@@ -1350,7 +1362,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			}
 		}()
 		obj.init.Logf("transient shutdown...")
-		if err := obj.execExit(stopCtx, true); err != nil {
+		if err := obj.execExit(stopCtx, remoteSigintsSoft); err != nil {
 			return false, errwrap.Wrapf(err, "can't stop remote process")
 		}
 		tidy = true
@@ -1882,11 +1894,17 @@ func (obj *RemoteRes) waitConvergedExit(ctx context.Context) error {
 	}
 }
 
-// execExit stops the remote process if it is running. It sends a SIGINT (^C)
-// signal to it, waits for the process to exit, and if it doesn't exit promptly,
-// it gets sent a force kill. You can also use this to send a soft interrupt
-// which sends a second SIGINT so that we cancel the remote in-flight work.
-func (obj *RemoteRes) execExit(ctx context.Context, softInterrupt bool) error {
+// execExit stops the remote process if it is running. It sends the number of
+// SIGINT (^C) signals that you ask for, waits for the process to exit, and if
+// it doesn't exit promptly, it gets sent a force kill. Each SIGINT climbs one
+// step of the exit sequence of the remote process. The first is a graceful
+// exit, the second is a soft interrupt, which also cancels the remote in-flight
+// work, and the third is a hard interrupt.
+func (obj *RemoteRes) execExit(ctx context.Context, sigints int) error {
+	if sigints < remoteSigintsExit || sigints > remoteSigintsHard {
+		return fmt.Errorf("invalid number of interrupts: %d", sigints)
+	}
+
 	running, err := obj.checkRunning(ctx)
 	if err != nil {
 		return err
@@ -1910,12 +1928,12 @@ func (obj *RemoteRes) execExit(ctx context.Context, softInterrupt bool) error {
 		}
 		is_child || exit 0
 		kill -INT "$pid" 2>/dev/null
-		if %t; then
-			# Delay the second signal to avoid coalescing consecutive SIGINTs.
+		for i in $(seq 2 %d); do
+			# Delay each signal to avoid coalescing consecutive SIGINTs.
 			sleep 1
 			is_child || exit 0
-			kill -INT "$pid" 2>/dev/null # soft interrupt (2nd ^C)
-		fi
+			kill -INT "$pid" 2>/dev/null
+		done
 		for i in $(seq %d); do
 			is_child || exit 0
 			sleep 1
@@ -1924,7 +1942,7 @@ func (obj *RemoteRes) execExit(ctx context.Context, softInterrupt bool) error {
 		kill -KILL "$pid" 2>/dev/null
 		sleep 1
 		! is_child
-	`, shellescape(obj.pidpath), shellescape(obj.execpath), softInterrupt, remoteExitTimeout))
+	`, shellescape(obj.pidpath), shellescape(obj.execpath), sigints, remoteExitTimeout))
 	if out, err := obj.simpleRun(ctx, cmd); err != nil {
 		return errwrap.Wrapf(err, "error stopping remote process: %s", out)
 	}

@@ -72,27 +72,25 @@ func WatchResources(ctx context.Context, client interfaces.Client, hostname, kin
 		return nil, err
 	}
 
-	// multiplex the two together
+	// Multiplex the two together. A failure is the last event before the
+	// channel closes and it only closes without one when ctx was cancelled.
 	ch := make(chan error)
 	go func() {
-		defer cancel()
-		var e error
-		var ok bool
-		for {
+		defer close(ch)
+		defer cancel() // if one of them fails, stop the other one too
+		for ch1 != nil || ch2 != nil {
+			var e error
+			var ok bool
 			select {
 			case e, ok = <-ch1:
 				if !ok {
-					ch1 = nil
-					if ch2 == nil {
-						return
-					}
+					ch1 = nil // closed because ctx was cancelled
+					continue
 				}
 			case e, ok = <-ch2:
 				if !ok {
-					ch2 = nil
-					if ch1 == nil {
-						return
-					}
+					ch2 = nil // closed because ctx was cancelled
+					continue
 				}
 			}
 
@@ -100,6 +98,9 @@ func WatchResources(ctx context.Context, client interfaces.Client, hostname, kin
 			case ch <- e:
 			case <-ctx.Done():
 				return
+			}
+			if e != nil {
+				return // that watch is over
 			}
 		}
 	}()

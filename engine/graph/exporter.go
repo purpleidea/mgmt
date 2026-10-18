@@ -326,15 +326,18 @@ func (obj *Exporter) worker() error {
 			select {
 			case e, ok = <-ch:
 				if !ok {
-					// chan closed
-					break Loop
+					break Loop // closed because ctx was cancelled
 				}
 
 			case <-obj.workerCtx.Done():
 				break Loop
 			}
 			if e != nil {
-				// something errored... shutdown coming!
+				// The watch failed, and it closes after this.
+				// We might have missed some changes, so reset
+				// everything below, and then the next Export
+				// will start a new worker.
+				obj.Logf("watch failed: %v", e)
 			}
 			// event!
 			obj.mutex.Lock()
@@ -342,6 +345,9 @@ func (obj *Exporter) worker() error {
 				obj.state[k] = false // reset it all
 			}
 			obj.mutex.Unlock()
+			if e != nil {
+				break Loop
+			}
 		}
 	}()
 

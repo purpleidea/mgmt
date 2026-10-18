@@ -1370,7 +1370,6 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			cancelCause(err) // trigger an exit!
 			return
 		}
-		canceled := false
 
 		var last uint64
 		for {
@@ -1388,20 +1387,16 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 			// WatchDeploy should send an initial event now...
 			case err, ok := <-watchChan:
 				if !ok {
-					// TODO: is any of this needed in here?
-					if !canceled {
-						cancelCause(nil) // trigger an exit!
-					}
+					// This only closes without sending us
+					// an error first if we're already
+					// shutting down.
 					return
-				}
-				if err == context.Canceled {
-					canceled = true
-					continue // channel close is coming...
 				}
 				if err != nil {
 					// TODO: it broke, can we restart?
+					// The watch closes after an error.
 					cancelCause(err) // trigger an exit!
-					continue
+					return
 				}
 				if obj.Debug {
 					Logf("deploy: got activity")

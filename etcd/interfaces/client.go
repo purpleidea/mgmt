@@ -56,9 +56,11 @@ type WatcherInfo struct {
 	Cancel func()
 
 	// Events returns a channel of any events that occur. This happens on
-	// watch startup, watch event, and watch failure. This channel closes
-	// when the Watcher shuts down. If you block on these reads, then you
-	// will block the entire Watcher which is usually not what you want.
+	// watch startup, watch event, and watch failure. A failure is always
+	// the last event before this channel closes. The channel only closes
+	// without a failure when the input ctx was cancelled, or when Cancel
+	// was called. If you block on these reads, then you will block the
+	// entire Watcher which is usually not what you want.
 	Events <-chan *WatcherData
 }
 

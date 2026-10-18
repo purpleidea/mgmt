@@ -354,12 +354,13 @@ func (obj *Simple) Txn(ctx context.Context, ifCmps []etcd.Cmp, thenOps, elseOps 
 
 // Watcher is a watcher that returns a chan of error's instead of a chan with
 // all sorts of watcher data. This is useful when we only want an event signal,
-// but we don't care about the specifics.
+// but we don't care about the specifics. It sends nil on startup and on every
+// change. A non-nil error is always a real failure which is the last thing sent
+// before the channel closes, and the channel only closes without such an error
+// when the input ctx was cancelled.
 func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOption) (chan error, error) {
-	cancelCtx, cancel := context.WithCancel(ctx)
-	info, err := obj.ComplexWatcher(cancelCtx, path, opts...)
+	info, err := obj.ComplexWatcher(ctx, path, opts...)
 	if err != nil {
-		defer cancel()
 		return nil, err
 	}
 	ch := make(chan error)
@@ -367,23 +368,12 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 	go func() {
 		defer obj.wg.Done()
 		defer close(ch)
-		defer cancel()
-		var data *interfaces.WatcherData
-		var ok bool
-		for {
-			select {
-			case data, ok = <-info.Events: // read
-				if !ok {
-					return
-				}
-			case <-cancelCtx.Done():
-				continue // wait for ch closure, but don't block
-			}
-
+		defer info.Cancel() // stop the watch if we stop first
+		for data := range info.Events {
 			select {
 			case ch <- data.Err: // send (might be nil!)
-			case <-cancelCtx.Done():
-				continue // wait for ch closure, but don't block
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
@@ -392,10 +382,15 @@ func (obj *Simple) Watcher(ctx context.Context, path string, opts ...etcd.OpOpti
 
 // ComplexWatcher is a more capable watcher that also returns data information.
 // This starts a watch request. It writes on a channel that you can follow to
-// know when an event or an error occurs. It always sends one startup event. It
-// will not return until the watch has been started. If it cannot start, then it
-// will return an error. Remember to add the WithPrefix() option if you want to
-// watch recursively.
+// know when an event or an error occurs. It will not return until the watch has
+// been started, and if it can't start, it returns an error instead. Once it has
+// started, it always sends one startup event, followed by one event for every
+// change. If the watch fails, eg: if the server cancels it because of a
+// compaction, or the client is closed, then the event carries that error, and
+// it's the last one before the channel closes. The channel only closes without
+// such an error when the input ctx was cancelled, or when the Cancel function
+// was called. Remember to add the WithPrefix() option if you want to watch
+// recursively.
 // TODO: do we need to support retry and changed client connections?
 // XXX: do we need to track last successful revision and retry from there? If so
 // use: `lastRev := response.Header.GetRevision()` and `etcd.WithRev(rev)` ?
@@ -406,8 +401,9 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 	cancelCtx, cancel := context.WithCancel(ctx)
 	eventsChan := make(chan *interfaces.WatcherData) // channel of runtime errors
 
-	var count uint8
-	wg := &sync.WaitGroup{}
+	// We sends exactly one result on this before we sends any events out.
+	// It's buffered so that it never blocks on that single send.
+	startup := make(chan error, 1)
 
 	// TODO: if we can detect the use of WithCreatedNotify, we don't need to
 	// hard-code it down below... https://github.com/etcd-io/etcd/issues/9689
@@ -420,96 +416,98 @@ func (obj *Simple) ComplexWatcher(ctx context.Context, path string, opts ...etcd
 	//		break
 	//	}
 	//}
-	count++
-	wg.Add(1)
-
 	wOpts := []etcd.OpOption{
-		etcd.WithCreatedNotify(),
+		etcd.WithCreatedNotify(), // so that we know when it has started
 	}
 	wOpts = append(wOpts, opts...)
-	var err error
 
 	obj.wg.Add(1) // hook in to global wait group
 	go func() {
 		defer obj.wg.Done()
 		defer close(eventsChan)
-		defer cancel() // it's safe to cancel() more than once!
-		ch := obj.w.Watch(cancelCtx, path, wOpts...)
-		for {
-			var resp etcd.WatchResponse
-			var ok bool
-			var created bool
+		defer cancel() // release the etcd watch when we're done
+
+		// send is used for every event after startup. It returns false
+		// if we're shutting down and should return.
+		send := func(data *interfaces.WatcherData) bool {
 			select {
-			case resp, ok = <-ch:
-				if !ok {
-					if count > 0 { // closed before startup
-						// set err in parent scope!
-						err = fmt.Errorf("watch closed")
-						count--
-						wg.Done()
-					}
+			case eventsChan <- data:
+				return true
+			case <-cancelCtx.Done():
+				return false
+			}
+		}
+
+		ch := obj.w.Watch(cancelCtx, path, wOpts...)
+		started := false
+		for {
+			resp, ok := <-ch // etcd closes this when cancelCtx is done
+			if !ok {
+				// When we cancel a watch, etcd closes it
+				// without a response. Otherwise it's an
+				// unexpected close, eg: from the client being
+				// closed without an error.
+				err := cancelCtx.Err()
+				if err == nil {
+					err = fmt.Errorf("watch closed")
+				}
+				if !started {
+					startup <- err
 					return
 				}
-
-				// the watch is now running!
-				if count > 0 && resp.Created {
-					created = true
-					count--
-					wg.Done()
+				if cancelCtx.Err() == nil { // didn't cancel so send
+					send(&interfaces.WatcherData{Path: path, Err: err})
 				}
+				return // always return
+			}
 
-				isCanceled := resp.Canceled || resp.Err() == context.Canceled
-				// TODO: this might not be needed
-				if resp.Header.GetRevision() == 0 { // by inspection
-					if obj.Debug {
-						obj.logf("watch: received empty message") // switched client connection
-					}
-					isCanceled = true
-				}
+			// This is non-nil for any kind of cancellation, eg:
+			// from a compaction, a failed creation, or the stream
+			// closing.
+			err := resp.Err()
 
-				if isCanceled {
-					data := &interfaces.WatcherData{
-						Err: context.Canceled,
-					}
-					select { // send the error
-					case eventsChan <- data:
-					case <-ctx.Done():
-						if count > 0 { // XXX: hack
-							wg.Done()
-						}
-						return
-					}
-					continue // channel should close shortly
+			if !started {
+				if err == nil && !resp.Created { // should not happen
+					err = fmt.Errorf("unexpected watch response before creation")
 				}
+				if err != nil {
+					startup <- err
+					return
+				}
+				started = true
+				startup <- nil // the watch is now running!
+			}
+
+			if err != nil && cancelCtx.Err() != nil {
+				return // we're shutting down, this isn't a failure
 			}
 
 			// TODO: consider processing the response data into a
 			// more useful form for the callback...
 			data := &interfaces.WatcherData{
-				Created: created,
+				Created: resp.Created,
 				Path:    path,
 				Header:  resp.Header,
 				Events:  resp.Events,
-				Err:     resp.Err(),
+				Err:     err,
 			}
-
-			select { // send the event
-			case eventsChan <- data:
-			case <-ctx.Done():
-				if count > 0 { // XXX: hack
-					wg.Done()
-				}
+			if !send(data) {
 				return
+			}
+			if err != nil {
+				return // etcd watch failed, we're done sending
 			}
 		}
 	}()
 
-	wg.Wait() // wait for created event before we return
+	if err := <-startup; err != nil {
+		return nil, err // the goroutine has already returned
+	}
 
 	return &interfaces.WatcherInfo{
 		Cancel: cancel,
 		Events: eventsChan,
-	}, err
+	}, nil
 }
 
 // WatchMembers returns a changing list of cluster membership. This is about the

@@ -468,9 +468,14 @@ func isDir(path string) bool {
 
 // MergeChannels is a helper function to combine different recwatch events. It
 // would be preferable to actually fix the horrible recwatch code to allow it to
-// monitor more than one path from the start.
-func MergeChannels(chanList ...<-chan *Event) <-chan *Event {
-	out := make(chan *Event)
+// monitor more than one path from the start. An error is the last event before
+// the channel closes, and it only closes without one when ctx was cancelled, or
+// when all of the inputs closed without one. Cancel ctx when you stop reading
+// so that nothing stays blocked.
+func MergeChannels(ctx context.Context, chanList ...<-chan *Event) <-chan *Event {
+	ctx, cancel := context.WithCancel(ctx)
+
+	in := make(chan *Event)
 	wg := &sync.WaitGroup{}
 	wg.Add(len(chanList)) // do them all together
 	for _, ch := range chanList {
@@ -478,14 +483,34 @@ func MergeChannels(chanList ...<-chan *Event) <-chan *Event {
 		go func(ch <-chan *Event) {
 			defer wg.Done()
 			for v := range ch {
-				out <- v
+				select {
+				case in <- v:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}(ch)
 	}
 	go func() {
-		// Last one closes!
 		wg.Wait()
-		close(out)
+		close(in) // nothing can send on this anymore
+	}()
+
+	// A single sender lets us guarantee that nothing follows an error.
+	out := make(chan *Event)
+	go func() {
+		defer close(out)
+		defer cancel() // if one of them fails, stop the others too
+		for v := range in {
+			select {
+			case out <- v:
+			case <-ctx.Done():
+				return
+			}
+			if v != nil && v.Error != nil {
+				return // that was the last one
+			}
+		}
 	}()
 	return out
 }

@@ -215,7 +215,10 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 		ch := recWatcher.Events()
 		chanList = append(chanList, ch)
 	}
-	events := recwatch.MergeChannels(chanList...)
+	// The merge must stop when we return, even if it's on an error.
+	mergeCtx, mergeCancel := context.WithCancel(ctx)
+	defer mergeCancel()
+	events := recwatch.MergeChannels(mergeCtx, chanList...)
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err

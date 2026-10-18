@@ -253,3 +253,87 @@ func expectEvent(t *testing.T, events <-chan *Event) {
 		t.Fatal("timed out waiting for recwatch event")
 	}
 }
+
+func TestMergeChannelsCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// These never close, and we never read the first event, so the merge is
+	// blocked sending it to us when we cancel.
+	in1 := make(chan *Event, 1)
+	in2 := make(chan *Event, 1)
+	in1 <- &Event{}
+	in2 <- &Event{}
+	out := MergeChannels(ctx, in1, in2)
+	time.Sleep(10 * time.Millisecond) // let it block
+	cancel()
+
+	timer := time.After(2 * time.Second)
+	for {
+		select {
+		case _, ok := <-out:
+			if !ok {
+				return // closed
+			}
+			// we might win the race against cancel once or twice
+		case <-timer:
+			t.Fatal("timed out waiting for the merged channel to close")
+		}
+	}
+}
+
+func TestMergeChannelsErrorIsLast(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	in1 := make(chan *Event)
+	in2 := make(chan *Event)
+	out := MergeChannels(ctx, in1, in2)
+
+	// The second input keeps on sending events, even after the first one
+	// fails, but none of them may follow that error.
+	go func() {
+		for {
+			select {
+			case in2 <- &Event{}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	watchErr := fmt.Errorf("test watcher error")
+	go func() {
+		select {
+		case in1 <- &Event{Error: watchErr}:
+		case <-ctx.Done():
+		}
+	}()
+
+	timer := time.After(2 * time.Second)
+	for {
+		select {
+		case event, ok := <-out:
+			if !ok {
+				t.Fatal("merged channel closed before the error")
+			}
+			if event.Error == nil {
+				continue // an event from the second input
+			}
+			if event.Error != watchErr {
+				t.Fatalf("unexpected error: %v", event.Error)
+			}
+		case <-timer:
+			t.Fatal("timed out waiting for the error")
+		}
+		break // we got the error
+	}
+
+	select {
+	case event, ok := <-out:
+		if ok {
+			t.Fatalf("unexpected event after the error: %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for the merged channel to close")
+	}
+}

@@ -31,7 +31,6 @@ package coreos
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -184,24 +183,17 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 
 					case event, ok := <-obj.recWatcher.Events():
 						if !ok {
+							// A filename switch
+							// runs Cleanup on this
+							// watcher, which closes
+							// this without sending
+							// us an error.
 							return // file watcher shut down
 						}
 						if event == nil {
 							// programming error
 							err = fmt.Errorf("unexpected nil recwatch event")
 							break
-						}
-						// A filename switch runs
-						// Cleanup on this watcher,
-						// which can cause a return of
-						// context.Canceled. That's not
-						// a real error, so exit cleanly
-						// instead of forwarding it as
-						// that could block obj.events
-						// while the main loop is
-						// running wg.Wait().
-						if errors.Is(event.Error, context.Canceled) {
-							return
 						}
 						if err = event.Error; err != nil {
 							err = errwrap.Wrapf(err, "error event received")

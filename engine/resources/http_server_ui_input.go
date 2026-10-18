@@ -419,6 +419,9 @@ func (obj *HTTPServerUIInputRes) worldWatch(ctx context.Context) error {
 	for {
 		select {
 		case err, ok := <-ch:
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
 			if !ok { // channel shutdown
 				return nil
 			}

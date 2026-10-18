@@ -471,14 +471,17 @@ func (obj *VirtNetworkRes) Watch(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return ctx.Err() // engine is shutting us down
 			}
-			if !ok {
-				recChan = nil
-				continue
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
+			}
+			if event == nil {
+				// programming error
+				return fmt.Errorf("unexpected nil recwatch event")
 			}
 			if err := event.Error; err != nil {
-				obj.init.Logf("file watcher error: %v", err)
-				recChan = nil
-				continue
+				// Without this we'd miss persistent config
+				// changes, so let the engine restart us.
+				return errwrap.Wrapf(err, "file watcher error")
 			}
 			if obj.init.Debug {
 				obj.init.Logf("file event(%s): %v", event.Body.Name, event.Body.Op)

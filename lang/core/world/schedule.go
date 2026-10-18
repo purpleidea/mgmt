@@ -165,12 +165,8 @@ func (obj *ScheduleFunc) Stream(ctx context.Context) error {
 
 		case scheduledResult, ok := <-watchChan:
 			if !ok { // closed
-				// XXX: maybe etcd reconnected? (fix etcd implementation)
-
-				// XXX: if we close, perhaps the engine is
-				// switching etcd hosts and we should retry?
-				// maybe instead we should get an "etcd
-				// reconnect" signal, and the lang will restart?
+				// This only closes without sending us an error
+				// first if ctx was cancelled.
 				return nil
 			}
 			if scheduledResult == nil {

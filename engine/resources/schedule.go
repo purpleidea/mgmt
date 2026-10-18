@@ -245,6 +245,9 @@ func (obj *ScheduleRes) Watch(ctx context.Context) error {
 	for {
 		select {
 		case result, ok := <-ch:
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
 			if !ok { // channel shutdown
 				return nil
 			}
@@ -252,9 +255,6 @@ func (obj *ScheduleRes) Watch(ctx context.Context) error {
 				return fmt.Errorf("unexpected nil result")
 			}
 			if err := result.Err; err != nil {
-				if err == scheduler.ErrSchedulerShutdown {
-					return fmt.Errorf("scheduler shutdown, reconnect bug?") // XXX: fix etcd reconnects?
-				}
 				return errwrap.Wrapf(err, "channel watch failed on `%s`", obj.getNamespace())
 			}
 

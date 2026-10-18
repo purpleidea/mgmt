@@ -558,7 +558,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
@@ -576,7 +576,7 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil

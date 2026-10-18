@@ -186,6 +186,9 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 
 		select {
 		case event, ok := <-passwdWatcher.Events():
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
 			if !ok { // channel shutdown
 				return nil
 			}
@@ -193,7 +196,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil
@@ -201,6 +204,9 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 			}
 
 		case event, ok := <-groupWatcher.Events():
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
 			if !ok { // channel shutdown
 				return nil
 			}
@@ -208,7 +214,7 @@ func (obj *UserRes) Watch(ctx context.Context) error {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 			if obj.init.Debug { // don't access event.Body if event.Error isn't nil

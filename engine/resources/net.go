@@ -350,18 +350,14 @@ func (obj *NetRes) Watch(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return ctx.Err() // engine is shutting us down
 			}
-			if !ok {
-				if done {
-					return ctx.Err()
-				}
-				done = true
-				continue
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
 			}
 			if event == nil {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 			if obj.init.Debug {

@@ -708,10 +708,9 @@ func (obj *Apparatus) Scheduled(ctx context.Context, namespace string) (chan *sc
 			select {
 			case event, ok := <-ch:
 				if !ok {
-					err = scheduler.ErrSchedulerShutdown // we shut down I guess
-				} else {
-					err = event // it may be an error or not
+					return // closed because ctx was cancelled
 				}
+				err = event // it may be an error or not
 
 			case <-ctx.Done():
 				return
@@ -726,6 +725,9 @@ func (obj *Apparatus) Scheduled(ctx context.Context, namespace string) (chan *sc
 			// Get data to send...
 			if err == nil { // did we error above?
 				hosts, err = obj.getScheduled(ctx, namespace)
+				if err != nil && ctx.Err() != nil {
+					return // we're shutting down, this isn't a failure
+				}
 			}
 
 			// Send off that data...

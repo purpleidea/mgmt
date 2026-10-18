@@ -995,10 +995,11 @@ func (obj *RemoteRes) Watch(ctx context.Context) error {
 	for {
 		select {
 		case err, ok := <-endpointsChan:
-			if !ok {
-				// world is shutting down, we should soon be too
-				endpointsChan = nil
-				continue
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
+			if !ok { // channel shutdown
+				return fmt.Errorf("unexpected close")
 			}
 			if err != nil {
 				return errwrap.Wrapf(err, "endpoints watch failed")

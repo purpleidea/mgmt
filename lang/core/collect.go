@@ -340,10 +340,8 @@ func (obj *CollectFunc) Stream(ctx context.Context) error {
 
 		case err, ok := <-obj.watchChan:
 			if !ok { // closed
-				// XXX: if we close, perhaps the engine is
-				// switching etcd hosts and we should retry?
-				// maybe instead we should get an "etcd
-				// reconnect" signal, and the lang will restart?
+				// This only closes without sending us an error
+				// first if ctx was cancelled.
 				return nil
 			}
 			if err != nil {

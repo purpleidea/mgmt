@@ -156,6 +156,11 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 		if err == nil {
 			return
 		}
+		if ctx.Err() != nil {
+			// We're shutting down so this isn't a failure, and the
+			// caller already knows from its own ctx.
+			return
+		}
 		select {
 		case obj.events <- &Event{Error: err}:
 		case <-ctx.Done():
@@ -184,7 +189,10 @@ func (obj *RecWatcher) Cleanup() {
 	obj.wg.Wait() // ...then wait for the watch goroutine to exit
 }
 
-// Events returns a channel of events. These include events for errors.
+// Events returns a channel of events. These include events for errors. An error
+// is always a real failure, and it is the last event before the channel closes.
+// The channel only closes without such an error when the input ctx was
+// cancelled, or when Cleanup was called.
 func (obj *RecWatcher) Events() chan *Event { return obj.events }
 
 // watch is the primary listener for this resource and it outputs events.

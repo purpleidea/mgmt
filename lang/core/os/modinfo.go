@@ -150,7 +150,7 @@ func (obj *ModinfoLoadedFunc) Stream(ctx context.Context) error {
 				// programming error
 				return fmt.Errorf("unexpected nil recwatch event")
 			}
-			if err := event.Error; err != nil { // might be context.Canceled
+			if err := event.Error; err != nil {
 				return err
 			}
 

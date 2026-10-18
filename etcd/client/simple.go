@@ -527,6 +527,9 @@ func (obj *Simple) WatchMembers(ctx context.Context) (<-chan *interfaces.Members
 			members := []*interfaces.Member{}
 			result := &interfaces.MembersResult{}
 			resp, err := obj.client.MemberList(ctx)
+			if err != nil && ctx.Err() != nil {
+				return // we're shutting down, this isn't a failure
+			}
 			if err != nil {
 				result.Err = err
 				goto Send

@@ -122,6 +122,50 @@ func TestWatchRuntimeError(t *testing.T) {
 	}
 }
 
+func TestShutdownClosesWithoutError(t *testing.T) {
+	for _, name := range []string{"cancel", "cleanup"} {
+		t.Run(name, func(t *testing.T) {
+			target := filepath.Join(t.TempDir(), "file.txt")
+			if err := os.WriteFile(target, []byte("contents\n"), 0600); err != nil {
+				t.Fatalf("could not create target file: %v", err)
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			rw, err := NewRecWatcher(ctx, target, false)
+			if err != nil {
+				t.Fatalf("could not create watcher: %v", err)
+			}
+			defer rw.Cleanup()
+
+			// We keep reading the whole time, so that a shutdown
+			// error would get delivered if one were ever sent.
+			done := make(chan *Event)
+			go func() {
+				defer close(done)
+				for event := range rw.Events() {
+					done <- event
+				}
+			}()
+
+			if name == "cancel" {
+				cancel()
+			} else {
+				rw.Cleanup()
+			}
+
+			select {
+			case event, ok := <-done:
+				if ok {
+					t.Fatalf("unexpected event on shutdown: %+v", event)
+				}
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out waiting for events channel to close")
+			}
+		})
+	}
+}
+
 func TestWatchDoesNotDescendPastLeaf(t *testing.T) {
 	dir := t.TempDir()
 	parent := filepath.Join(dir, "parent")

@@ -30,13 +30,6 @@
 // Package scheduler contains code that is common to all the schedulers.
 package scheduler
 
-import (
-	"errors"
-)
-
-// ErrSchedulerShutdown is a sentinel that represents scheduler shutdown.
-var ErrSchedulerShutdown = errors.New("scheduler shutdown")
-
 // ScheduledResult represents output from the scheduler.
 type ScheduledResult struct {
 	Hosts []string

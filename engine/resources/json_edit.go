@@ -187,7 +187,7 @@ func (obj *JSONEditRes) fileWatch(ctx context.Context) error {
 			if event == nil {
 				return fmt.Errorf("the JSON store watch returned a nil event")
 			}
-			if event.Error != nil { // might be context.Canceled
+			if event.Error != nil {
 				return event.Error
 			}
 
@@ -214,6 +214,9 @@ func (obj *JSONEditRes) etcdWatch(ctx context.Context) error {
 	for {
 		select {
 		case err, ok := <-events:
+			if ctx.Err() != nil {
+				return ctx.Err() // engine is shutting us down
+			}
 			if !ok {
 				return fmt.Errorf("unexpected close")
 			}

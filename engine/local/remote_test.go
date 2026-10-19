@@ -102,3 +102,131 @@ func TestRemoteDecodeInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoteDoneEncode(t *testing.T) {
+	done := &RemoteDone{
+		Signal: RemoteSignalNone,
+		Error:  "missing /etc/myapp.conf",
+	}
+	s, err := done.Encode()
+	if err != nil {
+		t.Fatalf("func Encode: %v", err)
+	}
+	if exp := `{"signal":"none","error":"missing /etc/myapp.conf"}`; s != exp {
+		t.Errorf("func Encode: got: %s, expected: %s", s, exp)
+	}
+
+	decoded, err := DecodeRemoteDone(s)
+	if err != nil {
+		t.Fatalf("func DecodeRemoteDone: %v", err)
+	}
+	if *decoded != *done {
+		t.Errorf("func DecodeRemoteDone: got: %+v, expected: %+v", decoded, done)
+	}
+
+	if _, err := (&RemoteDone{}).Encode(); err == nil {
+		t.Errorf("func Encode: expected error for an empty signal")
+	}
+	if _, err := (&RemoteDone{Signal: "kill"}).Encode(); err == nil {
+		t.Errorf("func Encode: expected error for an invalid signal")
+	}
+	if _, err := (&RemoteDone{Signal: RemoteSignalExit, Error: "\xff"}).Encode(); err == nil {
+		t.Errorf("func Encode: expected error for an invalid error")
+	}
+}
+
+func TestRemoteDoneString(t *testing.T) {
+	tests := []struct {
+		done *RemoteDone
+		exp  string
+	}{
+		{
+			done: &RemoteDone{Signal: RemoteSignalExit},
+			exp:  "success, signal: exit",
+		},
+		{
+			done: &RemoteDone{Signal: RemoteSignalExit, Error: "missing /etc/myapp.conf"},
+			exp:  "failure, signal: exit, error: missing /etc/myapp.conf",
+		},
+		{
+			done: &RemoteDone{Signal: RemoteSignalSoft, Error: "oops, signal: hard"},
+			exp:  "failure, signal: soft, error: oops, signal: hard",
+		},
+	}
+	for _, tc := range tests {
+		if s := tc.done.String(); s != tc.exp {
+			t.Errorf("func String: got: %s, expected: %s", s, tc.exp)
+		}
+	}
+}
+
+func TestRemoteDoneDecodeInvalid(t *testing.T) {
+	// Each of these differs from a valid encoding in one way only.
+	invalid := []string{
+		``,
+		`{}`,
+		`null`,
+		`{"signal":"","error":""}`,
+		`{"signal":"kill","error":""}`,
+		`{"signal":"exit"}`,                     // missing member
+		`{"signal":"exit","error":"","evil":1}`, // unknown member
+		`{"error":"","signal":"exit"}`,          // order
+		`{"signal": "exit","error":""}`,         // whitespace
+		`{"signal":"exit","error":null}`,        // null
+		`{"signal":"exit","error":""} {}`,       // trailing data
+		"{\"signal\":\"exit\",\"error\":\"\xff\"}", // invalid UTF-8
+	}
+	for _, s := range invalid {
+		if done, err := DecodeRemoteDone(s); err == nil {
+			t.Errorf("func DecodeRemoteDone(%q): expected error, got: %+v", s, done)
+		}
+	}
+}
+
+func TestRemoteAckDecode(t *testing.T) {
+	ack := &RemoteAck{
+		Error: "oops",
+	}
+	s, err := ack.Encode()
+	if err != nil {
+		t.Fatalf("func Encode: %v", err)
+	}
+	if exp := `{"error":"oops"}`; s != exp {
+		t.Errorf("func Encode: got: %s, expected: %s", s, exp)
+	}
+
+	// The ack decoding is tolerant of missing members, since an older
+	// binary might have written it.
+	valid := map[string]string{
+		`{"error":"oops"}`:  "oops",
+		`{"error":""}`:      "",
+		`{}`:                "",
+		`{ "error":"oops"}`: "oops",
+	}
+	for s, exp := range valid {
+		decoded, err := DecodeRemoteAck(s)
+		if err != nil {
+			t.Errorf("func DecodeRemoteAck(%q): %v", s, err)
+			continue
+		}
+		if decoded.Error != exp {
+			t.Errorf("func DecodeRemoteAck(%q): got: %q, expected: %q", s, decoded.Error, exp)
+		}
+	}
+
+	invalid := []string{
+		``,
+		`null`,
+		` {"error":""}`,
+		`"oops"`,
+		`{"error":"","evil":1}`, // unknown member, eg: from a newer binary
+		`{"error":1}`,
+		`{"error":""} {}`,
+		"{\"error\":\"\xff\"}",
+	}
+	for _, s := range invalid {
+		if ack, err := DecodeRemoteAck(s); err == nil {
+			t.Errorf("func DecodeRemoteAck(%q): expected error, got: %+v", s, ack)
+		}
+	}
+}

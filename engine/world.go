@@ -288,6 +288,45 @@ type EndpointsWorld interface {
 	WatchEndpoints(ctx context.Context) (<-chan error, error)
 }
 
+// RemoteWorld is a world interface for the handshake between a child which was
+// started by a remote resource, and the parent which started it. The child
+// writes a done record, and the parent acknowledges it with an ack record. The
+// writer of a record always puts its own hostname in its key, so the methods
+// which write only take the other hostname, while the methods which read take
+// all of them. The name is the name of the remote resource in the parent. The
+// values are opaque strings, and a nil value means the record doesn't exist.
+type RemoteWorld interface {
+	// RemoteDoneWatch returns a channel which sends an event on startup and
+	// on any change to the done record of a child.
+	RemoteDoneWatch(ctx context.Context, child, parent, name string) (chan error, error)
+
+	// RemoteDoneGet returns the done record of a child.
+	RemoteDoneGet(ctx context.Context, child, parent, name string) (*string, error)
+
+	// RemoteDoneSet stores our done record, as a child, for the remote
+	// resource with this name in the parent. It's bound to a session, so
+	// that it is deleted when we go away. If that session was lost, then
+	// the next call puts the record again with a new one.
+	RemoteDoneSet(ctx context.Context, parent, name, value string) error
+
+	// RemoteDoneDel deletes our done record, as a child.
+	RemoteDoneDel(ctx context.Context, parent, name string) error
+
+	// RemoteAckWatch returns a channel which sends an event on startup and
+	// on any change to the ack record of a parent.
+	RemoteAckWatch(ctx context.Context, parent, name string) (chan error, error)
+
+	// RemoteAckGet returns the ack record of a parent.
+	RemoteAckGet(ctx context.Context, parent, name string) (*string, error)
+
+	// RemoteAckSet stores our ack record, as a parent, for our remote
+	// resource with this name. It persists until it is deleted.
+	RemoteAckSet(ctx context.Context, name, value string) error
+
+	// RemoteAckDel deletes our ack record, as a parent.
+	RemoteAckDel(ctx context.Context, name string) error
+}
+
 // EtcdWorld is a world interface that should be implemented if the world
 // backend is implementing etcd, and if it supports dynamically resizing things.
 // TODO: In theory we could generalize this to support other backends, but lets

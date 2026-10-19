@@ -38,6 +38,7 @@ import (
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/etcd/client"
+	"github.com/purpleidea/mgmt/etcd/client/remote"
 	"github.com/purpleidea/mgmt/etcd/client/resources"
 	"github.com/purpleidea/mgmt/etcd/client/str"
 	"github.com/purpleidea/mgmt/etcd/client/strmap"
@@ -52,6 +53,7 @@ import (
 
 var _ engine.SchedulerWorld = &World{} // guarantee the contract
 var _ engine.EndpointsWorld = &World{} // guarantee the contract
+var _ engine.RemoteWorld = &World{}    // guarantee the contract
 
 // World is an etcd backed implementation of the World interface.
 type World struct {
@@ -80,6 +82,8 @@ type World struct {
 	simpleDeploy *deployer.SimpleDeploy
 
 	scheduler *etcdScheduler.Apparatus
+
+	handshake *remote.Handshake
 
 	cleanups []func() error
 }
@@ -134,6 +138,21 @@ func (obj *World) Connect(ctx context.Context, init *engine.WorldInit) error {
 			obj.init.Logf("scheduler: "+format, v...)
 		},
 	}).Init()
+
+	obj.handshake = (&remote.Handshake{
+		Client:   obj.client,
+		Hostname: obj.init.Hostname,
+		TTL:      sessionTTLSec(SessionTTL),
+	}).Init()
+	obj.cleanups = append(obj.cleanups, func() error {
+		// This revokes the lease of our remote done records, which
+		// deletes them. It must run before the client is closed.
+		e := obj.handshake.Close()
+		if obj.init.Debug && e != nil {
+			obj.init.Logf("remote handshake close error: %+v", e)
+		}
+		return e
+	})
 
 	return nil
 }
@@ -294,6 +313,50 @@ func (obj *World) ScheduledGet(ctx context.Context, namespace string) (*schedule
 // Scheduled returns the stream of scheduled results without participating.
 func (obj *World) Scheduled(ctx context.Context, namespace string) (chan *scheduler.ScheduledResult, error) {
 	return obj.scheduler.Scheduled(ctx, namespace)
+}
+
+// RemoteDoneWatch returns a channel which sends an event on startup and on any
+// change to the done record of a child.
+func (obj *World) RemoteDoneWatch(ctx context.Context, child, parent, name string) (chan error, error) {
+	return obj.handshake.DoneWatch(ctx, child, parent, name)
+}
+
+// RemoteDoneGet returns the done record of a child, or nil if there isn't one.
+func (obj *World) RemoteDoneGet(ctx context.Context, child, parent, name string) (*string, error) {
+	return obj.handshake.DoneGet(ctx, child, parent, name)
+}
+
+// RemoteDoneSet stores our done record, as a child, for the remote resource
+// with this name in the parent. It's bound to our session lease.
+func (obj *World) RemoteDoneSet(ctx context.Context, parent, name, value string) error {
+	return obj.handshake.DoneSet(ctx, parent, name, value)
+}
+
+// RemoteDoneDel deletes our done record, as a child.
+func (obj *World) RemoteDoneDel(ctx context.Context, parent, name string) error {
+	return obj.handshake.DoneDel(ctx, parent, name)
+}
+
+// RemoteAckWatch returns a channel which sends an event on startup and on any
+// change to the ack record of a parent.
+func (obj *World) RemoteAckWatch(ctx context.Context, parent, name string) (chan error, error) {
+	return obj.handshake.AckWatch(ctx, parent, name)
+}
+
+// RemoteAckGet returns the ack record of a parent, or nil if there isn't one.
+func (obj *World) RemoteAckGet(ctx context.Context, parent, name string) (*string, error) {
+	return obj.handshake.AckGet(ctx, parent, name)
+}
+
+// RemoteAckSet stores our ack record, as a parent, for our remote resource with
+// this name. It persists until it is deleted.
+func (obj *World) RemoteAckSet(ctx context.Context, name, value string) error {
+	return obj.handshake.AckSet(ctx, name, value)
+}
+
+// RemoteAckDel deletes our ack record, as a parent.
+func (obj *World) RemoteAckDel(ctx context.Context, name string) error {
+	return obj.handshake.AckDel(ctx, name)
 }
 
 // URI returns the current FS URI.

@@ -209,6 +209,15 @@ var (
 // home link to connect into a jump server and then fan out quickly and also
 // hierarchically from there.
 //
+// A transient child can tell us that it's done by using the `remote:done`
+// resource. If it sends us a done signal, we then acknowledge it, and then
+// signal that child the way that it asked us to, which by default is a ^C. Once
+// it exits, this resource finishes either successfully, or with the error that
+// the child gave us. From then on, this resource reports that same result
+// without launching the child again even across restarts until that record is
+// cleared. The `is_done` function in the `res/remote` package can read the
+// value of this ack latch.
+//
 // The unique `Name` field should represent a URL connect string to be used to
 // reach the remote host. To override this and for details of the format, use
 // the `Remote` field.
@@ -335,8 +344,9 @@ type RemoteRes struct {
 	// true, since it makes the child exit on its own.
 	ConvergerTimeout *int `lang:"converger_timeout" yaml:"converger_timeout"`
 
-	world   engine.EndpointsWorld // world API for endpoint discovery
-	urlInfo *urlInfo              // parsed remote connection info (use after Init)
+	world     engine.EndpointsWorld // world API for endpoint discovery
+	handshake engine.RemoteWorld    // world API for the done handshake
+	urlInfo   *urlInfo              // parsed remote connection info (use after Init)
 
 	auth []ssh.AuthMethod // list of auth for ssh
 
@@ -570,6 +580,12 @@ func (obj *RemoteRes) Init(init *engine.Init) error {
 		return fmt.Errorf("world backend does not support the EndpointsWorld interface")
 	}
 	obj.world = world
+
+	handshake, ok := obj.init.World.(engine.RemoteWorld)
+	if !ok {
+		return fmt.Errorf("world backend does not support the RemoteWorld interface")
+	}
+	obj.handshake = handshake
 
 	if obj.init.Program == "" {
 		return fmt.Errorf("program name is empty")
@@ -1211,6 +1227,24 @@ func (obj *RemoteRes) tunnelClose() error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	// If a transient child already sent us a "done" and we latched with our
+	// ack, then don't run until that is cleared. We must not use a
+	// connection for this, because that host might be powered off or
+	// rebooting.
+	if obj.State == RemoteStateRunning && obj.Transient {
+		ack, err := obj.getAck(ctx)
+		if err != nil {
+			return false, err
+		}
+		if ack != nil {
+			obj.init.Logf("child is already done")
+			if ack.Error != "" {
+				return false, remoteDoneErr(ack.Error)
+			}
+			return true, nil
+		}
+	}
+
 	// When Watch isn't holding a connection for us (a transient or stopped
 	// resource, or polling), CheckApply owns it for this call. For a
 	// transient child, we block below until it exits so the tunnel and
@@ -1341,8 +1375,8 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	}()
 
 	// Block until the child exits, or until we're shut down.
-	waitErr := obj.waitConvergedExit(ctx)
-	if waitErr != nil && ctx.Err() == nil {
+	done, waitErr := obj.waitExit(ctx, h)
+	if ctx.Err() == nil && done == nil && waitErr != nil {
 		return false, waitErr // it exited badly, let the engine retry
 	}
 	if ctx.Err() != nil {
@@ -1368,8 +1402,98 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		tidy = true
 		return false, ctx.Err()
 	}
+	if done == nil {
+		tidy = true
+		return true, nil // it exited cleanly, we're converged
+	}
+
+	// The child told us that it was done, so that decides the result. The
+	// only other thing which can fail it is a non-zero exit status, when
+	// the child asked us to let it exit by itself.
+	msg := done.Error
+	if waitErr != nil {
+		if msg != "" {
+			msg += ": "
+		}
+		msg += waitErr.Error()
+		// Store the final result, so that we return the same thing
+		// again next time, instead of an error once and then success.
+		if err := obj.setAck(ctx, msg); err != nil {
+			return false, err
+		}
+	}
+	if msg != "" {
+		return false, remoteDoneErr(msg) // keep the log for inspection
+	}
+
 	tidy = true
-	return true, nil // it exited cleanly, we're converged
+	return true, nil // XXX: Should we use the done.Return value here?
+}
+
+// getAck returns our ack record for this resource, or nil if there isn't one.
+func (obj *RemoteRes) getAck(ctx context.Context) (*local.RemoteAck, error) {
+	val, err := obj.handshake.RemoteAckGet(ctx, obj.init.Hostname, obj.Name())
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
+		return nil, nil
+	}
+	ack, err := local.DecodeRemoteAck(*val)
+	if err != nil {
+		// Try clearing it, maybe we have an old version?
+		return nil, errwrap.Wrapf(err, "can't decode the ack record")
+	}
+	return ack, nil
+}
+
+// setAck stores our ack record for this resource, with this result.
+func (obj *RemoteRes) setAck(ctx context.Context, msg string) error {
+	ack := &local.RemoteAck{
+		Error: msg,
+	}
+	value, err := ack.Encode()
+	if err != nil {
+		return err
+	}
+	return obj.handshake.RemoteAckSet(ctx, obj.Name(), value)
+}
+
+// ackDone reads the done record of the child, and if there is one, it stores
+// our ack record, and then sends the child the signal that it asked for. The
+// ack is stored first, so that if that signal cancels the remote:done resource
+// in the child, nothing is lost, since we've already recorded the result. This
+// returns nil if there isn't a done record yet. An error after we've stored the
+// ack also returns the done record.
+func (obj *RemoteRes) ackDone(ctx context.Context, child string) (*local.RemoteDone, error) {
+	val, err := obj.handshake.RemoteDoneGet(ctx, child, obj.init.Hostname, obj.Name())
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
+		return nil, nil // not done yet
+	}
+	done, err := local.DecodeRemoteDone(*val)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't decode the done record")
+	}
+	sigints, err := remoteSigints(done.Signal)
+	if err != nil { // should not happen, previously done in decode
+		return nil, err
+	}
+
+	if err := obj.setAck(ctx, done.Error); err != nil {
+		return nil, errwrap.Wrapf(err, "can't acknowledge the child")
+	}
+	obj.init.Logf("child %s is done: %s", child, done)
+
+	if sigints == 0 {
+		return done, nil // it exits by itself
+	}
+	if err := obj.execExit(ctx, sigints); err != nil {
+		return done, errwrap.Wrapf(err, "can't stop remote process")
+	}
+	return done, nil
 }
 
 // start pushes the binary, optionally installs its dependencies, and launches
@@ -1840,11 +1964,26 @@ func (obj *RemoteRes) convergedExitStatus(ctx context.Context) (int, bool, bool,
 	return status, true, true, nil
 }
 
-// waitConvergedExit waits for a remote converged-exit process to finish. It
-// verifies that the process starts and remains alive until its wrapper records
-// the final status, so a broken launcher does not leave CheckApply waiting
-// forever on a "running" status file.
-func (obj *RemoteRes) waitConvergedExit(ctx context.Context) error {
+// waitExit waits for a transient child to exit. It verifies that the process
+// starts and remains alive until its wrapper records the final status, so a
+// broken launcher does not leave CheckApply waiting forever on a "running"
+// status file. Meanwhile, it watches for a done record from the child, and
+// acknowledges it when it appears. From then on, the done record is returned,
+// and it decides the result, so if we lose the connection, or the child exits
+// without a status, that's not an error, since the child already told us that
+// it was done. That's what a host which powers itself off might look like.
+// After a done record, a non-zero exit status is only an error if the child
+// asked us to send it nothing, since otherwise we caused that exit.
+func (obj *RemoteRes) waitExit(ctx context.Context, child string) (*local.RemoteDone, error) {
+	watchCtx, cancel := context.WithCancel(ctx)
+	defer cancel() // stops the watch when we return
+
+	doneChan, err := obj.handshake.RemoteDoneWatch(watchCtx, child, obj.init.Hostname, obj.Name())
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't watch for the done record")
+	}
+
+	var done *local.RemoteDone
 	started := false
 	notRunningChecks := 0
 	ticker := time.NewTicker(time.Second)
@@ -1858,26 +1997,64 @@ func (obj *RemoteRes) waitConvergedExit(ctx context.Context) error {
 
 	for {
 		select {
+		case err, ok := <-doneChan:
+			if err := watchErr(ctx, "done", err, ok); err != nil {
+				return nil, err
+			}
+			d, err := obj.ackDone(ctx, child)
+			if d == nil && err != nil {
+				return nil, err
+			}
+			if d == nil {
+				continue // not done yet, got the startup event
+			}
+			done = d
+			doneChan = nil // we only act on the first one
+			if err != nil {
+				// next status check finds out where it got to
+				obj.init.Logf("%v", err)
+			}
+			continue
+
 		case <-ticker.C:
+
 		case <-ctx.Done():
-			return ctx.Err()
+			return done, ctx.Err()
 		}
 
+		// Look at the child. If we can't, then that's an error, unless
+		// it was already done, since a host which powers itself off
+		// after it sent us its done record looks just like this. If
+		// we're shutting down then we pass that along, since the caller
+		// handles it.
 		status, _, exited, err := obj.convergedExitStatus(ctx)
-		if err != nil {
-			return err
+		running := false
+		if err == nil && !exited {
+			running, err = obj.checkRunning(ctx)
 		}
+		if err != nil {
+			if done == nil || ctx.Err() != nil {
+				return done, err
+			}
+			obj.init.Logf("child is gone: %v", err)
+			return done, nil
+		}
+
 		if exited {
 			if status == 0 {
-				return nil
+				return done, nil
 			}
-			return fmt.Errorf("remote process exited with status %d: %s", status, tailLog())
+			if done == nil {
+				return nil, fmt.Errorf("remote process exited with status %d: %s", status, tailLog())
+			}
+			if done.Signal != local.RemoteSignalNone {
+				obj.init.Logf("remote process exited with status %d after we stopped it", status)
+				return done, nil
+			}
+			obj.init.Logf("remote process exited with status %d: %s", status, tailLog())
+			return done, fmt.Errorf("remote process exited with status %d", status)
 		}
 
-		running, err := obj.checkRunning(ctx)
-		if err != nil {
-			return err
-		}
 		if running {
 			started = true
 			notRunningChecks = 0
@@ -1889,10 +2066,15 @@ func (obj *RemoteRes) waitConvergedExit(ctx context.Context) error {
 			// The wrapper may still be publishing the final status.
 			continue
 		}
-		if started {
-			return fmt.Errorf("remote process exited without reporting status: %s", tailLog())
+		if done != nil {
+			// Don't fetch the log, since that host may be gone.
+			obj.init.Logf("child is gone")
+			return done, nil
 		}
-		return fmt.Errorf("remote process exited early: %s", tailLog())
+		if started {
+			return nil, fmt.Errorf("remote process exited without reporting status: %s", tailLog())
+		}
+		return nil, fmt.Errorf("remote process exited early: %s", tailLog())
 	}
 }
 
@@ -2388,4 +2570,26 @@ func secureRemoteDir(ctx context.Context, client remotePathClient, base string, 
 	}
 
 	return p + "/", nil
+}
+
+// remoteDoneErr is the error that we return when a child told us that it was
+// done, but that it failed.
+func remoteDoneErr(msg string) error {
+	return fmt.Errorf("child failed: %s", msg)
+}
+
+// remoteSigints returns the number of SIGINTs (^C) that a child asks for, when
+// it tells us that it's done.
+func remoteSigints(signal string) (int, error) {
+	switch signal {
+	case local.RemoteSignalNone:
+		return 0, nil
+	case local.RemoteSignalExit:
+		return remoteSigintsExit, nil
+	case local.RemoteSignalSoft:
+		return remoteSigintsSoft, nil
+	case local.RemoteSignalHard:
+		return remoteSigintsHard, nil
+	}
+	return 0, fmt.Errorf("invalid signal: %s", signal)
 }

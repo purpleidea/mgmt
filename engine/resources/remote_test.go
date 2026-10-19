@@ -34,6 +34,8 @@ package resources
 import (
 	"context"
 	"testing"
+
+	"github.com/purpleidea/mgmt/engine"
 )
 
 type remoteTestWorld struct {
@@ -78,5 +80,45 @@ func TestRemoteGetSeedsFiltersUnspecifiedAddresses(t *testing.T) {
 	want := "http://127.0.0.1:2379,http://192.0.2.1:2379,http://[::1]:2379,http://etcd.example.com:2379,http://localhost:2379"
 	if got != want {
 		t.Errorf("got seeds %q, want %q", got, want)
+	}
+}
+
+func TestRemoteClearValidate(t *testing.T) {
+	newClear := func() *RemoteRes {
+		res, err := engine.NewNamedResource("remote", "r0")
+		if err != nil {
+			t.Fatalf("func NewNamedResource: %v", err)
+		}
+		obj := res.(*RemoteRes)
+		obj.Clear = true
+		obj.SSHID = nil // would scan for keys, but clear never needs them
+		return obj
+	}
+
+	if err := newClear().Validate(); err != nil {
+		t.Errorf("func Validate: %v", err)
+	}
+
+	obj := newClear()
+	obj.State = RemoteStateStopped
+	if err := obj.Validate(); err == nil {
+		t.Errorf("func Validate: expected error for Clear with the stopped State")
+	}
+
+	obj = newClear()
+	obj.InstallDeps = true
+	if err := obj.Validate(); err == nil {
+		t.Errorf("func Validate: expected error for Clear with InstallDeps")
+	}
+
+	obj = newClear()
+	timeout := 5
+	obj.ConvergerTimeout = &timeout
+	if err := obj.Validate(); err == nil {
+		t.Errorf("func Validate: expected error for Clear with ConvergerTimeout")
+	}
+
+	if err := newClear().Cmp(&RemoteRes{}); err == nil {
+		t.Errorf("func Cmp: expected the Clear param to differ")
 	}
 }

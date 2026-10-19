@@ -216,7 +216,8 @@ var (
 // the child gave us. From then on, this resource reports that same result
 // without launching the child again even across restarts until that record is
 // cleared. The `is_done` function in the `res/remote` package can read the
-// value of this ack latch.
+// value of this ack latch. The Clear param of this resource can be used to
+// remove that latched value.
 //
 // The unique `Name` field should represent a URL connect string to be used to
 // reach the remote host. To override this and for details of the format, use
@@ -343,6 +344,24 @@ type RemoteRes struct {
 	// configured to exit after convergence. This requires Transient to be
 	// true, since it makes the child exit on its own.
 	ConvergerTimeout *int `lang:"converger_timeout" yaml:"converger_timeout"`
+
+	// Clear removes the ack latch that our child caused us to add after it
+	// sent the done message from the `remote:done` resource. That record is
+	// what makes this resource report that it's finished without launching
+	// the child again, and it's what the `is_done` function in the
+	// `res/remote` package reads too. Clearing it re-arms the resource, so
+	// that it can launch the child again. Use it in a separate remote
+	// resource with the same name, much like the `withdraw` param of the
+	// schedule resource. Don't gate it on `is_done` alone, unless you want
+	// a loop because if your code clears whenever `is_done` is true, and
+	// launches whenever it's false, then it launches the child forever. You
+	// may instead wish to gate it with something else which decides when
+	// you want another run. This doesn't connect to the remote host, and
+	// the other params related to connecting to the child are ignored, but
+	// they must still be valid. So if the name isn't a valid URL, then you
+	// must still pass the remote param, just like the resource it clears.
+	// It can't be combined with most parameters.
+	Clear bool `lang:"clear" yaml:"clear"`
 
 	world     engine.EndpointsWorld // world API for endpoint discovery
 	handshake engine.RemoteWorld    // world API for the done handshake
@@ -526,6 +545,7 @@ func (obj *RemoteRes) Validate() error {
 	if obj.State != RemoteStateRunning && obj.State != RemoteStateStopped {
 		return fmt.Errorf("invalid State: %s", obj.State)
 	}
+
 	if obj.ConvergerTimeout != nil && *obj.ConvergerTimeout < 0 {
 		return fmt.Errorf("the ConvergerTimeout cannot be negative")
 	}
@@ -553,6 +573,20 @@ func (obj *RemoteRes) Validate() error {
 		if _, err := obj.helper().KnownHostsKey(obj.HostKey); err != nil {
 			return errwrap.Wrapf(err, "invalid known_hosts key")
 		}
+	}
+
+	if obj.Clear {
+		if obj.State == RemoteStateStopped {
+			return fmt.Errorf("can't combine Clear with the stopped State")
+		}
+		if obj.InstallDeps {
+			return fmt.Errorf("can't combine Clear with InstallDeps")
+		}
+		if obj.ConvergerTimeout != nil {
+			return fmt.Errorf("can't combine Clear with ConvergerTimeout")
+		}
+
+		return nil // we never connect, so we don't need any auth
 	}
 
 	// TODO: is it okay that we run this once and then throw it away?
@@ -595,7 +629,7 @@ func (obj *RemoteRes) Init(init *engine.Init) error {
 	// transient child is owned by CheckApply (which blocks on it), a
 	// stopped resource needs no held connection, and polling skips Watch
 	// entirely.
-	obj.sshInWatch = obj.MetaParams().Poll == 0 && obj.State == RemoteStateRunning && !obj.Transient
+	obj.sshInWatch = !obj.Clear && obj.MetaParams().Poll == 0 && obj.State == RemoteStateRunning && !obj.Transient
 
 	// We use a deterministic remote working directory, so that we can find
 	// the pid file of a previously started process again, and so that the
@@ -1227,6 +1261,27 @@ func (obj *RemoteRes) tunnelClose() error {
 // CheckApply checks the resource state and applies the resource if the bool
 // input is true. It returns error info and if the state check passed or not.
 func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+
+	if obj.Clear {
+		// Don't decode it, in case we're clearing a legacy record from
+		// an older version which would possibly error on decode.
+		val, err := obj.handshake.RemoteAckGet(ctx, obj.init.Hostname, obj.Name())
+		if err != nil {
+			return false, err
+		}
+		if val == nil {
+			return true, nil // nothing to clear
+		}
+		if !apply {
+			return false, nil
+		}
+		if err := obj.handshake.RemoteAckDel(ctx, obj.Name()); err != nil {
+			return false, err
+		}
+		obj.init.Logf("ack cleared")
+		return false, nil
+	}
+
 	// If a transient child already sent us a "done" and we latched with our
 	// ack, then don't run until that is cleared. We must not use a
 	// connection for this, because that host might be powered off or
@@ -2396,6 +2451,10 @@ func (obj *RemoteRes) Cmp(r engine.Res) error {
 		if *obj.ConvergerTimeout != *res.ConvergerTimeout {
 			return fmt.Errorf("the ConvergerTimeout param differs")
 		}
+	}
+
+	if obj.Clear != res.Clear {
+		return fmt.Errorf("the Clear param differs")
 	}
 
 	return nil

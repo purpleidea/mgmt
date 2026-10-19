@@ -67,8 +67,7 @@ type ReadFileFunc struct {
 
 	init *interfaces.Init
 
-	recWatcher *recwatch.RecWatcher
-	events     chan error // internal events
+	events chan error // internal events
 
 	input    chan string // stream of inputs
 	filename *string     // the active filename
@@ -120,9 +119,10 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 	defer close(obj.events) // clean up for fun
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
+	var stop func() // stops the active watcher and its proxy goroutine
 	defer func() {
-		if obj.recWatcher != nil {
-			obj.recWatcher.Cleanup() // stop the previous watcher
+		if stop != nil {
+			stop()
 		}
 	}()
 	for {
@@ -146,21 +146,28 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			}
 			obj.filename = &filename
 
-			if obj.recWatcher != nil {
-				obj.recWatcher.Cleanup() // stop the previous watcher
+			if stop != nil {
+				stop() // stop the previous watcher
 				wg.Wait()
+				stop = nil
 			}
 			// create new watcher
-			var err error
 			opts := []recwatch.Option{
 				recwatch.Logf(obj.init.Logf),
 				recwatch.Debug(obj.init.Debug),
 			}
-			obj.recWatcher, err = recwatch.NewRecWatcher(context.Background(), *obj.filename, false, opts...)
+			// This ctx lets us stop the proxy goroutine, even if
+			// it's blocked sending to us while we're not reading.
+			watchCtx, watchCancel := context.WithCancel(ctx)
+			recWatcher, err := recwatch.NewRecWatcher(watchCtx, *obj.filename, false, opts...)
 			if err != nil {
-				obj.recWatcher = nil
+				watchCancel()
 				// TODO: should we ignore the error and send ""?
 				return errwrap.Wrapf(err, "could not watch file")
+			}
+			stop = func() {
+				watchCancel()
+				recWatcher.Cleanup()
 			}
 
 			// FIXME: instead of sending one event here, the recwatch
@@ -181,13 +188,13 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 						startup = nil
 						// send an initial event
 
-					case event, ok := <-obj.recWatcher.Events():
+					case event, ok := <-recWatcher.Events():
 						if !ok {
 							// A filename switch
-							// runs Cleanup on this
-							// watcher, which closes
-							// this without sending
-							// us an error.
+							// stops this watcher,
+							// which closes this
+							// without sending us an
+							// error.
 							return // file watcher shut down
 						}
 						if event == nil {
@@ -215,8 +222,9 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 					case obj.events <- err:
 						// send event...
 
-					case <-ctx.Done():
+					case <-watchCtx.Done():
 						// don't block here on shutdown
+						// or on a filename switch
 						return
 					}
 					//err = nil // reset

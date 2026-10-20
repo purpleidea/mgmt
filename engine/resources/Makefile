@@ -31,13 +31,13 @@ SHELL = bash
 .PHONY: build clean
 default: build
 
-WASM_FILE = http_server_ui/main.wasm
+WASM_FILE = http_server_ui/wasm/main.wasm
 
 build: $(WASM_FILE)
 
-$(WASM_FILE): http_server_ui/main.go
+$(WASM_FILE): http_server_ui/main.go http_server_ui/common/*.go
 	@echo "Generating: wasm..."
-	cd http_server_ui/ && env GOOS=js GOARCH=wasm go build -o `basename $(WASM_FILE)`
+	cd http_server_ui/ && env GOOS=js GOARCH=wasm go build -o ../$(WASM_FILE)
 
 clean:
 	@rm -f $(WASM_FILE) || true

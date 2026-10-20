@@ -31,7 +31,7 @@ package resources
 
 import (
 	"context"
-	_ "embed" // embed data with go:embed
+	"embed" // embed data with go:embed
 	"fmt"
 	"html/template"
 	"net/http"
@@ -53,6 +53,9 @@ const (
 	httpServerUIKind = httpServerKind + ":ui"
 
 	httpServerUIIndexHTMLTmpl = "index.html.tmpl"
+
+	// httpServerUIMainWasmFile is where make builds the wasm.
+	httpServerUIMainWasmFile = "http_server_ui/wasm/main.wasm"
 )
 
 var (
@@ -62,12 +65,20 @@ var (
 	//go:embed http_server_ui/wasm_exec.js
 	httpServerUIWasmExecData []byte
 
-	//go:embed http_server_ui/main.wasm
+	// We embed the dir instead of the file, because the dir always exists,
+	// so that we can still build without the wasm, such as for the tests.
+	//go:embed http_server_ui/wasm
+	httpServerUIWasmFS embed.FS
+
+	// httpServerUIMainWasmData is empty if we were built without the wasm.
 	httpServerUIMainWasmData []byte
 )
 
 func init() {
 	engine.RegisterResource(httpServerUIKind, func() engine.Res { return &HTTPServerUIRes{} })
+
+	// If it's missing, then Validate will tell the user.
+	httpServerUIMainWasmData, _ = httpServerUIWasmFS.ReadFile(httpServerUIMainWasmFile)
 
 	// XXX: here for now: https://github.com/gin-gonic/gin/issues/1180
 	gin.SetMode(gin.ReleaseMode) // for production
@@ -524,6 +535,11 @@ func (obj *HTTPServerUIRes) Validate() error {
 
 	if !strings.HasSuffix(obj.getPath(), "/") {
 		return fmt.Errorf("the Path must end with a slash")
+	}
+
+	if len(httpServerUIMainWasmData) == 0 {
+		// program was not compiled correctly, see Makefile
+		return fmt.Errorf("the wasm file is missing")
 	}
 
 	return nil

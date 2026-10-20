@@ -31,7 +31,7 @@
 // the remote resource. Since a child process that was started by a remote
 // resource runs the same deploy as every other cluster member, these functions
 // let that code know whether it is running as such a child, and if so, which
-// host started it.
+// host started it. The parent can also find out when such a child is done.
 package coreresremote
 
 const (

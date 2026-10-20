@@ -55,7 +55,7 @@ func ExpandHome(p string) (string, error) {
 	}
 
 	// check if provided path is in format ~username and keep track of provided username
-	r, err := regexp.Compile("~([^/]+)/")
+	r, err := regexp.Compile("^~([^/]+)/")
 	if err != nil {
 		return p, errwrap.Wrapf(err, "can't compile regexp")
 	}

@@ -52,6 +52,9 @@ func TestExpandHome(t *testing.T) {
 		{"~" + usr.Username + "/", usr.HomeDir + "/"},
 		{"~" + usr.Username + "/some/path", usr.HomeDir + "/some/path"},
 		{"~" + usr.Username + "/some/path/", usr.HomeDir + "/some/path/"},
+		// A tilde is only special at the start of the path.
+		{"/some/~" + usr.Username + "/path", "/some/~" + usr.Username + "/path"},
+		{"/some/~/path", "/some/~/path"},
 	}
 
 	for _, test := range expandHomeTests {

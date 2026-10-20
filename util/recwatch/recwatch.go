@@ -252,8 +252,10 @@ func (obj *RecWatcher) watch(ctx context.Context) error {
 			if obj.options.debug {
 				obj.options.logf("watcher.Add(%s): Error: %v", current, err)
 			}
-			// ENOENT for linux, etc and IsNotExist for macOS
-			if err == syscall.ENOENT || os.IsNotExist(err) {
+			// ENOENT for linux, etc and IsNotExist for macOS. It's
+			// ENOTDIR if part of the path is a file, which could be
+			// replaced by a dir later, so that doesn't exist yet.
+			if err == syscall.ENOENT || err == syscall.ENOTDIR || os.IsNotExist(err) {
 				if index > 1 {
 					index-- // usually not found, move up one dir
 				}
@@ -272,6 +274,15 @@ func (obj *RecWatcher) watch(ctx context.Context) error {
 			}
 
 			return fmt.Errorf("unknown error: %v", err)
+		}
+
+		// Anything above our path must be a dir. If it's a file, then
+		// it's still in the way of our path, so watch its parent.
+		if index < len(patharray) && !isDir(current) {
+			// best-effort: the watch may already be gone
+			_ = obj.watcher.Remove(current)
+			index--
+			continue
 		}
 
 		obj.ready(nil) // obj.watcher.Add(...) above has now completed...

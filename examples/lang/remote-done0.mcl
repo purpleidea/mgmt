@@ -1,0 +1,55 @@
+# This demonstrates how a child, which was started by a remote resource, tells
+# its parent that it has finished. When the child's remote:done resource runs,
+# the parent records that the child is done, acknowledges it, and then sends the
+# child a ^C so that it shuts down. The parent's remote resource then finishes
+# successfully. That record is sticky, so the parent won't launch this child
+# again, even across restarts, until it's cleared.
+#
+# The name of the remote:done resource must match the name of the remote
+# resource which started us. You chose that name when you write the parent, so
+# it's best to put it in directly.
+#
+# The parent can use the is_done function to move on to its next stage. Since a
+# transient remote resource blocks until its child exits, an edge from it would
+# already order the next stage after the child, but is_done lets the graph
+# change its shape instead, and it also stays true after the parent restarts.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done0.mcl
+
+import "fmt"
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	file "/tmp/remote-done0" {
+		state => $const.res.file.state.exists,
+		content => fmt.printf("i am %s and i was started by %s\n", $hostname, remote.parent()),
+	}
+
+	# The default signal is "exit" which is the equivalent of a ^C.
+	remote:done "r0" {}
+
+	File["/tmp/remote-done0"] -> Remote:Done["r0"] # finish the work first
+
+} else {
+
+	remote "r0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+	if remote.is_done("r0") {
+		print "next" {
+			msg => "the child has finished, on to the next stage",
+		}
+	}
+
+}

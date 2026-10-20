@@ -1,0 +1,41 @@
+# This demonstrates how a child tells its parent that it's done, but that it has
+# failed. Once the child has shut down, the parent's remote resource fails with
+# the error message instead of succeeding. Like a success, this is recorded, so
+# the parent keeps returning the same error without launching the child again,
+# until it's cleared. The is_done function is true for both a success and a
+# failure, since either way, the child is done.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done3.mcl
+
+import "os"
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	# Suppose we were expecting something to already be pre-provisioned...
+	$path = "/etc/myapp.conf"
+
+	if os.file_exists($path) {
+		remote:done "r0" {}
+	} else {
+		remote:done "r0" {
+			error => "missing ${path}",
+		}
+	}
+
+} else {
+
+	remote "r0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+}

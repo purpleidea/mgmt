@@ -1,0 +1,55 @@
+# In this example, the child has a long running exec resource which isn't
+# ordered before the remote:done resource. With the default "exit" signal, which
+# is the equivalent of a ^C, the child would wait for that exec to finish before
+# it shut down, so instead we use the "soft" interrupt signal, which is the
+# equivalent of a second ^C, which also cancels whatever resource is running at
+# that moment, so we can cause the child to shuts down promptly instead.
+#
+# If some resource doesn't respond to a soft interrupt, then the "hard" signal
+# is the equivalent of a third ^C. That might leave some of your resources in a
+# partial or unknown state, so only use it if you need to.
+#
+# The parent causes the exit in both of these modes, so it ignores the exit
+# status of the child.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done1.mcl
+
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	exec "slow" {
+		cmd => "/usr/bin/sleep 3600", # we don't want to wait for this
+	}
+
+	exec "fast" {
+		cmd => "/usr/bin/sleep 10", # we want to wait for this
+	}
+
+	file "/tmp/remote-done1" {
+		state => $const.res.file.state.exists,
+		content => "the important work is done\n",
+	}
+
+	remote:done "r0" {
+		signal => "soft", # or "hard"
+	}
+
+	Exec["fast"] -> File["/tmp/remote-done1"] -> Remote:Done["r0"]
+
+} else {
+
+	remote "r0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+}

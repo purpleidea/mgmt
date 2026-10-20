@@ -1,0 +1,58 @@
+# This demonstrates the return param, which lets the child tell its parent if it
+# changed anything. The parent's remote resource then reports this just like any
+# other resource would. If the child says that nothing changed, then the parent
+# sends no refresh notifications along any of its edges. If the return param is
+# omitted, then the parent reports a change, since it had to run the child.
+#
+# Here the child only checks that something was already provisioned, and since
+# it doesn't change anything, it says so, and the print resource never runs. If
+# you remove the return param, then it does.
+#
+# Be careful with how you decide on a return value. If the child computed it by
+# looking at something which its own resources change, then the value would
+# flip as soon as they ran, and the remote:done resource would probably have
+# already sent the old one. Once the parent has acknowledged it, changes to the
+# return value have no effect until the parent clears its ack record.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done6.mcl
+
+import "os"
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	$path = "/etc/myapp.conf"
+
+	if os.file_exists($path) {
+		remote:done "r0" {
+			return => true, # we only looked, so nothing changed
+		}
+	} else {
+		remote:done "r0" {
+			error => "missing ${path}",
+		}
+	}
+
+} else {
+
+	remote "r0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+
+		Notify => Print["changed"],
+	}
+
+	print "changed" {
+		msg => "the child changed something",
+		refresh_only => true, # only print when notified
+	}
+
+}

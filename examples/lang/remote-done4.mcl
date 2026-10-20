@@ -1,0 +1,64 @@
+# This demonstrates how to re-arm a remote resource so that it launches its
+# child again. Once a child has used remote:done, the parent records that, and
+# from then on its remote resource finishes without launching the child, even
+# across restarts. A remote resource with the same name and the clear param
+# removes that record. This is much like how the withdraw param of the schedule
+# resource works.
+#
+# Don't gate the clear on is_done alone! If you clear whenever is_done is true,
+# and launch whenever it's false, then you'll loop forever, which may not be
+# what you want. Some other gate can be used to decide when you want another
+# run. Here an operator asks for one by setting a key:
+#
+#	etcdctl --endpoints=localhost:2379 put /_mgmt/strings/rerun-r0 yes
+#
+# Once the record has been cleared, that key gets deleted, which switches us
+# back to the launch branch, and so the child runs again. If the child is still
+# running when the key is set, it gets shut down first, since its remote
+# resource is removed from the graph.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done4.mcl
+
+import "res/remote"
+import "world"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	file "/tmp/remote-done4" {
+		state => $const.res.file.state.exists,
+		content => "the important work is done\n",
+	}
+
+	remote:done "r0" {}
+
+	File["/tmp/remote-done4"] -> Remote:Done["r0"]
+
+} else {
+
+	$rerun = world.getval("rerun-r0")
+
+	if $rerun->exists {
+		remote "r0" {
+			clear => true, # this doesn't connect to the remote host
+		}
+
+		# without a value, this deletes the key at: /_mgmt/strings/rerun-r0
+		kv "rerun-r0" { # delete!
+			Depend => Remote["r0"], # only once the clear has succeeded
+		}
+	} else {
+		remote "r0" {
+			remote => "ssh://${user}@${dest}:22/",
+
+			caching => true, # cache the remote binary
+			transient => true, # remote:done needs a transient parent
+			tunnelled => true, # tunnel etcd back through the ssh connection
+		}
+	}
+
+}

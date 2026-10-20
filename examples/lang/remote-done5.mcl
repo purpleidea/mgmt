@@ -1,0 +1,70 @@
+# This demonstrates two remote resources whose children do different work. Every
+# child runs the same deploy, so each one uses the name function to find out
+# which remote resource started it, and to pick its own work. That function
+# returns the empty string if we're not a child.
+#
+# The remote:done resources are still named statically. You chose those names
+# when you write the parent, and writing them in says which parent each done
+# belongs to. If a child ever ends up in the wrong branch, its remote:done fails
+# because the name doesn't match. Writing remote:done remote.name() {} would
+# always match, and would hide that mistake!
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done5.mcl
+
+import "res/remote"
+
+$user = "root"
+$web = "192.168.100.1"
+$db = "192.168.100.2"
+
+if remote.is_child() {
+
+	if remote.name() == "web" {
+		file "/tmp/web" {
+			state => $const.res.file.state.exists,
+			content => "i serve the web\n",
+		}
+
+		remote:done "web" {}
+
+		File["/tmp/web"] -> Remote:Done["web"]
+	}
+
+	if remote.name() == "db" {
+		file "/tmp/db" {
+			state => $const.res.file.state.exists,
+			content => "i store the data\n",
+		}
+
+		remote:done "db" {}
+
+		File["/tmp/db"] -> Remote:Done["db"]
+	}
+
+} else {
+
+	remote "web" {
+		remote => "ssh://${user}@${web}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+	remote "db" {
+		remote => "ssh://${user}@${db}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+	if remote.is_done("web") and remote.is_done("db") {
+		print "ready" {
+			msg => "both children have finished",
+		}
+	}
+
+}

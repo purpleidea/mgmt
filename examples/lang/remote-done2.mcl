@@ -1,0 +1,51 @@
+# This demonstrates the "none" signal, which lets the child decides how it ends.
+# Here we use an exit resource which runs after the remote:done resource. If the
+# parent sent the child a ^C as soon as it said it was done, that would race
+# with the exit resource, and the exit resource would possibly lose, because a
+# ^C can stop the engine from scheduling any new work. The same is true of any
+# resource after remote:done, not just exit. With "none", the parent records
+# that the child is done and acknowledges it, but it sends nothing, and it waits
+# for the child to exit by itself.
+#
+# Since the child exits on its own terms here, the parent reports a non-zero
+# exit status as an error. If whatever runs after remote:done powers off the
+# host instead, then the parent loses its connection without ever getting an
+# exit status, and that is not an error.
+#
+# Run mgmt:
+#
+#	mgmt run --tmp-prefix lang examples/lang/remote-done2.mcl
+
+import "res/remote"
+
+$user = "root"
+$dest = "192.168.100.1"
+
+if remote.is_child() {
+
+	file "/tmp/remote-done2" {
+		state => $const.res.file.state.exists,
+		content => "the important work is done\n",
+	}
+
+	remote:done "r0" {
+		signal => "none", # we'll exit by ourselves
+	}
+
+	exit "bye" {
+		code => 0, # a non-zero code here would fail the parent
+	}
+
+	File["/tmp/remote-done2"] -> Remote:Done["r0"] -> Exit["bye"]
+
+} else {
+
+	remote "r0" {
+		remote => "ssh://${user}@${dest}:22/",
+
+		caching => true, # cache the remote binary
+		transient => true, # remote:done needs a transient parent
+		tunnelled => true, # tunnel etcd back through the ssh connection
+	}
+
+}

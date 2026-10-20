@@ -145,12 +145,7 @@ func (obj *LineRes) Cleanup() error {
 
 // Watch is the primary listener for this resource and it outputs events.
 func (obj *LineRes) Watch(ctx context.Context) error {
-	f, err := obj.getFile()
-	if err != nil {
-		return err
-	}
-
-	recWatcher, err := recwatch.NewRecWatcher(ctx, f, false)
+	recWatcher, err := recwatch.NewRecWatcher(ctx, obj.File, false, recwatch.ExpandHome(true))
 	if err != nil {
 		return err
 	}
@@ -162,7 +157,7 @@ func (obj *LineRes) Watch(ctx context.Context) error {
 
 	for {
 		if obj.init.Debug {
-			obj.init.Logf("watching: %s", f) // attempting to watch...
+			obj.init.Logf("watching: %s", obj.File) // attempting to watch...
 		}
 
 		select {

@@ -137,15 +137,17 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 		optionFunc(obj.options)
 	}
 
+	obj.events = make(chan *Event)
+
 	if obj.options.logf == nil {
+		close(obj.events) // no goroutine will do it for us
 		return fmt.Errorf("recwatch: logf must not be nil")
 	}
 
 	if err := obj.validatePath(); err != nil {
+		close(obj.events) // no goroutine will do it for us
 		return err
 	}
-
-	obj.events = make(chan *Event)
 
 	if strings.HasPrefix(obj.Path, "~") { // validated above
 		return obj.runTilde(ctx)
@@ -154,6 +156,7 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 	var err error
 	obj.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
+		close(obj.events) // no goroutine will do it for us
 		return err
 	}
 

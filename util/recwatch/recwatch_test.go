@@ -538,3 +538,37 @@ func TestValidateRecurse(t *testing.T) {
 		}
 	}
 }
+
+// TestStartupFailureClosesEvents checks that the events channel is closed after
+// the different kinds of startup failures, so that nobody can block on it.
+func TestStartupFailureClosesEvents(t *testing.T) {
+	dir := t.TempDir()
+	tests := []struct {
+		name    string
+		path    string
+		recurse bool
+		opts    []Option
+	}{
+		{"relative path", "relative/path", false, nil},
+		{"tilde without option", "~/path", false, nil},
+		{"recurse on a file", dir + "/file", true, nil},
+		{"nil logf", dir, false, []Option{Logf(nil)}},
+	}
+
+	for _, test := range tests {
+		rw, err := NewRecWatcher(context.Background(), test.path, test.recurse, test.opts...)
+		if err == nil {
+			rw.Cleanup()
+			t.Errorf("%s: expected a startup error", test.name)
+			continue
+		}
+		select {
+		case _, ok := <-rw.Events():
+			if ok {
+				t.Errorf("%s: unexpected event after failed startup", test.name)
+			}
+		default:
+			t.Errorf("%s: events channel is still open after failed startup", test.name)
+		}
+	}
+}

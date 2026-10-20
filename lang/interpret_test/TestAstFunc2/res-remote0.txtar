@@ -5,6 +5,8 @@ import "res/remote"
 # The test harness is never started by a remote resource.
 test [fmt.printf("is_child: %t", remote.is_child())] {}
 test [fmt.printf("parent: '%s'", remote.parent())] {}
+test [fmt.printf("name: '%s'", remote.name())] {}
 -- OUTPUT --
 Vertex: test[is_child: false]
+Vertex: test[name: '']
 Vertex: test[parent: '']

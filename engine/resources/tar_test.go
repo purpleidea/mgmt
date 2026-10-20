@@ -38,6 +38,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/purpleidea/mgmt/engine"
 )
@@ -104,5 +105,65 @@ func TestTarCheckApplyCancellationRemovesOutput(t *testing.T) {
 	}
 	if _, err := os.Stat(output); !os.IsNotExist(err) {
 		t.Errorf("output exists after cancellation: %+v", err)
+	}
+}
+
+// TestTarWatchMissingInput checks that an input which doesn't exist yet gets
+// watched until it appears, instead of being an error.
+func TestTarWatchMissingInput(t *testing.T) {
+	dir := t.TempDir()
+	input := filepath.Join(dir, "input")
+
+	obj := &TarRes{
+		Path:   filepath.Join(dir, "output.tar"),
+		Inputs: []string{input},
+		Format: int(tar.FormatUnknown),
+	}
+	obj.SetName("test")
+
+	events := make(chan struct{}, 8)
+	init := &engine.Init{
+		VarDir: func(string) (string, error) {
+			return dir, nil
+		},
+		Event: func(ctx context.Context) error {
+			select {
+			case events <- struct{}{}:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+		Logf: t.Logf,
+	}
+	if err := obj.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	watchDone := make(chan error, 1)
+	go func() { watchDone <- obj.Watch(ctx) }()
+
+	expectEvent := func(msg string) {
+		t.Helper()
+		select {
+		case <-events:
+		case err := <-watchDone:
+			t.Fatalf("func Watch exited early: %v", err)
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out waiting for %s", msg)
+		}
+	}
+	expectEvent("the startup event")
+
+	if err := os.WriteFile(input, []byte("hello"), 0600); err != nil {
+		t.Fatalf("could not write input: %v", err)
+	}
+	expectEvent("an event for the new input")
+
+	cancel()
+	if err := <-watchDone; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("func Watch: %v", err)
 	}
 }

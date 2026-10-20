@@ -201,9 +201,6 @@ func (obj *TarRes) Watch(ctx context.Context) error {
 
 	chanList := []<-chan *recwatch.Event{}
 	for _, x := range obj.Inputs {
-		if _, err := os.Stat(x); err != nil {
-			return err
-		}
 		recurse := strings.HasSuffix(x, "/") // recurse for dirs
 		recWatcher, err := recwatch.NewRecWatcher(ctx, x, recurse)
 		if err != nil {

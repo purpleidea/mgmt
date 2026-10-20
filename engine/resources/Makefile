@@ -33,9 +33,13 @@ default: build
 
 WASM_FILE = http_server_ui/wasm/main.wasm
 
+# These are all the files from this repo that the wasm gets built from, so that
+# we rebuild it whenever any of them change, without having to list them here.
+WASM_DEPS := $(shell cd http_server_ui/ && env GOOS=js GOARCH=wasm go list -e -deps -f '{{if and .Module .Module.Main}}{{$$d := .Dir}}{{range .GoFiles}}{{$$d}}/{{.}} {{end}}{{range .EmbedFiles}}{{$$d}}/{{.}} {{end}}{{end}}' .)
+
 build: $(WASM_FILE)
 
-$(WASM_FILE): http_server_ui/main.go http_server_ui/common/*.go
+$(WASM_FILE): http_server_ui/main.go $(WASM_DEPS) ../../go.mod ../../go.sum
 	@echo "Generating: wasm..."
 	cd http_server_ui/ && env GOOS=js GOARCH=wasm go build -o ../$(WASM_FILE)
 

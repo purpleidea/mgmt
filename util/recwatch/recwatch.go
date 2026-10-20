@@ -46,6 +46,12 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// These are variables so that the tests can pretend that users have changed.
+var (
+	passwdFile     = util.EtcPasswdFile
+	expandHomeFunc = util.ExpandHome
+)
+
 // Event represents a watcher event. These can include errors.
 type Event struct {
 	Error error
@@ -55,7 +61,9 @@ type Event struct {
 // RecWatcher is the struct for the recursive watcher. To start things up call
 // Run() on it.
 type RecWatcher struct {
-	// Path is the computer path that we're watching.
+	// Path is the computer path that we're watching. It must be absolute,
+	// unless the ExpandHome option is used, in which case it can also start
+	// with ~/ or ~user/ instead.
 	Path string
 
 	// Recurse specifies if we should watch recursively.
@@ -89,6 +97,20 @@ func NewRecWatcher(ctx context.Context, path string, recurse bool, opts ...Optio
 	return obj, obj.Run(ctx)
 }
 
+// validatePath checks that our path is one that we know how to watch.
+func (obj *RecWatcher) validatePath() error {
+	if strings.HasPrefix(obj.Path, "/") {
+		return nil
+	}
+	if !strings.HasPrefix(obj.Path, "~") || !obj.options.expandHome {
+		return fmt.Errorf("recwatch: path must be absolute: %s", obj.Path)
+	}
+	if !strings.Contains(obj.Path, "/") { // eg: ~james
+		return fmt.Errorf("recwatch: path must start with ~/ or ~user/: %s", obj.Path)
+	}
+	return nil
+}
+
 // Run starts the recursive file watcher. It returns only once the watcher has
 // started up or errored or exited.
 func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
@@ -115,6 +137,16 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 		return fmt.Errorf("recwatch: logf must not be nil")
 	}
 
+	if err := obj.validatePath(); err != nil {
+		return err
+	}
+
+	obj.events = make(chan *Event)
+
+	if strings.HasPrefix(obj.Path, "~") { // validated above
+		return obj.runTilde(ctx)
+	}
+
 	var err error
 	obj.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
@@ -122,7 +154,6 @@ func (obj *RecWatcher) Run(ctx context.Context) (reterr error) {
 	}
 
 	obj.watches = make(map[string]struct{})
-	obj.events = make(chan *Event)
 	obj.isDir = strings.HasSuffix(obj.Path, "/") // dirs have trailing slashes
 	obj.safename = path.Clean(obj.Path)          // no trailing slash
 
@@ -433,14 +464,145 @@ func (obj *RecWatcher) addSubFolders(p string) error {
 	return err
 }
 
+// runTilde watches a ~/ or ~user/ path. Until it expands, we treat it as a path
+// that doesn't exist yet. We watch the passwd file to find out when that has
+// changed, and then move our watch to wherever the path now expands to. That
+// move sends an event, since the thing we're watching is now different.
+func (obj *RecWatcher) runTilde(ctx context.Context) error {
+	opts := []Option{
+		Debug(obj.options.debug),
+		Logf(obj.options.logf),
+	}
+
+	passwd, err := NewRecWatcher(ctx, passwdFile, false, opts...)
+	if err != nil {
+		close(obj.events) // no goroutine will do it for us
+		return err
+	}
+
+	current := ""         // the expanded path, or empty if it doesn't expand
+	var inner *RecWatcher // watches current, if it's not empty
+
+	// retarget moves our watch to wherever the path now expands to. It
+	// returns true if that changed.
+	retarget := func() (bool, error) {
+		p, err := expandHomeFunc(obj.Path)
+		if err != nil { // probably the user doesn't exist yet
+			if obj.options.debug {
+				obj.options.logf("can't expand %s: %v", obj.Path, err)
+			}
+			p = ""
+		}
+		if p == current {
+			return false, nil
+		}
+		if obj.options.debug {
+			obj.options.logf("expanded %s to: %s", obj.Path, p)
+		}
+
+		if inner != nil {
+			inner.Cleanup()
+			inner, current = nil, ""
+		}
+		if p == "" {
+			return true, nil
+		}
+		rw, err := NewRecWatcher(ctx, p, obj.Recurse, opts...)
+		if err != nil {
+			return false, err
+		}
+		inner, current = rw, p
+		return true, nil
+	}
+
+	if _, err := retarget(); err != nil {
+		passwd.Cleanup()
+		close(obj.events) // no goroutine will do it for us
+		return err
+	}
+
+	obj.wg.Add(1)
+	go func() {
+		defer obj.wg.Done()
+		defer close(obj.events)
+		defer passwd.Cleanup()
+		defer func() {
+			if inner != nil {
+				inner.Cleanup()
+			}
+		}()
+
+		for {
+			var innerEvents chan *Event // nil (blocks forever) if unused
+			if inner != nil {
+				innerEvents = inner.Events()
+			}
+
+			var event *Event
+			select {
+			case e, ok := <-passwd.Events():
+				if !ok { // we're shutting down
+					return
+				}
+				event = e
+				if e.Error != nil {
+					break
+				}
+				changed, err := retarget()
+				if err != nil && ctx.Err() != nil {
+					// We're shutting down so this isn't a
+					// failure and the caller already knows.
+					return
+				}
+				if err != nil {
+					event = &Event{Error: err}
+				} else if !changed {
+					continue // nothing happened to our path
+				}
+
+			case e, ok := <-innerEvents:
+				if !ok { // we're shutting down
+					return
+				}
+				event = e
+
+			case <-ctx.Done():
+				return
+			}
+
+			select {
+			case obj.events <- event:
+			case <-ctx.Done():
+				return
+			}
+			if event.Error != nil {
+				return // that was the last one
+			}
+		}
+	}()
+
+	return nil
+}
+
 // Option is a type that can be used to configure the recwatcher.
 type Option func(*recwatchOptions)
 
 // recwatchOptions is the collections of options that users can set on recwatch.
 type recwatchOptions struct {
+	expandHome bool
+
 	debug bool
 	logf  func(format string, v ...interface{})
 	// TODO: add more options
+}
+
+// ExpandHome lets the path start with ~/ or ~user/. This is watched even if
+// that user doesn't exist yet, and the watch follows their home directory if it
+// changes.
+func ExpandHome(expandHome bool) Option {
+	return func(rwo *recwatchOptions) {
+		rwo.expandHome = expandHome
+	}
 }
 
 // Debug specifies whether we should run in debug mode or not.

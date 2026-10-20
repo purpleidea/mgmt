@@ -37,6 +37,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -237,7 +238,7 @@ func waitForWatchPath(t *testing.T, logs <-chan string, path string) {
 	}
 }
 
-func expectEvent(t *testing.T, events <-chan *Event) {
+func expectEvent(t *testing.T, events <-chan *Event) *Event {
 	t.Helper()
 
 	select {
@@ -249,8 +250,177 @@ func expectEvent(t *testing.T, events <-chan *Event) {
 		if event.Error != nil {
 			t.Fatalf("unexpected watcher error: %v", event.Error)
 		}
+		return event
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for recwatch event")
+	}
+	return nil // unreachable
+}
+
+// expectNoEvent drains any events for a little while, and fails if it gets one.
+func expectNoEvent(t *testing.T, events <-chan *Event) {
+	t.Helper()
+
+	select {
+	case event := <-events:
+		t.Fatalf("unexpected recwatch event: %+v", event)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+// drainEvents discards events until things have been quiet for a little while.
+// A single file write can cause more than one event.
+func drainEvents(t *testing.T, events <-chan *Event) {
+	t.Helper()
+
+	for {
+		select {
+		case event := <-events:
+			if event == nil || event.Error != nil {
+				t.Fatalf("unexpected recwatch event: %+v", event)
+			}
+		case <-time.After(100 * time.Millisecond):
+			return
+		}
+	}
+}
+
+func TestValidatePath(t *testing.T) {
+	tests := []struct {
+		path       string
+		expandHome bool
+		valid      bool
+	}{
+		{t.TempDir(), false, true},
+		{"", false, false},
+		{"relative/path", false, false},
+		{"~/path", false, false},
+		{"~user/path", false, false},
+		{"~/path", true, true},
+		{"~user", true, false},
+		{"relative/path", true, false},
+	}
+
+	for _, test := range tests {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		rw, err := NewRecWatcher(ctx, test.path, false, ExpandHome(test.expandHome))
+		if err == nil {
+			rw.Cleanup()
+		}
+		cancel()
+
+		if test.valid && err != nil {
+			t.Errorf("path %q (expandHome: %t): unexpected error: %v", test.path, test.expandHome, err)
+		}
+		if !test.valid && (err == nil || !strings.Contains(err.Error(), "path must")) {
+			t.Errorf("path %q (expandHome: %t): expected a path error, got: %v", test.path, test.expandHome, err)
+		}
+	}
+}
+
+// TestExpandHomeFollowsPasswd changes package variables, so it must not be run
+// in parallel.
+func TestExpandHomeFollowsPasswd(t *testing.T) {
+	dir := t.TempDir()
+	passwd := filepath.Join(dir, "passwd")
+	homeA := filepath.Join(dir, "a")
+	homeB := filepath.Join(dir, "b")
+	for _, x := range []string{homeA, homeB} {
+		if err := os.Mkdir(x, 0700); err != nil {
+			t.Fatalf("could not create home directory: %v", err)
+		}
+	}
+	touchPasswd := func() {
+		t.Helper()
+		if err := os.WriteFile(passwd, []byte(time.Now().String()), 0600); err != nil {
+			t.Fatalf("could not write passwd file: %v", err)
+		}
+	}
+	touchPasswd()
+
+	mutex := &sync.Mutex{}
+	home := "" // the user doesn't exist yet
+	setHome := func(s string) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		home = s
+	}
+
+	origPasswdFile, origExpandHomeFunc := passwdFile, expandHomeFunc
+	t.Cleanup(func() {
+		passwdFile, expandHomeFunc = origPasswdFile, origExpandHomeFunc
+	})
+	passwdFile = passwd
+	expandHomeFunc = func(p string) (string, error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if home == "" {
+			return p, fmt.Errorf("no such user")
+		}
+		return filepath.Join(home, strings.TrimPrefix(p, "~test/")), nil
+	}
+
+	writeFile := func(p string) {
+		t.Helper()
+		if err := os.WriteFile(p, []byte(time.Now().String()), 0600); err != nil {
+			t.Fatalf("could not write file: %v", err)
+		}
+	}
+
+	rw, err := NewRecWatcher(context.Background(), "~test/file", false, ExpandHome(true))
+	if err != nil {
+		t.Fatalf("could not create watcher: %v", err)
+	}
+	defer rw.Cleanup()
+	events := rw.Events()
+
+	// The user doesn't exist, so nothing we do there is noticed.
+	writeFile(filepath.Join(homeA, "file"))
+	expectNoEvent(t, events)
+
+	// The user appears.
+	setHome(homeA)
+	touchPasswd()
+	if event := expectEvent(t, events); event.Body.Name != passwd {
+		t.Fatalf("expected an event for the passwd file, got: %s", event.Body.Name)
+	}
+	drainEvents(t, events)
+	writeFile(filepath.Join(homeA, "file"))
+	expectEvent(t, events)
+	drainEvents(t, events)
+
+	// An unrelated passwd change is not an event for us.
+	touchPasswd()
+	expectNoEvent(t, events)
+
+	// The home directory moves, and we follow it.
+	setHome(homeB)
+	touchPasswd()
+	expectEvent(t, events)
+	drainEvents(t, events)
+	writeFile(filepath.Join(homeA, "file"))
+	expectNoEvent(t, events)
+	writeFile(filepath.Join(homeB, "file"))
+	expectEvent(t, events)
+	drainEvents(t, events)
+
+	// The user is removed.
+	setHome("")
+	touchPasswd()
+	expectEvent(t, events)
+	drainEvents(t, events)
+	writeFile(filepath.Join(homeB, "file"))
+	expectNoEvent(t, events)
+
+	// We shut down without an error.
+	rw.Cleanup()
+	select {
+	case event, ok := <-events:
+		if ok {
+			t.Fatalf("unexpected event on shutdown: %+v", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for events channel to close")
 	}
 }
 

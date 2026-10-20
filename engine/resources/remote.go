@@ -219,6 +219,25 @@ var (
 // value of this ack latch. The Clear param of this resource can be used to
 // remove that latched value.
 //
+// Like any resource, CheckApply returns true if the state was already okay, and
+// false if it had to change something. For this resource:
+//
+// 1. a running non-transient child returns true, unless we had to start it, or
+// restart it because it was stale, in which case it returns false
+//
+// 2. a stopped child returns true, unless we had to stop it, which is false
+//
+// 3. a transient child returns false, since we had to run it, unless it used
+// `remote:done` with `return => true` to tell us that it didn't change anything
+//
+// 4. if that transient child gave us an error, we return false with that error
+//
+// 5. once we've acknowledged a done child, we return true, or that same error,
+// without running it again, until that record is cleared
+//
+// 6. with the Clear param, we return true if there was nothing to clear, and
+// false if we removed that record
+//
 // The unique `Name` field should represent a URL connect string to be used to
 // reach the remote host. To override this and for details of the format, use
 // the `Remote` field.
@@ -1458,8 +1477,11 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		return false, ctx.Err()
 	}
 	if done == nil {
+		// It exited cleanly. Either we started it, or it was running
+		// and not done yet, which is why a check would return false,
+		// so we report that we changed something.
 		tidy = true
-		return true, nil // it exited cleanly, we're converged
+		return false, nil
 	}
 
 	// The child told us that it was done, so that decides the result. The
@@ -1482,7 +1504,10 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 	}
 
 	tidy = true
-	return true, nil // XXX: Should we use the done.Return value here?
+	if done.Return == nil {
+		return false, nil // same as above, since we had to run it
+	}
+	return *done.Return, nil // the child decided if it changed anything
 }
 
 // getAck returns our ack record for this resource, or nil if there isn't one.

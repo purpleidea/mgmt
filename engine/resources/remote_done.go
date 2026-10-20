@@ -111,12 +111,15 @@ type RemoteDoneRes struct {
 	// to this param have no effect, until the parent clears its record.
 	Signal string `lang:"signal" yaml:"signal"`
 
-	// Return, if specified, picks the return value that the parent resource
-	// will exit with. A true value tells the parent world that we didn't
-	// make any substantive changes, while a false value means that we did
-	// do something. If you set Error, then you must either omit this or it
-	// must be false.
-	// XXX: Not implemented (yet?)
+	// Return, if specified, tells the parent's remote resource whether we
+	// changed anything, so that it can report this just like any other
+	// resource would. A true value tells the parent that we didn't make any
+	// substantive changes, so its state was already okay, while a false
+	// value means that we did do something. If this is omitted, then the
+	// parent reports that something changed, since it had to run us. If you
+	// set Error, then you must either omit this or it must be false. Once
+	// the parent has acknowledged us, changes to this param have no effect,
+	// until the parent clears its record.
 	Return *bool `lang:"return" yaml:"return"`
 
 	// Error, if not empty, tells the parent that we're done, but that we
@@ -144,6 +147,7 @@ func (obj *RemoteDoneRes) signal() string {
 func (obj *RemoteDoneRes) done() *local.RemoteDone {
 	return &local.RemoteDone{
 		Signal: obj.signal(),
+		Return: obj.Return,
 		Error:  obj.Error,
 	}
 }
@@ -334,6 +338,12 @@ func (obj *RemoteDoneRes) Cmp(r engine.Res) error {
 
 	if obj.signal() != res.signal() {
 		return fmt.Errorf("the Signal param differs")
+	}
+	if (obj.Return == nil) != (res.Return == nil) {
+		return fmt.Errorf("the Return param differs")
+	}
+	if obj.Return != nil && *obj.Return != *res.Return {
+		return fmt.Errorf("the Return param differs")
 	}
 	if obj.Error != res.Error {
 		return fmt.Errorf("the Error param differs")

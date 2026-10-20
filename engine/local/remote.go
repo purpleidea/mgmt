@@ -147,6 +147,12 @@ type RemoteDone struct {
 	// here, since the default is resolved before it is stored.
 	Signal string `json:"signal"`
 
+	// Return is the bool that the parent's CheckApply returns if we
+	// succeeded, so true means that we didn't change anything, and false
+	// means that we did. If it's nil, then the parent decides. It must not
+	// be true if Error is set.
+	Return *bool `json:"return"`
+
 	// Error is empty if we succeeded. Otherwise the parent fails with this
 	// message after we have shut down.
 	Error string `json:"error"`
@@ -162,6 +168,9 @@ func (obj *RemoteDone) Validate() error {
 	default:
 		return fmt.Errorf("invalid signal: %s", obj.Signal)
 	}
+	if obj.Error != "" && obj.Return != nil && *obj.Return {
+		return fmt.Errorf("the return must not be true when error is set")
+	}
 	if !utf8.ValidString(obj.Error) { // json can't encode it otherwise!
 		return fmt.Errorf("the error is not valid UTF-8")
 	}
@@ -174,6 +183,9 @@ func (obj *RemoteDone) String() string {
 	s := "success"
 	if obj.Error != "" {
 		s = "failure"
+	}
+	if obj.Return != nil {
+		s += fmt.Sprintf(", return: %t", *obj.Return)
 	}
 	s += fmt.Sprintf(", signal: %s", obj.Signal)
 	if obj.Error != "" {

@@ -30,6 +30,7 @@
 package local
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -104,26 +105,46 @@ func TestRemoteDecodeInvalid(t *testing.T) {
 }
 
 func TestRemoteDoneEncode(t *testing.T) {
-	done := &RemoteDone{
-		Signal: RemoteSignalNone,
-		Error:  "missing /etc/myapp.conf",
+	t1 := true
+	f1 := false
+	tests := []struct {
+		done *RemoteDone
+		exp  string
+	}{
+		{
+			done: &RemoteDone{Signal: RemoteSignalNone, Error: "missing /etc/myapp.conf"},
+			exp:  `{"signal":"none","return":null,"error":"missing /etc/myapp.conf"}`,
+		},
+		{
+			done: &RemoteDone{Signal: RemoteSignalNone, Return: &f1, Error: "missing /etc/myapp.conf"},
+			exp:  `{"signal":"none","return":false,"error":"missing /etc/myapp.conf"}`,
+		},
+		{
+			done: &RemoteDone{Signal: RemoteSignalExit, Return: &t1},
+			exp:  `{"signal":"exit","return":true,"error":""}`,
+		},
 	}
-	s, err := done.Encode()
-	if err != nil {
-		t.Fatalf("func Encode: %v", err)
-	}
-	if exp := `{"signal":"none","error":"missing /etc/myapp.conf"}`; s != exp {
-		t.Errorf("func Encode: got: %s, expected: %s", s, exp)
+	for _, tc := range tests {
+		s, err := tc.done.Encode()
+		if err != nil {
+			t.Fatalf("func Encode: %v", err)
+		}
+		if s != tc.exp {
+			t.Errorf("func Encode: got: %s, expected: %s", s, tc.exp)
+		}
+
+		decoded, err := DecodeRemoteDone(s)
+		if err != nil {
+			t.Fatalf("func DecodeRemoteDone: %v", err)
+		}
+		if !reflect.DeepEqual(decoded, tc.done) {
+			t.Errorf("func DecodeRemoteDone: got: %+v, expected: %+v", decoded, tc.done)
+		}
 	}
 
-	decoded, err := DecodeRemoteDone(s)
-	if err != nil {
-		t.Fatalf("func DecodeRemoteDone: %v", err)
+	if _, err := (&RemoteDone{Signal: RemoteSignalExit, Return: &t1, Error: "oops"}).Encode(); err == nil {
+		t.Errorf("func Encode: expected error for a true return with an error")
 	}
-	if *decoded != *done {
-		t.Errorf("func DecodeRemoteDone: got: %+v, expected: %+v", decoded, done)
-	}
-
 	if _, err := (&RemoteDone{}).Encode(); err == nil {
 		t.Errorf("func Encode: expected error for an empty signal")
 	}
@@ -136,6 +157,8 @@ func TestRemoteDoneEncode(t *testing.T) {
 }
 
 func TestRemoteDoneString(t *testing.T) {
+	t1 := true
+	f1 := false
 	tests := []struct {
 		done *RemoteDone
 		exp  string
@@ -145,12 +168,16 @@ func TestRemoteDoneString(t *testing.T) {
 			exp:  "success, signal: exit",
 		},
 		{
+			done: &RemoteDone{Signal: RemoteSignalNone, Return: &t1},
+			exp:  "success, return: true, signal: none",
+		},
+		{
 			done: &RemoteDone{Signal: RemoteSignalExit, Error: "missing /etc/myapp.conf"},
 			exp:  "failure, signal: exit, error: missing /etc/myapp.conf",
 		},
 		{
-			done: &RemoteDone{Signal: RemoteSignalSoft, Error: "oops, signal: hard"},
-			exp:  "failure, signal: soft, error: oops, signal: hard",
+			done: &RemoteDone{Signal: RemoteSignalSoft, Return: &f1, Error: "oops, signal: hard"},
+			exp:  "failure, return: false, signal: soft, error: oops, signal: hard",
 		},
 	}
 	for _, tc := range tests {
@@ -166,15 +193,19 @@ func TestRemoteDoneDecodeInvalid(t *testing.T) {
 		``,
 		`{}`,
 		`null`,
-		`{"signal":"","error":""}`,
-		`{"signal":"kill","error":""}`,
-		`{"signal":"exit"}`,                     // missing member
-		`{"signal":"exit","error":"","evil":1}`, // unknown member
-		`{"error":"","signal":"exit"}`,          // order
-		`{"signal": "exit","error":""}`,         // whitespace
-		`{"signal":"exit","error":null}`,        // null
-		`{"signal":"exit","error":""} {}`,       // trailing data
-		"{\"signal\":\"exit\",\"error\":\"\xff\"}", // invalid UTF-8
+		`{"signal":"","return":null,"error":""}`,
+		`{"signal":"kill","return":null,"error":""}`,
+		`{"signal":"exit","return":true,"error":"oops"}`,           // true with error
+		`{"signal":"exit","return":null}`,                          // missing member
+		`{"signal":"exit","error":""}`,                             // missing member
+		`{"signal":"exit","return":null,"error":"","evil":1}`,      // unknown member
+		`{"signal":"exit","error":"","return":null}`,               // wrong order
+		`{"signal": "exit","return":null,"error":""}`,              // whitespace
+		`{"signal":"exit","return":null,"error":null}`,             // null
+		`{"signal":"exit","return":"true","error":""}`,             // wrong type
+		`{"signal":"exit","return":1,"error":""}`,                  // wrong type
+		`{"signal":"exit","return":null,"error":""} {}`,            // trailing data
+		"{\"signal\":\"exit\",\"return\":null,\"error\":\"\xff\"}", // invalid UTF-8
 	}
 	for _, s := range invalid {
 		if done, err := DecodeRemoteDone(s); err == nil {

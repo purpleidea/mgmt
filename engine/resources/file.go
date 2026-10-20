@@ -450,7 +450,8 @@ func (obj *FileRes) Watch(ctx context.Context) error {
 	// Cancel on every return, before waiting for the forwarding goroutines.
 	defer cancel()
 
-	recWatcher, err := recwatch.NewRecWatcher(ctx, obj.getPath(), obj.Recurse)
+	recurse := obj.Recurse && obj.isDir() // we can't recurse into a file
+	recWatcher, err := recwatch.NewRecWatcher(ctx, obj.getPath(), recurse)
 	if err != nil {
 		return err
 	}

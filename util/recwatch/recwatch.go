@@ -66,7 +66,8 @@ type RecWatcher struct {
 	// with ~/ or ~user/ instead.
 	Path string
 
-	// Recurse specifies if we should watch recursively.
+	// Recurse specifies if we should watch recursively. The Path must then
+	// be a dir, which means that it ends with a slash.
 	// TODO: Should this get converted into an Option?
 	Recurse bool
 
@@ -99,6 +100,9 @@ func NewRecWatcher(ctx context.Context, path string, recurse bool, opts ...Optio
 
 // validatePath checks that our path is one that we know how to watch.
 func (obj *RecWatcher) validatePath() error {
+	if obj.Recurse && !strings.HasSuffix(obj.Path, "/") {
+		return fmt.Errorf("recwatch: path must be a dir ending with a slash to recurse: %s", obj.Path)
+	}
 	if strings.HasPrefix(obj.Path, "/") {
 		return nil
 	}

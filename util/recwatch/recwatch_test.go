@@ -507,3 +507,34 @@ func TestMergeChannelsErrorIsLast(t *testing.T) {
 		t.Fatal("timed out waiting for the merged channel to close")
 	}
 }
+
+func TestValidateRecurse(t *testing.T) {
+	dir := t.TempDir()
+	tests := []struct {
+		path    string
+		recurse bool
+		valid   bool
+	}{
+		{dir + "/", true, true},
+		{dir + "/", false, true},
+		{dir, false, true},
+		{dir, true, false},
+		{dir + "/file", true, false},
+	}
+
+	for _, test := range tests {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		rw, err := NewRecWatcher(ctx, test.path, test.recurse)
+		if err == nil {
+			rw.Cleanup()
+		}
+		cancel()
+
+		if test.valid && err != nil {
+			t.Errorf("path %q (recurse: %t): unexpected error: %v", test.path, test.recurse, err)
+		}
+		if !test.valid && (err == nil || !strings.Contains(err.Error(), "path must")) {
+			t.Errorf("path %q (recurse: %t): expected a path error, got: %v", test.path, test.recurse, err)
+		}
+	}
+}

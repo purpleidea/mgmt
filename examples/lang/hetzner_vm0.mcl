@@ -1,9 +1,10 @@
 import "os"
+import "sys"
 import "golang/strings" as golang_strings
 #import "deploy"
 
-# read token from a local path outside repo:
-$f = "../localsecrets/apitoken.txt"
+# read token from a local path outside the repo:
+$f = sys.getenv("HOME") + "/.config/hetzner/apitoken.txt"
 $token = golang_strings.trim_space(os.readfile($f))
 
 # alternatively, read from the deploy:

@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
@@ -252,8 +253,9 @@ func (obj *FileExistsFunc) Call(ctx context.Context, args []types.Value) (types.
 	}
 	filename := args[0].Str()
 
-	// TODO: add validation for absolute path?
-	// TODO: add check for empty string
+	if !strings.HasPrefix(filename, "/") {
+		return nil, fmt.Errorf("the %s must be absolute: %s", fileExistsArgNameFilename, filename)
+	}
 
 	// Check before we send to a chan where we'd need Stream to be running.
 	if obj.init == nil {

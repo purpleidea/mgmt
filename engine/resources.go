@@ -270,10 +270,12 @@ type Res interface {
 	Default() Res
 
 	// Validate determines if the struct has been defined in a valid state.
+	// Don't interact with the system, since it may not be in a ready state.
 	Validate() error
 
 	// Init initializes the resource and passes in some external information
-	// and data from the engine.
+	// and data from the engine. Don't expect other resource dependencies in
+	// the world to exist yet.
 	Init(*Init) error
 
 	// Cleanup is run by the engine to clean up after the resource is done.
@@ -281,7 +283,11 @@ type Res interface {
 
 	// Watch is run by the engine to monitor for state changes. If it
 	// detects any, it notifies the engine which will usually run CheckApply
-	// in response. If the input context cancels, we must shutdown.
+	// in response. If the input context cancels, we must shutdown. This
+	// runs for all resources before *any* CheckApply, so it must not depend
+	// on something that will only exist after a particular CheckApply
+	// already ran. You may detect that scenario and watch for the change to
+	// happen before then adding the desired watch.
 	Watch(context.Context) error
 
 	// CheckApply determines if the state of the resource is correct and if
@@ -292,7 +298,9 @@ type Res interface {
 	// taken to the desired state. The input context is not guaranteed to
 	// cancel when you return from this function. If that's required for
 	// your code to free memory, make sure to wrap it, cancel it on return
-	// with a defer, and wait for any workers to exit with a waitgroup.
+	// with a defer, and wait for any workers to exit with a waitgroup. This
+	// method may error if a dependency is not met since it runs while
+	// respecting the "edge" ordering.
 	CheckApply(ctx context.Context, apply bool) (checkOK bool, err error)
 
 	// Cmp compares itself to another resource and returns an error if they

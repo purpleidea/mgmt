@@ -165,9 +165,11 @@ base=$(go list .)
 packages=()
 for pkg in `go list -e ./... | grep -v "^${base}/vendor/" | grep -v "^${base}/examples/" | grep -v "^${base}/test/" | grep -v "^${base}/old" | grep -v "^${base}/old/" | grep -v "^${base}/tmp" | grep -v "^${base}/tmp/"`; do
 
-	if [ "$pkg" = "${base}/engine/resources/http_server_ui" ]; then
-		continue # skip this special main package
-	fi
+	# This special main package now has a js && wasm build tag, so go list
+	# no longer includes it, and we don't need to skip it.
+	#if [ "$pkg" = "${base}/engine/resources/http_server_ui" ]; then
+	#	continue # skip this special main package
+	#fi
 
 	packages+=("$pkg")
 

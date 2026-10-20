@@ -1311,7 +1311,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 			return false, err
 		}
 		if ack != nil {
-			obj.init.Logf("child is already done")
+			obj.init.Logf("child %s is already done", ack.Child)
 			if ack.Error != "" {
 				return false, remoteDoneErr(ack.Error)
 			}
@@ -1495,7 +1495,7 @@ func (obj *RemoteRes) CheckApply(ctx context.Context, apply bool) (bool, error) 
 		msg += waitErr.Error()
 		// Store the final result, so that we return the same thing
 		// again next time, instead of an error once and then success.
-		if err := obj.setAck(ctx, msg); err != nil {
+		if err := obj.setAck(ctx, h, msg); err != nil {
 			return false, err
 		}
 	}
@@ -1527,9 +1527,10 @@ func (obj *RemoteRes) getAck(ctx context.Context) (*local.RemoteAck, error) {
 	return ack, nil
 }
 
-// setAck stores our ack record for this resource, with this result.
-func (obj *RemoteRes) setAck(ctx context.Context, msg string) error {
+// setAck stores our ack record for this resource, with this child and result.
+func (obj *RemoteRes) setAck(ctx context.Context, child, msg string) error {
 	ack := &local.RemoteAck{
+		Child: child,
 		Error: msg,
 	}
 	value, err := ack.Encode()
@@ -1562,7 +1563,7 @@ func (obj *RemoteRes) ackDone(ctx context.Context, child string) (*local.RemoteD
 		return nil, err
 	}
 
-	if err := obj.setAck(ctx, done.Error); err != nil {
+	if err := obj.setAck(ctx, child, done.Error); err != nil {
 		return nil, errwrap.Wrapf(err, "can't acknowledge the child")
 	}
 	obj.init.Logf("child %s is done: %s", child, done)

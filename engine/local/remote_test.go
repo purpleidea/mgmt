@@ -216,23 +216,24 @@ func TestRemoteDoneDecodeInvalid(t *testing.T) {
 
 func TestRemoteAckDecode(t *testing.T) {
 	ack := &RemoteAck{
+		Child: "h1",
 		Error: "oops",
 	}
 	s, err := ack.Encode()
 	if err != nil {
 		t.Fatalf("func Encode: %v", err)
 	}
-	if exp := `{"error":"oops"}`; s != exp {
+	if exp := `{"child":"h1","error":"oops"}`; s != exp {
 		t.Errorf("func Encode: got: %s, expected: %s", s, exp)
 	}
 
 	// The ack decoding is tolerant of missing members, since an older
 	// binary might have written it.
-	valid := map[string]string{
-		`{"error":"oops"}`:  "oops",
-		`{"error":""}`:      "",
-		`{}`:                "",
-		`{ "error":"oops"}`: "oops",
+	valid := map[string]RemoteAck{
+		`{"child":"h1","error":"oops"}`:  {Child: "h1", Error: "oops"},
+		`{"child":"h1","error":""}`:      {Child: "h1"},
+		`{"child":"h1"}`:                 {Child: "h1"},
+		`{ "child":"h1","error":"oops"}`: {Child: "h1", Error: "oops"},
 	}
 	for s, exp := range valid {
 		decoded, err := DecodeRemoteAck(s)
@@ -240,20 +241,25 @@ func TestRemoteAckDecode(t *testing.T) {
 			t.Errorf("func DecodeRemoteAck(%q): %v", s, err)
 			continue
 		}
-		if decoded.Error != exp {
-			t.Errorf("func DecodeRemoteAck(%q): got: %q, expected: %q", s, decoded.Error, exp)
+		if *decoded != exp {
+			t.Errorf("func DecodeRemoteAck(%q): got: %+v, expected: %+v", s, decoded, exp)
 		}
 	}
 
 	invalid := []string{
 		``,
 		`null`,
-		` {"error":""}`,
+		` {"child":"h1","error":""}`,
 		`"oops"`,
-		`{"error":"","evil":1}`, // unknown member, eg: from a newer binary
-		`{"error":1}`,
-		`{"error":""} {}`,
-		"{\"error\":\"\xff\"}",
+		`{"child":"h1","error":"","evil":1}`, // unknown member, eg: from a newer binary
+		`{"child":"h1","error":1}`,
+		`{"child":"h1","error":""} {}`,
+		"{\"child\":\"h1\",\"error\":\"\xff\"}",
+		`{}`,
+		`{"error":"oops"}`,
+		`{"child":"","error":""}`,
+		`{"child":1,"error":""}`,
+		`{"child":"h/1","error":""}`,
 	}
 	for _, s := range invalid {
 		if ack, err := DecodeRemoteAck(s); err == nil {

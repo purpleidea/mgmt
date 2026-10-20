@@ -234,6 +234,9 @@ func DecodeRemoteDone(s string) (*RemoteDone, error) {
 // so an older binary errors on a record that it doesn't understand, instead of
 // silently misreading it.
 type RemoteAck struct {
+	// Child is the hostname of the child which told us that it was done.
+	Child string `json:"child"`
+
 	// Error is the recorded result. It's empty if the child succeeded.
 	Error string `json:"error"`
 }
@@ -242,6 +245,9 @@ type RemoteAck struct {
 func (obj *RemoteAck) Validate() error {
 	if obj == nil {
 		return fmt.Errorf("ack record is nil")
+	}
+	if err := util.ValidHostname(obj.Child); err != nil {
+		return errwrap.Wrapf(err, "invalid child hostname")
 	}
 	if !utf8.ValidString(obj.Error) { // json can't encode it otherwise!
 		return fmt.Errorf("the error is not valid UTF-8")

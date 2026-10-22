@@ -10611,6 +10611,12 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			return bodyFunc, nil
 		}
 
+		// An untyped lambda has no type until it has been unified, so
+		// we'd build a value without any type.
+		if obj.typ == nil {
+			return nil, funcs.ErrCantSpeculate
+		}
+
 		return &full.FuncValue{
 			V: v,
 			F: f,

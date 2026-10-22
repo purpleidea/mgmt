@@ -1,0 +1,20 @@
+-- main.mcl --
+import "fmt"
+import "iter"
+
+# The condition is static, so the else branch is speculated, and its untyped
+# lambda has no type until unification runs. It must not look inconsistent with
+# the type of the arg which iter.reduce receives from the then branch.
+$f = if false {
+	func($x int, $y int) int {
+		$x
+	}
+} else {
+	func($x, $y) {
+		$x + $y
+	}
+}
+$s = fmt.printf("%v", iter.reduce(0, [1, 2], $f))
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[3]

@@ -8648,6 +8648,12 @@ func (obj *ExprList) Value() (types.Value, error) {
 		}
 	}
 
+	// An empty list has no elements to find its type from, so until it has
+	// been unified, we can't build a value without any type.
+	if obj.typ == nil {
+		return nil, fmt.Errorf("can't build value with unknown type")
+	}
+
 	return &types.ListValue{
 		T: obj.typ,
 		V: values,

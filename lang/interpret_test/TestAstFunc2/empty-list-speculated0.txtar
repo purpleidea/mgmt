@@ -1,0 +1,16 @@
+-- main.mcl --
+import "fmt"
+import "list"
+
+# The condition is static, so the else branch is speculated, but its empty list
+# has no type until unification runs. It must not look inconsistent with the
+# type of the arg which list.concat receives.
+$x = if false {
+	["b"]
+} else {
+	[]
+}
+$s = fmt.printf("%v", list.concat(["a"], $x))
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[["a"]]

@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+
+# The condition is static, so the else branch is speculated, but its empty map
+# has no type until unification runs. It must not look inconsistent with the
+# type of the arg which fmt.printf receives.
+$x = if false {
+	{"b" => "c"}
+} else {
+	{}
+}
+$s = fmt.printf("%v", $x)
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[{}]

@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# The map key is speculated to look for duplicates before unification has
+# checked that the condition is a bool, so that must give a type error, and not
+# a panic.
+$m = {if 42 { "a" } else { "b" } => 1}
+$s = fmt.printf("%v", $m)
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: type error: bool != int: /main.mcl @ 6:10-6:12

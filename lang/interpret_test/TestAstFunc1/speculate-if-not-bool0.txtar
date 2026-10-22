@@ -1,0 +1,15 @@
+-- main.mcl --
+import "fmt"
+
+# The value of $x is speculated before unification has checked that the
+# condition is a bool, so that must give a type error, and not a panic.
+$c = "yes"
+$x = if $c {
+	"a"
+} else {
+	"b"
+}
+$s = fmt.printf("%v", $x)
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: type error: bool != str: /main.mcl @ 6:9-6:11

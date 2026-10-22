@@ -13340,6 +13340,13 @@ func (obj *ExprIf) Value() (types.Value, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// If we speculate before we've unified, we might not have a bool yet,
+	// and running this would cause a panic.
+	if err := types.TypeBool.Cmp(boolValue.Type()); err != nil {
+		return nil, errwrap.Wrapf(err, "condition is not a bool")
+	}
+
 	if boolValue.Bool() { // must not panic
 		return obj.ThenBranch.Value()
 	}

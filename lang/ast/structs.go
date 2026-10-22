@@ -11692,7 +11692,17 @@ func (obj *ExprCall) Value() (types.Value, error) {
 	// FuncValue, we need a speculative:
 	//	Call(..., []types.Value) types.Value
 	// method.
-	return funcValue.CallWithValues(context.TODO(), args)
+	result, err := funcValue.CallWithValues(context.TODO(), args)
+	if err != nil {
+		return nil, err
+	}
+	// A function which builds itself (eg: list.concat) doesn't know its own
+	// type until it's been built after unification, so the value that it
+	// returns when we speculate before then might not have any type.
+	if result == nil || result.Type() == nil {
+		return nil, fmt.Errorf("can't build value with unknown type")
+	}
+	return result, nil
 }
 
 // ExprVar is a representation of a variable lookup. It returns the expression

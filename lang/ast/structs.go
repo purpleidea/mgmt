@@ -9637,12 +9637,11 @@ func (obj *ExprStruct) Value() (types.Value, error) {
 		ord = append(ord, x.Name)
 	}
 	typ.Ord = ord
-	if len(obj.Fields) > 0 {
-		// Run SetType to ensure type is consistent with what we found,
-		// which is an easy way to ensure the Cmp passes as expected...
-		if err := obj.SetType(typ); err != nil {
-			return nil, errwrap.Wrapf(err, "type did not match expected!")
-		}
+	// Run SetType to ensure type is consistent with what we found, which is
+	// an easy way to ensure the Cmp passes as expected... Unlike an empty
+	// list or map, an empty struct still has a known type so always run it.
+	if err := obj.SetType(typ); err != nil {
+		return nil, errwrap.Wrapf(err, "type did not match expected!")
 	}
 
 	return &types.StructValue{

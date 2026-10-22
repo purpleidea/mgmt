@@ -1,0 +1,16 @@
+-- main.mcl --
+import "fmt"
+
+# The condition is static, so the else branch is speculated. An empty struct has
+# the same type as the annotated one in the then branch, so its value must have
+# that type too or it looks inconsistent with the arg which fmt.printf gets.
+$y struct{} = struct{}
+$x = if false {
+	$y
+} else {
+	struct{}
+}
+$s = fmt.printf("%v", $x)
+test "${s}" {}
+-- OUTPUT --
+Vertex: test[struct{}]

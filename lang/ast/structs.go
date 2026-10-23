@@ -8785,8 +8785,9 @@ func (obj *ExprMap) Interpolate() (interfaces.Expr, error) {
 			return nil, err
 		}
 		kv := &ExprMapKV{
-			Key: interpolatedKey,
-			Val: interpolatedVal,
+			Textarea: x.Textarea,
+			Key:      interpolatedKey,
+			Val:      interpolatedVal,
 		}
 		kvs = append(kvs, kv)
 	}
@@ -8821,8 +8822,9 @@ func (obj *ExprMap) Copy() (interfaces.Expr, error) {
 			copiedKV = true
 		}
 		kv := &ExprMapKV{
-			Key: copyKey,
-			Val: copyVal,
+			Textarea: x.Textarea,
+			Key:      copyKey,
+			Val:      copyVal,
 		}
 		if copiedKV {
 			copied = true
@@ -9322,8 +9324,9 @@ func (obj *ExprStruct) Interpolate() (interfaces.Expr, error) {
 			return nil, err
 		}
 		field := &ExprStructField{
-			Name:  x.Name, // don't interpolate the key
-			Value: interpolated,
+			Textarea: x.Textarea,
+			Name:     x.Name, // don't interpolate the key
+			Value:    interpolated,
 		}
 		fields = append(fields, field)
 	}
@@ -9351,8 +9354,9 @@ func (obj *ExprStruct) Copy() (interfaces.Expr, error) {
 		}
 
 		field := &ExprStructField{
-			Name:  x.Name,
-			Value: cp,
+			Textarea: x.Textarea,
+			Name:     x.Name,
+			Value:    cp,
 		}
 		fields = append(fields, field)
 	}

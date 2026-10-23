@@ -3209,6 +3209,7 @@ func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
 
 	return &StmtEdgeHalf{
 		Textarea: obj.Textarea,
+		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,
@@ -3231,6 +3232,7 @@ func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
 	}
 	return &StmtEdgeHalf{
 		Textarea: obj.Textarea,
+		data:     obj.data,
 		Kind:     obj.Kind,
 		Name:     name,
 		SendRecv: obj.SendRecv,

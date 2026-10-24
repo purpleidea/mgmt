@@ -1,0 +1,13 @@
+[Unit]
+Description=Moodle background activities
+DefaultDependencies=no
+After=network.target
+
+[Service]
+Type=oneshot
+User=apache
+Group=apache
+ExecStart=/usr/bin/php /var/www/html/moodle/admin/cli/cron.php
+
+[Install]
+WantedBy=multi-user.target

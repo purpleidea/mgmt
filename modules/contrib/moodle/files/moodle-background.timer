@@ -1,0 +1,9 @@
+[Unit]
+Description=Moodle background activities
+
+[Timer]
+Persistent=true
+OnCalendar=minutely
+
+[Install]
+WantedBy=timers.target

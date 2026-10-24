@@ -110,6 +110,11 @@ test_commit_message_common_bugs() {
 		echo 'FAIL: Commit message starts with `lang: func:`, did you mean `lang: funcs:` ?'
 		exit 1
 	fi
+	if git log --format=%s $1 | head -n 1 | grep -q "^module:"
+	then
+		echo 'FAIL: Commit message starts with `module:`, did you mean `modules:` ?'
+		exit 1
+	fi
 }
 
 test_commit_message_body() {

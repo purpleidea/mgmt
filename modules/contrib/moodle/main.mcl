@@ -1,0 +1,410 @@
+import "fmt"
+import "deploy"
+import "os"
+import "value"
+import "strings"
+
+# Moodle is an open source learning management system (LMS).
+#
+# This module was written based on the Moodle installation guide:
+# https://docs.moodle.org/502/en/Installation_quick_guide
+#
+# It deploys nginx, php, and postgresql in order to run Moodle.
+#
+# The administrator account is 'admin' and an initial password 'changeme'
+# Moodle will require you to change the password upon logging in the first time.
+#
+
+$defaults = struct{
+	basedir => "/var/www/html/moodle/",
+	version => "5.2.2",
+
+	db_user => "moodle",
+	db_name => "moodle",
+
+	url_template => "https://download.moodle.org/download.php/direct/stable%s/moodle-%s.tgz",
+}
+
+# Compute the download url for a given moodle version.
+# Notes: Support different urls based on the version.
+# v5.2.2 is in 'stable502/' directory
+# v5.1.6 is in 'stable501/' directory
+# v4.3.12 is in 'stable403/' directory
+# Pattern appears to be `stableX0Y` where X is the major and Y is the minor version.
+func moodle_url($url_template, $version) {
+	fmt.printf(
+		$url_template,
+
+		# Transform '1.2.3' into 'stable103'
+		# This becomes a subdirectory in the moodle download url.
+		strings.replace_all(strings.substr($version, 0, 3), ".", "0"),
+
+		$version,
+	)
+}
+
+$dependencies = struct{
+	database => ["postgresql-server", "postgresql"],
+
+	frontend => ["postgresql", "nginx", "php", "php-cli", "php-common", "php-fpm", "php-gd", "php-intl", "php-mbstring", "php-mysqlnd", "php-pdo", "php-xml", "php-pecl-xmlrpc", "php-pecl-zip", "php-soap", "php-pgsql"],
+
+	selinux => ["policycoreutils-python-utils"],
+}
+
+# Installs and manages Moodle with the given version.
+#
+# $st is a struct containing the following (optional) fields:
+# * version: the version of moodle to use
+class moodle($st) {
+	include frontend($st)
+	include backend($st)
+}
+
+class frontend($st) {
+	$is_supported_version = strings.has_prefix($version, "5.1") or strings.has_prefix($version, "5.2")
+	panic(not $is_supported_version, "Moodle ${version} is not supported for this module. Only v5.1.x and 5.2.x are supported by this module.")
+
+	$basedir = $st->basedir <|> $defaults->basedir
+	$version = $st->version <|> $defaults->version
+	$db_user = $st->db_user <|> $defaults->db_user
+	$db_name = $st->db_name <|> $defaults->db_name
+	$url_template = $st->url_template <|> $defaults->url_template
+
+	$url = moodle_url($url_template, $version)
+
+	user "nginx" {
+		state => "exists",
+		group => "nginx",
+	}
+
+	group "nginx" {
+		state => "exists",
+	}
+
+	user "apache" {
+		state => "exists",
+	}
+
+	include pkg_install($dependencies->frontend)
+	include pkg_install($dependencies->selinux)
+
+	$data_dir = "/var/www/data/"
+	$moodle_data_dir = "${data_dir}moodle/"
+
+	file [$basedir] {
+		owner => "apache",
+		state => "exists",
+		recurse => true,
+
+		Depend => Pkg["nginx"],
+	}
+
+	file $data_dir {
+		state => "exists",
+		owner => "apache",
+		recurse => true,
+
+		Depend => User["apache"],
+	}
+
+	file $moodle_data_dir {
+		state => "exists",
+		owner => "apache",
+		mode => "u=wrx,g=wrx,o=x",
+
+		Depend => User["apache"],
+		Depend => File[$data_dir],
+	}
+
+	exec "selinux policy for $data_dir" {
+		cmd => "semanage",
+		args => ["fcontext", "-a", "-t", "httpd_sys_rw_content_t", "${data_dir}(.*)?"],
+		creates => "/var/lib/.moodle_data_selinux",
+		donecmd => "touch /var/lib/.moodle_data_selinux",
+
+		Depend => File[$data_dir],
+	}
+
+	exec "selinux policy allow moodle to access postgres" {
+		cmd => "setsebool",
+		args => ["-P", "httpd_can_network_connect_db=on"],
+		ifshell => "/bin/sh",
+		ifcmd => "getsebool httpd_can_network_connect_db | grep 'off$'",
+
+		Before => Svc["nginx"],
+	}
+
+	Pkg["policycoreutils-python-utils"] -> Exec["selinux policy for $data_dir"]
+
+	exec "apply selinux for $data_dir" {
+		cmd => "restorecon",
+		args => ["-Rv", $data_dir],
+		creates => "/var/lib/.moodle_selinux_applied",
+		donecmd => "touch /var/lib/.moodle_selinux_applied",
+
+		Depend => Exec["selinux policy for $data_dir"],
+		# Make sure restorecon also applies to the moodle data directory.
+		Depend => File[$moodle_data_dir],
+	}
+
+	$download_path = "/var/tmp/moodle-${version}.tar.gz"
+
+	file "/etc/nginx/conf.d/moodle.conf" {
+		content => deploy.readfile("/files/nginx.conf"),
+		state => "exists",
+
+		Notify => Svc["nginx"],
+
+		Depend => Pkg["nginx"],
+	}
+
+	file "/etc/php.d/50-moodle.ini" {
+		content => "max_input_vars = 5000",
+		state => "exists",
+
+		Depend => Pkg["php-common"],
+	}
+
+	svc "nginx" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	File["/etc/php.d/50-moodle.ini"] -> Svc["nginx"]
+
+	$password = value.get_str("moodle db password")
+
+	if $password->ready {
+		$db_password = $password->value
+
+		if not os.file_exists("${basedir}/config-dist.php") {
+			http:client "download moodle ${version}" {
+				file => $download_path,
+				url => $url,
+
+				Meta:poll => -1,
+				Meta:retry => 5,
+				Meta:delay => 10,
+			}
+
+			exec "unpack moodle ${version}" {
+				user => "apache",
+				creates => "${basedir}/config-dist.php",
+				cmd => "tar",
+				args => ["-C", $basedir, "-zx", "--strip-components", "1", "-f", $download_path],
+
+				Listen => Http:Client["download moodle ${version}"],
+
+				Depend => File[[$basedir]],
+				Depend => User["apache"],
+				Before => Exec["initial moodle setup"],
+			}
+
+			Exec["unpack moodle ${version}"] -> Exec["initial moodle setup"]
+		}
+
+		exec "initial moodle setup" {
+			user => "apache", # php-fpm user
+
+			env => {
+				"PATH" => "/usr/bin",
+			},
+
+			creates => "${basedir}/config.php",
+
+			cmd => "php",
+			args => [
+				"${basedir}/admin/cli/install.php",
+				"--non-interactive",
+				"--chmod=2750",
+				"--lang=en",
+				"--dbtype=pgsql",
+				"--dbhost=localhost",
+				"--dbuser=${db_user}",
+				"--dbpass=${db_password}",
+				"--dataroot=${moodle_data_dir}",
+				"--wwwroot=http://localhost:8080/",
+				"--fullname=Default Moodle Site Name",
+				"--shortname=Default Moodle",
+				"--summary=A basic Moodle site configured with mgmt!",
+				"--agree-license",
+				"--adminpass=changeme",
+			],
+
+			Depend => User["nginx"],
+			Depend => File[$moodle_data_dir],
+		}
+
+		# Make sure moodle's initial setup is done before nginx goes live
+		Exec["initial moodle setup"] -> Svc["nginx"]
+
+		file "${basedir}/config.php" {
+			# On Fedora, php-fpm runs as the user 'apache'
+			owner => "apache",
+			mode => "400",
+
+			Depend => Exec["initial moodle setup"],
+			Depend => User["apache"],
+		}
+
+		File[$data_dir] -> Exec["initial moodle setup"]
+		File[[$basedir]] -> Exec["initial moodle setup"]
+		Exec["set db user ${db_user} password"] -> Exec["initial moodle setup"]
+	}
+
+	file "/etc/systemd/system/moodle-background.service" {
+		content => deploy.readfile("/files/moodle-background.service"),
+		state => "exists",
+
+		Notify => Exec["systemctl daemon-reload"],
+		Notify => Svc["moodle-background"],
+	}
+
+	file "/etc/systemd/system/moodle-background.timer" {
+		content => deploy.readfile("/files/moodle-background.timer"),
+		state => "exists",
+
+		Notify => Exec["systemctl daemon-reload"],
+	}
+
+	exec "systemctl daemon-reload" {
+		cmd => "systemctl",
+		args => ["daemon-reload"],
+
+		Before => Svc["moodle-background"],
+		Before => Exec["enable moodle-background task"],
+	}
+
+	svc "moodle-background" {
+		startup => "enabled",
+	}
+
+	exec "enable moodle-background task" {
+		cmd => "systemctl",
+		args => ["enable", "--now", "moodle-background.timer"],
+		ifshell => "/bin/sh",
+		ifcmd => "systemctl show --output=export  moodle-background.timer | grep -q UnitFileState=disabled",
+	}
+}
+
+class backend($st) {
+	include pkg_install($dependencies->database)
+
+	$basedir = $st->basedir <|> $defaults->basedir
+	$db_user = $st->db_user <|> $defaults->db_user
+	$db_name = $st->db_name <|> $defaults->db_name
+
+	$db_script = "/var/lib/pgsql/db.sh"
+
+	file $db_script {
+		content => deploy.readfile("/files/db.sh"),
+		state => "exists",
+		mode => "0755",
+		owner => "postgres",
+
+		Depend => Pkg["postgresql-server"],
+	}
+
+	# XXX: This step calls fedora's postgresql-setup script which has race conditions
+	# that are difficult to control.
+	# The script itself will abort if systemd is out of sync with its config files
+	# which happens quite a lot when mgmt and package installations modify .service and
+	# other files. Ideally, we stop using this postgresql-setup script entirely and replace
+	# it with something that doesn't have race conditions.
+	exec "setup postgres" {
+		cmd => $db_script,
+		args => ["init"],
+		creates => "/var/lib/pgsql/data/postgresql.conf",
+
+		Notify => Svc["postgresql"],
+
+		Depend => File[$db_script],
+	}
+
+	# Allow the $db_user to connect via network with password.
+	file "/var/lib/pgsql/data/pg_hba.conf" {
+		content => "local   all             all                                     peer
+local   replication     all                                     peer
+host        ${db_name}      ${db_user}      127.0.0.1/32        password
+host        ${db_name}      ${db_user}      ::1/128        password",
+		state => "exists",
+		owner => "postgres",
+
+		Notify => Svc["postgresql"],
+
+		Depend => Exec["setup postgres"],
+	}
+
+	svc "postgresql" {
+		state => "running",
+		startup => "enabled",
+	}
+
+	exec "create db user ${db_user}" {
+		user => "postgres",
+		env => {
+			"PATH" => "/usr/bin",
+		},
+		cmd => $db_script,
+		args => ["user", "create", $db_user],
+		# Only create the user if it doesn't already exist.
+		nifcmd => "${db_script} user check ${db_user}",
+
+		Depend => Svc["postgresql"],
+	}
+
+	exec "create db database ${db_name} with owner ${db_user}" {
+		user => "postgres",
+		env => {
+			"PATH" => "/usr/bin",
+		},
+		cmd => $db_script,
+		args => ["db", "create", $db_name, $db_user],
+		# Only create the user if it doesn't already exist.
+		nifcmd => "${db_script} db check ${db_name}",
+
+		Depend => Exec["create db user ${db_user}"],
+	}
+
+	password "postgres ${db_user}" {
+		length => 8,
+
+		# Keep a memory of the password in mgmt.
+		write => true,
+	}
+
+	value "moodle db password" {}
+
+	Password["postgres ${db_user}"].password -> Value["moodle db password"].any
+
+	$password = value.get_str("moodle db password")
+
+	if $password->ready {
+		print "pass" {
+			msg => $password->value,
+		}
+
+		exec "set db user ${db_user} password" {
+			user => "postgres",
+			env => {
+				"PATH" => "/usr/bin",
+			},
+			cmd => $db_script,
+			args => ["user", "password", $db_user, $password->value],
+
+			Depend => Exec["create db user ${db_user}"],
+		}
+	}
+}
+
+class pkg_install($packages []str) {
+	pkg $packages {
+		# On Ubuntu (and maybe elsewhere), Packagekit marks certain packages as "unsupported" ?
+		# Ubuntu's qemu-guest-agent, kde-plasma-desktop, etc, all will be  "not found" by mgmt
+		# if the allowunsupported is the default (false) value.
+		# This seems to correlate with Ubuntu package 'Section' fields prefixed with 'universe/'
+		allowunsupported => true,
+
+		state => "installed",
+	}
+}

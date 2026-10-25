@@ -8460,6 +8460,10 @@ func (obj *ExprList) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprList) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
 	var typ *types.Type
 	var err error
 	for i, expr := range obj.Elements {
@@ -8477,20 +8481,17 @@ func (obj *ExprList) Type() (*types.Type, error) {
 			break
 		}
 	}
-	if err == nil && obj.typ == nil && len(obj.Elements) > 0 {
+	if err == nil && len(obj.Elements) > 0 {
 		return &types.Type{ // speculate!
 			Kind: types.KindList,
 			Val:  typ,
 		}, nil
 	}
 
-	if obj.typ == nil {
-		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
-		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
+	if err != nil {
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -8956,6 +8957,10 @@ func (obj *ExprMap) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprMap) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
 	var ktyp, vtyp *types.Type
 	var err error
 	for i, x := range obj.KVs {
@@ -8989,7 +8994,7 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 			break
 		}
 	}
-	if err == nil && obj.typ == nil && len(obj.KVs) > 0 {
+	if err == nil && len(obj.KVs) > 0 {
 		return &types.Type{ // speculate!
 			Kind: types.KindMap,
 			Key:  ktyp,
@@ -8997,13 +9002,10 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 		}, nil
 	}
 
-	if obj.typ == nil {
-		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
-		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
+	if err != nil {
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -9449,6 +9451,10 @@ func (obj *ExprStruct) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprStruct) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
 	var m = make(map[string]*types.Type)
 	ord := []string{}
 	var err error
@@ -9466,7 +9472,7 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 		m[x.Name] = t
 		ord = append(ord, x.Name)
 	}
-	if err == nil && obj.typ == nil && len(obj.Fields) > 0 {
+	if err == nil && len(obj.Fields) > 0 {
 		return &types.Type{ // speculate!
 			Kind: types.KindStruct,
 			Map:  m,
@@ -9474,13 +9480,10 @@ func (obj *ExprStruct) Type() (*types.Type, error) {
 		}, nil
 	}
 
-	if obj.typ == nil {
-		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
-		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
+	if err != nil {
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -10150,23 +10153,20 @@ func (obj *ExprFunc) SetType(typ *types.Type) error {
 // Type returns the type of this expression. It will attempt to speculate on the
 // type if it can be determined statically before type unification.
 func (obj *ExprFunc) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
 	if len(obj.Values) == 1 {
 		// speculative, type is known statically
-		if typ := obj.Values[0].Type(); !typ.HasVariant() && obj.typ == nil {
+		if typ := obj.Values[0].Type(); !typ.HasVariant() {
 			return typ, nil
 		}
-
-		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-		}
-		return obj.typ, nil
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 
 	} else if len(obj.Values) > 0 {
 		// there's nothing we can do to speculate at this time
-		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-		}
-		return obj.typ, nil
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 
 	if obj.Function != nil {
@@ -10178,14 +10178,10 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		// A function which hasn't been built yet (eg: history) returns
 		// its polymorphic signature, which isn't known statically yet.
 		sig := obj.function.Info().Sig
-		if sig != nil && !sig.HasVariant() && !sig.HasUni() && obj.typ == nil {
+		if sig != nil && !sig.HasVariant() && !sig.HasUni() {
 			return sig, nil // type is now known statically
 		}
-
-		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-		}
-		return obj.typ, nil
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 
 	var m = make(map[string]*types.Type)
@@ -10218,7 +10214,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 		}
 	}
 
-	if err == nil && obj.typ == nil { // type is now known statically
+	if err == nil { // type is now known statically
 		return &types.Type{
 			Kind: types.KindFunc,
 			Map:  m,
@@ -10226,14 +10222,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 			Out:  rtyp,
 		}, nil
 	}
-
-	if obj.typ == nil {
-		if err != nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
-		}
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", err.Error())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned
@@ -11108,6 +11097,9 @@ func (obj *ExprCall) SetType(typ *types.Type) error {
 // Type returns the type of this expression, which is the return type of the
 // function call.
 func (obj *ExprCall) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
 
 	// XXX: If we have the function statically in obj.Anon, run this?
 
@@ -11121,26 +11113,23 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	// look through that to find the function to speculate on its type.
 	exprFunc, isFn := trueCallee(obj.expr).(*ExprFunc)
 	if !isFn {
-		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-		}
-		return obj.typ, nil
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 
 	// NOTE: Don't error here, we may be failing because we're speculating.
 	if sig, err := exprFunc.Type(); err == nil {
-		if typ := sig.Out; typ != nil && !typ.HasVariant() && obj.typ == nil {
+		if typ := sig.Out; typ != nil && !typ.HasVariant() {
 			return typ, nil // speculate!
 		}
 	}
 
 	// speculate if a partial return type is known
 	if exprFunc.Body != nil {
-		if exprFunc.Return != nil && obj.typ == nil {
+		if exprFunc.Return != nil {
 			return exprFunc.Return, nil
 		}
 
-		if typ, err := exprFunc.Body.Type(); err == nil && obj.typ == nil {
+		if typ, err := exprFunc.Body.Type(); err == nil {
 			return typ, nil
 		}
 	}
@@ -11150,7 +11139,7 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 		// the type of the call by Infer, so even if it's polymorphic,
 		// (eg: len is func(?1) int) we might know its return type now.
 		_, isInferable := exprFunc.function.(interfaces.InferableFunc)
-		if !isInferable && obj.typ == nil {
+		if !isInferable {
 			if info := exprFunc.function.Info(); info != nil {
 				if sig := info.Sig; sig != nil {
 					if typ := sig.Out; typ != nil && !typ.HasVariant() && !typ.HasUni() {
@@ -11170,15 +11159,10 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 		if typ == nil || typ.Out == nil {
 			continue // skip, not available yet
 		}
-		if obj.typ == nil {
-			return typ, nil
-		}
+		return typ, nil
 	}
 
-	if obj.typ == nil {
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // getPartials is a helper function to aid in building partial types and values.
@@ -11913,13 +11897,14 @@ func (obj *ExprVar) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprVar) Type() (*types.Type, error) {
+	if obj.typ != nil {
+		return obj.typ, nil
+	}
+
 	// TODO: should this look more like Type() in ExprCall or vice-versa?
 
 	if obj.scope == nil { // avoid a possible nil panic if we speculate here
-		if obj.typ == nil {
-			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-		}
-		return obj.typ, nil
+		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
 
 	// Return the type if it is already known statically... It is useful for
@@ -11927,14 +11912,11 @@ func (obj *ExprVar) Type() (*types.Type, error) {
 	expr, exists := obj.scope.Variables[obj.Name]
 	// If !exists, just ignore the error for now since this is speculation!
 	// This logic simplifies down to just this!
-	if exists && obj.typ == nil {
+	if exists {
 		return expr.Type()
 	}
 
-	if obj.typ == nil {
-		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
-	}
-	return obj.typ, nil
+	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 }
 
 // Infer returns the type of itself and a collection of invariants. The returned

@@ -1315,3 +1315,46 @@ func TestValueIntoStructNameMapping(t *testing.T) {
 		t.Errorf("struct field value is missing or incorrect")
 	}
 }
+
+// BenchmarkValues measures building, copying and printing some larger values.
+func BenchmarkValues(b *testing.B) {
+	list := NewList(NewType("[]int"))
+	m := NewMap(NewType("map{str: int}"))
+	for i := 0; i < 100; i++ {
+		list.V = append(list.V, &IntValue{V: int64(i)})
+		if err := m.Set(&StrValue{V: fmt.Sprintf("k%d", i)}, &IntValue{V: int64(i)}); err != nil {
+			b.Fatalf("func Set: %v", err)
+		}
+	}
+	st := &Type{Kind: KindStruct, Map: map[string]*Type{}, Ord: []string{}}
+	for i := 0; i < 20; i++ {
+		name := fmt.Sprintf("f%d", i)
+		st.Map[name] = TypeInt
+		st.Ord = append(st.Ord, name)
+	}
+	sv := NewStruct(st)
+	ints := make([]int64, 100)
+	strs := make([]string, 100)
+
+	for _, bc := range []struct {
+		name string
+		fn   func()
+	}{
+		{"list100/Copy", func() { _ = list.Copy() }},
+		{"list100/String", func() { _ = list.String() }},
+		{"map100/Copy", func() { _ = m.Copy() }},
+		{"map100/String", func() { _ = m.String() }},
+		{"struct20/Copy", func() { _ = sv.Copy() }},
+		{"struct20/String", func() { _ = sv.String() }},
+		{"struct20/NewStruct", func() { _ = NewStruct(st) }},
+		{"ValueOf/list100", func() { _, _ = ValueOf(reflect.ValueOf(ints)) }},
+		{"ListStrToValue/100", func() { _ = ListStrToValue(strs) }},
+	} {
+		b.Run(bc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				bc.fn()
+			}
+		})
+	}
+}

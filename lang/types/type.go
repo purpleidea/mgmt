@@ -63,7 +63,7 @@ var (
 )
 
 // The Kind represents the base type of each value.
-type Kind int // this used to be called Type
+type Kind uint8 // this used to be called Type
 
 // Each Kind represents a type in the language type system.
 const (

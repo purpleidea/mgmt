@@ -128,7 +128,7 @@ func (obj *CPUCount) Stream(ctx context.Context) error {
 			// XXX: This does *not* generate an initial event on
 			// startup, so instead, use startChan below...
 			uevent, err := ss.ReceiveUEvent() // calling Shutdown will stop this from blocking
-			if obj.init.Debug {
+			if obj.init.Debug && err == nil { // uevent is nil on error
 				obj.init.Logf("sending uevent SEQNUM: %s", uevent.Data["SEQNUM"])
 			}
 			select {

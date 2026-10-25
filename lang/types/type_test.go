@@ -1501,8 +1501,9 @@ func TestTypeCopy0(t *testing.T) {
 
 // checkCopy walks a type and its copy together, and errors if they share any
 // part, or if the copy differs. Each unification variable in the copy must be
-// new, and the elems table checks that the original variables which are the
-// same are still the same in the copy, and the different ones are different.
+// new, and the elems table checks that the original variables which are in the
+// same set are still the same in the copy, and the different ones are
+// different. A solved variable must be copied as its solution.
 func checkCopy(typ, cp *Type, elems, seen map[*Elem]*Elem) error {
 	if typ == nil || cp == nil {
 		if typ != cp {
@@ -1512,6 +1513,11 @@ func checkCopy(typ, cp *Type, elems, seen map[*Elem]*Elem) error {
 	}
 	if typ == cp {
 		return fmt.Errorf("shares %v", typ)
+	}
+	if typ.Kind == KindUnification {
+		if root := typ.Uni.Find(); root.Data != nil {
+			return checkCopy(root.Data, cp, elems, seen)
+		}
 	}
 	if typ.Kind != cp.Kind {
 		return fmt.Errorf("got kind %v, want %v", cp.Kind, typ.Kind)
@@ -1547,17 +1553,18 @@ func checkCopy(typ, cp *Type, elems, seen map[*Elem]*Elem) error {
 		return checkCopy(typ.Var, cp.Var, elems, seen)
 
 	case KindUnification:
-		if typ.Uni == cp.Uni {
+		root := typ.Uni.Find()
+		if cp.Uni.Find() == root {
 			return fmt.Errorf("shares a unification variable")
 		}
-		if uni, exists := elems[typ.Uni]; exists && uni != cp.Uni {
+		if uni, exists := elems[root]; exists && uni != cp.Uni {
 			return fmt.Errorf("split a unification variable")
 		}
-		if uni, exists := seen[cp.Uni]; exists && uni != typ.Uni {
+		if uni, exists := seen[cp.Uni]; exists && uni != root {
 			return fmt.Errorf("merged two unification variables")
 		}
-		elems[typ.Uni] = cp.Uni
-		seen[cp.Uni] = typ.Uni
+		elems[root] = cp.Uni
+		seen[cp.Uni] = root
 	}
 	return nil
 }
@@ -1604,6 +1611,19 @@ func TestTypeCopy(t *testing.T) {
 				t.Errorf("copy: %v", err)
 			}
 		})
+	}
+}
+
+func TestTypeCopyUnified(t *testing.T) {
+	typ := NewType("func(a ?1, b ?2, c ?3) []?3")
+	typ.Map["a"].Uni.Union(typ.Map["b"].Uni) // ?1 and ?2 are the same
+	typ.Map["c"].Uni.Find().Data = TypeInt   // ?3 is solved as an int
+	cp := typ.Copy()
+	if s := cp.String(); s != "func(a ?1, b ?1, c int) []int" {
+		t.Errorf("got %s", s)
+	}
+	if err := checkCopy(typ, cp, map[*Elem]*Elem{}, map[*Elem]*Elem{}); err != nil {
+		t.Errorf("copy: %v", err)
 	}
 }
 

@@ -1026,14 +1026,16 @@ func (obj *Type) cmp(typ *Type, table1, table2 map[*Elem]uint) error {
 
 // Copy copies this type so that inplace modification won't affect the original.
 // Each unification variable in the copy is a new one, but any which were the
-// same in the original are still the same as each other in the copy.
+// same in the original, including any which were unified together, are still
+// the same as each other in the copy. Any variable which was already solved is
+// replaced by a copy of its solution.
 func (obj *Type) Copy() *Type {
 	return obj.copy(make(map[*Elem]*Elem))
 }
 
 // copy copies this type. This is a private helper function that is used by the
-// real Copy function. The table maps each of the original unification variables
-// to its replacement in the copy.
+// real Copy function. The table maps the root of each of the original
+// unification variables to its replacement in the copy.
 func (obj *Type) copy(table map[*Elem]*Elem) *Type {
 	typ := &Type{
 		Kind: obj.Kind,
@@ -1112,10 +1114,14 @@ func (obj *Type) copy(table map[*Elem]*Elem) *Type {
 		if obj.Uni == nil {
 			panic("malformed unification variable")
 		}
-		uni, exists := table[obj.Uni]
+		root := obj.Uni.Find() // variables in the same set are the same
+		if root.Data != nil {  // solved, so copy the solution instead
+			return root.Data.copy(table)
+		}
+		uni, exists := table[root]
 		if !exists {
-			uni = NewElem()      // unification variable, eg: ?1
-			table[obj.Uni] = uni // store
+			uni = NewElem()   // unification variable, eg: ?1
+			table[root] = uni // store
 		}
 		typ.Uni = uni
 

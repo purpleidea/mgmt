@@ -193,6 +193,13 @@ func (obj *HistoryFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan int64)
 	obj.mutex = &sync.Mutex{}
+	// If this func is being re-added to the graph, then our previous Stream
+	// and its ticker are gone. Reset the delay so that the new Stream
+	// starts a ticker, even if it gets sent the same delay as before, and
+	// drop the old buffer so that we don't return values from before we
+	// were removed.
+	obj.delay = nil
+	obj.buffer = nil
 	return nil
 }
 

@@ -151,7 +151,9 @@ type Func interface {
 	// might be called speculatively to aid in type unification elsewhere.
 	Info() *Info
 
-	// Init passes some important values and references to the function.
+	// Init passes some important values and references to the function. It
+	// can run again on the same func if it gets re-added to the graph, so
+	// it must reset any state left over from a previous Stream or Call.
 	Init(*Init) error
 
 	// Call this function with the input args and return the value if it is

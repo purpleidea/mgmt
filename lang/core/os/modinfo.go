@@ -106,6 +106,10 @@ func (obj *ModinfoLoadedFunc) Info() *interfaces.Info {
 func (obj *ModinfoLoadedFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan string)
+	// If this func is being re-added to the graph, then our previous Stream
+	// is gone. Reset the module name so that the new Stream waits for its
+	// input value, instead of sending events for the stale one.
+	obj.modulename = nil
 	return nil
 }
 

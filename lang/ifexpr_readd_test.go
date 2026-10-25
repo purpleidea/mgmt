@@ -186,3 +186,138 @@ file $dst {
 	}
 	applyNextGraphWithContent(t, ge, stream, dst, "inner-no")
 }
+
+// TestIfBranchStreamReadd exercises the re-add of a streamable function which
+// sits directly in an if-expression branch. The branch subgraphs are built
+// once, so toggling the condition away and back again removes and later re-adds
+// the very same os.readfile function. When it's removed, the function engine
+// must wait for its Stream to return, otherwise the re-add runs Init while the
+// old Stream might still be reading those same fields. This race is only
+// reliably caught when running with -race.
+func TestIfBranchStreamReadd(t *testing.T) {
+	tmpdir := t.TempDir()
+	outerSrc := filepath.Join(tmpdir, "outer")
+	innerSrc := filepath.Join(tmpdir, "inner")
+	dst := filepath.Join(tmpdir, "output")
+
+	// Both source files must exist before we start, since os.readfile reads
+	// them reactively.
+	if err := os.WriteFile(outerSrc, []byte("no"), 0600); err != nil {
+		t.Fatalf("write outer source failed: %+v", err)
+	}
+	if err := os.WriteFile(innerSrc, []byte("inner-a"), 0600); err != nil {
+		t.Fatalf("write inner source failed: %+v", err)
+	}
+
+	code := fmt.Sprintf(`
+import "os"
+
+$outer_src = %q
+$inner_src = %q
+$dst = %q
+
+$s = if os.readfile($outer_src) == "yes" {
+	"outer"
+} else {
+	os.readfile($inner_src)
+}
+
+file $dst {
+	state => "exists",
+	content => $s,
+}
+`, outerSrc, innerSrc, dst)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	lang, err := newTestLang(ctx, t, code)
+	if err != nil {
+		t.Fatalf("newTestLang failed: %+v", err)
+	}
+	defer lang.Cleanup()
+
+	wg := &sync.WaitGroup{}
+	defer wg.Wait()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := lang.Run(ctx); err != nil && err != context.Canceled {
+			t.Errorf("lang run failed: %+v", err)
+		}
+	}()
+	defer cancel()
+
+	convergerCtx, convergerCancel := context.WithCancel(context.Background())
+	defer convergerCancel()
+	coord := &converger.Coordinator{
+		Timeout: 0,
+		StateFns: converger.StateFns{
+			"test": func(context.Context, bool) error { return nil },
+		},
+		Debug: testing.Verbose(),
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("converger: "+format, v...)
+		},
+	}
+	if err := coord.Init(); err != nil {
+		t.Fatalf("converger init failed: %+v", err)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := coord.Run(convergerCtx, false); err != nil && err != context.Canceled {
+			t.Errorf("converger run failed: %+v", err)
+		}
+	}()
+	defer convergerCancel()
+
+	ge := &graph.Engine{
+		Program:   "testing",
+		Hostname:  "localhost",
+		Converger: coord,
+		Prefix:    filepath.Join(tmpdir, "engine") + string(os.PathSeparator),
+		Debug:     testing.Verbose(),
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("engine: "+format, v...)
+		},
+	}
+	if err := ge.Init(); err != nil {
+		t.Fatalf("engine init failed: %+v", err)
+	}
+	defer func() {
+		if err := ge.Pause(); err != nil {
+			t.Logf("engine pause before shutdown skipped: %+v", err)
+		}
+		if err := ge.Shutdown(); err != nil {
+			t.Errorf("engine shutdown failed: %+v", err)
+		}
+	}()
+
+	stream := lang.Stream(ctx)
+
+	// Initially: outer is "no", so the else branch with the inner
+	// os.readfile is resident and its Stream is running.
+	applyNextGraphWithContent(t, ge, stream, dst, "inner-a")
+
+	// Flip outer to "yes": the else branch is removed, which cancels the
+	// Stream of the inner os.readfile.
+	if err := os.WriteFile(outerSrc, []byte("yes"), 0600); err != nil {
+		t.Fatalf("write outer source failed: %+v", err)
+	}
+	applyNextGraphWithContent(t, ge, stream, dst, "outer")
+
+	// Flip outer back to "no": the same inner os.readfile is re-added, so
+	// it gets Init and a new Stream.
+	if err := os.WriteFile(outerSrc, []byte("no"), 0600); err != nil {
+		t.Fatalf("write outer source failed: %+v", err)
+	}
+	applyNextGraphWithContent(t, ge, stream, dst, "inner-a")
+
+	// Make sure the new Stream is the one watching the inner file.
+	if err := os.WriteFile(innerSrc, []byte("inner-b"), 0600); err != nil {
+		t.Fatalf("write inner source failed: %+v", err)
+	}
+	applyNextGraphWithContent(t, ge, stream, dst, "inner-b")
+}

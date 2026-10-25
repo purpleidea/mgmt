@@ -101,6 +101,10 @@ func (obj *OneStreamFunc) Info() *interfaces.Info {
 func (obj *OneStreamFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan int64)
+	// If this func is being re-added to the graph, then the new Stream may
+	// receive its single input again, so reset what we stored before.
+	obj.once = false
+	obj.count = 0
 	obj.init.Logf("Init of `%s` @ %p", OneStreamFuncName, obj)
 	return nil
 }

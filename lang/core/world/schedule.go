@@ -119,6 +119,11 @@ func (obj *ScheduleFunc) Init(init *interfaces.Init) error {
 	obj.world = world
 
 	obj.input = make(chan string)
+	// If this func is being re-added to the graph, then our previous Stream
+	// and its watch are gone. Reset the namespace so that the new Stream
+	// starts a new watch, even if it gets sent the same namespace as
+	// before.
+	obj.namespace = nil
 
 	obj.mutex = &sync.Mutex{}
 	obj.value = []string{} // empty

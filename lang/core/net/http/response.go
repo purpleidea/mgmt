@@ -131,6 +131,10 @@ func (obj *ResponseFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan string)
 	obj.watchChan = make(chan struct{}) // sender closes this when Stream ends
+	// If this func is being re-added to the graph, then our previous Stream
+	// and its watch are gone. Reset the uid so that the new Stream starts a
+	// new watch, even if it gets sent the same uid as before.
+	obj.uid = nil
 	return nil
 }
 

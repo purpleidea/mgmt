@@ -85,6 +85,9 @@ func (obj *FlipFlop) Info() *interfaces.Info {
 func (obj *FlipFlop) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.mutex = &sync.Mutex{}
+	// If this func is being re-added to the graph, then start flipping from
+	// the beginning again, instead of from wherever the old Stream stopped.
+	obj.value = false
 	return nil
 }
 

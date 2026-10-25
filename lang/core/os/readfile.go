@@ -111,6 +111,10 @@ func (obj *ReadFileFunc) Init(init *interfaces.Init) error {
 	obj.init = init
 	obj.input = make(chan string)
 	obj.events = make(chan error)
+	// If this func is being re-added to the graph, then our previous Stream
+	// and its watcher are gone. Reset the filename so that the new Stream
+	// starts a watcher, even if it gets sent the same filename as before.
+	obj.filename = nil
 	return nil
 }
 

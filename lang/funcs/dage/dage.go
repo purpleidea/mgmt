@@ -33,6 +33,7 @@ package dage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -395,20 +396,17 @@ Start:
 						return
 					}
 					// Only this node was cancelled (it was
-					// deleted from the graph) while the
-					// rest of the engine lives on. That's a
+					// deleted from the graph) but the rest
+					// of the engine lives on. That's a
 					// deliberate, healthy shutdown of this
 					// one function, so discard its error.
 					if streamCtx.Err() == context.Canceled && ctx.Err() == nil {
 						return
 					}
-					// Don't wrap context errors with source
-					// positions, they're shutdown signals.
-					if ctx.Err() != nil {
-						obj.errAppend(err)
-					} else {
-						obj.errAppend(interfaces.HighlightHelper(f, obj.Logf, err))
+					if isShutdown(ctx, err) { // engine exit
+						return
 					}
+					obj.errAppend(interfaces.HighlightHelper(f, obj.Logf, err))
 					obj.cancel() // error
 				}()
 				node.started = true
@@ -612,6 +610,11 @@ Start:
 			}
 			//node.result, err = f.Call(ctx, args)
 			node.result, err = obj.call(ctx, args, f) // recovers!
+
+			if isShutdown(ctx, err) { // healthy shutdown
+				// Don't wrap this with the below highlighter!
+				return ctx.Err()
+			}
 			if err == interfaces.ErrInterrupt {
 				// re-run topological sort... at the top!
 
@@ -623,10 +626,6 @@ Start:
 				// but which didn't return ErrInterrupt. This is
 				// a programming error by the function.
 				return fmt.Errorf("function didn't interrupt correctly: %s", node)
-			}
-			if err == context.Canceled { // healthy shutdown
-				// Don't wrap this with the below highlighter!
-				return err
 			}
 			if err != nil && !interfaces.IsSentinelError(err) {
 				// Any error is permanent and instantly fatal,
@@ -1383,4 +1382,10 @@ func realEdgeCount(edges []pgraph.Edge) int {
 		total += len(fe.Args) // these can represent more than one edge!
 	}
 	return total
+}
+
+// isShutdown returns true if this error only tells us that we're shutting down,
+// even if a func wrapped it. Any other error is real, even during a shutdown.
+func isShutdown(ctx context.Context, err error) bool {
+	return ctx.Err() != nil && errors.Is(err, context.Canceled)
 }

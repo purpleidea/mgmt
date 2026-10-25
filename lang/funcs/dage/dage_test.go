@@ -33,6 +33,8 @@ package dage
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -42,11 +44,63 @@ import (
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
-func TestRunReturnsContextCanceledFromCallShutdown(t *testing.T) {
-	fn := &blockingContextFunc{
-		called: make(chan struct{}),
+// shutdownCases are what a func might return once we cancel it. Only the
+// cancellation itself, even if it's wrapped, is a clean shutdown. Anything else
+// is a real error, which we must still see, even though we're shutting down.
+var shutdownCases = map[string]struct {
+	err  func(context.Context) error
+	fail bool
+}{
+	"bare": {
+		err: func(ctx context.Context) error {
+			return ctx.Err()
+		},
+	},
+	"wrapped": {
+		err: func(ctx context.Context) error {
+			return errwrap.Wrapf(ctx.Err(), "stopped")
+		},
+	},
+	"other": {
+		err: func(ctx context.Context) error {
+			return fmt.Errorf("unexpected close")
+		},
+		fail: true,
+	},
+}
+
+func TestRunCallShutdown(t *testing.T) {
+	for name, tc := range shutdownCases {
+		t.Run(name, func(t *testing.T) {
+			fn := &blockingContextFunc{
+				called: make(chan struct{}),
+				err:    tc.err,
+			}
+			fn.Locate(0, 0, 0, 1)
+			testRunShutdown(t, fn, fn.called, tc.fail)
+		})
 	}
-	fn.Locate(0, 0, 0, 1)
+}
+
+func TestRunStreamShutdown(t *testing.T) {
+	for name, tc := range shutdownCases {
+		t.Run(name, func(t *testing.T) {
+			fn := &shutdownStreamFunc{
+				started: make(chan struct{}),
+				err:     tc.err,
+			}
+			fn.Locate(0, 0, 0, 1)
+			testRunShutdown(t, fn, fn.started, tc.fail)
+		})
+	}
+}
+
+// testRunShutdown runs an engine with this one function, and shuts it down once
+// the ready channel closes. A clean shutdown must look like context.Canceled,
+// even if the function wrapped that error. If fail is true, the function
+// returns a real error, and we must see it.
+func testRunShutdown(t *testing.T, fn interfaces.Func, ready <-chan struct{}, fail bool) {
+	t.Helper()
 
 	engine := &Engine{
 		Name: "test",
@@ -72,24 +126,30 @@ func TestRunReturnsContextCanceledFromCallShutdown(t *testing.T) {
 	}()
 
 	select {
-	case <-fn.called:
+	case <-ready:
 	case <-time.After(5 * time.Second):
-		t.Fatalf("function was not called")
+		t.Fatalf("function was not ready")
 	}
 
 	cancel()
 
 	select {
 	case err := <-runErr:
-		if err != context.Canceled {
+		// A Stream error doesn't go through Run, so it's in Err.
+		if !fail && err != context.Canceled {
 			t.Fatalf("expected context.Canceled from Run, got: %+v", err)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatalf("run did not stop")
 	}
 
-	if err := errwrap.WithoutContext(engine.Err()); err != context.Canceled {
+	// This is what lang.Run reports, so it must show us any real error.
+	err := errwrap.WithoutContext(engine.Err())
+	if !fail && err != context.Canceled {
 		t.Fatalf("expected context.Canceled from Err, got: %+v", err)
+	}
+	if fail && (err == nil || !strings.Contains(err.Error(), "unexpected close")) {
+		t.Fatalf("expected the real error from Err, got: %+v", err)
 	}
 }
 
@@ -98,6 +158,7 @@ type blockingContextFunc struct {
 
 	called chan struct{}
 	once   sync.Once
+	err    func(context.Context) error // what Call returns once cancelled
 }
 
 func (obj *blockingContextFunc) String() string {
@@ -128,5 +189,46 @@ func (obj *blockingContextFunc) Call(ctx context.Context, args []types.Value) (t
 	})
 
 	<-ctx.Done()
-	return nil, ctx.Err()
+	return nil, obj.err(ctx)
+}
+
+// shutdownStreamFunc blocks in Stream until it's cancelled, and then returns
+// whatever error it was given.
+type shutdownStreamFunc struct {
+	interfaces.Textarea
+
+	started chan struct{}
+	err     func(context.Context) error // what Stream returns once cancelled
+}
+
+func (obj *shutdownStreamFunc) String() string {
+	return "shutdownStream"
+}
+
+func (obj *shutdownStreamFunc) Validate() error {
+	return nil
+}
+
+func (obj *shutdownStreamFunc) Info() *interfaces.Info {
+	return &interfaces.Info{
+		Pure: false,
+		Memo: false,
+		Fast: false,
+		Spec: false,
+		Sig:  types.NewType("func() str"),
+	}
+}
+
+func (obj *shutdownStreamFunc) Init(init *interfaces.Init) error {
+	return nil
+}
+
+func (obj *shutdownStreamFunc) Stream(ctx context.Context) error {
+	close(obj.started)
+	<-ctx.Done()
+	return obj.err(ctx)
+}
+
+func (obj *shutdownStreamFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
+	return &types.StrValue{V: "hello"}, nil
 }

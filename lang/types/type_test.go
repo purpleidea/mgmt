@@ -1563,6 +1563,7 @@ func checkCopy(typ, cp *Type, elems, seen map[*Elem]*Elem) error {
 }
 
 func TestTypeCopy(t *testing.T) {
+	uni := &Type{Kind: KindUnification, Uni: NewElem()}
 	for _, typ := range []*Type{
 		NewType("nil"),
 		NewType("bool"),
@@ -1583,6 +1584,16 @@ func TestTypeCopy(t *testing.T) {
 		NewType("func(?1, ?1) ?1"),
 		NewType("struct{a ?1; b []?1; c ?2}"),
 		NewType("func(a ?1, b func(x ?2) ?1) map{?2: ?3}"),
+		{Kind: KindVariant, Var: TypeStr},
+		{Kind: KindVariant, Var: &Type{Kind: KindVariant, Var: NewType("[]int")}},
+		{
+			Kind: KindStruct,
+			Map: map[string]*Type{
+				"a": uni,
+				"b": {Kind: KindVariant, Var: &Type{Kind: KindList, Val: uni}},
+			},
+			Ord: []string{"a", "b"},
+		},
 	} {
 		t.Run(typ.String(), func(t *testing.T) {
 			cp := typ.Copy()

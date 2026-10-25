@@ -791,8 +791,8 @@ func (obj *Type) string(table map[*Elem]uint) string {
 				panic("malformed func field")
 			}
 
-			// We need to print function arg names for Copy() to use
-			// the String() hack here and avoid erasing them here!
+			// We need to print function arg names, so that building
+			// a new type from this string won't erase them!
 			//s[i] = t.string(table)
 			s[i] = fmt.Sprintf("%s %s", k, t.string(table)) // strict
 		}
@@ -1025,9 +1025,104 @@ func (obj *Type) cmp(typ *Type, table1, table2 map[*Elem]uint) error {
 }
 
 // Copy copies this type so that inplace modification won't affect the original.
+// Each unification variable in the copy is a new one, but any which were the
+// same in the original are still the same as each other in the copy.
 func (obj *Type) Copy() *Type {
-	// String() needs to print function arg names or they'd get erased here!
-	return NewType(obj.String()) // hack to do this easily
+	return obj.copy(make(map[*Elem]*Elem))
+}
+
+// copy copies this type. This is a private helper function that is used by the
+// real Copy function. The table maps each of the original unification variables
+// to its replacement in the copy.
+func (obj *Type) copy(table map[*Elem]*Elem) *Type {
+	typ := &Type{
+		Kind: obj.Kind,
+	}
+	switch obj.Kind {
+	case KindNil:
+	case KindBool:
+	case KindStr:
+	case KindInt:
+	case KindFloat:
+
+	case KindList:
+		if obj.Val == nil {
+			panic("malformed list type")
+		}
+		typ.Val = obj.Val.copy(table)
+
+	case KindMap:
+		if obj.Key == nil || obj.Val == nil {
+			panic("malformed map type")
+		}
+		typ.Key = obj.Key.copy(table)
+		typ.Val = obj.Val.copy(table)
+
+	case KindStruct: // {a bool; b int}
+		if obj.Map == nil {
+			panic("malformed struct type")
+		}
+		if len(obj.Map) != len(obj.Ord) {
+			panic("malformed struct length")
+		}
+		typ.Map = make(map[string]*Type, len(obj.Ord))
+		typ.Ord = make([]string, 0, len(obj.Ord))
+		for _, k := range obj.Ord {
+			t, ok := obj.Map[k]
+			if !ok {
+				panic("malformed struct order")
+			}
+			if t == nil {
+				panic("malformed struct field")
+			}
+			typ.Map[k] = t.copy(table)
+			typ.Ord = append(typ.Ord, k)
+		}
+
+	case KindFunc:
+		if obj.Map == nil {
+			panic("malformed func type")
+		}
+		if len(obj.Map) != len(obj.Ord) {
+			panic("malformed func length")
+		}
+		typ.Map = make(map[string]*Type, len(obj.Ord))
+		typ.Ord = make([]string, 0, len(obj.Ord))
+		for _, k := range obj.Ord {
+			t, ok := obj.Map[k]
+			if !ok {
+				panic("malformed func order")
+			}
+			if t == nil {
+				panic("malformed func field")
+			}
+			typ.Map[k] = t.copy(table)
+			typ.Ord = append(typ.Ord, k)
+		}
+		if obj.Out != nil {
+			typ.Out = obj.Out.copy(table)
+		}
+
+	case KindVariant:
+		if obj.Var != nil {
+			typ.Var = obj.Var.copy(table)
+		}
+
+	case KindUnification:
+		if obj.Uni == nil {
+			panic("malformed unification variable")
+		}
+		uni, exists := table[obj.Uni]
+		if !exists {
+			uni = NewElem()      // unification variable, eg: ?1
+			table[obj.Uni] = uni // store
+		}
+		typ.Uni = uni
+
+	default:
+		panic("malformed type")
+	}
+	return typ
 }
 
 // Reflect returns a representative type satisfying the golang Type Interface.

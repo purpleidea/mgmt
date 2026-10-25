@@ -560,6 +560,39 @@ func TestMapLookup1(t *testing.T) {
 	}
 }
 
+func TestMapCopyLookup(t *testing.T) {
+	d := NewMap(NewType("map{str: int}"))
+	for i, k := range []string{"a", "b", "c"} {
+		if err := d.Set(&StrValue{V: k}, &IntValue{V: int64(i)}); err != nil {
+			t.Fatalf("func Set: %v", err)
+		}
+	}
+	cp := d.Copy().(*MapValue)
+	if err := d.Cmp(cp); err != nil {
+		t.Errorf("copy did not cmp: %v", err)
+	}
+	if _, exists := cp.Lookup(&StrValue{V: "a"}); !exists {
+		t.Errorf("copy did not contain our key")
+	}
+
+	// overwrite, delete and add keys in the copy
+	if err := cp.Set(&StrValue{V: "a"}, &IntValue{V: 42}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if !cp.Delete(&StrValue{V: "b"}) {
+		t.Errorf("copy could not delete our key")
+	}
+	if err := cp.Set(&StrValue{V: "d"}, &IntValue{V: 3}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if s := cp.String(); s != `{"a": 42, "c": 2, "d": 3}` {
+		t.Errorf("got copy %s", s)
+	}
+	if s := d.String(); s != `{"a": 0, "b": 1, "c": 2}` {
+		t.Errorf("got original %s", s)
+	}
+}
+
 func TestStruct1(t *testing.T) {
 	s := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
 	if err := s.Set("answer", &IntValue{V: 42}); err != nil {

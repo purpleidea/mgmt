@@ -1157,14 +1157,12 @@ func (obj *MapValue) Cmp(val Value) error {
 func (obj *MapValue) Copy() Value {
 	m := map[Value]Value{}
 	newM := make(map[Hash][]Value)
+	seed := MakeSeed() // the copy must hash with the seed that it stores
 	for key, val := range obj.V {
 		newKey := key.Copy()
 		newVal := val.Copy()
 
-		hash := newKey.(Hashable).Hash(obj.s) // must not panic
-		if _, exists := newM[hash]; !exists {
-			newM[hash] = make([]Value, 1) // needs at least one entry
-		}
+		hash := newKey.(Hashable).Hash(seed) // must not panic
 		newM[hash] = append(newM[hash], newKey)
 		m[newKey] = newVal
 	}
@@ -1173,7 +1171,7 @@ func (obj *MapValue) Copy() Value {
 		V: m,
 		T: obj.T.Copy(),
 		m: newM,
-		s: MakeSeed(),
+		s: seed,
 	}
 }
 

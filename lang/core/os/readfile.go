@@ -167,6 +167,9 @@ func (obj *ReadFileFunc) Stream(ctx context.Context) error {
 			recWatcher, err := recwatch.NewRecWatcher(watchCtx, *obj.filename, false, opts...)
 			if err != nil {
 				watchCancel()
+				if ctx.Err() != nil { // shutdown, not a failure
+					return ctx.Err()
+				}
 				// TODO: should we ignore the error and send ""?
 				return errwrap.Wrapf(err, "could not watch file")
 			}

@@ -143,6 +143,9 @@ func (obj *IsDoneFunc) Stream(ctx context.Context) error {
 			var err error
 			watchChan, err = obj.world.RemoteAckWatch(watchCtx, obj.init.Hostname, n)
 			if err != nil {
+				if ctx.Err() != nil { // shutdown, not a failure
+					return ctx.Err()
+				}
 				return errwrap.Wrapf(err, "can't watch the ack record of %s", n)
 			}
 			// The watch sends a startup event, which makes the next

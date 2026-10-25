@@ -100,8 +100,10 @@ file $dst {
 `, src, dst)
 
 	// runOnce brings up a language runtime, waits until os.readfile has
-	// established its inotify watch (so we know this cycle actually opened
-	// an fd), then shuts the runtime down and waits for it to fully exit.
+	// opened its inotify fd (so we know this cycle actually opened one),
+	// then shuts the runtime down and waits for it to fully exit. The fd
+	// opens before the watcher is ready, so sometimes this shuts down in
+	// the middle of the watcher startup, which must be clean too.
 	runOnce := func(t *testing.T) {
 		localBase := countInotifyFds(t)
 
@@ -130,8 +132,8 @@ file $dst {
 			}
 		}()
 
-		// Wait for the readfile watch to appear, otherwise the test
-		// would prove nothing about watcher lifetime.
+		// Wait for the readfile inotify fd to appear, otherwise the
+		// test would prove nothing about watcher lifetime.
 		deadline := time.After(30 * time.Second)
 		for countInotifyFds(t) <= localBase {
 			select {

@@ -126,6 +126,9 @@ func (obj *ModinfoLoadedFunc) Stream(ctx context.Context) error {
 		},
 	}
 	if err := recWatcher.Run(ctx); err != nil {
+		if ctx.Err() != nil { // shutdown, not a failure
+			return ctx.Err()
+		}
 		return errwrap.Wrapf(err, "could not watch file")
 	}
 	defer recWatcher.Cleanup()

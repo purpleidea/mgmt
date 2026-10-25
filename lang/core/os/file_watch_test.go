@@ -33,6 +33,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -163,5 +164,71 @@ func testFileWatchBlockedSend(t *testing.T, f fileWatchFunc, mode string) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatalf("func Stream deadlocked")
+	}
+}
+
+func TestFileWatchCancelStartup(t *testing.T) {
+	fns := map[string]func() fileWatchFunc{
+		"file_exists": func() fileWatchFunc { return &FileExistsFunc{} },
+		"readfile":    func() fileWatchFunc { return &ReadFileFunc{} },
+	}
+	for name, fn := range fns {
+		t.Run(name, func(t *testing.T) {
+			// The cancel usually wins the race against the watcher
+			// becoming ready, but it's not guaranteed, so we try it
+			// a few times.
+			for i := 0; i < 10; i++ {
+				testFileWatchCancelStartup(t, fn())
+			}
+		})
+	}
+}
+
+// testFileWatchCancelStartup cancels Stream while its file watcher is starting
+// up. That's a shutdown and not a failure, so Stream must return the ctx error
+// unwrapped, or the engine would report it as a real error.
+func testFileWatchCancelStartup(t *testing.T, f fileWatchFunc) {
+	t.Helper()
+
+	p := filepath.Join(t.TempDir(), "a")
+	if err := os.WriteFile(p, []byte("hello\n"), 0600); err != nil {
+		t.Fatalf("could not create file: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	init := &interfaces.Init{
+		Event: func(ctx context.Context) error { return nil },
+		// In debug mode, recwatch logs each path before it watches it.
+		// This happens after it opened its inotify fd, but before it's
+		// ready, so we can cancel right in the middle of its startup.
+		Debug: true,
+		Logf: func(format string, v ...interface{}) {
+			if strings.HasPrefix(format, "watching:") {
+				cancel()
+			}
+		},
+	}
+	if err := f.Init(init); err != nil {
+		t.Fatalf("func Init: %v", err)
+	}
+
+	streamErr := make(chan error, 1)
+	go func() {
+		streamErr <- f.Stream(ctx)
+	}()
+
+	// Nothing cancels until Stream has received this, so it can't fail.
+	if _, err := f.Call(ctx, []types.Value{&types.StrValue{V: p}}); err != nil {
+		t.Fatalf("func Call: %v", err)
+	}
+
+	select {
+	case err := <-streamErr:
+		if err != context.Canceled {
+			t.Fatalf("func Stream: expected %v on shutdown, got: %v", context.Canceled, err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("func Stream did not shut down")
 	}
 }

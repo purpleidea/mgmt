@@ -593,6 +593,60 @@ func TestMapCopyLookup(t *testing.T) {
 	}
 }
 
+// collidingStr is a str value which always has the same hash, so that we can
+// test what a map does when two different keys collide.
+type collidingStr struct {
+	*StrValue
+}
+
+func (obj *collidingStr) Hash(Seed) Hash { return 42 }
+
+func (obj *collidingStr) Cmp(val Value) error {
+	return obj.StrValue.Cmp(val.(*collidingStr).StrValue)
+}
+
+func TestMapCollision(t *testing.T) {
+	d := NewMap(NewType("map{str: int}"))
+	a, b := &collidingStr{&StrValue{V: "a"}}, &collidingStr{&StrValue{V: "b"}}
+	if err := d.Set(a, &IntValue{V: 1}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if err := d.Set(b, &IntValue{V: 2}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	for k, want := range map[*collidingStr]int64{a: 1, b: 2} {
+		value, exists := d.Lookup(k)
+		if !exists {
+			t.Fatalf("map did not contain key %s", k)
+		}
+		if err := value.Cmp(&IntValue{V: want}); err != nil {
+			t.Errorf("key %s: %v", k, err)
+		}
+	}
+	if !d.Delete(a) {
+		t.Errorf("map could not delete key %s", a)
+	}
+	if _, exists := d.Lookup(b); !exists {
+		t.Errorf("map lost key %s", b)
+	}
+}
+
+func TestMapDeleteSet(t *testing.T) {
+	d := NewMap(NewType("map{str: int}"))
+	if err := d.Set(&StrValue{V: "a"}, &IntValue{V: 1}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if !d.Delete(&StrValue{V: "a"}) {
+		t.Fatalf("map could not delete our key")
+	}
+	if err := d.Set(&StrValue{V: "a"}, &IntValue{V: 2}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if s := d.String(); s != `{"a": 2}` {
+		t.Errorf("got %s", s)
+	}
+}
+
 func TestStruct1(t *testing.T) {
 	s := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
 	if err := s.Set("answer", &IntValue{V: 42}); err != nil {

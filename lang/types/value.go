@@ -1225,14 +1225,10 @@ func (obj *MapValue) Set(key, val Value) error { // TODO: change method name?
 	}
 
 	hash := hashable.Hash(obj.s)
-	if _, exists := obj.m[hash]; !exists {
-		obj.m[hash] = make([]Value, 1) // needs at least one entry
-	}
 	index := -1
 	var found Value
 	for i, x := range obj.m[hash] { // []Value
-		// the nil check is in case we made a value above
-		if x == nil || x.Cmp(key) != nil {
+		if x.Cmp(key) != nil {
 			continue
 		}
 		index = i
@@ -1240,11 +1236,13 @@ func (obj *MapValue) Set(key, val Value) error { // TODO: change method name?
 		break // assume datastructure doesn't have invalid dupes
 	}
 	if index == -1 {
-		index = 0 // set to first entry
+		// This might not be the only key with this hash, or the last
+		// one with this hash may have been deleted, so append to it.
+		obj.m[hash] = append(obj.m[hash], key)
 	} else {
 		delete(obj.V, found) // remove old key (we're overwriting)
+		obj.m[hash][index] = key
 	}
-	obj.m[hash][index] = key
 	obj.V[key] = val // store!
 
 	return nil

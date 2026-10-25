@@ -173,7 +173,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		return &ListValue{
-			T: NewType(fmt.Sprintf("[]%s", t.String())),
+			T: &Type{Kind: KindList, Val: t},
 			V: values,
 		}, nil
 
@@ -188,7 +188,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		// NewMap builds the lookup structures which a map needs.
-		m := NewMap(NewType(fmt.Sprintf("map{%s: %s}", kt.String(), vt.String())))
+		m := NewMap(&Type{Kind: KindMap, Key: kt, Val: vt})
 		if m == nil {
 			return nil, fmt.Errorf("map key type %s is not hashable", kt)
 		}

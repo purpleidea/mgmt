@@ -679,6 +679,35 @@ func TestMapDeleteMemory(t *testing.T) {
 	}
 }
 
+func TestMapStructKeys(t *testing.T) {
+	d := NewMap(NewType("map{struct{a str; b str}: int}"))
+	key := func(a, b string) Value {
+		v := NewStruct(d.T.Key)
+		v.V["a"] = &StrValue{V: a}
+		v.V["b"] = &StrValue{V: b}
+		return v
+	}
+	// these keys only differ by which field holds the "foo"
+	for i, k := range []Value{key("foo", ""), key("", "foo"), key("foo", "")} {
+		if err := d.Set(k, &IntValue{V: int64(i)}); err != nil {
+			t.Fatalf("func Set: %v", err)
+		}
+	}
+	if s := d.String(); s != `{struct{a: ""; b: "foo"}: 1, struct{a: "foo"; b: ""}: 2}` {
+		t.Errorf("got %s", s)
+	}
+	if _, exists := d.Lookup(key("", "foo")); !exists {
+		t.Errorf("map did not contain our key")
+	}
+
+	// equal values must hash the same
+	nested := NewType("struct{x struct{y int; z float}; s str}")
+	seed := MakeSeed()
+	if NewStruct(nested).Hash(seed) != NewStruct(nested).Hash(seed) {
+		t.Errorf("equal structs hashed differently")
+	}
+}
+
 func TestStruct1(t *testing.T) {
 	s := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
 	if err := s.Set("answer", &IntValue{V: 42}); err != nil {
@@ -1333,6 +1362,14 @@ func BenchmarkValues(b *testing.B) {
 		st.Ord = append(st.Ord, name)
 	}
 	sv := NewStruct(st)
+	sm := NewMap(NewType("map{struct{a int; b str}: int}"))
+	for i := 0; i < 100; i++ {
+		k := NewStruct(sm.T.Key)
+		k.V["a"] = &IntValue{V: int64(i)}
+		if err := sm.Set(k, &IntValue{V: int64(i)}); err != nil {
+			b.Fatalf("func Set: %v", err)
+		}
+	}
 	ints := make([]int64, 100)
 	intMap := make(map[string]int64, 100)
 	for i := range ints {
@@ -1369,6 +1406,12 @@ func BenchmarkValues(b *testing.B) {
 		{"struct20/Copy", func() { _ = sv.Copy() }},
 		{"struct20/String", func() { _ = sv.String() }},
 		{"struct20/NewStruct", func() { _ = NewStruct(st) }},
+		{"structmap100/Set", func() {
+			d := NewMap(sm.T)
+			for k, v := range sm.V {
+				_ = d.Set(k, v)
+			}
+		}},
 		{"ValueOf/list100", func() { _, _ = ValueOf(reflect.ValueOf(ints)) }},
 		{"ValueOf/map100", func() { _, _ = ValueOf(reflect.ValueOf(intMap)) }},
 		{"ValueOf/structs1", func() { _, _ = ValueOf(reflect.ValueOf(files)) }},

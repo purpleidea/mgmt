@@ -1499,6 +1499,122 @@ func TestTypeCopy0(t *testing.T) {
 	}
 }
 
+// checkCopy walks a type and its copy together, and errors if they share any
+// part, or if the copy differs. Each unification variable in the copy must be
+// new, and the elems table checks that the original variables which are the
+// same are still the same in the copy, and the different ones are different.
+func checkCopy(typ, cp *Type, elems, seen map[*Elem]*Elem) error {
+	if typ == nil || cp == nil {
+		if typ != cp {
+			return fmt.Errorf("got %v, want %v", cp, typ)
+		}
+		return nil
+	}
+	if typ == cp {
+		return fmt.Errorf("shares %v", typ)
+	}
+	if typ.Kind != cp.Kind {
+		return fmt.Errorf("got kind %v, want %v", cp.Kind, typ.Kind)
+	}
+	switch typ.Kind {
+	case KindList:
+		return checkCopy(typ.Val, cp.Val, elems, seen)
+
+	case KindMap:
+		if err := checkCopy(typ.Key, cp.Key, elems, seen); err != nil {
+			return err
+		}
+		return checkCopy(typ.Val, cp.Val, elems, seen)
+
+	case KindStruct, KindFunc:
+		if reflect.ValueOf(typ.Map).Pointer() == reflect.ValueOf(cp.Map).Pointer() {
+			return fmt.Errorf("shares the map of %v", typ)
+		}
+		if len(typ.Ord) > 0 && len(cp.Ord) > 0 && &typ.Ord[0] == &cp.Ord[0] {
+			return fmt.Errorf("shares the order of %v", typ)
+		}
+		if !reflect.DeepEqual(typ.Ord, cp.Ord) && len(typ.Ord)+len(cp.Ord) > 0 {
+			return fmt.Errorf("got names %v, want %v", cp.Ord, typ.Ord)
+		}
+		for _, k := range typ.Ord {
+			if err := checkCopy(typ.Map[k], cp.Map[k], elems, seen); err != nil {
+				return err
+			}
+		}
+		return checkCopy(typ.Out, cp.Out, elems, seen)
+
+	case KindVariant:
+		return checkCopy(typ.Var, cp.Var, elems, seen)
+
+	case KindUnification:
+		if typ.Uni == cp.Uni {
+			return fmt.Errorf("shares a unification variable")
+		}
+		if uni, exists := elems[typ.Uni]; exists && uni != cp.Uni {
+			return fmt.Errorf("split a unification variable")
+		}
+		if uni, exists := seen[cp.Uni]; exists && uni != typ.Uni {
+			return fmt.Errorf("merged two unification variables")
+		}
+		elems[typ.Uni] = cp.Uni
+		seen[cp.Uni] = typ.Uni
+	}
+	return nil
+}
+
+func TestTypeCopy(t *testing.T) {
+	for _, typ := range []*Type{
+		NewType("nil"),
+		NewType("bool"),
+		NewType("str"),
+		NewType("int"),
+		NewType("float"),
+		NewType("variant"),
+		NewType("[]str"),
+		NewType("map{str: []map{int: bool}}"),
+		NewType("struct{}"),
+		NewType("struct{z []str; a struct{x float}}"),
+		NewType("func()"),
+		NewType("func(a int)"),
+		NewType("func(arg0 str, arg1 bool) int"),
+		NewType("func(a func(x int) str, b []str) map{str: int}"),
+		NewType("?1"),
+		NewType("map{?1: ?2}"),
+		NewType("func(?1, ?1) ?1"),
+		NewType("struct{a ?1; b []?1; c ?2}"),
+		NewType("func(a ?1, b func(x ?2) ?1) map{?2: ?3}"),
+	} {
+		t.Run(typ.String(), func(t *testing.T) {
+			cp := typ.Copy()
+			if s := cp.String(); s != typ.String() {
+				t.Errorf("got %s", s)
+			}
+			if err := checkCopy(typ, cp, map[*Elem]*Elem{}, map[*Elem]*Elem{}); err != nil {
+				t.Errorf("copy: %v", err)
+			}
+		})
+	}
+}
+
+func BenchmarkTypeCopy(b *testing.B) {
+	for _, bc := range []struct {
+		name, typ string
+	}{
+		{"str", "str"},
+		{"nested", "map{str: []struct{a int; b str}}"},
+		{"func", "func(a int, b str) bool"},
+		{"partial", "struct{left map{str: []struct{a ?1; b str}}; right map{str: []struct{a int; b ?1}}}"},
+	} {
+		b.Run(bc.name, func(b *testing.B) {
+			typ := NewType(bc.typ)
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_ = typ.Copy()
+			}
+		})
+	}
+}
+
 func TestUni0(t *testing.T) {
 	// good type strings
 	if NewType("?1") == nil {

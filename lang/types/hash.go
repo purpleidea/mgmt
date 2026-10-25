@@ -41,13 +41,13 @@ import (
 // method and as a result they can be used for map keys. Notably List, Map, Func
 // and any other special types are not present in this list.
 func IsHashableType(typ *Type) bool {
-	_, ok := typ.New().(Hashable)
-	if ok != isHashableKind(typ.Kind) { // bonus safety / consistency check!
-		panic("inconsistent hashable implementation")
+	// TestHashableKinds checks this is consistent with the Hash methods.
+	if !isHashableKind(typ.Kind) {
+		return false
 	}
 
 	if typ.Kind != KindStruct {
-		return ok
+		return true
 	}
 
 	// recurse on struct fields

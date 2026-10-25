@@ -1335,14 +1335,25 @@ func BenchmarkValues(b *testing.B) {
 	sv := NewStruct(st)
 	ints := make([]int64, 100)
 	strs := make([]string, 100)
+	list2, m2 := list.Copy(), m.Copy()
+	one, two := &IntValue{V: 1}, &IntValue{V: 1}
 
 	for _, bc := range []struct {
 		name string
 		fn   func()
 	}{
+		{"int/Cmp", func() { _ = one.Cmp(two) }},
+		{"list100/Cmp", func() { _ = list.Cmp(list2) }},
 		{"list100/Copy", func() { _ = list.Copy() }},
 		{"list100/String", func() { _ = list.String() }},
+		{"map100/Cmp", func() { _ = m.Cmp(m2) }},
 		{"map100/Copy", func() { _ = m.Copy() }},
+		{"map100/Set", func() {
+			d := NewMap(m.T)
+			for k, v := range m.V {
+				_ = d.Set(k, v)
+			}
+		}},
 		{"map100/String", func() { _ = m.String() }},
 		{"struct20/Copy", func() { _ = sv.Copy() }},
 		{"struct20/String", func() { _ = sv.String() }},

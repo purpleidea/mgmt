@@ -157,7 +157,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		return &FloatValue{V: value.Float()}, nil
 
 	case reflect.Array, reflect.Slice:
-		values := []Value{}
+		values := make([]Value, 0, value.Len())
 		for i := 0; i < value.Len(); i++ {
 			x := value.Index(i)
 			v, err := ValueOf(x) // recurse
@@ -228,7 +228,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 			return nil, fmt.Errorf("incompatible number of fields")
 		}
 
-		values := make(map[string]Value)
+		values := make(map[string]Value, l)
 		for i := 0; i < l; i++ {
 			x := value.Field(i)
 			v, err := ValueOf(x) // recurse
@@ -254,7 +254,7 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}
 
 		f := func(ctx context.Context, args []Value) (Value, error) {
-			in := []reflect.Value{}
+			in := make([]reflect.Value, 0, len(args))
 			for _, x := range args {
 				// TODO: should we build this method instead?
 				//v := x.Reflect() // types.Value -> reflect.Value
@@ -485,7 +485,7 @@ func Into(v Value, rv reflect.Value) error {
 			return err
 		}
 
-		keys := []string{}
+		keys := make([]string, 0, len(v.T.Map))
 		for k := range v.T.Map {
 			keys = append(keys, k)
 		}
@@ -942,7 +942,7 @@ func NewList(t *Type) *ListValue {
 
 // String returns a visual representation of this value.
 func (obj *ListValue) String() string {
-	var s []string
+	s := make([]string, 0, len(obj.V))
 	for _, x := range obj.V {
 		s = append(s, x.String())
 	}
@@ -993,7 +993,7 @@ func (obj *ListValue) Cmp(val Value) error {
 
 // Copy returns a copy of this value.
 func (obj *ListValue) Copy() Value {
-	v := []Value{}
+	v := make([]Value, 0, len(obj.V))
 	for _, x := range obj.V {
 		v = append(v, x.Copy())
 	}
@@ -1103,13 +1103,13 @@ func NewMap(t *Type) *MapValue {
 
 // String returns a visual representation of this value.
 func (obj *MapValue) String() string {
-	keys := []Value{}
+	keys := make([]Value, 0, len(obj.V))
 	for k := range obj.V {
 		keys = append(keys, k)
 	}
 	sort.Sort(ValueSlice(keys)) // deterministic print order
 
-	var s []string
+	s := make([]string, 0, len(keys))
 	for _, k := range keys {
 		s = append(s, fmt.Sprintf("%s: %s", k.String(), obj.V[k].String()))
 	}
@@ -1158,8 +1158,8 @@ func (obj *MapValue) Cmp(val Value) error {
 
 // Copy returns a copy of this value.
 func (obj *MapValue) Copy() Value {
-	m := map[Value]Value{}
-	newM := make(map[Hash][]Value)
+	m := make(map[Value]Value, len(obj.V))
+	newM := make(map[Hash][]Value, len(obj.V))
 	seed := MakeSeed() // the copy must hash with the seed that it stores
 	for key, val := range obj.V {
 		newKey := key.Copy()
@@ -1354,7 +1354,7 @@ func NewStruct(t *Type) *StructValue {
 	if t.Kind != KindStruct {
 		return nil // sanity check
 	}
-	v := make(map[string]Value)
+	v := make(map[string]Value, len(t.Ord))
 	for _, k := range t.Ord {
 		v[k] = t.Map[k].New() // don't leave struct fields uninitialized
 	}
@@ -1366,7 +1366,7 @@ func NewStruct(t *Type) *StructValue {
 
 // String returns a visual representation of this value.
 func (obj *StructValue) String() string {
-	var s []string
+	s := make([]string, 0, len(obj.T.Ord))
 	for _, k := range obj.T.Ord {
 		s = append(s, fmt.Sprintf("%s: %s", k, obj.V[k].String()))
 	}
@@ -1406,7 +1406,7 @@ func (obj *StructValue) Cmp(val Value) error {
 
 // Copy returns a copy of this value.
 func (obj *StructValue) Copy() Value {
-	m := map[string]Value{}
+	m := make(map[string]Value, len(obj.V))
 	for k, v := range obj.V {
 		m[k] = v.Copy()
 	}

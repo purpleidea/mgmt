@@ -57,7 +57,7 @@ func TypeStructTagToFieldName(st reflect.Type) (map[string]string, error) {
 		return nil, fmt.Errorf("input doesn't point to a struct, got: %+v", k)
 	}
 
-	result := make(map[string]string) // `lang` field tag -> field name
+	result := make(map[string]string, st.NumField()) // `lang` field tag -> field name
 
 	for i := 0; i < st.NumField(); i++ {
 		field := st.Field(i)
@@ -221,6 +221,7 @@ func (obj *UnifiedState) String(typ *Type) string {
 // in golang to the equivalent in our type system.
 func ListStrToValue(input []string) Value {
 	l := NewList(TypeListStr)
+	l.V = make([]Value, 0, len(input))
 	for _, x := range input {
 		v := &StrValue{
 			V: x,
@@ -234,8 +235,9 @@ func ListStrToValue(input []string) Value {
 // in our type system to the equivalent in golang. This panics if the input is
 // not of the correct type.
 func ValueToListStr(input Value) []string {
-	l := []string{}
-	for _, x := range input.List() {
+	list := input.List()
+	l := make([]string, 0, len(list))
+	for _, x := range list {
 		s := x.Str()
 		l = append(l, s)
 	}

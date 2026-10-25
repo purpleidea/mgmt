@@ -286,8 +286,8 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		}, nil
 
 	case reflect.Struct:
-		m := make(map[string]*Type)
-		ord := []string{}
+		m := make(map[string]*Type, typ.NumField())
+		ord := make([]string, 0, typ.NumField()) // some may be skipped
 
 		for i := 0; i < typ.NumField(); i++ {
 			field := typ.Field(i)
@@ -328,8 +328,8 @@ func ConfigurableTypeOf(t reflect.Type, opts ...TypeOfOption) (*Type, error) {
 		}, nil
 
 	case reflect.Func:
-		m := make(map[string]*Type)
-		ord := []string{}
+		m := make(map[string]*Type, typ.NumIn())
+		ord := make([]string, 0, typ.NumIn())
 
 		for i := 0; i < typ.NumIn(); i++ {
 			tt, err := ConfigurableTypeOf(typ.In(i), opts...)
@@ -1164,8 +1164,8 @@ func (obj *Type) Reflect() reflect.Type {
 			panic("malformed struct length")
 		}
 
-		fields := []reflect.StructField{}
-		seen := make(map[string]string) // exported name -> field name
+		fields := make([]reflect.StructField, 0, len(obj.Ord))
+		seen := make(map[string]string, len(obj.Ord)) // exported name -> field name
 		for _, k := range obj.Ord {
 			t, ok := obj.Map[k]
 			if !ok {
@@ -1214,7 +1214,7 @@ func (obj *Type) Reflect() reflect.Type {
 			panic("malformed func length")
 		}
 
-		in := []reflect.Type{}
+		in := make([]reflect.Type, 0, len(obj.Ord))
 		for _, k := range obj.Ord {
 			t, ok := obj.Map[k]
 			if !ok {
@@ -1227,7 +1227,7 @@ func (obj *Type) Reflect() reflect.Type {
 			in = append(in, t.Reflect())
 		}
 
-		out := []reflect.Type{} // only one return arg
+		out := make([]reflect.Type, 0, 1) // only one return arg
 		if obj.Out != nil {
 			out = append(out, obj.Out.Reflect())
 		}

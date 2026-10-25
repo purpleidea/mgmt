@@ -67,8 +67,8 @@ var (
 // Value represents an interface to get values out of each type. It is similar
 // to the reflection interfaces used in the golang standard library.
 type Value interface {
-	fmt.Stringer // String() string (for display purposes)
-	Type() *Type
+	fmt.Stringer     // String() string (for display purposes)
+	Type() *Type     // this may be shared, so it must not be modified
 	Less(Value) bool // to find the smaller of the two values (for sort)
 	Cmp(Value) error // error if the two values aren't the same
 	Copy() Value     // returns a copy of this value
@@ -639,7 +639,7 @@ func (obj *NilValue) String() string {
 }
 
 // Type returns the type data structure that represents this type.
-func (obj *NilValue) Type() *Type { return NewType("nil") }
+func (obj *NilValue) Type() *Type { return TypeNil }
 
 // Less compares to value and returns true if we're smaller. This panics if the
 // two types aren't the same. This always returns false for nil.
@@ -688,7 +688,7 @@ func (obj *BoolValue) String() string {
 }
 
 // Type returns the type data structure that represents this type.
-func (obj *BoolValue) Type() *Type { return NewType("bool") }
+func (obj *BoolValue) Type() *Type { return TypeBool }
 
 // Less compares to value and returns true if we're smaller. This panics if the
 // two types aren't the same.
@@ -754,7 +754,7 @@ func (obj *StrValue) String() string {
 }
 
 // Type returns the type data structure that represents this type.
-func (obj *StrValue) Type() *Type { return NewType("str") }
+func (obj *StrValue) Type() *Type { return TypeStr }
 
 // Less compares to value and returns true if we're smaller. This panics if the
 // two types aren't the same.
@@ -814,7 +814,7 @@ func (obj *IntValue) String() string {
 }
 
 // Type returns the type data structure that represents this type.
-func (obj *IntValue) Type() *Type { return NewType("int") }
+func (obj *IntValue) Type() *Type { return TypeInt }
 
 // Less compares to value and returns true if we're smaller. This panics if the
 // two types aren't the same.
@@ -876,7 +876,7 @@ func (obj *FloatValue) String() string {
 }
 
 // Type returns the type data structure that represents this type.
-func (obj *FloatValue) Type() *Type { return NewType("float") }
+func (obj *FloatValue) Type() *Type { return TypeFloat }
 
 // Less compares to value and returns true if we're smaller. This panics if the
 // two types aren't the same.

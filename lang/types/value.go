@@ -178,7 +178,20 @@ func ValueOf(v reflect.Value) (Value, error) {
 		}, nil
 
 	case reflect.Map:
-		m := make(map[Value]Value)
+		kt, err := TypeOf(value.Type().Key()) // type of key
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine key type of %+v", value)
+		}
+		vt, err := TypeOf(value.Type().Elem()) // type of value
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't determine value type of %+v", value)
+		}
+
+		// NewMap builds the lookup structures which a map needs.
+		m := NewMap(NewType(fmt.Sprintf("map{%s: %s}", kt.String(), vt.String())))
+		if m == nil {
+			return nil, fmt.Errorf("map key type %s is not hashable", kt)
+		}
 
 		// loop through the list of map keys in undefined order
 		for _, mk := range value.MapKeys() {
@@ -193,22 +206,12 @@ func ValueOf(v reflect.Value) (Value, error) {
 				return nil, err
 			}
 
-			m[k] = v
+			if err := m.Set(k, v); err != nil {
+				return nil, err
+			}
 		}
 
-		kt, err := TypeOf(value.Type().Key()) // type of key
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "can't determine key type of %+v", value)
-		}
-		vt, err := TypeOf(value.Type().Elem()) // type of value
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "can't determine value type of %+v", value)
-		}
-
-		return &MapValue{
-			T: NewType(fmt.Sprintf("map{%s: %s}", kt.String(), vt.String())),
-			V: m,
-		}, nil
+		return m, nil
 
 	case reflect.Struct:
 		// TODO: we could take this simpler "get the full type" approach

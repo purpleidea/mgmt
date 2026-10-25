@@ -840,6 +840,35 @@ func TestValueOf4(t *testing.T) {
 	}
 }
 
+func TestValueOfMapLookup(t *testing.T) {
+	val, err := ValueOf(reflect.ValueOf(map[string]int64{"a": 1, "b": 2}))
+	if err != nil {
+		t.Fatalf("func ValueOf: %v", err)
+	}
+	value, exists := val.(*MapValue).Lookup(&StrValue{V: "a"})
+	if !exists {
+		t.Fatalf("map did not contain our key")
+	}
+	if err := value.Cmp(&IntValue{V: 1}); err != nil {
+		t.Errorf("value did not match our map key")
+	}
+
+	d := NewMap(NewType("map{str: int}"))
+	for i, k := range []string{"a", "b"} {
+		if err := d.Set(&StrValue{V: k}, &IntValue{V: int64(i + 1)}); err != nil {
+			t.Fatalf("func Set: %v", err)
+		}
+	}
+	if err := d.Cmp(val); err != nil {
+		t.Errorf("map did not cmp: %v", err)
+	}
+
+	// a golang array can be a map key, but it's an unhashable list for us
+	if val, err := ValueOf(reflect.ValueOf(map[[1]int]int{{1}: 1})); err == nil {
+		t.Errorf("expected an unhashable map key error, got %s", val)
+	}
+}
+
 func TestValueInto0(t *testing.T) {
 	// converts a Go variable to a types.Value, or panics if any error
 	mustValue := func(v interface{}) Value {

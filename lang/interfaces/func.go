@@ -531,9 +531,8 @@ type Txn interface {
 // function is CallableArgsToStruct, with the caveat that this call looses any
 // argument names that there might have been.
 func StructToCallableArgs(st types.Value) ([]types.Value, error) {
-	args := []types.Value{}
 	if st == nil { // for functions that take no args
-		return args, nil
+		return []types.Value{}, nil
 	}
 	typ := st.Type()
 	if typ == nil {
@@ -547,6 +546,7 @@ func StructToCallableArgs(st types.Value) ([]types.Value, error) {
 		return nil, fmt.Errorf("empty values")
 	}
 
+	args := make([]types.Value, 0, len(typ.Ord))
 	for i, x := range typ.Ord { // in the correct order
 		v, exists := structValues[x]
 		if !exists {

@@ -463,13 +463,16 @@ Start:
 				Map:  sig.Map,
 				Ord:  sig.Ord,
 			}
-			st := types.NewStruct(si)
-			// The above builds a struct with fields
-			// populated for each key (empty values)
-			// so we need to very carefully check if
-			// every field is received before we can
-			// safely send it downstream to an edge.
-			need := make(map[string]struct{}) // keys we need
+			st := &types.StructValue{ // not NewStruct, see below
+				T: si,
+				V: make(map[string]types.Value, len(sig.Ord)),
+			}
+			// The above builds a struct without any fields
+			// populated (NewStruct would make zero values that we'd
+			// just overwrite) so we need to very carefully check if
+			// every field is received before we can safely send it
+			// downstream to an edge.
+			need := make(map[string]struct{}, len(sig.Ord)) // keys we need
 			for _, k := range sig.Ord {
 				need[k] = struct{}{}
 			}

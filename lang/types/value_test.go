@@ -1334,6 +1334,17 @@ func BenchmarkValues(b *testing.B) {
 	}
 	sv := NewStruct(st)
 	ints := make([]int64, 100)
+	intMap := make(map[string]int64, 100)
+	for i := range ints {
+		intMap[fmt.Sprintf("k%d", i)] = int64(i)
+	}
+	type file struct {
+		Name string   `lang:"name"`
+		Size int64    `lang:"size"`
+		Tags []string `lang:"tags"`
+		Ok   bool     `lang:"ok"`
+	}
+	files := []file{{Name: "a"}}
 	strs := make([]string, 100)
 	list2, m2 := list.Copy(), m.Copy()
 	one, two := &IntValue{V: 1}, &IntValue{V: 1}
@@ -1359,6 +1370,8 @@ func BenchmarkValues(b *testing.B) {
 		{"struct20/String", func() { _ = sv.String() }},
 		{"struct20/NewStruct", func() { _ = NewStruct(st) }},
 		{"ValueOf/list100", func() { _, _ = ValueOf(reflect.ValueOf(ints)) }},
+		{"ValueOf/map100", func() { _, _ = ValueOf(reflect.ValueOf(intMap)) }},
+		{"ValueOf/structs1", func() { _, _ = ValueOf(reflect.ValueOf(files)) }},
 		{"ListStrToValue/100", func() { _ = ListStrToValue(strs) }},
 	} {
 		b.Run(bc.name, func(b *testing.B) {

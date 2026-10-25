@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# The computed format must constrain the field lookup's return type.
+for $i, $v in [struct{n => 42}] {
+	test [fmt.printf("%" + "d", $v->n)] {}
+}
+-- OUTPUT --
+Vertex: test[42]

@@ -185,8 +185,8 @@ func (obj *VUMeterFunc) Stream(ctx context.Context) error {
 // Call this function with the input args and return the value if it is possible
 // to do so at this time.
 func (obj *VUMeterFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
-	if len(args) < 3 {
-		return nil, fmt.Errorf("not enough args")
+	if err := funcs.CheckArgKinds(args, types.KindStr, types.KindInt, types.KindFloat); err != nil {
+		return nil, err
 	}
 	symbol := args[0].Str()
 	multiplier := args[1].Int()

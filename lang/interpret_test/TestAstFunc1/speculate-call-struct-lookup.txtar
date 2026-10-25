@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+# The call is speculated before unification has checked the types of its args,
+# so that must give a type error, and not a panic.
+$i = 42
+$s = fmt.printf("%v", $i->foo)
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: expr: call:_struct_lookup(var(i), str("foo")) is ambiguous: ?1: /main.mcl @ 6:23-6:30

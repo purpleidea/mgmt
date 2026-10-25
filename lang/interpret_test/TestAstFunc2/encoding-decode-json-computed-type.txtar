@@ -1,0 +1,9 @@
+-- main.mcl --
+import "encoding"
+import "fmt"
+
+# The computed type string must determine the decoded value's type.
+$x = encoding.decode_json("42", "i" + "nt")
+test [fmt.printf("%v", $x)] {}
+-- OUTPUT --
+Vertex: test[42]

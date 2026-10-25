@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+import "encoding"
+
+# The call is speculated before unification has checked the types of its args,
+# so that must give a type error, and not a panic.
+$s = fmt.printf("%v", encoding.decode_json(42, "str"))
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: type error: int != str: /main.mcl @ 6:23-6:54

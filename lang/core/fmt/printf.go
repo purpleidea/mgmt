@@ -184,18 +184,13 @@ func (obj *PrintfFunc) FuncInfer(partialType *types.Type, partialValues []types.
 				continue
 			}
 
-			// NOTE: Is it okay to allow unification variables here?
-			//if x.HasUni() {
-			//	// programming error (did the compiler change?)
-			//	return nil, nil, fmt.Errorf("programming error at arg index %d", i)
-			//}
-			if err := unificationUtil.UnifyCmp(x, formatList[i-1]); err != nil {
+			// Both the arg and the format may be partially known.
+			// Keep their combined constraints in the returned sig.
+			typ, err := unificationUtil.UnifyType(x, formatList[i-1])
+			if err != nil {
 				return nil, nil, errwrap.Wrapf(err, "inconsistent type at arg index %d", i)
 			}
-			// Less general version of the above...
-			//if err := x.Cmp(formatList[i-1]); err != nil {
-			//	return nil, nil, errwrap.Wrapf(err, "inconsistent type at arg index %d", i)
-			//}
+			typList[i] = typ
 		}
 	} else if !PrintfAllowNonStaticFormat {
 		return nil, nil, fmt.Errorf("format string is not known statically")

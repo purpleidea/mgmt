@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# The type of a for loop param is a unification variable before unification, so
+# this must not stop the format string from telling us the arg must be an int.
+for $i, $v in ["a", "b"] {
+	$s = fmt.printf("%d", $v)
+	test [$s] {}
+}
+-- OUTPUT --
+# err: errUnify: type error: str != int: /main.mcl @ 6:7-6:27

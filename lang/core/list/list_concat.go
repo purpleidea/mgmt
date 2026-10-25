@@ -199,7 +199,6 @@ func (obj *ListConcatFunc) Copy() interfaces.Func {
 func (obj *ListConcatFunc) Call(ctx context.Context, args []types.Value) (types.Value, error) {
 	values := []types.Value{}
 
-	// TODO: Could speculation pass in non-lists here and cause a panic?
 	for _, x := range args {
 		values = append(values, x.List()...)
 	}

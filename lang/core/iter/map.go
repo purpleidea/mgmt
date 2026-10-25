@@ -226,7 +226,7 @@ func (obj *MapFunc) Info() *interfaces.Info {
 		Pure: false, // XXX: what if the input function isn't pure?
 		Memo: false,
 		Fast: false,
-		Spec: false,     // must be false with the current graph shape code
+		Spec: false,
 		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}

@@ -15,13 +15,9 @@ class xclass {
 	}
 }
 -- OUTPUT --
-Edge: FuncValue -> call # fn
-Edge: call -> callSubgraphOutput # dummy
-Edge: callSubgraphOutput -> exprif # condition
 Edge: exprif -> exprIfSubgraphOutput # dummy
-Vertex: FuncValue
-Vertex: call
-Vertex: callSubgraphOutput
+Edge: os.is_family_debian -> exprif # condition
 Vertex: const: str("hello")
 Vertex: exprIfSubgraphOutput
 Vertex: exprif
+Vertex: os.is_family_debian

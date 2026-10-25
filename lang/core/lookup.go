@@ -119,7 +119,7 @@ func (obj *LookupFunc) FuncInfer(partialType *types.Type, partialValues []types.
 	if len(partialType.Ord) == 2 && partialType.Map[partialType.Ord[1]] != nil {
 		typ, exists := partialType.Map[partialType.Ord[1]]
 		// don't overwrite earlier determinations
-		if exists && typ.Kind != types.KindInt && sig == nil {
+		if exists && typ.Kind != types.KindInt && typ.Kind != types.KindUnification && sig == nil {
 			sig = mapSig
 		}
 	}

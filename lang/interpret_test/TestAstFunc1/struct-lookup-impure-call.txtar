@@ -1,0 +1,26 @@
+-- main.mcl --
+import "fmt"
+import "sys"
+
+# The format string isn't known statically and sys.load() can't be speculated,
+# so the type of the struct lookup must come from the signature of sys.load().
+$s = fmt.printf("on: ${hostname} load is: %f", sys.load()->x1)
+test "${s}" {}
+-- OUTPUT --
+Edge: _struct_lookup -> printf: func(format str, a float) str # a
+Edge: concat -> concat # b
+Edge: concat -> printf: func(format str, a float) str # format
+Edge: const: str(" load is: %f") -> concat # b
+Edge: const: str("") -> concat # a
+Edge: const: str("on: ") -> concat # a
+Edge: const: str("x1") -> _struct_lookup # field
+Edge: load -> _struct_lookup # struct
+Vertex: _struct_lookup
+Vertex: concat
+Vertex: concat
+Vertex: const: str(" load is: %f")
+Vertex: const: str("")
+Vertex: const: str("on: ")
+Vertex: const: str("x1")
+Vertex: load
+Vertex: printf: func(format str, a float) str

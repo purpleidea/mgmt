@@ -1,0 +1,31 @@
+-- main.mcl --
+import "fmt"
+
+# The len function is polymorphic, so its signature isn't known statically, but
+# its return type is, and the struct lookup needs that to learn the type of its
+# field, since %v doesn't tell us anything about it.
+$st = struct{n => len(["a", "b", "c"])}
+$s = fmt.printf("%v", $st->n)
+test [$s] {}
+-- OUTPUT --
+Edge: _struct_lookup -> printf: func(format str, a int) str # a
+Edge: composite: []str -> len # 0
+Edge: composite: struct{n int} -> _struct_lookup # struct
+Edge: const: str("%v") -> printf: func(format str, a int) str # format
+Edge: const: str("a") -> composite: []str # 0
+Edge: const: str("b") -> composite: []str # 1
+Edge: const: str("c") -> composite: []str # 2
+Edge: const: str("n") -> _struct_lookup # field
+Edge: len -> composite: struct{n int} # n
+Edge: printf: func(format str, a int) str -> composite: []str # 0
+Vertex: _struct_lookup
+Vertex: composite: []str
+Vertex: composite: []str
+Vertex: composite: struct{n int}
+Vertex: const: str("%v")
+Vertex: const: str("a")
+Vertex: const: str("b")
+Vertex: const: str("c")
+Vertex: const: str("n")
+Vertex: len
+Vertex: printf: func(format str, a int) str

@@ -31,6 +31,7 @@
 package funcs
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -38,7 +39,10 @@ import (
 
 	docsUtil "github.com/purpleidea/mgmt/docs/util"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
+	unificationUtil "github.com/purpleidea/mgmt/lang/unification/util"
 	"github.com/purpleidea/mgmt/util"
+	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
 const (
@@ -300,4 +304,108 @@ func GetFunctionMetadata(fn interface{}) (*docsUtil.Metadata, error) {
 		Filename: filename,
 		Typename: funcname,
 	}, nil
+}
+
+// CheckArgKinds returns an error if the incoming args aren't compatible with
+// the kinds we are expecting. This can be used per-function if we choose to not
+// check for all functions in the ast ExprCall:Value() function.
+func CheckArgKinds(args []types.Value, kinds ...types.Kind) error { // ergonomic
+	if len(args) < len(kinds) {
+		return fmt.Errorf("expected at least %d args, got %d", len(kinds), len(args))
+	}
+	for i, kind := range kinds {
+		if args[i] == nil || args[i].Type() == nil || args[i].Type().Kind != kind {
+			return fmt.Errorf("arg #%d is not of kind %s", i, kind)
+		}
+	}
+	return nil
+}
+
+// Speculate evaluates a pure function using concrete arguments. The caller must
+// supply a fresh function instance with any compile-time data already set. This
+// function infers and builds that instance, but does not initialize runtime
+// services. Call must still return ErrCantSpeculate if those are needed. The
+// optional "out" type constrains the result when it is already known. Only
+// functions which are both Pure and Spec are run, since Spec lets a pure
+// function opt out of running at compile time.
+func Speculate(ctx context.Context, fn interfaces.Func, args []types.Value, out *types.Type) (types.Value, error) {
+	info := fn.Info()
+	if info == nil || !info.Pure || !info.Spec {
+		return nil, ErrCantSpeculate
+	}
+
+	argGen := func(i int) (string, error) { return util.NumToAlpha(i), nil }
+	if named, ok := fn.(interfaces.NamedArgsFunc); ok {
+		argGen = named.ArgGen
+	}
+	partial := &types.Type{
+		Kind: types.KindFunc,
+		Map:  make(map[string]*types.Type),
+		Ord:  []string{},
+		Out:  out,
+	}
+	for i, arg := range args {
+		if arg == nil || arg.Type() == nil || arg.Type().HasUni() || arg.Type().HasVariant() {
+			return nil, ErrCantSpeculate
+		}
+		name, err := argGen(i)
+		if err != nil {
+			return nil, err
+		}
+		partial.Map[name] = arg.Type()
+		partial.Ord = append(partial.Ord, name)
+	}
+
+	sig := info.Sig
+	if inferable, ok := fn.(interfaces.InferableFunc); ok {
+		var invariants []*interfaces.UnificationInvariant
+		var err error
+		sig, invariants, err = inferable.FuncInfer(partial, args)
+		if err != nil {
+			return nil, err
+		}
+		// Constraints on other AST nodes require the main solver. We
+		// cannot safely evaluate this function without checking them.
+		if len(invariants) != 0 {
+			return nil, ErrCantSpeculate
+		}
+	}
+	if sig == nil || sig.Kind != types.KindFunc || sig.HasVariant() {
+		return nil, ErrCantSpeculate
+	}
+	if partial.Out == nil {
+		partial.Out = &types.Type{Kind: types.KindUnification, Uni: types.NewElem()}
+	}
+	// Resolve the whole signature at once: repeated variables relate the
+	// arguments to each other and to the result. Neither input is mutated.
+	typ, err := unificationUtil.UnifyType(sig, partial)
+	if err != nil {
+		return nil, errwrap.Wrapf(err, "can't speculate a call")
+	}
+	if typ.HasUni() || typ.Out == nil {
+		return nil, ErrCantSpeculate
+	}
+	if buildable, ok := fn.(interfaces.BuildableFunc); ok {
+		built, err := buildable.Build(typ)
+		if err != nil {
+			return nil, err
+		}
+		if err := typ.Cmp(built); err != nil {
+			return nil, errwrap.Wrapf(err, "speculative build changed signature")
+		}
+	}
+	if err := fn.Validate(); err != nil {
+		return nil, err
+	}
+	result, err := fn.Call(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Type() == nil {
+		return nil, ErrCantSpeculate
+	}
+	if err := typ.Out.Cmp(result.Type()); err != nil {
+		return nil, errwrap.Wrapf(err, "speculative result type differs")
+	}
+	return result, nil
 }

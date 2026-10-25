@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+# An unresolved field must not hide the known type of another field.
+for $i, $v in ["hello"] {
+	$s = struct{a => $v, b => 42}
+	test [fmt.printf("%v", $s->b)] {}
+}
+-- OUTPUT --
+Vertex: test[42]

@@ -1,0 +1,10 @@
+-- main.mcl --
+import "fmt"
+
+# The call is speculated before unification has checked the types of its args,
+# so that must give a type error, and not a panic.
+$i = 42
+$s = fmt.printf("%v", $i->foo <|> 3)
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: error setting type: func() { <built-in:_struct_lookup_optional> }, error: first arg must be of kind struct, got: int: /main.mcl @ 6:23-6:36

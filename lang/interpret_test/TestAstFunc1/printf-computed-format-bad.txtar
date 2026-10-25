@@ -1,0 +1,7 @@
+-- main.mcl --
+import "fmt"
+
+# A constant expression for the format must still reject a mismatched arg.
+test [fmt.printf("%" + "d", "wrong")] {}
+-- OUTPUT --
+# err: errUnify: func `printf` infer error: inconsistent type at arg index 1: type error: str != int: /main.mcl @ 4:7-4:37

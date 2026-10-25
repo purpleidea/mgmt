@@ -88,21 +88,26 @@ func (obj *StructLookupFunc) ArgGen(index int) (string, error) {
 
 // helper
 func (obj *StructLookupFunc) sig() *types.Type {
-	st := "?1"
-	out := "?2"
-	if obj.Type != nil {
-		st = obj.Type.String()
+	st := obj.Type
+	if st == nil {
+		st = &types.Type{Kind: types.KindUnification, Uni: types.NewElem()}
 	}
-	if obj.Out != nil {
-		out = obj.Out.String()
+	out := obj.Out
+	if out == nil {
+		out = &types.Type{Kind: types.KindUnification, Uni: types.NewElem()}
 	}
 
-	return types.NewType(fmt.Sprintf(
-		"func(%s %s, %s str) %s",
-		structLookupArgNameStruct, st,
-		structLookupArgNameField,
-		out,
-	))
+	// Keep the field's variable identical to its occurrence in the struct.
+	// Printing the two types separately would renumber their variables.
+	return &types.Type{
+		Kind: types.KindFunc,
+		Map: map[string]*types.Type{
+			structLookupArgNameStruct: st,
+			structLookupArgNameField:  types.TypeStr,
+		},
+		Ord: []string{structLookupArgNameStruct, structLookupArgNameField},
+		Out: out,
+	}
 }
 
 // FuncInfer takes partial type and value information from the call site of this

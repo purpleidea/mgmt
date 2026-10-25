@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# The call is speculated before unification has checked the types of its args,
+# so that must give a type error, and not a panic.
+$s = fmt.printf("%v", history("a", "b"))
+test "${s}" {}
+-- OUTPUT --
+# err: errUnify: type error: str != int: /main.mcl @ 5:23-5:40

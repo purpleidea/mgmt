@@ -1,0 +1,17 @@
+-- main.mcl --
+import "fmt"
+
+# One branch of this `if` has the type of the `for` loop param which isn't known
+# before unification, but this must not stop the format string from telling us
+# the arg must be an int.
+for $i, $v in ["a", "b"] {
+	$x = if $i == 0 {
+		$v
+	} else {
+		"c"
+	}
+	$s = fmt.printf("%d", $x)
+	test [$s] {}
+}
+-- OUTPUT --
+# err: errUnify: func `printf` infer error: inconsistent type at arg index 1: type error: str != int: /main.mcl @ 12:7-12:27

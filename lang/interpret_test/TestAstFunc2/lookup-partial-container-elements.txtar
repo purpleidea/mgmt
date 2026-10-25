@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# Concrete elements must refine, rather than hide, the container's type.
+for $i, $v in ["hello"] {
+	test [fmt.printf("list: %v", [$v, "world"][0])] {}
+	test [fmt.printf("map: %v", {0 => $v, 1 => "world"}[0])] {}
+}
+-- OUTPUT --
+Vertex: test[list: hello]
+Vertex: test[map: hello]

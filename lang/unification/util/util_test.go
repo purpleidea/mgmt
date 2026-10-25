@@ -249,6 +249,58 @@ func TestUnifyTable(t *testing.T) {
 	}
 }
 
+func TestUnifyType(t *testing.T) {
+	for _, tc := range []struct {
+		name, left, right, want string
+	}{
+		{"concrete", "str", "str", "str"},
+		{"partial", "[]?1", "[]?2", "[]?1"},
+		{"complementary", "struct{a ?1; b int}", "struct{a str; b ?1}", "struct{a str; b int}"},
+		{"repeated", "func(?1, ?1) ?1", "func(str, str) ?1", "func(str, str) str"},
+		{"conflict", "func(?1, ?1) ?1", "func(str, int) ?1", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := UnifyType(types.NewType(tc.left), types.NewType(tc.right))
+			if tc.want == "" {
+				if err == nil {
+					t.Fatalf("expected incompatible types, got %s", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := got.Cmp(types.NewType(tc.want)); err != nil {
+				t.Fatalf("got %s, want %s: %v", got, tc.want, err)
+			}
+		})
+	}
+}
+
+func TestUnifyTypeSharedVariable(t *testing.T) {
+	left := types.NewType("func(a ?1) int")
+	right := types.NewType("func(a str) ?1")
+	variable := left.Map["a"]
+	right.Out = variable // the same variable occurs in both operands
+	if _, err := UnifyType(left, right); err == nil {
+		t.Fatal("a shared variable cannot be both str and int")
+	}
+	if variable.Uni.Find().Data != nil {
+		t.Fatal("failed speculation changed the original variable")
+	}
+	right.Out = types.TypeInt
+	got, err := UnifyType(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := got.Cmp(right); err != nil {
+		t.Fatal(err)
+	}
+	if variable.Uni.Find().Data != nil {
+		t.Fatal("successful speculation changed the original variable")
+	}
+}
+
 func TestExtract1(t *testing.T) {
 	uni1 := &types.Type{
 		Kind: types.KindUnification,

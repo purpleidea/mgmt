@@ -30,10 +30,109 @@
 package ast
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
+	"github.com/purpleidea/mgmt/lang/funcs"
+	"github.com/purpleidea/mgmt/lang/funcs/operators"
+	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
+	"github.com/purpleidea/mgmt/lang/types"
 )
+
+func TestExprCallSpeculationIsolation(t *testing.T) {
+	fn := &ExprFunc{
+		Function: func() interfaces.Func { return &operators.OperatorFunc{} },
+	}
+	data := &interfaces.Data{}
+	if err := fn.Init(data); err != nil {
+		t.Fatal(err)
+	}
+	call := &ExprCall{
+		data: data,
+		expr: fn,
+		Args: []interfaces.Expr{&ExprStr{V: "+"}, &ExprInt{V: 2}, &ExprInt{V: 3}},
+	}
+	for i := 0; i < 2; i++ {
+		got, err := call.Value()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := got.Cmp(&types.IntValue{V: 5}); err != nil {
+			t.Fatal(err)
+		}
+		if fn.function.Info().Sig != nil || fn.typ != nil || call.typ != nil {
+			t.Fatal("speculation built or typed the original AST")
+		}
+	}
+}
+
+func TestSpeculateChecksBeforeCall(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		sig       string
+		args      []types.Value
+		impure    bool
+		noSpec    bool
+		buildErr  bool
+		badResult bool
+		wantCall  bool
+		wantErr   bool
+	}{
+		{name: "valid", sig: "func(int) int", args: []types.Value{&types.IntValue{V: 1}}, wantCall: true},
+		{name: "polymorphic", sig: "func(?1) ?1", args: []types.Value{&types.IntValue{V: 1}}, wantCall: true},
+		{name: "wrong kind", sig: "func(int) int", args: []types.Value{&types.StrValue{V: "bad"}}, wantErr: true},
+		{name: "missing arg", sig: "func(int) int", args: []types.Value{}, wantErr: true},
+		{name: "extra arg", sig: "func() int", args: []types.Value{&types.IntValue{V: 1}}, wantErr: true},
+		{name: "repeated variable", sig: "func(?1, ?1) int", args: []types.Value{&types.IntValue{V: 1}, &types.StrValue{V: "bad"}}, wantErr: true},
+		{name: "unknown result", sig: "func(int) ?1", args: []types.Value{&types.IntValue{V: 1}}, wantErr: true},
+		{name: "build rejects", sig: "func(?1) int", args: []types.Value{&types.IntValue{V: 1}}, buildErr: true, wantErr: true},
+		{name: "impure", sig: "func(int) int", args: []types.Value{&types.IntValue{V: 1}}, impure: true, wantErr: true},
+		// A pure function can still opt out of running at compile time.
+		{name: "not spec", sig: "func(int) int", args: []types.Value{&types.IntValue{V: 1}}, noSpec: true, wantErr: true},
+		{name: "bad result", sig: "func(int) int", args: []types.Value{&types.IntValue{V: 1}}, badResult: true, wantCall: true, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called, built := false, false
+			fn := &simple.Func{
+				WrappedFunc: &wrapped.Func{
+					Name:     "speculation test",
+					FuncInfo: &wrapped.Info{Pure: !tc.impure, Spec: !tc.noSpec},
+					Type:     types.NewType(tc.sig),
+				},
+				Check: func(typ *types.Type) error {
+					if typ.HasUni() {
+						t.Fatal("build received an unresolved signature")
+					}
+					if tc.buildErr {
+						return fmt.Errorf("unsupported signature")
+					}
+					built = true
+					return nil
+				},
+				Func: func(ctx context.Context, args []types.Value) (types.Value, error) {
+					called = true
+					if !built {
+						t.Fatal("call ran before build")
+					}
+					if tc.badResult {
+						return &types.StrValue{V: "bad"}, nil
+					}
+					return &types.IntValue{V: args[0].Int()}, nil
+				},
+			}
+			_, err := funcs.Speculate(context.Background(), fn, tc.args, nil)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if called != tc.wantCall {
+				t.Fatalf("call ran: %t, want: %t", called, tc.wantCall)
+			}
+		})
+	}
+}
 
 // samePosition reports whether these two textareas cover the same position.
 func samePosition(a, b interfaces.Textarea) bool {

@@ -131,7 +131,9 @@ type Expr interface {
 	SetType(*types.Type) error
 
 	// Type returns the type of this expression. It may speculate if it can
-	// determine it statically. This errors if it is not yet known.
+	// determine it statically. The result may contain unification variables
+	// when only part of the type is known. This errors if it is
+	// unavailable.
 	Type() (*types.Type, error)
 
 	// Infer returns the type of itself and a collection of invariants. The

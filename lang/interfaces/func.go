@@ -303,21 +303,26 @@ type InferableFunc interface { // TODO: Is there a better name for this?
 	// values for the input args. If the partial type is not nil, then the
 	// Ord parameter must be of the correct arg length. If any types are
 	// specified, then the array of partial values must be of that length as
-	// well, with the known ones filled in. Some static polymorphic
-	// functions require a minimal amount of hinting or they will be unable
-	// to return any possible unambiguous result. Remember that your result
-	// can include unification variables, but it should not be a standalone
-	// ?1 variable. It should at the minimum be of the form `func(?1) ?2`.
-	// Since this is almost always called by an ExprCall when building
-	// invariants for type unification, we'll know the precise number of
-	// args the function is being called with, so you can use this
-	// information to more correctly discern the correct function you want
-	// to build. The arg names in your returned func type signatures can be
-	// in the standardized "a..b..c" format. Use util.NumToAlpha if you want
-	// to convert easily. These arg names will be replaced by the correct
-	// ones during the Build step. All of these features and limitations are
-	// this way so that we can use the standard Union-Fund type unification
-	// algorithm which runs fairly quickly.
+	// well, with the known ones filled in. The supplied types may
+	// themselves contain unification variables. These describe known
+	// structure, not concrete runtime types. Values are concrete, but have
+	// not yet been checked against this function's signature. Inspect their
+	// types before reading a particular kind of value.
+	//
+	// Some static polymorphic functions require a minimal amount of hinting
+	// or they will be unable to return any possible unambiguous result.
+	// Remember that your result can include unification variables, but it
+	// should not be a standalone ?1 variable. It should at the minimum be
+	// of the form `func(?1) ?2`. Since this is almost always called by an
+	// ExprCall when building invariants for type unification, we'll know
+	// the precise number of args the function is being called with, so you
+	// can use this information to more correctly discern the correct
+	// function you want to build. The arg names in your returned func type
+	// signatures can be in the standardized "a..b..c" format. Use
+	// util.NumToAlpha if you want to convert easily. These arg names will
+	// be replaced by the correct ones during the Build step. All of these
+	// features and limitations are this way so that we can use the standard
+	// Union-Fund type unification algorithm which runs fairly quickly.
 	// TODO: Do we ever need to return any invariants?
 	FuncInfer(partialType *types.Type, partialValues []types.Value) (*types.Type, []*UnificationInvariant, error)
 }

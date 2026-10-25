@@ -144,7 +144,9 @@ func (obj *DecodeJSONFunc) FuncInfer(partialType *types.Type, partialValues []ty
 	//	}
 	//}
 
-	if len(partialValues) == 2 && partialValues[1] != nil {
+	// Only interpret a string hint. The signature constrains the second
+	// argument to str even when the supplied value has the wrong type.
+	if len(partialValues) == 2 && partialValues[1] != nil && partialValues[1].Type().Kind == types.KindStr {
 		typ := types.NewType(partialValues[1].Str())
 		if typ == nil {
 			return nil, nil, fmt.Errorf("invalid type specification")

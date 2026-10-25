@@ -8471,7 +8471,8 @@ func (obj *ExprList) Type() (*types.Type, error) {
 		if typ == nil {
 			typ = etyp
 		}
-		if e := typ.Cmp(etyp); e != nil {
+		typ, e = unificationUtil.UnifyType(typ, etyp)
+		if e != nil {
 			err = errwrap.Wrapf(e, "list elements have different types")
 			break
 		}
@@ -8967,7 +8968,8 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 		if ktyp == nil {
 			ktyp = kt
 		}
-		if e := ktyp.Cmp(kt); e != nil {
+		ktyp, e = unificationUtil.UnifyType(ktyp, kt)
+		if e != nil {
 			err = errwrap.Wrapf(e, "key elements have different types")
 			break
 		}
@@ -8981,7 +8983,8 @@ func (obj *ExprMap) Type() (*types.Type, error) {
 		if vtyp == nil {
 			vtyp = vt
 		}
-		if e := vtyp.Cmp(vt); e != nil {
+		vtyp, e = unificationUtil.UnifyType(vtyp, vt)
+		if e != nil {
 			err = errwrap.Wrapf(e, "val elements have different types")
 			break
 		}
@@ -10172,9 +10175,11 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 			panic("unexpected empty function")
 			//return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 		}
+		// A function which hasn't been built yet (eg: history) returns
+		// its polymorphic signature, which isn't known statically yet.
 		sig := obj.function.Info().Sig
-		if sig != nil && !sig.HasVariant() && obj.typ == nil { // type is now known statically
-			return sig, nil
+		if sig != nil && !sig.HasVariant() && !sig.HasUni() && obj.typ == nil {
+			return sig, nil // type is now known statically
 		}
 
 		if obj.typ == nil {
@@ -11112,7 +11117,9 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	// function specific code follows...
-	exprFunc, isFn := obj.expr.(*ExprFunc)
+	// The callee is usually wrapped (eg: in an ExprTopLevel) so we need to
+	// look through that to find the function to speculate on its type.
+	exprFunc, isFn := trueCallee(obj.expr).(*ExprFunc)
 	if !isFn {
 		if obj.typ == nil {
 			return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
@@ -11120,12 +11127,11 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 		return obj.typ, nil
 	}
 
-	sig, err := exprFunc.Type()
-	if err != nil {
-		return nil, err
-	}
-	if typ := sig.Out; typ != nil && !typ.HasVariant() && obj.typ == nil {
-		return typ, nil // speculate!
+	// NOTE: Don't error here, we may be failing because we're speculating.
+	if sig, err := exprFunc.Type(); err == nil {
+		if typ := sig.Out; typ != nil && !typ.HasVariant() && obj.typ == nil {
+			return typ, nil // speculate!
+		}
 	}
 
 	// speculate if a partial return type is known
@@ -11140,12 +11146,14 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	}
 
 	if exprFunc.Function != nil {
-		// is it buildable? (formerly statically polymorphic)
-		_, isBuildable := exprFunc.function.(interfaces.BuildableFunc)
-		if !isBuildable && obj.typ == nil {
+		// A function which isn't inferable has its signature used as
+		// the type of the call by Infer, so even if it's polymorphic,
+		// (eg: len is func(?1) int) we might know its return type now.
+		_, isInferable := exprFunc.function.(interfaces.InferableFunc)
+		if !isInferable && obj.typ == nil {
 			if info := exprFunc.function.Info(); info != nil {
 				if sig := info.Sig; sig != nil {
-					if typ := sig.Out; typ != nil && !typ.HasVariant() {
+					if typ := sig.Out; typ != nil && !typ.HasVariant() && !typ.HasUni() {
 						return typ, nil // speculate!
 					}
 				}
@@ -11208,10 +11216,18 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 
 		// optimization: if type/value is already known, specify it now!
 		var err1, err2 error
-		// NOTE: This _can_ return unification variables now. Is it ok?
 		mapped[name], err1 = arg.Type()      // nil type on error
 		partialValues[i], err2 = arg.Value() // nil value on error
-		if err1 == nil && err2 == nil && mapped[name].Cmp(partialValues[i].Type()) != nil {
+
+		if err1 != nil { // make sure we really do have a nil type
+			mapped[name] = nil
+		}
+
+		if err2 != nil || partialValues[i] == nil || partialValues[i].Type() == nil || partialValues[i].Type().HasUni() {
+			partialValues[i] = nil
+		}
+
+		if err1 == nil && partialValues[i] != nil && unificationUtil.UnifyCmp(mapped[name], partialValues[i].Type()) != nil {
 			// This can happen when we statically find an issue like
 			// a printf scenario where it's wrong statically...
 			t1 := mapped[name]
@@ -11508,11 +11524,12 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			return nil, nil, err
 		}
 
-		// XXX: do I need to build a callSubgraphOutput and return it
-		// here for the special cases that need it like iter.map ?
-		if outputFunc.Info().Spec { // otherwise, don't speculate
-			return txn.Graph(), outputFunc, nil
-		}
+		// Shapely funcs (eg: iter.map) get their own output node from
+		// the FuncValue, so this static shape works for every callee.
+		// Info.Spec doesn't matter here: nothing is run at compile
+		// time, we're only wiring the function directly into the graph.
+		return txn.Graph(), outputFunc, nil
+
 	} else if err != nil && ok && canSpeculate && err != funcs.ErrCantSpeculate {
 		// This is a permanent error, not a temporary speculation error.
 		//return nil, nil, err // XXX: Consider adding this...
@@ -11672,7 +11689,30 @@ func (obj *ExprCall) Value() (types.Value, error) {
 	}
 
 	// Speculatively call Value() on obj.expr and each arg.
-	// XXX: Should we check obj.expr.(*ExprFunc).Info.Pure here ?
+	// Speculate() checks that the function is both Pure and Spec.
+	args := []types.Value{}
+	for _, arg := range obj.Args {
+		a, err := arg.Value()
+		if err != nil {
+			return nil, err
+		}
+		if a == nil || a.Type() == nil || a.Type().HasUni() || a.Type().HasVariant() {
+			return nil, funcs.ErrCantSpeculate
+		}
+		args = append(args, a)
+	}
+
+	if fn, ok := trueCallee(obj.expr).(*ExprFunc); ok && fn.Function != nil {
+		// Start with a fresh instance, including its compile-time data.
+		// Inference and Build must not change the AST's function or
+		// reuse state from a previous speculative call.
+		expr := &ExprFunc{Function: fn.Function, Textarea: fn.Textarea}
+		if err := expr.Init(obj.data); err != nil {
+			return nil, err
+		}
+		return funcs.Speculate(context.TODO(), expr.function, args, obj.typ)
+	}
+
 	value, err := obj.expr.Value() // speculative
 	if err != nil {
 		return nil, err
@@ -11683,13 +11723,20 @@ func (obj *ExprCall) Value() (types.Value, error) {
 		return nil, fmt.Errorf("not a func value")
 	}
 
-	args := []types.Value{}
-	for _, arg := range obj.Args { // []interfaces.Expr
-		a, err := arg.Value() // speculative
-		if err != nil {
-			return nil, err
+	// For other function values, require a concrete signature and check the
+	// arguments before invoking their implementation.
+	ftyp, err := obj.expr.Type()
+	if err != nil {
+		return nil, err
+	}
+	if ftyp.Kind != types.KindFunc || ftyp.HasUni() || ftyp.HasVariant() || len(ftyp.Ord) != len(args) {
+		return nil, fmt.Errorf("can't speculate a call to: %s", ftyp)
+	}
+
+	for i, a := range args {
+		if err := ftyp.Map[ftyp.Ord[i]].Cmp(a.Type()); err != nil {
+			return nil, errwrap.Wrapf(err, "can't speculate a call with arg #%d", i)
 		}
-		args = append(args, a)
 	}
 
 	// We now have a *full.FuncValue and a []types.Value. We can't call the
@@ -11702,11 +11749,11 @@ func (obj *ExprCall) Value() (types.Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	// A function which builds itself (eg: list.concat) doesn't know its own
-	// type until it's been built after unification, so the value that it
-	// returns when we speculate before then might not have any type.
 	if result == nil || result.Type() == nil {
 		return nil, fmt.Errorf("can't build value with unknown type")
+	}
+	if err := ftyp.Out.Cmp(result.Type()); err != nil {
+		return nil, errwrap.Wrapf(err, "speculative result type differs")
 	}
 	return result, nil
 }
@@ -12124,8 +12171,8 @@ func (obj *ExprParam) SetType(typ *types.Type) error {
 
 // Type returns the type of this expression.
 func (obj *ExprParam) Type() (*types.Type, error) {
-	// Return the type if it is already known statically... It is useful for
-	// type unification to have some extra info early.
+	// Preserve the parameter's identity even before its type is solved.
+	// Containers and calls can use it to describe partially known types.
 	if obj.typ == nil {
 		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
 	}
@@ -13180,9 +13227,14 @@ func (obj *ExprIf) Type() (*types.Type, error) {
 		return t1, nil
 	}
 
-	// If both branches have the same type, we can assume it's that type.
+	// Combine the information from both branches without solving the AST's
+	// variables. Infer still checks both branches against the same type.
 	if t1 != nil && t2 != nil {
-		return t1, errwrap.Wrapf(t1.Cmp(t2), "inconsistent branch")
+		typ, err := unificationUtil.UnifyType(t1, t2)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "inconsistent branch")
+		}
+		return typ, nil
 	}
 
 	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
@@ -13550,9 +13602,11 @@ func (obj *ExprExcept) Type() (*types.Type, error) {
 	t1, err1 := obj.Expr.Type()
 	t2, err2 := obj.Except.Type()
 	if err1 == nil && err2 == nil {
-		if err := t1.Cmp(t2); err != nil {
+		typ, err := unificationUtil.UnifyType(t1, t2)
+		if err != nil {
 			return nil, errwrap.Wrapf(err, "inconsistent except halves")
 		}
+		return typ, nil
 	}
 	if err1 == nil {
 		return t1, nil

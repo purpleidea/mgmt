@@ -94,22 +94,26 @@ func (obj *StructLookupOptionalFunc) ArgGen(index int) (string, error) {
 
 // helper
 func (obj *StructLookupOptionalFunc) sig() *types.Type {
-	st := "?1"
-	out := "?2"
-	if obj.Type != nil {
-		st = obj.Type.String()
+	st := obj.Type
+	if st == nil {
+		st = &types.Type{Kind: types.KindUnification, Uni: types.NewElem()}
 	}
-	if obj.Out != nil {
-		out = obj.Out.String()
+	out := obj.Out
+	if out == nil {
+		out = &types.Type{Kind: types.KindUnification, Uni: types.NewElem()}
 	}
 
-	return types.NewType(fmt.Sprintf(
-		"func(%s %s, %s str, %s %s) %s",
-		structLookupOptionalArgNameStruct, st,
-		structLookupOptionalArgNameField,
-		structLookupOptionalArgNameOptional, out,
-		out,
-	))
+	// Preserve the field's identity across the struct, fallback and result.
+	return &types.Type{
+		Kind: types.KindFunc,
+		Map: map[string]*types.Type{
+			structLookupOptionalArgNameStruct:   st,
+			structLookupOptionalArgNameField:    types.TypeStr,
+			structLookupOptionalArgNameOptional: out,
+		},
+		Ord: []string{structLookupOptionalArgNameStruct, structLookupOptionalArgNameField, structLookupOptionalArgNameOptional},
+		Out: out,
+	}
 }
 
 // FuncInfer takes partial type and value information from the call site of this

@@ -757,6 +757,26 @@ func UnifyCmp(typ1, typ2 *types.Type) error {
 	return e1.Cmp(e2)
 }
 
+// UnifyType returns the common type of two compatible types. Unlike UnifyCmp,
+// both inputs and the result may contain unification variables. It copies the
+// inputs together so shared variables retain their identity, without changing
+// either input or the constraints being collected by the compiler.
+func UnifyType(typ1, typ2 *types.Type) (*types.Type, error) {
+	if typ1 == nil || typ2 == nil {
+		return nil, fmt.Errorf("nil type")
+	}
+	pair := (&types.Type{
+		Kind: types.KindStruct,
+		Map:  map[string]*types.Type{"left": typ1, "right": typ2},
+		Ord:  []string{"left", "right"},
+	}).Copy()
+	left, right := pair.Map["left"], pair.Map["right"]
+	if err := Unify(left, right); err != nil {
+		return nil, err
+	}
+	return Extract(left), nil
+}
+
 // UnifyCopy copies a type, but preserves any unification variables (the .Uni)
 // it encounters. It panics if it encounters an invalid or partial type struct.
 func UnifyCopy(typ *types.Type) *types.Type {

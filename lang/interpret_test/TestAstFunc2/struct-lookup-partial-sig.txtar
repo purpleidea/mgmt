@@ -1,0 +1,11 @@
+-- main.mcl --
+import "fmt"
+
+# The len function is polymorphic, so its signature isn't known statically, but
+# its return type is, and the struct lookup needs that to learn the type of its
+# field, since %v doesn't tell us anything about it.
+$st = struct{n => len(["a", "b", "c"])}
+$s = fmt.printf("%v", $st->n)
+test [$s] {}
+-- OUTPUT --
+Vertex: test[3]

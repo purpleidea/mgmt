@@ -131,7 +131,7 @@ func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type, texta
 			funcSubgraphOutput := &OutputFunc{ // the new graph shape thing!
 				//Textarea: obj.Textarea,
 				Name:     "funcSubgraphOutput",
-				Type:     typ,
+				Type:     typ.Out, // the return type, not the func type
 				EdgeName: OutputFuncArgName,
 			}
 

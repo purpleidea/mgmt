@@ -1,0 +1,24 @@
+-- main.mcl --
+import "fmt"
+import "sys"
+
+# The type of the `for` loop param isn't known before unification, but the other
+# branch of the `if` is, so that must give us the type of the `if` or the struct
+# lookup can't learn the type of its field, since the format isn't static here.
+for $i, $v in [sys.load(), sys.load()] {
+	$x = if $i == 0 {
+		$v
+	} else {
+		sys.load()
+	}
+	$s = fmt.printf("on: ${hostname} load is: %f", $x->x1)
+	test [$s] {}
+}
+-- OUTPUT --
+Edge: composite: []struct{x1 float; x5 float; x15 float} -> for # list
+Edge: load -> composite: []struct{x1 float; x5 float; x15 float} # 0
+Edge: load -> composite: []struct{x1 float; x5 float; x15 float} # 1
+Vertex: composite: []struct{x1 float; x5 float; x15 float}
+Vertex: for
+Vertex: load
+Vertex: load

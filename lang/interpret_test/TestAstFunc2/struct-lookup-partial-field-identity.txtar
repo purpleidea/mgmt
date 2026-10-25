@@ -1,0 +1,12 @@
+-- main.mcl --
+import "fmt"
+
+# Each field has a different unresolved type. Both lookups must select v.
+for $i, $v in ["hello"] {
+	$s = struct{i => $i, v => $v}
+	test [fmt.printf("required: %s", $s->v)] {}
+	test [fmt.printf("optional: %s", $s->v <|> "missing")] {}
+}
+-- OUTPUT --
+Vertex: test[optional: hello]
+Vertex: test[required: hello]

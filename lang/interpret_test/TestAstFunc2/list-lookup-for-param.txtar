@@ -1,0 +1,9 @@
+-- main.mcl --
+import "fmt"
+
+# The list shape must relate the lookup result to its unresolved element type.
+for $i, $v in ["hello"] {
+	test [fmt.printf("%v", [$v][0])] {}
+}
+-- OUTPUT --
+Vertex: test[hello]

@@ -10159,7 +10159,7 @@ func (obj *ExprFunc) Type() (*types.Type, error) {
 
 	if len(obj.Values) == 1 {
 		// speculative, type is known statically
-		if typ := obj.Values[0].Type(); !typ.HasVariant() {
+		if typ := obj.Values[0].Type(); typ != nil && !typ.HasVariant() {
 			return typ, nil
 		}
 		return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())
@@ -11156,10 +11156,10 @@ func (obj *ExprCall) Type() (*types.Type, error) {
 	// check to see if we have a unique return type
 	for _, fn := range exprFunc.Values {
 		typ := fn.Type()
-		if typ == nil || typ.Out == nil {
+		if typ == nil || typ.Out == nil || typ.Out.HasVariant() {
 			continue // skip, not available yet
 		}
-		return typ, nil
+		return typ.Out, nil
 	}
 
 	return nil, errwrap.Wrapf(interfaces.ErrTypeCurrentlyUnknown, "%s", obj.String())

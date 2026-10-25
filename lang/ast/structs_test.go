@@ -69,6 +69,37 @@ func TestExprCallSpeculationIsolation(t *testing.T) {
 	}
 }
 
+func TestExprCallValuesType(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		typ  *types.Type
+		want *types.Type // nil if the type isn't known yet
+	}{
+		{"variant arg", types.NewType("func(a variant) str"), types.TypeStr},
+		{"variant out", types.NewType("func(a str) variant"), nil},
+		{"no type", nil, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			call := &ExprCall{
+				expr: &ExprFunc{Values: []*types.FuncValue{{T: tc.typ}}},
+			}
+			typ, err := call.Type()
+			if tc.want == nil {
+				if err == nil {
+					t.Fatalf("expected an unknown type, got %v", typ)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("type: %v", err)
+			}
+			if err := typ.Cmp(tc.want); err != nil {
+				t.Fatalf("got %v, want %v: %v", typ, tc.want, err)
+			}
+		})
+	}
+}
+
 func TestSpeculateChecksBeforeCall(t *testing.T) {
 	for _, tc := range []struct {
 		name      string

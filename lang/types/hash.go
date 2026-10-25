@@ -155,9 +155,16 @@ func (obj *Hasher) Hash(value Value) Hash {
 
 // similar to appendT in: src/hash/maphash/maphash_purego.go
 func appendT(h *maphash.Hash, val Value) {
-	_, _ = h.WriteString(val.Type().String()) // never errors
+	// The golang version hashes the whole type, since it may be used with
+	// different types, such as through an interface. All of the keys in a
+	// map have the same type and we have no hashable kind like interface,
+	// so we just hash the kind since the type is expensive to print. If a
+	// hashable variant kind is ever added then consider the golang patch.
+	//_, _ = h.WriteString(val.Type().String()) // never errors
+	kind := val.Type().Kind
+	_ = h.WriteByte(byte(kind)) // never errors
 
-	switch val.Type().Kind {
+	switch kind {
 	case KindBool:
 		btoi := func(b bool) byte {
 			if b {

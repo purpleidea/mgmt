@@ -8737,7 +8737,7 @@ func (obj *ExprMap) Init(data *interfaces.Data) error {
 		}
 		keys = append(keys, val)
 	}
-	if typ == nil {
+	if typ == nil || typ.HasUni() {
 		return nil // can't do more without knowing the type
 	}
 

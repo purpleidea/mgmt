@@ -202,6 +202,25 @@ func TestExprMapKeepsEntryPositions(t *testing.T) {
 	}
 }
 
+func TestExprMapInitUnsolvedKeyType(t *testing.T) {
+	// A param whose type isn't solved yet, so it might still be hashable.
+	param := func() *ExprParam {
+		return &ExprParam{
+			Name: "x",
+			typ:  &types.Type{Kind: types.KindUnification, Uni: types.NewElem()},
+		}
+	}
+	for _, key := range []interfaces.Expr{
+		param(),
+		&ExprStruct{Fields: []*ExprStructField{{Name: "a", Value: param()}}},
+	} {
+		obj := &ExprMap{KVs: []*ExprMapKV{{Key: key, Val: &ExprInt{V: 1}}}}
+		if err := obj.Init(&interfaces.Data{}); err != nil {
+			t.Errorf("func Init failed: %+v", err)
+		}
+	}
+}
+
 func TestExprStructKeepsFieldPositions(t *testing.T) {
 	field := &ExprStructField{
 		Name:  "f",

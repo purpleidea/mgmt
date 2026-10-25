@@ -367,10 +367,13 @@ Start:
 				// the whole engine along with it!
 				streamCtx, streamCancel := context.WithCancel(ctx)
 				node.streamCancel = streamCancel
+				streamDone := make(chan struct{})
+				node.streamDone = streamDone
 				obj.wg.Add(1)
 				go func() {
 					defer obj.wg.Done()
-					defer streamCancel() // it's safe to call this twice
+					defer close(streamDone) // Stream has returned
+					defer streamCancel()    // it's safe to call this twice
 					// If Stream ever errors, then the whole
 					// function engine shuts down. This is
 					// different from Call, which can return
@@ -1058,9 +1061,14 @@ func (obj *Engine) deleteVertex(f interfaces.Func) error {
 			// Stop the running Stream (if any) first, so that the
 			// function is quiescent by the time Cleanup runs. The
 			// goroutine discards any error from this cancellation.
+			// We wait for it to return so that if an `if` branch
+			// gets swapped out and back in again, then this waits
+			// so that we don't run the new Init or Stream before
+			// the old Stream has finished running which would race!
 			if node.streamCancel != nil {
 				node.streamCancel()
 				node.streamCancel = nil
+				<-node.streamDone // wait for stream to return
 			}
 			// XXX: do we run f.Done() first ? Did it run elsewhere?
 			cleanableFunc, ok := f.(interfaces.CleanableFunc)
@@ -1283,6 +1291,10 @@ type state struct {
 	// with. It lets us shut down a single function (eg: when its vertex is
 	// deleted) without stopping the whole engine.
 	streamCancel func()
+
+	// streamDone is closed once the Stream goroutine has returned. This is
+	// what lets a vertex deletion wait for that Stream to actually finish.
+	streamDone chan struct{}
 
 	// failed is set when the last Call of this function returned an error
 	// which was explicitly marked as catchable (a SentinelError) or when an

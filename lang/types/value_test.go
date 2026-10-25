@@ -647,6 +647,38 @@ func TestMapDeleteSet(t *testing.T) {
 	}
 }
 
+func TestMapDeleteMemory(t *testing.T) {
+	d := NewMap(NewType("map{str: int}"))
+	a, b := &collidingStr{&StrValue{V: "a"}}, &collidingStr{&StrValue{V: "b"}}
+	c := &StrValue{V: "c"}
+	for _, k := range []Value{a, b, c} {
+		if err := d.Set(k, &IntValue{V: 1}); err != nil {
+			t.Fatalf("func Set: %v", err)
+		}
+	}
+
+	// a and b share a hash, so after deleting b, nothing should keep it
+	if !d.Delete(b) {
+		t.Fatalf("map could not delete key %s", b)
+	}
+	entries := d.m[a.Hash(d.s)]
+	for _, x := range entries[len(entries):cap(entries)] {
+		if x != nil {
+			t.Errorf("deleted key %s is still referenced", x)
+		}
+	}
+
+	// once every key with a hash is deleted, so is the entry for it
+	for _, k := range []Value{a, c} {
+		if !d.Delete(k) {
+			t.Fatalf("map could not delete key %s", k)
+		}
+	}
+	if n := len(d.m); n != 0 {
+		t.Errorf("got %d entries for deleted keys", n)
+	}
+}
+
 func TestStruct1(t *testing.T) {
 	s := NewStruct(NewType("struct{answer int; truth bool; hello str; nested []int}"))
 	if err := s.Set("answer", &IntValue{V: 42}); err != nil {

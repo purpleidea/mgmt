@@ -1325,8 +1325,17 @@ func (obj *MapValue) Delete(key Value) (exists bool) {
 		return false // not found
 	}
 
-	// nuke that element in our list
-	obj.m[hash] = append(obj.m[hash][:index], obj.m[hash][index+1:]...)
+	// nuke that element in our list, without keeping it alive
+	entries := obj.m[hash]
+	//entries = slices.Delete(entries, index, index+1) // same as these 3
+	copy(entries[index:], entries[index+1:])
+	entries[len(entries)-1] = nil // it's a duplicate now, or the old key
+	entries = entries[:len(entries)-1]
+	if len(entries) > 0 {
+		obj.m[hash] = entries
+	} else {
+		delete(obj.m, hash) // don't keep an empty entry around
+	}
 	delete(obj.V, found) // remove old key (we're overwriting)
 
 	return true // deleted

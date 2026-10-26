@@ -70,7 +70,7 @@ class server($st) {
 
 	include service()
 
-	$all = collect.res("ssh:authorized_key") # []struct{name str; host str;}
+	$all = collect.res("ssh:authorized_key") # []struct{name str; host str}
 	$fn = func($st) {
 		golang_strings.has_prefix($st->name, "provisioner:") and $st->host != "${hostname}"
 	}

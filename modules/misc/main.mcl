@@ -99,7 +99,7 @@ class ssh_authorized_keys($user, $from) {
 	panic($user == "", "misc:ssh_authorized_keys $user is empty") # panic if $user is empty
 	$p = os.expand_home("~${user}/") # eg: ~james/
 
-	$all = collect.res("line") # []struct{name str; host str;}
+	$all = collect.res("line") # []struct{name str; host str}
 	$fn = func($st) {
 		$st->name == "${from}" and $st->host != "${hostname}"
 	}

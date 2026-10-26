@@ -510,6 +510,11 @@ func newType(s string, table map[uint]*Elem) *Type {
 			var trim int
 			if s[found:found+1] == ";" {
 				trim = 1
+				// A semicolon only goes between two fields like
+				// in the language so a trailing one is invalid.
+				if strings.Trim(s[found+1:], " ") == "" {
+					return nil
+				}
 			}
 
 			typ := newType(strings.Trim(s[:found+1-trim], " "), table)
@@ -610,6 +615,11 @@ func newType(s string, table map[uint]*Elem) *Type {
 			var trim int
 			if s[found:found+1] == "," {
 				trim = 1
+				// A comma only goes between two args like in
+				// the language so a trailing one is invalid.
+				if strings.Trim(s[found+1:], " ") == "" {
+					return nil
+				}
 			}
 
 			typ := newType(strings.Trim(s[:found+1-trim], " "), table)

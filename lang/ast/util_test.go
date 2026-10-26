@@ -33,6 +33,7 @@ package ast
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -146,11 +147,11 @@ func TestCollectProgramsDistinctFs(t *testing.T) {
 }
 
 func TestValueToExprPreservesStructFieldOrder(t *testing.T) {
-	fields := ""
+	fields := []string{}
 	for i := 0; i < 16; i++ {
-		fields += fmt.Sprintf("field%02d int; ", i)
+		fields = append(fields, fmt.Sprintf("field%02d int", i))
 	}
-	typ := types.NewType("struct{" + fields + "}")
+	typ := types.NewType("struct{" + strings.Join(fields, "; ") + "}")
 	value := types.NewStruct(typ)
 
 	for i := 0; i < 100; i++ {

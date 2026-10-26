@@ -18,7 +18,7 @@ file "/tmp/fah" {
 	Meta:export => ["${hostname}"],
 }
 
-$all = collect.res("file") # []struct{name str; host str;}
+$all = collect.res("file") # []struct{name str; host str}
 
 # any kind of filter code that you want!
 $fn = func($st) {

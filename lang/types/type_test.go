@@ -678,6 +678,15 @@ func TestType1(t *testing.T) {
 				Kind: KindBool,
 			},
 		},
+
+		// invalid trailing separators
+		"struct{;}":                nil,
+		"struct{a int;}":           nil,
+		"struct{a int; b str;}":    nil,
+		"struct{a int; }":          nil,
+		"map{str: struct{a int;}}": nil,
+		"func(int,) str":           nil,
+		"func(a int, b str,) str":  nil,
 	}
 
 	for str, val := range testCases { // run all the tests

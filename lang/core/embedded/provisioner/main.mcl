@@ -1494,7 +1494,7 @@ class base:runner($config) {
 	$etcd_server = world.getval("provisioner_etcd_server")->value # struct{value str; exists bool}
 	if $etcd_server != "" {
 		# all one json str so they all change at the same instant
-		$etcd_server_st = encoding.decode_json_flexible($etcd_server, "struct{host str; port int; hostkey str;}")
+		$etcd_server_st = encoding.decode_json_flexible($etcd_server, "struct{host str; port int; hostkey str}")
 		$etcd_server_host = $etcd_server_st->host
 		$etcd_server_port = convert.int_to_str($etcd_server_st->port)
 		$etcd_server_hostkey = golang_strings.trim_space($etcd_server_st->hostkey) # AAAA...
@@ -1519,7 +1519,7 @@ class base:runner($config) {
 		forkv $k, $json_str in $available {
 			# The "flexible" version here lets us add new struct fields over
 			# time, even if they aren't initially present in the data yet...
-			$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; luks bool;}")
+			$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; luks bool}")
 
 			$uid str = $st->uid
 			$flavour str = $st->flavour

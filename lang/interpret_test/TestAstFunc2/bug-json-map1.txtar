@@ -13,7 +13,7 @@ $json_str = "{
 	}
 }"
 
-$json = encoding.decode_json_flexible($json_str, "map{str: struct{hello int; goodbye str;}}")
+$json = encoding.decode_json_flexible($json_str, "map{str: struct{hello int; goodbye str}}")
 forkv $ix_str, $st in $json {
 	test "${ix_str}" {}
 }

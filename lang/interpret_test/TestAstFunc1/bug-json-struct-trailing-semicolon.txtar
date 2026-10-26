@@ -1,0 +1,22 @@
+-- main.mcl --
+import "test"
+import "encoding"
+$json_str = "{
+	\"4\": {
+		\"hello\": 13,
+		\"goodbye\": \"abc\"
+	},
+
+	\"7\": {
+		\"hello\": 42,
+		\"goodbye\": \"def\"
+	}
+}"
+
+# trailing semi-colon is not valid in the type specification
+$json = encoding.decode_json_flexible($json_str, "map{str: struct{hello int; goodbye str;}}") # wrong!
+forkv $ix_str, $st in $json {
+	test "${ix_str}" {}
+}
+-- OUTPUT --
+# err: errUnify: func `decode_json_flexible` infer error: invalid type specification: /main.mcl @ 16:9-16:94

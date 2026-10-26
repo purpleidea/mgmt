@@ -147,6 +147,18 @@ func dirify(str string) string {
 	return str
 }
 
+// newlineTerminated returns the code with a trailing newline added if it does
+// not already end with one. The parser needs a NEWLINE after every statement,
+// so code that stops right after its last statement, such as an inline program
+// or a file saved without a final newline, would otherwise fail with an
+// `unexpected $end` error. Empty input is returned unchanged.
+func newlineTerminated(b []byte) []byte {
+	if len(b) == 0 || b[len(b)-1] == '\n' {
+		return b
+	}
+	return append(b, '\n')
+}
+
 // inputEmpty is a simple empty string contents check.
 // TODO: perhaps we could have a default action here to run from /etc/ or /var/?
 func inputEmpty(s string, _ engine.Fs) (*ParsedInput, error) {
@@ -219,6 +231,7 @@ func inputMetadata(s string, fs engine.Fs) (*ParsedInput, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read in file: `%s`", m)
 	}
+	b = newlineTerminated(b)
 
 	// files that we saw
 	files := []string{
@@ -268,6 +281,7 @@ func inputMcl(s string, fs engine.Fs) (*ParsedInput, error) {
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "can't read in file: `%s`", s)
 	}
+	b = newlineTerminated(b)
 
 	// build and save a metadata file to fs
 	metadata := &interfaces.Metadata{
@@ -376,7 +390,7 @@ func inputCode(s string, fs engine.Fs) (*ParsedInput, error) {
 
 	dst1 := "/" + interfaces.MetadataFilename // eg: /metadata.yaml
 	dst2 := "/" + metadata.Main               // eg: /main.mcl
-	b := []byte(s)                            // unfortunately we convert things back and forth :/
+	b := newlineTerminated([]byte(s))         // unfortunately we convert things back and forth :/
 
 	workers := []func(engine.WriteableFS) error{
 		func(fs engine.WriteableFS) error {

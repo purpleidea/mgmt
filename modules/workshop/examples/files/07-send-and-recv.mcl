@@ -1,0 +1,20 @@
+# Many resources can send and receive params and output.
+#
+# We can use this to communicate stateful changes across resources.
+
+password "my passphrase" {
+	length => 14,
+	write => true,
+}
+
+file "/tmp/PASSPHRASE" {
+	state => $const.res.file.state.exists,
+}
+
+# Send the 'password' value into the file's content
+Password["my passphrase"].password -> File["/tmp/PASSPHRASE"].content
+
+# Here, the password resource generates a password and stores it in a file.
+# This Send->Recv expresses both a graph dependency and a data flow.
+#
+# If the password ever changes, the file's content will be updated.

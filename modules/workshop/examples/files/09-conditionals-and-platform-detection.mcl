@@ -1,0 +1,53 @@
+# You'll often need to make decisions that are specific to your platform.
+# What OS? Is this a physical or virtual machine? What CPU architecture?
+
+import "os"
+
+# Query the Linux release information (distro id, version, and variant)
+$osinfo = os.release()
+$distro = $osinfo->id
+
+## Ensure ssh is running, but each linux distro might call it a different name.
+# So we can make a lookup map that uses the correct name for the ssh service.
+#
+# If no entry is found for our distro, set it to an empty string.
+#
+# On Fedora, this will fail because there is no 'fedora' entry in the ssh service map.
+# Try adding the correct service name by uncommenting the entry for fedora above.
+$ssh_service = {
+	"debian" => "ssh",
+	"ubuntu" => "ssh",
+	"arch" => "sshd",
+	"fedora" => "sshd",
+}[$distro] <|> ""
+
+# If no entry was found, panic with an informative error message.
+panic($ssh_service == "", "Missing ssh service name for this OS (${distro})")
+
+# Ensure ssh is running!
+svc "${ssh_service}" {
+	startup => "enabled",
+	state => "running",
+}
+
+## Special handling can be done where needed
+#
+# Example, we might want to install ptyxis for a terminal, but this
+# isn't available on Debian 11, so install a different package instead.
+$terminal = if $osinfo->id == "debian" and $osinfo->version_id == "11" {
+	"kitty"
+} else {
+	"ptyxis"
+}
+
+pkg [$terminal] {
+	state => "installed",
+}
+
+## Are we running in a virtual machine?
+# If so, install extra packages.
+if os.is_virtual() {
+	pkg ["qemu-guest-agent", "spice-vdagent"] {
+		state => "installed",
+	}
+}

@@ -1,0 +1,53 @@
+# Beyond managing simple, local resources like files and packages, mgmt can be
+# an active participant in your system.
+#
+# We can demonstrate this with our previous example (07-send-and-recv) by
+# adding a web interface that lets you control the password length.
+#
+# This example introduces the http:server set of resources which runs a web
+# server in the mgmt process.
+#
+# When running this in mgmt, you can visit the web service on
+#   http://localhost:8080/passwords/
+
+import "value"
+import "convert"
+
+http:server ":8080" {}
+
+http:server:ui "/passwords/" {
+	data => struct{
+		title => "Password Length Setting",
+	},
+}
+
+# A UI element on the /passwords/ page
+http:server:ui:input "password length" {
+	store => "local://",
+	type => "range://?min=8&max=32&step=1",
+}
+
+$length = value.get_str("password length")
+$default_length = 14
+
+# On a fresh startup, the value hasn't been set, so use a default.
+$password_length = convert.str_to_int($length->value) <|> $default_length
+
+password "my passphrase" {
+	length => $password_length,
+	write => true,
+
+	# If the length changes, we want mgmt to generate a new passphrase.
+	# What happens if this param is removed or set to false?
+	check_recovery => true,
+}
+
+file "/tmp/PASSPHRASE" {
+	state => $const.res.file.state.exists,
+}
+
+# Send the 'password' value into the file's content
+Password["my passphrase"].password -> File["/tmp/PASSPHRASE"].content
+
+# What happens when you move the slider on the web interface?
+# Check the contents of the /tmp/PASSPHRASE file when you change the slider value.

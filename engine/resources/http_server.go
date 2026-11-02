@@ -90,8 +90,8 @@ type HTTPServerGroupableRes interface {
 // be combined as well.
 //
 // This server also supports autogrouping some more magical resources into it.
-// For example, the http:server:flag and http:server:ui resources add in magic
-// endpoints.
+// For example, the http:server:flag, http:server:record and http:server:ui
+// resources add in magic endpoints.
 //
 // This server is not meant as a featureful replacement for the venerable and
 // modern httpd servers out there, but rather as a simple, dynamic, integrated

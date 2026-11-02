@@ -1,0 +1,30 @@
+import "encoding"
+import "fmt"
+import "os"
+
+# Each POST to /report is stored as a record in the json file, under the value
+# of its mac field. Only the fields that are listed are stored. Try it with:
+# curl --fail --data 'mac=00:11:22:33:44:55' --data 'ip=192.0.2.13' --data 'hostkey=AAAA' http://127.0.0.1:8080/report
+
+$store = "/tmp/mgmt-http-server-record.json" # or etcd:///examples/records
+
+http:server ":8080" { # by default http uses :80 but using :8080 avoids needing root!
+}
+
+http:server:record "/report" {
+	store => $store,
+	state => "exists", # create an empty store if it's missing
+	key => "mac",
+	fields => ["ip", "hostkey"],
+}
+
+# Something else uses the records. A json:edit resource with a del edit can
+# safely remove the ones that it's done with, even while new ones are coming in!
+$records = encoding.decode_json_flexible(os.readfile($store) <|> "{}", "map{str: struct{ip str; hostkey str}}")
+forkv $mac, $record in $records {
+	print "record-${mac}" {
+		msg => fmt.printf("%s has ip %s and host key %s", $mac, $record->ip, $record->hostkey),
+
+		Meta:autogroup => false,
+	}
+}

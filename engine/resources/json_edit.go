@@ -35,32 +35,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
-	"syscall"
 
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
-	"github.com/purpleidea/mgmt/util/recwatch"
 )
 
 func init() {
 	engine.RegisterResource("json:edit", func() engine.Res { return &JSONEditRes{} })
 }
-
-const (
-	jsonEditStoreSchemeEtcd = "etcd"
-	jsonEditStoreSchemeFile = "file"
-)
-
-var (
-	jsonEditStoreLock  = &sync.Mutex{}
-	jsonEditStoreLocks = make(map[string]*sync.Mutex)
-)
 
 // JSONEditRes applies declarative edits to a JSON document. The resource name
 // selects where the complete document is kept unless Store overrides it. A file
@@ -81,10 +66,11 @@ var (
 // value. The del form removes one object entry. Only object traversal,
 // assignment, and deletion are supported: filters, array traversal, pipes, and
 // arbitrary jq expressions are not. Assignments create missing intermediate
-// objects; deletion of a missing path is already converged. Edits to one store
-// are serialized within this process. The World API doesn't yet have a
-// compare-and-swap operation, so edits from separate processes can overwrite
-// each other.
+// objects; deletion of a missing path is already converged. Each batch of edits
+// is atomic, so it never loses a concurrent change to the same store from some
+// other resource, even in another process for an etcd store. A file store is
+// only safe from the other resources in this process. A missing etcd key is an
+// empty document, but a missing file is an error.
 type JSONEditRes struct {
 	traits.Base
 
@@ -100,7 +86,7 @@ type JSONEditRes struct {
 	// order to one document and written atomically as a batch.
 	Edits []string `lang:"edits" yaml:"edits"`
 
-	store *jsonEditStore
+	store *engineUtil.JSONStore
 	edits []*jsonEdit
 }
 
@@ -119,7 +105,7 @@ func (obj *JSONEditRes) getStore() string {
 
 // Validate checks the store URI and edit expressions.
 func (obj *JSONEditRes) Validate() error {
-	if _, err := parseJSONEditStore(obj.getStore()); err != nil {
+	if _, err := engineUtil.ParseJSONStore(obj.getStore()); err != nil {
 		return err
 	}
 	if _, err := parseJSONEdits(obj.Edits); err != nil {
@@ -132,7 +118,7 @@ func (obj *JSONEditRes) Validate() error {
 func (obj *JSONEditRes) Init(init *engine.Init) error {
 	obj.init = init
 
-	store, err := parseJSONEditStore(obj.getStore())
+	store, err := engineUtil.ParseJSONStore(obj.getStore())
 	if err != nil {
 		return err
 	}
@@ -152,184 +138,67 @@ func (obj *JSONEditRes) Cleanup() error {
 
 // Watch watches the selected store for external changes.
 func (obj *JSONEditRes) Watch(ctx context.Context) error {
-	switch obj.store.scheme {
-	case jsonEditStoreSchemeFile:
-		return obj.fileWatch(ctx)
-
-	case jsonEditStoreSchemeEtcd:
-		return obj.etcdWatch(ctx)
-
-	default:
-		return fmt.Errorf("unsupported JSON store scheme: %s", obj.store.scheme)
-	}
-}
-
-// fileWatch watches a JSON document stored in a local file.
-func (obj *JSONEditRes) fileWatch(ctx context.Context) error {
-	watcher, err := recwatch.NewRecWatcher(ctx, obj.store.location, false)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not watch JSON store")
-	}
-	defer watcher.Cleanup()
-
-	if err := obj.init.Event(ctx); err != nil {
-		return err
-	}
-	for {
-		select {
-		case event, ok := <-watcher.Events():
-			if ctx.Err() != nil {
-				return ctx.Err() // engine is shutting us down
-			}
-			if !ok {
-				return fmt.Errorf("unexpected close")
-			}
-			if event == nil {
-				return fmt.Errorf("the JSON store watch returned a nil event")
-			}
-			if event.Error != nil {
-				return event.Error
-			}
-
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		if err := obj.init.Event(ctx); err != nil {
-			return err
-		}
-	}
-}
-
-// etcdWatch watches a JSON document stored in the World string store.
-func (obj *JSONEditRes) etcdWatch(ctx context.Context) error {
-	events, err := obj.init.World.StrWatch(ctx, obj.store.location)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not watch JSON store")
-	}
-
-	if err := obj.init.Event(ctx); err != nil {
-		return err
-	}
-	for {
-		select {
-		case err, ok := <-events:
-			if ctx.Err() != nil {
-				return ctx.Err() // engine is shutting us down
-			}
-			if !ok {
-				return fmt.Errorf("unexpected close")
-			}
-			if err != nil {
-				return errwrap.Wrapf(err, "the JSON store watch failed")
-			}
-
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-
-		if err := obj.init.Event(ctx); err != nil {
-			return err
-		}
-	}
+	return obj.store.Watch(ctx, obj.init)
 }
 
 // CheckApply converges the requested edits.
 func (obj *JSONEditRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
-	lock := jsonEditLock(obj.store.scheme + "://" + obj.store.location)
-	lock.Lock()
-	defer lock.Unlock()
-
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
 
-	data, err := obj.storeRead(ctx)
-	if err != nil {
-		return false, err
-	}
-	root, err := jsonEditDecode(data)
-	if err != nil {
-		return false, err
-	}
-
-	before, err := json.Marshal(root)
-	if err != nil {
-		return false, errwrap.Wrapf(err, "could not encode current JSON store")
-	}
-	for i, edit := range obj.edits {
-		if err := applyJSONEdit(root, edit); err != nil {
-			return false, errwrap.Wrapf(err, "could not apply edit at index %d", i)
+	checkOK := true
+	err := obj.store.Edit(ctx, obj.init, func(value *string) (*string, error) {
+		checkOK = true // this can run more than once
+		data := "{}"   // a missing etcd key is an empty document
+		if value != nil {
+			data = *value
+		} else if obj.store.Scheme == engineUtil.JSONStoreSchemeFile {
+			return nil, fmt.Errorf("the JSON store doesn't exist")
 		}
-	}
-	after, err := json.Marshal(root)
-	if err != nil {
-		return false, errwrap.Wrapf(err, "could not encode desired JSON store")
-	}
-	if bytes.Equal(before, after) {
-		return true, nil
-	}
-	if !apply {
-		return false, nil
-	}
+		root, err := engineUtil.DecodeJSONObject([]byte(data))
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not decode JSON store")
+		}
 
-	output, err := json.MarshalIndent(root, "", "\t")
+		before, err := json.Marshal(root)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not encode current JSON store")
+		}
+		for i, edit := range obj.edits {
+			if err := applyJSONEdit(root, edit); err != nil {
+				return nil, errwrap.Wrapf(err, "could not apply edit at index %d", i)
+			}
+		}
+		after, err := json.Marshal(root)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "could not encode desired JSON store")
+		}
+		if bytes.Equal(before, after) {
+			return value, nil // don't rewrite it
+		}
+		checkOK = false
+		if !apply {
+			return value, nil // unchanged, so nothing is written
+		}
+
+		output, err := engineUtil.EncodeJSONObject(root)
+		if err != nil {
+			return nil, err
+		}
+		return &output, nil
+	})
 	if err != nil {
-		return false, errwrap.Wrapf(err, "could not encode JSON store")
-	}
-	output = append(output, '\n')
-	if err := obj.storeWrite(ctx, output); err != nil {
 		return false, err
 	}
+	if checkOK || !apply {
+		return checkOK, nil
+	}
+
 	for _, edit := range obj.Edits {
 		obj.init.Logf("applied edit: %s", edit)
 	}
 	return false, nil
-}
-
-// storeRead reads the complete JSON document.
-func (obj *JSONEditRes) storeRead(ctx context.Context) ([]byte, error) {
-	switch obj.store.scheme {
-	case jsonEditStoreSchemeFile:
-		data, err := os.ReadFile(obj.store.location)
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "could not read JSON store")
-		}
-		return data, nil
-
-	case jsonEditStoreSchemeEtcd:
-		value, err := obj.init.World.StrGet(ctx, obj.store.location)
-		if err != nil && obj.init.World.StrIsNotExist(err) {
-			return []byte("{}"), nil
-		}
-		if err != nil {
-			return nil, errwrap.Wrapf(err, "could not read JSON store")
-		}
-		return []byte(value), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported JSON store scheme: %s", obj.store.scheme)
-	}
-}
-
-// storeWrite writes the complete JSON document.
-func (obj *JSONEditRes) storeWrite(ctx context.Context, data []byte) error {
-	switch obj.store.scheme {
-	case jsonEditStoreSchemeFile:
-		return jsonEditWriteFile(ctx, obj.store.location, data)
-
-	case jsonEditStoreSchemeEtcd:
-		// XXX: Add compare-and-swap to the World string API and use it
-		// across storeRead and storeWrite so separate processes cannot
-		// lose concurrent edits.
-		if err := obj.init.World.StrSet(ctx, obj.store.location, string(data)); err != nil {
-			return errwrap.Wrapf(err, "could not write JSON store")
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("unsupported JSON store scheme: %s", obj.store.scheme)
-	}
 }
 
 // Cmp compares two resources and returns an error if they differ.
@@ -350,70 +219,6 @@ func (obj *JSONEditRes) Cmp(r engine.Res) error {
 		}
 	}
 	return nil
-}
-
-// jsonEditStore is a parsed storage URI.
-type jsonEditStore struct {
-	scheme   string
-	location string
-}
-
-// parseJSONEditStore parses a store handle.
-func parseJSONEditStore(handle string) (*jsonEditStore, error) {
-	if handle == "" {
-		return nil, fmt.Errorf("store handle is empty")
-	}
-	if filepath.IsAbs(handle) {
-		return &jsonEditStore{
-			scheme:   jsonEditStoreSchemeFile,
-			location: handle,
-		}, nil
-	}
-
-	uri, err := url.Parse(handle)
-	if err != nil {
-		return nil, errwrap.Wrapf(err, "could not parse store handle")
-	}
-
-	switch uri.Scheme {
-	case jsonEditStoreSchemeFile:
-		if uri.Host != "" {
-			return nil, fmt.Errorf("file store host is not supported")
-		}
-		if uri.RawQuery != "" || uri.Fragment != "" {
-			return nil, fmt.Errorf("file store query and fragment are not supported")
-		}
-		if !filepath.IsAbs(uri.Path) {
-			return nil, fmt.Errorf("file store path is not absolute")
-		}
-		return &jsonEditStore{
-			scheme:   jsonEditStoreSchemeFile,
-			location: uri.Path,
-		}, nil
-
-	case jsonEditStoreSchemeEtcd:
-		if uri.Host != "" {
-			return nil, fmt.Errorf("etcd store host is not supported")
-		}
-		if uri.RawQuery != "" || uri.Fragment != "" {
-			return nil, fmt.Errorf("etcd store query and fragment are not supported")
-		}
-		if uri.Opaque != "" {
-			return nil, fmt.Errorf("etcd store path is not absolute")
-		}
-
-		location := strings.TrimPrefix(uri.Path, "/")
-		if location == "" {
-			return nil, fmt.Errorf("etcd store key is empty")
-		}
-		return &jsonEditStore{
-			scheme:   jsonEditStoreSchemeEtcd,
-			location: location,
-		}, nil
-
-	default:
-		return nil, fmt.Errorf("unknown store scheme: %s", uri.Scheme)
-	}
 }
 
 // jsonEditOperation is the operation performed by an edit expression.
@@ -701,28 +506,6 @@ func applyJSONEdit(root map[string]interface{}, edit *jsonEdit) error {
 	return nil
 }
 
-// jsonEditDecode decodes exactly one JSON object.
-func jsonEditDecode(data []byte) (map[string]interface{}, error) {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.UseNumber()
-
-	root := make(map[string]interface{})
-	if err := decoder.Decode(&root); err != nil {
-		return nil, errwrap.Wrapf(err, "could not parse JSON store")
-	}
-	if root == nil {
-		return nil, fmt.Errorf("the JSON store root is not an object")
-	}
-	var extra interface{}
-	if err := decoder.Decode(&extra); err != io.EOF {
-		if err == nil {
-			return nil, fmt.Errorf("the JSON store contains multiple values")
-		}
-		return nil, errwrap.Wrapf(err, "could not finish parsing JSON store")
-	}
-	return root, nil
-}
-
 // jsonEditEqual compares values by their JSON representation.
 func jsonEditEqual(a, b interface{}) bool {
 	aa, err := json.Marshal(a)
@@ -734,82 +517,4 @@ func jsonEditEqual(a, b interface{}) bool {
 		return false
 	}
 	return bytes.Equal(aa, bb)
-}
-
-// jsonEditLock returns the shared mutex for one store.
-func jsonEditLock(store string) *sync.Mutex {
-	jsonEditStoreLock.Lock()
-	defer jsonEditStoreLock.Unlock()
-
-	if lock, exists := jsonEditStoreLocks[store]; exists {
-		return lock
-	}
-	lock := &sync.Mutex{}
-	jsonEditStoreLocks[store] = lock
-	return lock
-}
-
-// jsonEditWriteFile atomically replaces a JSON file while preserving its
-// permissions and ownership.
-func jsonEditWriteFile(ctx context.Context, path string, data []byte) (retErr error) {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return errwrap.Wrapf(err, "could not stat JSON file")
-	}
-	if !info.Mode().IsRegular() {
-		return fmt.Errorf("the JSON path is not a regular file")
-	}
-
-	file, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".")
-	if err != nil {
-		return errwrap.Wrapf(err, "could not create temporary JSON file")
-	}
-	tmp := file.Name()
-	closed := false
-	defer func() {
-		if !closed {
-			if err := file.Close(); err != nil && retErr == nil {
-				retErr = errwrap.Wrapf(err, "could not close temporary JSON file")
-			}
-		}
-		if err := os.Remove(tmp); err != nil && !os.IsNotExist(err) && retErr == nil {
-			retErr = errwrap.Wrapf(err, "could not remove temporary JSON file")
-		}
-	}()
-
-	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		if err := file.Chown(int(stat.Uid), int(stat.Gid)); err != nil {
-			return errwrap.Wrapf(err, "could not preserve JSON file ownership")
-		}
-	}
-	if err := file.Chmod(info.Mode().Perm()); err != nil {
-		return errwrap.Wrapf(err, "could not preserve JSON file mode")
-	}
-	if _, err := file.Write(data); err != nil {
-		return errwrap.Wrapf(err, "could not write temporary JSON file")
-	}
-	if err := file.Sync(); err != nil {
-		return errwrap.Wrapf(err, "could not sync temporary JSON file")
-	}
-	err = file.Close()
-	closed = true
-	if err != nil {
-		return errwrap.Wrapf(err, "could not close temporary JSON file")
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return errwrap.Wrapf(err, "could not replace JSON file")
-	}
-
-	dir, err := os.Open(filepath.Dir(path))
-	if err != nil {
-		return errwrap.Wrapf(err, "could not open JSON directory")
-	}
-	defer dir.Close()
-	if err := dir.Sync(); err != nil {
-		return errwrap.Wrapf(err, "could not sync JSON directory")
-	}
-	return nil
 }

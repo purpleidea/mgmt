@@ -1,6 +1,6 @@
 # An etcd store contains the complete JSON document at one World string key.
-# These edits are serialized within this mgmt process; separate processes should
-# not concurrently edit the same document.
+# These edits are atomic, so they're safe even if other mgmt processes edit the
+# same document at the same time.
 
 $store = "etcd:///examples/json-edit"
 

@@ -40,7 +40,21 @@ import (
 	"testing"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/local"
+	engineUtil "github.com/purpleidea/mgmt/engine/util"
 )
+
+// testJSONStoreInit returns an Init with the Local API that a file store needs.
+func testJSONStoreInit(t *testing.T) *engine.Init {
+	t.Helper()
+	return &engine.Init{
+		Local: (&local.API{
+			Prefix: t.TempDir(),
+			Logf:   func(format string, v ...interface{}) { t.Logf("local: "+format, v...) },
+		}).Init(),
+		Logf: t.Logf,
+	}
+}
 
 func TestJSONEditParse(t *testing.T) {
 	tests := []struct {
@@ -133,71 +147,6 @@ func TestJSONEditGetStore(t *testing.T) {
 	}
 }
 
-func TestJSONEditStoreParse(t *testing.T) {
-	tests := []struct {
-		name     string
-		handle   string
-		scheme   string
-		location string
-		fail     bool
-	}{
-		{
-			name:     "etcd",
-			handle:   "etcd:///foo/hosts",
-			scheme:   jsonEditStoreSchemeEtcd,
-			location: "foo/hosts",
-		},
-		{
-			name:     "absolute file path",
-			handle:   "/tmp/store.json",
-			scheme:   jsonEditStoreSchemeFile,
-			location: "/tmp/store.json",
-		},
-		{
-			name:     "file URI",
-			handle:   "file:///tmp/store.json",
-			scheme:   jsonEditStoreSchemeFile,
-			location: "/tmp/store.json",
-		},
-		{
-			name:   "relative path",
-			handle: "tmp/store.json",
-			fail:   true,
-		},
-		{
-			name:   "empty etcd key",
-			handle: "etcd://",
-			fail:   true,
-		},
-		{
-			name:   "etcd query",
-			handle: "etcd://?key=foo%2Fhosts",
-			fail:   true,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, err := parseJSONEditStore(test.handle)
-			if test.fail {
-				if err == nil {
-					t.Fatalf("func parseJSONEditStore unexpectedly succeeded: %#v", store)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("func parseJSONEditStore failed: %+v", err)
-			}
-			if store.scheme != test.scheme {
-				t.Errorf("unexpected scheme: got %q, want %q", store.scheme, test.scheme)
-			}
-			if store.location != test.location {
-				t.Errorf("unexpected location: got %q, want %q", store.location, test.location)
-			}
-		})
-	}
-}
-
 func TestJSONEditValidateEmptyEdits(t *testing.T) {
 	obj := &JSONEditRes{Store: "file:///tmp/store.json"}
 	obj.SetName("test")
@@ -223,7 +172,7 @@ func TestJSONEditFileCheckApply(t *testing.T) {
 	if err := obj.Validate(); err != nil {
 		t.Fatalf("func Validate failed: %+v", err)
 	}
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 
@@ -264,7 +213,7 @@ func TestJSONEditFileCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not read test file: %+v", err)
 	}
-	root, err := jsonEditDecode(data)
+	root, err := engineUtil.DecodeJSONObject(data)
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
@@ -303,7 +252,7 @@ func TestJSONEditFileMultipleCheckApply(t *testing.T) {
 	}
 
 	obj := &JSONEditRes{
-		Store: (&url.URL{Scheme: jsonEditStoreSchemeFile, Path: filename}).String(),
+		Store: (&url.URL{Scheme: engineUtil.JSONStoreSchemeFile, Path: filename}).String(),
 		Edits: []string{
 			`.service.state = "ready"`,
 			`.service.labels.owner = "purple"`,
@@ -314,7 +263,7 @@ func TestJSONEditFileMultipleCheckApply(t *testing.T) {
 	if err := obj.Validate(); err != nil {
 		t.Fatalf("func Validate failed: %+v", err)
 	}
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 
@@ -330,7 +279,7 @@ func TestJSONEditFileMultipleCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not read test file: %+v", err)
 	}
-	root, err := jsonEditDecode(data)
+	root, err := engineUtil.DecodeJSONObject(data)
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
@@ -364,14 +313,14 @@ func TestJSONEditFileMultipleNetNoChange(t *testing.T) {
 	}
 
 	obj := &JSONEditRes{
-		Store: (&url.URL{Scheme: jsonEditStoreSchemeFile, Path: filename}).String(),
+		Store: (&url.URL{Scheme: engineUtil.JSONStoreSchemeFile, Path: filename}).String(),
 		Edits: []string{
 			`.service.temporary = true`,
 			`del(.service.temporary)`,
 		},
 	}
 	obj.SetName("test")
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 
@@ -400,14 +349,14 @@ func TestJSONEditFileMultipleAtomicError(t *testing.T) {
 	}
 
 	obj := &JSONEditRes{
-		Store: (&url.URL{Scheme: jsonEditStoreSchemeFile, Path: filename}).String(),
+		Store: (&url.URL{Scheme: engineUtil.JSONStoreSchemeFile, Path: filename}).String(),
 		Edits: []string{
 			`.service.state = "ready"`,
 			`.service.state.value = true`,
 		},
 	}
 	obj.SetName("test")
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 
@@ -431,14 +380,14 @@ func TestJSONEditFileDeleteCheckApply(t *testing.T) {
 	}
 
 	obj := &JSONEditRes{
-		Store: (&url.URL{Scheme: jsonEditStoreSchemeFile, Path: filename}).String(),
+		Store: (&url.URL{Scheme: engineUtil.JSONStoreSchemeFile, Path: filename}).String(),
 		Edits: []string{`del(.server.legacy)`},
 	}
 	obj.SetName("test")
 	if err := obj.Validate(); err != nil {
 		t.Fatalf("func Validate failed: %+v", err)
 	}
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 
@@ -469,7 +418,7 @@ func TestJSONEditFileDeleteCheckApply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not read test file: %+v", err)
 	}
-	root, err := jsonEditDecode(data)
+	root, err := engineUtil.DecodeJSONObject(data)
 	if err != nil {
 		t.Fatalf("could not decode edited file: %+v", err)
 	}
@@ -496,7 +445,7 @@ func TestJSONEditFileDeleteCheckApply(t *testing.T) {
 		t.Fatalf("could not read test file: %+v", err)
 	}
 	obj.Edits = []string{`del(.server.missing.value)`}
-	if err := obj.Init(&engine.Init{Logf: t.Logf}); err != nil {
+	if err := obj.Init(testJSONStoreInit(t)); err != nil {
 		t.Fatalf("func Init failed: %+v", err)
 	}
 	checkOK, err = obj.CheckApply(context.Background(), true)

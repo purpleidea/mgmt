@@ -85,6 +85,11 @@ type API struct {
 	// generic, in-memory, watchable registry that lets resources publish
 	// runtime data for functions to consume.
 	*BridgeImpl
+
+	// FileEditImpl is the implementation for the FileEdit API's. It edits
+	// whole files atomically, and serializes the edits to each path.
+	// TODO: One day we could use this for all our resource file edits too!
+	*FileEditImpl
 }
 
 // Init initializes the API before first use. It returns itself so it can be
@@ -127,6 +132,12 @@ func (obj *API) Init() *API {
 
 	obj.BridgeImpl = &BridgeImpl{}
 	obj.BridgeImpl.Init(&BridgeInit{
+		Debug: obj.Debug,
+		Logf:  obj.Logf,
+	})
+
+	obj.FileEditImpl = &FileEditImpl{}
+	obj.FileEditImpl.Init(&FileEditInit{
 		Debug: obj.Debug,
 		Logf:  obj.Logf,
 	})

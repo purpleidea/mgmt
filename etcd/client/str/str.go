@@ -107,3 +107,68 @@ func SetStr(ctx context.Context, client interfaces.Client, key string, data *str
 	_, err := client.Txn(ctx, ifs, ops, els) // TODO: do we need to look at response?
 	return errwrap.Wrapf(err, "could not set strings in: %s", key)
 }
+
+// StrEdit atomically edits a value in a namespace, with a compare-and-swap
+// methodology. This can either add, delete, or change an existing value. The
+// current namespace value is passed in to the function. The nil value is sent
+// if no value currently exists. The function is then run, and assuming nothing
+// goes wrong, the returned value is used during the set. You may return nil to
+// express that you wish to delete the key. The function must be pure (it must
+// only depend on its input) and it may be run multiple times as needed. This
+// mechanism lets multiple writers (even in different processes) share a key
+// without losing each others writes, since if the desired edit can't run *from*
+// the state it expected, it just retries indefinitely until it gets its turn to
+// make forward progress.
+func EditStr(ctx context.Context, client interfaces.Client, key string, fn func(*string) (*string, error)) error {
+	// key structure is $NS/strings/$key = $data
+	path := fmt.Sprintf("%s/strings/%s", ns, key)
+	for {
+		keyMap, err := client.Get(ctx, path)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not get strings in: %s", key)
+		}
+		if count := len(keyMap); count > 1 {
+			return fmt.Errorf("returned %d entries", count)
+		}
+		var value *string // nil if it doesn't exist
+		if val, exists := keyMap[path]; exists {
+			value = &val
+		} else if len(keyMap) == 1 {
+			return fmt.Errorf("path `%s` is missing", path)
+		}
+
+		data, err := fn(value)
+		if err != nil {
+			return err
+		}
+		if value == nil && data == nil {
+			return nil // already absent
+		}
+		if value != nil && data != nil && *value == *data {
+			return nil // already set
+		}
+
+		ifs := []etcd.Cmp{} // the value must still be what we read
+		ops := []etcd.Op{}  // list of ops in this transaction (then)
+		if value == nil {
+			ifs = append(ifs, etcdUtil.KeyMissing(path))
+		} else {
+			ifs = append(ifs, etcd.Compare(etcd.Value(path), "=", *value))
+		}
+		if data == nil { // perform a delete
+			ops = append(ops, etcd.OpDelete(path))
+		} else {
+			ops = append(ops, etcd.OpPut(path, *data))
+		}
+
+		resp, err := client.Txn(ctx, ifs, ops, nil)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not edit strings in: %s", key)
+		}
+		if resp.Succeeded {
+			return nil
+		}
+		// Someone else changed it after we read it, so try again. They
+		// made progress, so this can't loop forever without any writes.
+	}
+}

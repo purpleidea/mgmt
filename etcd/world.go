@@ -257,6 +257,11 @@ func (obj *World) StrDel(ctx context.Context, namespace string) error {
 	return str.SetStr(ctx, obj.client, namespace, nil)
 }
 
+// StrEdit atomically edits the value in a particular namespace.
+func (obj *World) StrEdit(ctx context.Context, namespace string, fn func(*string) (*string, error)) error {
+	return str.EditStr(ctx, obj.client, namespace, fn)
+}
+
 // StrMapWatch returns a channel which spits out events on possible string
 // changes.
 func (obj *World) StrMapWatch(ctx context.Context, namespace string) (chan error, error) {

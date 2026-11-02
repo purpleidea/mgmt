@@ -109,6 +109,20 @@ type StrWorld interface {
 	StrSet(ctx context.Context, namespace, value string) error
 	StrDel(ctx context.Context, namespace string) error
 
+	// StrEdit atomically edits a value in a namespace, with a
+	// compare-and-swap methodology. This can either add, delete, or change
+	// an existing value. The current namespace value is passed in to the
+	// function. The nil value is sent if no value currently exists. The
+	// function is then run, and assuming nothing goes wrong, the returned
+	// value is used during the set. You may return nil to express that you
+	// wish to delete the key. The function must be pure (it must only
+	// depend on its input) and it may be run multiple times as needed. This
+	// mechanism lets multiple writers (even in different processes) share a
+	// key without losing each others writes, since if the desired edit
+	// can't run *from* the state it expected, it just retries indefinitely
+	// until it gets its turn to make forward progress.
+	StrEdit(ctx context.Context, namespace string, fn func(*string) (*string, error)) error
+
 	// XXX: add the exchange primitives in here directly?
 	StrMapWatch(ctx context.Context, namespace string) (chan error, error)
 	StrMapGet(ctx context.Context, namespace string) (map[string]string, error)

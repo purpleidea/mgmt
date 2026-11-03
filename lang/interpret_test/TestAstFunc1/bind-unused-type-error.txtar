@@ -1,0 +1,7 @@
+-- main.mcl --
+# A bind with a type error must fail to compile even if nothing ever uses it.
+$st struct{x str; y int} = struct{x => "hey"}
+
+test "hello" {}
+-- OUTPUT --
+# err: errUnify: struct field count differs: /main.mcl @ 2:28-2:46

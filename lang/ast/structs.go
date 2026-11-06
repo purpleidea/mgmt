@@ -526,38 +526,24 @@ func (obj *StmtRes) Interpolate() (interfaces.Stmt, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtRes) Copy() (interfaces.Stmt, error) {
-	copied := false
 	name, err := obj.Name.Copy()
 	if err != nil {
 		return nil, err
 	}
-	if name != obj.Name { // must have been copied, or pointer would be same
-		copied = true
-	}
 
-	copiedContents := false
 	contents := []StmtResContents{}
 	for _, x := range obj.Contents { // make sure we preserve ordering...
 		cp, err := x.Copy()
 		if err != nil {
 			return nil, err
 		}
-		if cp != x {
-			copiedContents = true
-		}
 		contents = append(contents, cp)
 	}
-	if copiedContents {
-		copied = true
-	} else {
-		contents = obj.Contents // don't re-package it unnecessarily!
-	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtRes{
 		Textarea: obj.Textarea,
 		data:     obj.data,
@@ -1792,15 +1778,13 @@ func (obj *StmtResField) Interpolate() (StmtResContents, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtResField) Copy() (StmtResContents, error) {
-	copied := false
 	value, err := obj.Value.Copy()
 	if err != nil {
 		return nil, err
-	}
-	if value != obj.Value { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var condition interfaces.Expr
@@ -1809,15 +1793,8 @@ func (obj *StmtResField) Copy() (StmtResContents, error) {
 		if err != nil {
 			return nil, err
 		}
-		if condition != obj.Condition {
-			copied = true
-		}
-
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtResField{
 		Textarea:  obj.Textarea,
 		data:      obj.data,
@@ -2080,15 +2057,13 @@ func (obj *StmtResEdge) Interpolate() (StmtResContents, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtResEdge) Copy() (StmtResContents, error) {
-	copied := false
 	edgeHalf, err := obj.EdgeHalf.Copy()
 	if err != nil {
 		return nil, err
-	}
-	if edgeHalf != obj.EdgeHalf { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var condition interfaces.Expr
@@ -2097,14 +2072,8 @@ func (obj *StmtResEdge) Copy() (StmtResContents, error) {
 		if err != nil {
 			return nil, err
 		}
-		if condition != obj.Condition {
-			copied = true
-		}
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtResEdge{
 		Textarea:  obj.Textarea,
 		data:      obj.data,
@@ -2356,15 +2325,13 @@ func (obj *StmtResMeta) Interpolate() (StmtResContents, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtResMeta) Copy() (StmtResContents, error) {
-	copied := false
 	metaExpr, err := obj.MetaExpr.Copy()
 	if err != nil {
 		return nil, err
-	}
-	if metaExpr != obj.MetaExpr { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var condition interfaces.Expr
@@ -2373,14 +2340,8 @@ func (obj *StmtResMeta) Copy() (StmtResContents, error) {
 		if err != nil {
 			return nil, err
 		}
-		if condition != obj.Condition {
-			copied = true
-		}
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtResMeta{
 		Textarea:  obj.Textarea,
 		data:      obj.data,
@@ -2673,20 +2634,15 @@ func (obj *StmtResCollect) Interpolate() (StmtResContents, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtResCollect) Copy() (StmtResContents, error) {
-	copied := false
 	value, err := obj.Value.Copy()
 	if err != nil {
 		return nil, err
 	}
-	if value != obj.Value { // must have been copied, or pointer would be same
-		copied = true
-	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtResCollect{
 		//Textarea: obj.Textarea,
 		data:  obj.data,
@@ -3242,20 +3198,15 @@ func (obj *StmtEdgeHalf) Interpolate() (*StmtEdgeHalf, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtEdgeHalf) Copy() (*StmtEdgeHalf, error) {
-	copied := false
 	name, err := obj.Name.Copy()
 	if err != nil {
 		return nil, err
 	}
-	if name != obj.Name { // must have been copied, or pointer would be same
-		copied = true
-	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtEdgeHalf{
 		Textarea: obj.Textarea,
 		data:     obj.data,
@@ -3454,15 +3405,13 @@ func (obj *StmtIf) Interpolate() (interfaces.Stmt, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
-	copied := false
 	condition, err := obj.Condition.Copy()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not copy Condition")
-	}
-	if condition != obj.Condition { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var thenBranch interfaces.Stmt
@@ -3471,9 +3420,6 @@ func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not copy ThenBranch")
 		}
-		if thenBranch != obj.ThenBranch {
-			copied = true
-		}
 	}
 	var elseBranch interfaces.Stmt
 	if obj.ElseBranch != nil {
@@ -3481,14 +3427,8 @@ func (obj *StmtIf) Copy() (interfaces.Stmt, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not copy ElseBranch")
 		}
-		if elseBranch != obj.ElseBranch {
-			copied = true
-		}
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtIf{
 		Textarea:   obj.Textarea,
 		data:       obj.data,
@@ -3877,15 +3817,13 @@ func (obj *StmtFor) Interpolate() (interfaces.Stmt, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
-	copied := false
 	expr, err := obj.Expr.Copy()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not copy Expr")
-	}
-	if expr != obj.Expr { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var body interfaces.Stmt
@@ -3894,14 +3832,8 @@ func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not copy Body")
 		}
-		if body != obj.Body {
-			copied = true
-		}
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtFor{
 		Textarea: obj.Textarea,
 		data:     obj.data,
@@ -4439,15 +4371,13 @@ func (obj *StmtForKV) Interpolate() (interfaces.Stmt, error) {
 	}, nil
 }
 
-// Copy returns a light copy of this struct. Anything static will not be copied.
+// Copy returns a light copy of this struct. Unlike most nodes, this is always
+// copied, even when it's static, because Graph stores per-instance state on it.
+// See the Copy method of the Stmt interface for details.
 func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
-	copied := false
 	expr, err := obj.Expr.Copy()
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "could not copy Expr")
-	}
-	if expr != obj.Expr { // must have been copied, or pointer would be same
-		copied = true
 	}
 
 	var body interfaces.Stmt
@@ -4456,14 +4386,8 @@ func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
 		if err != nil {
 			return nil, errwrap.Wrapf(err, "could not copy Body")
 		}
-		if body != obj.Body {
-			copied = true
-		}
 	}
 
-	if !copied { // it's static
-		return obj, nil
-	}
 	return &StmtForKV{
 		Textarea: obj.Textarea,
 		data:     obj.data,

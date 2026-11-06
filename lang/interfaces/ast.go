@@ -70,6 +70,13 @@ type Stmt interface {
 
 	// Copy returns a light copy of the struct. Anything static will not be
 	// copied. For a full recursive copy consider using Interpolate instead.
+	// The exception is any statement which stores per-instance state when
+	// Graph runs, such as the func pointers that Output looks up in the
+	// table. Those must always be copied, even when static. Copy is how
+	// each runtime instance of a statement (loop iteration, class include,
+	// etc) gets made, and if two of those shared a statement, then each
+	// would overwrite the state of the other, and as soon as one instance
+	// was removed, the other would point at funcs that are no longer there.
 	// TODO: do we need an error in the signature?
 	Copy() (Stmt, error)
 

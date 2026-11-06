@@ -101,9 +101,8 @@ func (obj *ForKVFunc) Info() *interfaces.Info {
 	var typ *types.Type
 
 	if obj.KeyType != nil && obj.ValType != nil { // don't panic if called speculatively
-		// XXX: Improve function engine so it can return no value?
-		//typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s})", obj.EdgeName, obj.KeyType, obj.ValType)) // returns nothing
-		// dummy type to prove we're dropping the output since we don't use it.
+		// The output is a dummy value. The element funcs take it as an
+		// arg so that they run after us.
 		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) nil", obj.EdgeName, obj.KeyType, obj.ValType))
 	}
 
@@ -131,21 +130,26 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	obj.ClearIterBody(obj.lastInputMapLength) // XXX: pass in size?
 
+	// Each element func also takes our output and ignores it. That edge
+	// makes it run after us so that when the keys change, we can rebuild
+	// before an element func whose key is now missing can run.
+	argNameKey := "forkvInputMapKey"
+	argNameVal := "forkvInputMapVal"
+	argNameDummy := OutputFuncDummyArgName
+
 	forKVMap := obj.lastForKVMap.Map()
 	// XXX: Should we loop in a deterministic order?
 	// XXX: Should our type support the new iterator pattern?
 	for k := range forKVMap {
 		ptr := k
-		argNameKey := "forkvInputMapKey"
-		argNameVal := "forkvInputMapVal"
 
 		// the key
 		inputElemFuncKey := SimpleFnToDirectFunc(
 			fmt.Sprintf("forkvInputElemKey[%v]", ptr),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 1 {
-						return nil, fmt.Errorf("inputElemFuncKey: expected a single argument")
+					if len(args) != 2 {
+						return nil, fmt.Errorf("inputElemFuncKey: expected two arguments")
 					}
 					//arg := args[0]
 					//m, ok := arg.(*types.MapValue)
@@ -156,7 +160,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					//return m.Map().Index(?), nil
 					return k, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameKey, obj.mapType(), obj.KeyType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameKey, obj.mapType(), argNameDummy, obj.KeyType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncKey)
@@ -164,14 +168,17 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFuncKey, &interfaces.FuncEdge{
 			Args: []string{argNameKey},
 		})
+		obj.init.Txn.AddEdge(obj, inputElemFuncKey, &interfaces.FuncEdge{
+			Args: []string{argNameDummy},
+		})
 
 		// the val
 		inputElemFuncVal := SimpleFnToDirectFunc(
 			fmt.Sprintf("forkvInputElemVal[%v]", ptr),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 1 {
-						return nil, fmt.Errorf("inputElemFuncVal: expected a single argument")
+					if len(args) != 2 {
+						return nil, fmt.Errorf("inputElemFuncVal: expected two arguments")
 					}
 					//return v, nil // If we always rebuild the map.
 					arg := args[0]
@@ -187,13 +194,16 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return val, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameVal, obj.mapType(), obj.ValType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameVal, obj.mapType(), argNameDummy, obj.ValType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncVal)
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFuncVal, &interfaces.FuncEdge{
 			Args: []string{argNameVal},
+		})
+		obj.init.Txn.AddEdge(obj, inputElemFuncVal, &interfaces.FuncEdge{
+			Args: []string{argNameDummy},
 		})
 
 		if err := obj.SetOnIterBody(obj.init.Txn, ptr, inputElemFuncKey, inputElemFuncVal); err != nil {

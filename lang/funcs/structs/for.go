@@ -101,9 +101,8 @@ func (obj *ForFunc) Info() *interfaces.Info {
 	var typ *types.Type
 
 	if obj.IndexType != nil && obj.ValueType != nil { // don't panic if called speculatively
-		// XXX: Improve function engine so it can return no value?
-		//typ = types.NewType(fmt.Sprintf("func(%s []%s)", obj.EdgeName, obj.ValueType)) // returns nothing
-		// dummy type to prove we're dropping the output since we don't use it.
+		// The output is a dummy value. The element funcs take it as an
+		// arg so that they run after us.
 		typ = types.NewType(fmt.Sprintf("func(%s []%s) nil", obj.EdgeName, obj.ValueType))
 	}
 
@@ -131,15 +130,19 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 	obj.ClearIterBody(obj.lastInputListLength) // XXX: pass in size?
 
-	for i := 0; i < obj.lastInputListLength; i++ {
-		argName := "forInputList"
+	// Each element func also takes our output and ignores it. That edge
+	// makes it run after us so that when the list changes length, we can
+	// rebuild before an element func that is now out of range can run.
+	argName := "forInputList"
+	argNameDummy := OutputFuncDummyArgName
 
+	for i := 0; i < obj.lastInputListLength; i++ {
 		inputElemFunc := SimpleFnToDirectFunc(
 			"forInputElem["+strconv.Itoa(i)+"]",
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 1 {
-						return nil, fmt.Errorf("inputElemFunc: expected a single argument")
+					if len(args) != 2 {
+						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
 					}
 					arg := args[0]
 
@@ -148,15 +151,23 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 						return nil, fmt.Errorf("inputElemFunc: expected a ListValue argument")
 					}
 
-					return list.List()[i], nil
+					values := list.List()
+					if l := len(values); i >= l {
+						// programming error
+						return nil, fmt.Errorf("index %d out of range with length %d", i, l)
+					}
+					return values[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argName, obj.listType(), obj.ValueType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argName, obj.listType(), argNameDummy, obj.ValueType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argName},
+		})
+		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
+			Args: []string{argNameDummy},
 		})
 
 		if err := obj.AppendToIterBody(obj.init.Txn, i, inputElemFunc); err != nil {

@@ -1,0 +1,11 @@
+-- main.mcl --
+# The error is caught where we use $x in the name, but the field also reads $x
+# directly, and nothing caught it there, so it must still be fatal.
+$l = ["a"]
+$x = $l[42]
+
+test [$x <|> "caught"] {
+	stringptr => $x,
+}
+-- OUTPUT --
+# err: errInterpret: error building resource: list index not present, got: 42, len is: 1, in: ["a"]: /main.mcl @ 4:6-4:12

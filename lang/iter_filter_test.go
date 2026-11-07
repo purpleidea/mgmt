@@ -103,11 +103,18 @@ func runLangEvents(t *testing.T, code string, events int, timeout time.Duration)
 				case <-time.After(timeout):
 					return fmt.Errorf("timed out waiting for lang shutdown")
 				}
+				// Interpret errors aren't returned by Run.
+				if err := lang.Err(); err != nil {
+					return err
+				}
 				return fmt.Errorf("stream closed after %d events", i)
 			}
 
 		case err := <-errChan:
 			if err != nil {
+				return err
+			}
+			if err := lang.Err(); err != nil {
 				return err
 			}
 			return fmt.Errorf("lang stopped after %d events", i)

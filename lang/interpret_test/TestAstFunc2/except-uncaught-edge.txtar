@@ -1,0 +1,13 @@
+-- main.mcl --
+# The error is caught where the resource uses $x as its name, but the edge also
+# reads $x directly, and nothing caught it there, so it must still be fatal.
+$l = [["a"]]
+$x = $l[42]
+
+test ["t"] {}
+
+test $x <|> ["caught"] {}
+
+Test["t"] -> Test[$x]
+-- OUTPUT --
+# err: errInterpret: list index not present, got: 42, len is: 1, in: [["a"]]: /main.mcl @ 4:6-4:12

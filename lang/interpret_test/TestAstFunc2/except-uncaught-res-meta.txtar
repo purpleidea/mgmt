@@ -1,0 +1,13 @@
+-- main.mcl --
+# The error is caught where we use $b in the field, but the meta param also
+# reads $b directly, and nothing caught it there, so it must still be fatal.
+$l = [true]
+$b = $l[42]
+
+test ["t"] {
+	boolptr => $b <|> false,
+
+	Meta:noop => $b,
+}
+-- OUTPUT --
+# err: errInterpret: error generating metaparams: list index not present, got: 42, len is: 1, in: [true]: /main.mcl @ 4:6-4:12

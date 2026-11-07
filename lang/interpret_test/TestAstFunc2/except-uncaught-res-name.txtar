@@ -1,0 +1,12 @@
+-- main.mcl --
+# The error is caught where the first resource uses $x as its name, but the
+# second one reads $x directly, and nothing caught it there, so it must still be
+# fatal.
+$l = [["a"]]
+$x = $l[42]
+
+test $x <|> ["caught"] {}
+
+test $x {}
+-- OUTPUT --
+# err: errInterpret: list index not present, got: 42, len is: 1, in: [["a"]]: /main.mcl @ 5:6-5:12

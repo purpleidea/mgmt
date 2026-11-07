@@ -1,0 +1,13 @@
+-- main.mcl --
+# The error is caught where we use $b in one field, but the condition of the
+# other field also reads $b directly, and nothing caught it there, so it must
+# still be fatal.
+$l = [true]
+$b = $l[42]
+
+test ["t"] {
+	boolptr => $b <|> false,
+	stringptr => $b ?: "yes",
+}
+-- OUTPUT --
+# err: errInterpret: error building resource: list index not present, got: 42, len is: 1, in: [true]: /main.mcl @ 5:6-5:12

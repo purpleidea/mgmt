@@ -73,8 +73,9 @@ const (
 // must wrap them with this type. The function engine will then propagate them
 // downstream along the graph edges in place of a value, giving the except
 // operator a chance to catch them and provide a fallback value. If nobody
-// catches one, it is fatal when it arrives at a sink. Wrap errors with the
-// Sentinelf helper function to return them conveniently.
+// catches one, it is fatal when it arrives at a sink or when a statement reads
+// it from the table. Wrap errors with the Sentinelf helper function to return
+// them conveniently.
 type SentinelError struct {
 
 	// Err is the error we are wrapping. It must not be nil.

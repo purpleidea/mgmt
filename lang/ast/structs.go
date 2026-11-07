@@ -817,9 +817,12 @@ func (obj *StmtRes) Output(table interfaces.Table) (*interfaces.Output, error) {
 	if obj.namePtr == nil {
 		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
-	nameValue, exists := table[obj.namePtr]
-	if !exists {
+	nameValue, err := table.Value(obj.namePtr)
+	if err == interfaces.ErrTableNoValue {
 		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	// the host in this output is who the data is from
@@ -994,9 +997,12 @@ func (obj *StmtRes) collect(table interfaces.Table) (map[string]map[string]strin
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
 
-		fv, exists := table[x.valuePtr]
-		if !exists {
+		fv, err := table.Value(x.valuePtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		if err := fv.Type().Cmp(typCollectFuncOutType); err != nil { // "[]struct{name str; host str; data str}"
@@ -1119,9 +1125,12 @@ func (obj *StmtRes) resource(table interfaces.Table, resName, data string) (engi
 			if x.conditionPtr == nil {
 				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
-			b, exists := table[x.conditionPtr]
-			if !exists {
+			b, err := table.Value(x.conditionPtr)
+			if err == interfaces.ErrTableNoValue {
 				return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+			}
+			if err != nil {
+				return nil, err
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1167,9 +1176,12 @@ func (obj *StmtRes) resource(table interfaces.Table, resName, data string) (engi
 		if x.valuePtr == nil {
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
-		fv, exists := table[x.valuePtr]
-		if !exists {
+		fv, err := table.Value(x.valuePtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		// mutate the struct field f with the mcl data in fv
@@ -1201,9 +1213,12 @@ func (obj *StmtRes) edges(table interfaces.Table, resName string) ([]*interfaces
 			if x.conditionPtr == nil {
 				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
-			b, exists := table[x.conditionPtr]
-			if !exists {
+			b, err := table.Value(x.conditionPtr)
+			if err == interfaces.ErrTableNoValue {
 				return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+			}
+			if err != nil {
+				return nil, err
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1214,9 +1229,12 @@ func (obj *StmtRes) edges(table interfaces.Table, resName string) ([]*interfaces
 		if x.EdgeHalf.namePtr == nil {
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
-		nameValue, exists := table[x.EdgeHalf.namePtr]
-		if !exists {
+		nameValue, err := table.Value(x.EdgeHalf.namePtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -1335,9 +1353,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 			if x.conditionPtr == nil {
 				return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 			}
-			b, exists := table[x.conditionPtr]
-			if !exists {
+			b, err := table.Value(x.conditionPtr)
+			if err == interfaces.ErrTableNoValue {
 				return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+			}
+			if err != nil {
+				return nil, err
 			}
 
 			if !b.Bool() { // if value exists, and is false, skip it
@@ -1348,9 +1369,12 @@ func (obj *StmtRes) metaparams(table interfaces.Table) (func(engine.Res), error)
 		if x.metaExprPtr == nil {
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
-		v, exists := table[x.metaExprPtr]
-		if !exists {
+		v, err := table.Value(x.metaExprPtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		switch p := strings.ToLower(x.Property); p {
@@ -3066,9 +3090,12 @@ func (obj *StmtEdge) Output(table interfaces.Table) (*interfaces.Output, error) 
 		if obj.EdgeHalfList[i].namePtr == nil {
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
-		nameValue1, exists := table[obj.EdgeHalfList[i].namePtr]
-		if !exists {
+		nameValue1, err := table.Value(obj.EdgeHalfList[i].namePtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		// the edge name can be a single string or a list of strings...
@@ -3093,9 +3120,12 @@ func (obj *StmtEdge) Output(table interfaces.Table) (*interfaces.Output, error) 
 		if obj.EdgeHalfList[i+1].namePtr == nil {
 			return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 		}
-		nameValue2, exists := table[obj.EdgeHalfList[i+1].namePtr]
-		if !exists {
+		nameValue2, err := table.Value(obj.EdgeHalfList[i+1].namePtr)
+		if err == interfaces.ErrTableNoValue {
 			return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+		}
+		if err != nil {
+			return nil, err
 		}
 
 		names2 := []string{} // list of names to build
@@ -3673,13 +3703,15 @@ func (obj *StmtIf) Output(table interfaces.Table) (*interfaces.Output, error) {
 	if obj.conditionPtr == nil {
 		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
-	b, exists := table[obj.conditionPtr]
-	if !exists {
+	b, err := table.Value(obj.conditionPtr)
+	if err == interfaces.ErrTableNoValue {
 		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	var output *interfaces.Output
-	var err error
 	if b.Bool() { // must not panic!
 		if obj.ThenBranch != nil { // logically then branch is optional
 			output, err = obj.ThenBranch.Output(table)
@@ -4231,9 +4263,12 @@ func (obj *StmtFor) Output(table interfaces.Table) (*interfaces.Output, error) {
 	if obj.exprPtr == nil {
 		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
-	expr, exists := table[obj.exprPtr]
-	if !exists {
+	expr, err := table.Value(obj.exprPtr)
+	if err == interfaces.ErrTableNoValue {
 		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if obj.Body == nil { // logically body is optional
@@ -4779,9 +4814,12 @@ func (obj *StmtForKV) Output(table interfaces.Table) (*interfaces.Output, error)
 	if obj.exprPtr == nil {
 		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
 	}
-	expr, exists := table[obj.exprPtr]
-	if !exists {
+	expr, err := table.Value(obj.exprPtr)
+	if err == interfaces.ErrTableNoValue {
 		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if obj.Body == nil { // logically body is optional

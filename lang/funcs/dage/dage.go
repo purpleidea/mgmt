@@ -524,8 +524,8 @@ Start:
 					node.failedStr = fromNode.failedStr
 					node.failedSrc = fromNode.failedSrc
 					node.result = nil
-					node.epoch = epoch // nothing else to do this epoch
-					table[f] = nil     // reset any stale value
+					node.epoch = epoch         // nothing else to do this epoch
+					table[f] = node.errValue() // reset any stale value
 					if !node.hasOutgoing {
 						obj.logFatalFailure(node)
 						return failed // fatal, nobody caught it
@@ -657,8 +657,8 @@ Start:
 					node.failedSrc = f
 				}
 				node.result = nil
-				node.epoch = epoch // nothing else to do this epoch
-				table[f] = nil     // reset any stale value
+				node.epoch = epoch         // nothing else to do this epoch
+				table[f] = node.errValue() // reset any stale value
 				if !node.hasOutgoing {
 					obj.logFatalFailure(node)
 					return node.failed // fatal, nobody caught it
@@ -1303,7 +1303,8 @@ type state struct {
 	// upstream error propagated through us. It travels downstream along the
 	// edges in place of a real value, until either a catch-point (the
 	// except operator) catches it, or it arrives at a sink (a vertex with
-	// no outgoing edges) where it is fatal. It contains position info. Any
+	// no outgoing edges) where it is fatal. It's also fatal if a statement
+	// reads it from the table, see errValue. It contains position info. Any
 	// other (permanent) Call error shuts the engine down instantly instead.
 	failed error
 
@@ -1333,6 +1334,18 @@ func (obj *state) String() string {
 	}
 
 	return obj.Func.String()
+}
+
+// errValue returns the value which we store in the table in place of a real one
+// when we failed. Funcs never read the table, but the statements do, and one of
+// them might read us directly even though we're not a sink because some other
+// func that we feed caught the error. That statement didn't catch it, so this
+// lets it fail with the very same error instead of reading a missing value.
+func (obj *state) errValue() types.Value {
+	return &types.ErrValue{
+		Typ: obj.sig.Out,
+		Err: obj.failed,
+	}
 }
 
 // ops is either an addVertex or deleteVertex operation.

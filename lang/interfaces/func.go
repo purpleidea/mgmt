@@ -79,12 +79,42 @@ func (obj Table) Cmp(val Table) error {
 			return fmt.Errorf("key %s has nil mismatch", k)
 		}
 
+		// A func which failed has an error value in the table which has
+		// the type of the value that it would have had. Most values
+		// only check the type before they assume the other value is the
+		// same kind as they are, so we must never cmp to a real one.
+		_, isErr1 := types.IsErr(v)
+		_, isErr2 := types.IsErr(x)
+		if isErr1 != isErr2 {
+			return fmt.Errorf("key %s has error mismatch", k)
+		}
+
 		if err := v.Cmp(x); err != nil {
 			return errwrap.Wrapf(err, "key %s did not cmp", k)
 		}
 	}
 
 	return nil
+}
+
+// Value returns the value of the func from this table. If the func failed with
+// a catchable error, which nothing caught on its way to whoever reads it here,
+// then the table holds that error in place of the value. The reader can't use
+// it either, so this returns that error, which is fatal. It already contains
+// the source position of where it first happened. This is the same as what
+// happens when it reaches a sink in the function graph, but the function engine
+// can't know that a statement reads a value which also goes on to other funcs,
+// so this is where we catch that case. A missing (or nil) value returns
+// ErrTableNoValue, which is most likely a programming error.
+func (obj Table) Value(f Func) (types.Value, error) {
+	v, exists := obj[f]
+	if !exists || v == nil {
+		return nil, ErrTableNoValue
+	}
+	if err, isErr := types.IsErr(v); isErr {
+		return nil, err
+	}
+	return v, nil
 }
 
 // GraphSig is the simple signature that is used throughout our implementations.

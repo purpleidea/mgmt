@@ -1043,8 +1043,8 @@ func (obj *Main) Run(ctx context.Context) (reterr error) {
 						Logf("gapi exited")
 					}
 					gapiChan = nil // disable it
-					if err := gapiImpl.Err(); err != nil {
-						obj.Logf("gapi exited with error: %+v", errwrap.WithoutContext(err))
+					if err := errwrap.NoContextCanceled(errwrap.WithoutContext(gapiImpl.Err())); err != nil {
+						obj.Logf("gapi exited with error: %+v", err)
 					}
 					continue
 				}

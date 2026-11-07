@@ -58,6 +58,10 @@ const (
 	// value to the function engine because a graph change transaction needs
 	// to run.
 	ErrInterrupt = util.Error("function call interrupted")
+
+	// ErrTableNoValue is an error that explains the table is missing a
+	// value. If this happens, it's most likely a programming error.
+	ErrTableNoValue = util.Error("missing value in table")
 )
 
 // SentinelError wraps an error to mark it as "catchable". By default, any error

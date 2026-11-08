@@ -248,3 +248,115 @@ func TestExprStructKeepsFieldPositions(t *testing.T) {
 		t.Errorf("func Copy lost the position of the struct field")
 	}
 }
+
+// TestStmtCopyNeverSharesGraphState copies an entirely static program which
+// contains every kind of statement that stores per-instance state when Graph
+// runs. Copy is how each runtime instance (loop iteration, class include, etc)
+// of a statement gets made, so a copy must not share any of those statements,
+// or the instances would overwrite each other's state. Static expressions have
+// no such state, so those must still be shared.
+func TestStmtCopyNeverSharesGraphState(t *testing.T) {
+	str := &ExprStr{V: "static"}
+	res := func() *StmtRes {
+		return &StmtRes{
+			Kind: "test",
+			Name: str,
+			Contents: []StmtResContents{
+				&StmtResField{
+					Field:     "stringptr",
+					Value:     str,
+					Condition: &ExprBool{V: true},
+				},
+				&StmtResEdge{
+					Property: EdgeBefore,
+					EdgeHalf: &StmtEdgeHalf{Kind: "test", Name: str},
+				},
+				&StmtResMeta{
+					Property: "noop",
+					MetaExpr: &ExprBool{V: true},
+				},
+				&StmtResCollect{
+					Kind:  "test",
+					Value: str,
+				},
+			},
+		}
+	}
+	prog := func() *StmtProg {
+		return &StmtProg{Body: []interfaces.Stmt{res()}}
+	}
+	obj := &StmtProg{
+		Body: []interfaces.Stmt{
+			res(),
+			&StmtEdge{
+				EdgeHalfList: []*StmtEdgeHalf{
+					{Kind: "test", Name: str},
+					{Kind: "test", Name: str},
+				},
+			},
+			&StmtIf{
+				Condition:  &ExprBool{V: true},
+				ThenBranch: prog(),
+				ElseBranch: prog(),
+			},
+			&StmtFor{
+				Index: "i",
+				Value: "x",
+				Expr:  &ExprList{Elements: []interfaces.Expr{str}},
+				Body:  prog(),
+			},
+			&StmtForKV{
+				Key:  "k",
+				Val:  "v",
+				Expr: &ExprMap{KVs: []*ExprMapKV{{Key: str, Val: str}}},
+				Body: prog(),
+			},
+		},
+	}
+
+	// stateful returns every statement in the tree that stores per-instance
+	// state when Graph runs, and the names of all the kinds of them found.
+	stateful := func(node interfaces.Node) (map[interfaces.Node]struct{}, map[string]struct{}) {
+		nodes := make(map[interfaces.Node]struct{})
+		kinds := make(map[string]struct{})
+		fn := func(n interfaces.Node) error {
+			switch n.(type) {
+			case *StmtRes, *StmtResField, *StmtResEdge, *StmtResMeta, *StmtResCollect, *StmtEdgeHalf, *StmtIf, *StmtFor, *StmtForKV:
+				nodes[n] = struct{}{}
+				kinds[fmt.Sprintf("%T", n)] = struct{}{}
+			}
+			return nil
+		}
+		if err := node.Apply(fn); err != nil {
+			t.Fatalf("func Apply: %v", err)
+		}
+		return nodes, kinds
+	}
+
+	before, kinds := stateful(obj)
+	if n := len(kinds); n != 9 { // make sure we're testing all of them
+		t.Fatalf("program contains %d kinds of stateful statements, expected 9", n)
+	}
+
+	copied, err := obj.Copy()
+	if err != nil {
+		t.Fatalf("func Copy: %v", err)
+	}
+	after, _ := stateful(copied)
+	if len(after) != len(before) {
+		t.Errorf("func Copy changed the number of stateful statements from %d to %d", len(before), len(after))
+	}
+	for n := range after {
+		if _, exists := before[n]; exists {
+			t.Errorf("func Copy shared a static %T", n)
+		}
+	}
+
+	prog0, ok := copied.(*StmtProg)
+	if !ok {
+		t.Fatalf("func Copy returned a %T", copied)
+	}
+	if name := prog0.Body[0].(*StmtRes).Name; name != str {
+		t.Errorf("func Copy did not share a static expression")
+	}
+}

@@ -1814,3 +1814,63 @@ func IsErr(v Value) (error, bool) {
 	}
 	return ev.Err, true
 }
+
+// OpaqueValue is a value with the nil type, which carries some private golang
+// data along with it. Some internal functions which produce no real value (eg:
+// the ones which build the statements of an if or a for loop at runtime) return
+// one of these, so that they can pass that data to whoever reads the table of
+// values, along with that table. That way the data always matches the table,
+// even after the function engine has moved on and built new data. This is *not*
+// a normal value, and mcl code must never be able to see it. Since the data
+// might not be comparable, two of these are only the same if they're the very
+// same pointer, so a function should return the same one until its data has
+// changed. For that same reason, Copy returns the very same pointer too.
+type OpaqueValue struct {
+	Base
+
+	// Data is the private data that this value carries.
+	Data interface{}
+}
+
+// String returns a visual representation of this value.
+func (obj *OpaqueValue) String() string {
+	return fmt.Sprintf("opaque(%p)", obj)
+}
+
+// Type returns the type data structure that represents this type.
+func (obj *OpaqueValue) Type() *Type { return TypeNil }
+
+// Less compares to value and returns true if we're smaller. This panics for
+// this type because opaque values must not be sorted.
+func (obj *OpaqueValue) Less(v Value) bool {
+	panic("cannot compare opaque values")
+}
+
+// Cmp returns an error if this value isn't the same as the arg passed in. Two
+// opaque values are only the same if they're the very same pointer.
+func (obj *OpaqueValue) Cmp(val Value) error {
+	if obj == nil || val == nil {
+		return fmt.Errorf("cannot cmp to nil")
+	}
+
+	cmp, ok := val.(*OpaqueValue)
+	if !ok {
+		return fmt.Errorf("values are not both opaque values")
+	}
+	if obj != cmp {
+		return fmt.Errorf("values are different")
+	}
+
+	return nil
+}
+
+// Copy returns the very same value, since it can't be modified, and since two
+// opaque values are only the same if they're the very same pointer.
+func (obj *OpaqueValue) Copy() Value {
+	return obj
+}
+
+// Value returns the raw value of this type.
+func (obj *OpaqueValue) Value() interface{} {
+	return obj.Data
+}

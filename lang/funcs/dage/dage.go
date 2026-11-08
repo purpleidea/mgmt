@@ -459,15 +459,8 @@ Start:
 					if isExceptable || fromNode.failed == nil {
 						continue
 					}
-					node.failed = fromNode.failed
-					node.failedStr = fromNode.failedStr
-					node.failedSrc = fromNode.failedSrc
-					node.result = nil
-					node.epoch = epoch         // nothing else to do this epoch
-					table[f] = node.errValue() // reset any stale value
-					if !node.hasOutgoing {
-						obj.logFatalFailure(node)
-						return node.failed // fatal, nobody caught it
+					if err := obj.failFrom(node, fromNode, epoch, table); err != nil {
+						return err // fatal, nobody caught it
 					}
 					continue Iterate
 				}
@@ -546,22 +539,11 @@ Start:
 
 				// The node we pull from failed instead of
 				// making a value. If we're not a catch-point,
-				// then we fail too, without running Call, and
-				// the error keeps propagating downstream in
-				// place of a value. If it arrives at a sink (no
-				// outgoing edges) then nobody was able to catch
-				// it, and it's fatal.
+				// then we fail too. See failFrom.
 				failed := fromNode.failed
 				if failed != nil && !isExceptable {
-					node.failed = failed
-					node.failedStr = fromNode.failedStr
-					node.failedSrc = fromNode.failedSrc
-					node.result = nil
-					node.epoch = epoch         // nothing else to do this epoch
-					table[f] = node.errValue() // reset any stale value
-					if !node.hasOutgoing {
-						obj.logFatalFailure(node)
-						return failed // fatal, nobody caught it
+					if err := obj.failFrom(node, fromNode, epoch, table); err != nil {
+						return err // fatal, nobody caught it
 					}
 					continue Iterate
 				}
@@ -771,6 +753,24 @@ Start:
 		}
 
 	} // end big for loop
+}
+
+// failFrom makes this node fail with the error of a node that it pulls from,
+// without running Call, so that the error keeps propagating downstream in place
+// of a value. If it arrives at a sink (no outgoing edges) then nobody was able
+// to catch it, and it's fatal, so this returns it. Otherwise it returns nil.
+func (obj *Engine) failFrom(node, fromNode *state, epoch int64, table interfaces.Table) error {
+	node.failed = fromNode.failed
+	node.failedStr = fromNode.failedStr
+	node.failedSrc = fromNode.failedSrc
+	node.result = nil
+	node.epoch = epoch                 // nothing else to do this epoch
+	table[node.Func] = node.errValue() // reset any stale value
+	if !node.hasOutgoing {
+		obj.logFatalFailure(node)
+		return node.failed
+	}
+	return nil
 }
 
 // cache refreshes the computed state values from the current graph. This runs

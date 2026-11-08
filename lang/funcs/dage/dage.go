@@ -439,6 +439,39 @@ Start:
 			// we have the same arg (a, b) passed to the same func.
 			// Previously: realEdgeCount(obj.graph.IncomingGraphEdges(f))
 			if n := len(sig.Ord); n != len(incoming) && n != node.realEdgeCount {
+				// If one of the nodes that we pull from has
+				// already failed, then we're going to fail too,
+				// no matter what the missing edges send us,
+				// unless we're a catch-point. So fail now, and
+				// don't skip. Otherwise the error would wait
+				// here until the missing edges get added, which
+				// might never happen. For example: the output
+				// of a func which builds a subgraph at runtime
+				// (eg: iter.map) only gets its value from that
+				// subgraph which never gets built if the input
+				// list fails, so the except operator which is
+				// downstream would never get to catch it.
+				for _, ff := range incoming {
+					fromNode, exists := obj.state[ff]
+					if !exists {
+						panic(fmt.Sprintf("missing node state: %s", ff))
+					}
+					if isExceptable || fromNode.failed == nil {
+						continue
+					}
+					node.failed = fromNode.failed
+					node.failedStr = fromNode.failedStr
+					node.failedSrc = fromNode.failedSrc
+					node.result = nil
+					node.epoch = epoch         // nothing else to do this epoch
+					table[f] = node.errValue() // reset any stale value
+					if !node.hasOutgoing {
+						obj.logFatalFailure(node)
+						return node.failed // fatal, nobody caught it
+					}
+					continue Iterate
+				}
+
 				if obj.Debug {
 					obj.Logf("edge skip: %p %v", f, f)
 				}

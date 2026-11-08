@@ -1,0 +1,13 @@
+-- main.mcl --
+import "convert"
+import "fmt"
+import "iter"
+
+# The input list fails, so the map never builds its subgraph, which is the only
+# thing that would send a value to its output. Nobody catches the error, so it
+# must be fatal, instead of waiting at that output forever.
+$bad = [convert.str_to_int("x")]
+
+test [fmt.printf("%v", iter.map($bad, func($x) { $x * 2 }))] {}
+-- OUTPUT --
+# err: errStream: strconv.ParseInt: parsing "x": invalid syntax: /main.mcl @ 8:9-8:32

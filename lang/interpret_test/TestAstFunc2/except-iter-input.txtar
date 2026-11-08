@@ -1,0 +1,19 @@
+-- main.mcl --
+import "convert"
+import "fmt"
+import "iter"
+
+# The input list fails, so none of these ever build their subgraph, which is the
+# only thing that would send a value to their output. Each error must still get
+# through that output to the except operator, instead of waiting there forever.
+$bad = [convert.str_to_int("x")]
+
+$a = iter.map($bad, func($x) { $x * 2 }) <|> [-1]
+$b = iter.filter($bad, func($x) { $x > 0 }) <|> [-2]
+$c = iter.reduce($bad, func($x, $y) { $x + $y }) <|> -3
+$d = iter.reduce(0, $bad, func($x, $y) { $x + $y }) <|> -4
+$e = iter.zip([1], $bad, func($x, $y) { $x + $y }) <|> [-5]
+
+test [fmt.printf("%v %v %v %v %v", $a, $b, $c, $d, $e)] {}
+-- OUTPUT --
+Vertex: test[[-1] [-2] -3 -4 [-5]]

@@ -68,6 +68,10 @@ type StmtIfFunc struct {
 	init         *interfaces.Init
 	last         *bool // last value received to use for diff
 	needsReverse bool
+
+	// value carries the instance of the active branch that we built last,
+	// so that StmtIf.Output always gets the one that matches its table.
+	value types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -87,7 +91,8 @@ func (obj *StmtIfFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *StmtIfFunc) Info() *interfaces.Info {
-	// dummy type to prove we're dropping the output since we don't use it.
+	// The output is an opaque value (with the nil type) which carries the
+	// instance of the active branch along with the table to StmtIf.Output.
 	typ := types.NewType("func(" + obj.EdgeName + " bool) nil")
 
 	return &interfaces.Info{
@@ -119,20 +124,28 @@ func (obj *StmtIfFunc) replaceSubGraph(b bool) error {
 	}
 	obj.needsReverse = true
 
-	if b && obj.Then != nil {
-		g, err := obj.Then.Graph(obj.Env)
+	branch := obj.Else
+	if b {
+		branch = obj.Then
+	}
+	stmts := []interfaces.Stmt{}
+	if branch != nil {
+		// Build a new instance of the branch every time, instead of
+		// building the same one again. A table which StmtIf.Output is
+		// still using might contain the old one, so it must not change.
+		// Copy never shares a statement which stores graph state.
+		stmt, err := branch.Copy()
+		if err != nil {
+			return err
+		}
+		g, err := stmt.Graph(obj.Env)
 		if err != nil {
 			return err
 		}
 		obj.init.Txn.AddGraph(g)
+		stmts = append(stmts, stmt)
 	}
-	if !b && obj.Else != nil {
-		g, err := obj.Else.Graph(obj.Env)
-		if err != nil {
-			return err
-		}
-		obj.init.Txn.AddGraph(g)
-	}
+	obj.value = &types.OpaqueValue{Data: stmts}
 
 	return obj.init.Txn.Commit()
 }
@@ -155,8 +168,7 @@ func (obj *StmtIfFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 		return nil, interfaces.ErrInterrupt
 	}
 
-	// send dummy value to the output
-	return types.NewNil(), nil // dummy value
+	return obj.value, nil // the branch to use, see StmtIf.Output
 }
 
 // Cleanup runs after that function was removed from the graph.

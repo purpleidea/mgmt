@@ -3308,10 +3308,13 @@ type StmtIf struct {
 
 	data *interfaces.Data
 
-	Condition    interfaces.Expr
-	conditionPtr interfaces.Func // ptr for table lookup
-	ThenBranch   interfaces.Stmt // optional, but usually present
-	ElseBranch   interfaces.Stmt // optional
+	Condition  interfaces.Expr
+	ThenBranch interfaces.Stmt // optional, but usually present
+	ElseBranch interfaces.Stmt // optional
+
+	// branchPtr is the func which builds a new instance of the active
+	// branch, and passes it to Output along with the table.
+	branchPtr interfaces.Func // ptr for table lookup
 }
 
 // String returns a short representation of this statement.
@@ -3596,7 +3599,6 @@ func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		return nil, err
 	}
 	graph.AddGraph(g)
-	obj.conditionPtr = f
 
 	// We need to call Graph during runtime. We can't do it here.
 	//var thenGraph *pgraph.Graph
@@ -3628,9 +3630,10 @@ func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		Else: obj.ElseBranch,
 	}
 	graph.AddVertex(stmtIfFunc)
-	graph.AddEdge(obj.conditionPtr, stmtIfFunc, &interfaces.FuncEdge{
+	graph.AddEdge(f, stmtIfFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
 	})
+	obj.branchPtr = stmtIfFunc
 
 	return graph, nil
 }
@@ -3640,47 +3643,7 @@ func (obj *StmtIf) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtIf) Output(table interfaces.Table) (*interfaces.Output, error) {
-	if obj.conditionPtr == nil {
-		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
-	}
-	b, err := table.Value(obj.conditionPtr)
-	if err == interfaces.ErrTableNoValue {
-		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var output *interfaces.Output
-	if b.Bool() { // must not panic!
-		if obj.ThenBranch != nil { // logically then branch is optional
-			output, err = obj.ThenBranch.Output(table)
-		}
-	} else {
-		if obj.ElseBranch != nil { // else branch is optional
-			output, err = obj.ElseBranch.Output(table)
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	resources := []engine.Res{}
-	edges := []*interfaces.Edge{}
-	nodes := map[engine.Res]interfaces.Node{} // source node per resource
-	if output != nil {
-		resources = append(resources, output.Resources...)
-		edges = append(edges, output.Edges...)
-		for r, n := range output.Nodes {
-			nodes[r] = n
-		}
-	}
-
-	return &interfaces.Output{
-		Resources: resources,
-		Edges:     edges,
-		Nodes:     nodes,
-	}, nil
+	return outputBuilt(table, obj.branchPtr, obj)
 }
 
 // StmtFor represents an iteration over a list. The body contains statements.
@@ -3707,11 +3670,12 @@ type StmtFor struct {
 	indexParam *ExprParam
 	valueParam *ExprParam
 
-	Expr    interfaces.Expr
-	exprPtr interfaces.Func // ptr for table lookup
-	Body    interfaces.Stmt // optional, but usually present
+	Expr interfaces.Expr
+	Body interfaces.Stmt // optional, but usually present
 
-	iterBody []interfaces.Stmt
+	// iterPtr is the func which builds a new instance of the body for each
+	// iteration, and passes them to Output along with the table.
+	iterPtr interfaces.Func // ptr for table lookup
 }
 
 // String returns a short representation of this statement.
@@ -3747,8 +3711,6 @@ func (obj *StmtFor) Apply(fn func(interfaces.Node) error) error {
 func (obj *StmtFor) Init(data *interfaces.Data) error {
 	obj.data = data
 	obj.Textarea.Setup(data)
-
-	obj.iterBody = []interfaces.Stmt{}
 
 	if err := obj.Expr.Init(data); err != nil {
 		return err
@@ -3809,11 +3771,8 @@ func (obj *StmtFor) Interpolate() (interfaces.Stmt, error) {
 		indexParam: obj.indexParam, // XXX: Should we copy/include this here?
 		valueParam: obj.valueParam, // XXX: Should we copy/include this here?
 
-		Expr:    expr,
-		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
-		Body:    body,
-
-		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+		Expr: expr,
+		Body: body,
 	}, nil
 }
 
@@ -3851,11 +3810,8 @@ func (obj *StmtFor) Copy() (interfaces.Stmt, error) {
 		indexParam: obj.indexParam, // XXX: Should we copy/include this here?
 		valueParam: obj.valueParam, // XXX: Should we copy/include this here?
 
-		Expr:    expr,
-		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
-		Body:    body,
-
-		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+		Expr: expr,
+		Body: body,
 	}, nil
 }
 
@@ -4081,16 +4037,14 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		return nil, err
 	}
 	graph.AddGraph(g)
-	obj.exprPtr = f
 
 	if obj.Body == nil { // no loop body, we're done early
 		return graph, nil
 	}
 
-	mutex := &sync.Mutex{}
-
-	// This gets called once per iteration, each time the list changes.
-	appendToIterBody := func(innerTxn interfaces.Txn, index int, value interfaces.Func) error {
+	// This gets called once per iteration, each time the list changes. It
+	// returns a new instance of the body, which ForFunc passes to Output.
+	buildIterBody := func(innerTxn interfaces.Txn, index int, value interfaces.Func) (interfaces.Stmt, error) {
 		// Extend the environment with the two loop variables.
 		extendedEnv := env.Copy()
 
@@ -4134,21 +4088,15 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		// instead, but decided we didn't need it after all.
 		body, err := obj.Body.Copy()
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		mutex.Lock()
-		obj.iterBody = append(obj.iterBody, body)
-		// TODO: Can we avoid using append and do it this way instead?
-		//obj.iterBody[index] = body
-		mutex.Unlock()
 
 		// Create a subgraph from the lambda's body, instantiating the
 		// lambda's parameters with the args and the other variables
 		// with the nodes in the captured environment.
 		subgraph, err := body.Graph(extendedEnv)
 		if err != nil {
-			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 		}
 
 		innerTxn.AddGraph(subgraph)
@@ -4156,7 +4104,7 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		// We don't need an output func because body.Graph is a
 		// statement and it doesn't return an interfaces.Func,
 		// only the expression versions return those!
-		return nil
+		return body, nil
 	}
 
 	// Add a vertex for the list passing itself.
@@ -4169,17 +4117,13 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 		EdgeName: edgeName,
 
-		AppendToIterBody: appendToIterBody,
-		ClearIterBody: func(length int) { // XXX: use length?
-			mutex.Lock()
-			obj.iterBody = []interfaces.Stmt{}
-			mutex.Unlock()
-		},
+		BuildIterBody: buildIterBody,
 
 		ArgVertices: []interfaces.Func{f},
 		//OutputVertex: ???,
 	}
 	graph.AddVertex(forFunc)
+	obj.iterPtr = forFunc
 	graph.AddEdge(f, forFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
 	})
@@ -4192,49 +4136,11 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtFor) Output(table interfaces.Table) (*interfaces.Output, error) {
-	if obj.exprPtr == nil {
-		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
-	}
-	expr, err := table.Value(obj.exprPtr)
-	if err == interfaces.ErrTableNoValue {
-		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
-	}
-	if err != nil {
-		return nil, err
-	}
-
 	if obj.Body == nil { // logically body is optional
 		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
 	}
 
-	resources := []engine.Res{}
-	edges := []*interfaces.Edge{}
-	nodes := map[engine.Res]interfaces.Node{} // source node per resource
-
-	list := expr.List() // must not panic!
-
-	for index := range list {
-		// index is a golang int, value is an mcl types.Value
-		// XXX: Do we need a mutex around this iterBody access?
-		output, err := obj.iterBody[index].Output(table)
-		if err != nil {
-			return nil, err
-		}
-
-		if output != nil {
-			resources = append(resources, output.Resources...)
-			edges = append(edges, output.Edges...)
-			for r, n := range output.Nodes {
-				nodes[r] = n
-			}
-		}
-	}
-
-	return &interfaces.Output{
-		Resources: resources,
-		Edges:     edges,
-		Nodes:     nodes,
-	}, nil
+	return outputBuilt(table, obj.iterPtr, obj)
 }
 
 // StmtForKV represents an iteration over a map. The body contains statements.
@@ -4261,11 +4167,12 @@ type StmtForKV struct {
 	keyParam *ExprParam
 	valParam *ExprParam
 
-	Expr    interfaces.Expr
-	exprPtr interfaces.Func // ptr for table lookup
-	Body    interfaces.Stmt // optional, but usually present
+	Expr interfaces.Expr
+	Body interfaces.Stmt // optional, but usually present
 
-	iterBody map[types.Value]interfaces.Stmt
+	// iterPtr is the func which builds a new instance of the body for each
+	// iteration, and passes them to Output along with the table.
+	iterPtr interfaces.Func // ptr for table lookup
 }
 
 // String returns a short representation of this statement.
@@ -4301,8 +4208,6 @@ func (obj *StmtForKV) Apply(fn func(interfaces.Node) error) error {
 func (obj *StmtForKV) Init(data *interfaces.Data) error {
 	obj.data = data
 	obj.Textarea.Setup(data)
-
-	obj.iterBody = make(map[types.Value]interfaces.Stmt)
 
 	if err := obj.Expr.Init(data); err != nil {
 		return err
@@ -4363,11 +4268,8 @@ func (obj *StmtForKV) Interpolate() (interfaces.Stmt, error) {
 		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
 		valParam: obj.valParam, // XXX: Should we copy/include this here?
 
-		Expr:    expr,
-		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
-		Body:    body,
-
-		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+		Expr: expr,
+		Body: body,
 	}, nil
 }
 
@@ -4405,11 +4307,8 @@ func (obj *StmtForKV) Copy() (interfaces.Stmt, error) {
 		keyParam: obj.keyParam, // XXX: Should we copy/include this here?
 		valParam: obj.valParam, // XXX: Should we copy/include this here?
 
-		Expr:    expr,
-		exprPtr: obj.exprPtr, // XXX: Should we copy/include this here?
-		Body:    body,
-
-		iterBody: obj.iterBody, // XXX: Should we copy/include this here?
+		Expr: expr,
+		Body: body,
 	}, nil
 }
 
@@ -4633,16 +4532,14 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		return nil, err
 	}
 	graph.AddGraph(g)
-	obj.exprPtr = f
 
 	if obj.Body == nil { // no loop body, we're done early
 		return graph, nil
 	}
 
-	mutex := &sync.Mutex{}
-
-	// This gets called once per iteration, each time the map changes.
-	setOnIterBody := func(innerTxn interfaces.Txn, ptr types.Value, key, val interfaces.Func) error {
+	// This gets called once per iteration, each time the map changes. It
+	// returns a new instance of the body, which ForKVFunc passes to Output.
+	buildIterBody := func(innerTxn interfaces.Txn, key, val interfaces.Func) (interfaces.Stmt, error) {
 		// Extend the environment with the two loop variables.
 		extendedEnv := env.Copy()
 
@@ -4676,22 +4573,15 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		// instead, but decided we didn't need it after all.
 		body, err := obj.Body.Copy()
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		mutex.Lock()
-		obj.iterBody[ptr] = body
-		// XXX: Do we fake our map by giving each key an index too?
-		// NOTE: We can't do append since the key might not be an int.
-		//obj.iterBody = append(obj.iterBody, body) // not possible
-		mutex.Unlock()
 
 		// Create a subgraph from the lambda's body, instantiating the
 		// lambda's parameters with the args and the other variables
 		// with the nodes in the captured environment.
 		subgraph, err := body.Graph(extendedEnv)
 		if err != nil {
-			return errwrap.Wrapf(err, "could not create the lambda body's subgraph")
+			return nil, errwrap.Wrapf(err, "could not create the lambda body's subgraph")
 		}
 
 		innerTxn.AddGraph(subgraph)
@@ -4699,7 +4589,7 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 		// We don't need an output func because body.Graph is a
 		// statement and it doesn't return an interfaces.Func,
 		// only the expression versions return those!
-		return nil
+		return body, nil
 	}
 
 	// Add a vertex for the map passing itself.
@@ -4712,17 +4602,13 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 		EdgeName: edgeName,
 
-		SetOnIterBody: setOnIterBody,
-		ClearIterBody: func(length int) { // XXX: use length?
-			mutex.Lock()
-			obj.iterBody = map[types.Value]interfaces.Stmt{}
-			mutex.Unlock()
-		},
+		BuildIterBody: buildIterBody,
 
 		ArgVertices: []interfaces.Func{f},
 		//OutputVertex: ???,
 	}
 	graph.AddVertex(forKVFunc)
+	obj.iterPtr = forKVFunc
 	graph.AddEdge(f, forKVFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
 	})
@@ -4735,66 +4621,11 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 // analogous function for expressions is Value. Those Value functions might get
 // called by this Output function if they are needed to produce the output.
 func (obj *StmtForKV) Output(table interfaces.Table) (*interfaces.Output, error) {
-	if obj.exprPtr == nil {
-		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, obj)
-	}
-	expr, err := table.Value(obj.exprPtr)
-	if err == interfaces.ErrTableNoValue {
-		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, obj)
-	}
-	if err != nil {
-		return nil, err
-	}
-
 	if obj.Body == nil { // logically body is optional
 		return &interfaces.Output{}, nil // XXX: test this doesn't panic anything
 	}
 
-	resources := []engine.Res{}
-	edges := []*interfaces.Edge{}
-	nodes := map[engine.Res]interfaces.Node{} // source node per resource
-
-	m := expr.Map() // must not panic!
-
-	// We need to use this Cmp loop, because we pull the key from the map if
-	// it has the same *value* not the same *pointer* of course...
-	lookupIterBody := func(key types.Value) (interfaces.Stmt, bool) {
-		for k, v := range obj.iterBody {
-			if k.Cmp(key) == nil {
-				return v, true
-			}
-		}
-		return nil, false
-	}
-
-	for key := range m {
-		// key and val are both an mcl types.Value
-		// XXX: Do we need a mutex around this iterBody access?
-		//stmt, exists := obj.iterBody[key] // ptr not equivalent, use Cmp!
-		stmt, exists := lookupIterBody(key) // woo!
-		if !exists {
-			// programming error
-			return nil, fmt.Errorf("programming error on key: %s", key)
-		}
-		output, err := stmt.Output(table)
-		if err != nil {
-			return nil, err
-		}
-
-		if output != nil {
-			resources = append(resources, output.Resources...)
-			edges = append(edges, output.Edges...)
-			for r, n := range output.Nodes {
-				nodes[r] = n
-			}
-		}
-	}
-
-	return &interfaces.Output{
-		Resources: resources,
-		Edges:     edges,
-		Nodes:     nodes,
-	}, nil
+	return outputBuilt(table, obj.iterPtr, obj)
 }
 
 // StmtProg represents a list of stmt's. This usually occurs at the top-level of

@@ -35,6 +35,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
@@ -768,4 +769,58 @@ func addFuncEdge(graph *pgraph.Graph, f1, f2 interfaces.Func, arg string) {
 		return
 	}
 	graph.AddEdge(f1, f2, &interfaces.FuncEdge{Args: []string{arg}})
+}
+
+// outputBuilt returns the combined output of the statements which a func built
+// at runtime (eg: the active branch of an if statement, or the body of each
+// iteration of a for loop) and which it passed to us along with the table.
+// Since each table carries the very statements that were built for it, we never
+// see any of them change underneath us, even if the function engine has already
+// moved on and built new ones. The node is only used for the error messages.
+func outputBuilt(table interfaces.Table, ptr interfaces.Func, node interfaces.Node) (*interfaces.Output, error) {
+	if ptr == nil {
+		return nil, fmt.Errorf("%w: %T", ErrFuncPointerNil, node)
+	}
+	v, err := table.Value(ptr)
+	if err == interfaces.ErrTableNoValue {
+		return nil, fmt.Errorf("%w: %T", interfaces.ErrTableNoValue, node)
+	}
+	if err != nil {
+		return nil, err
+	}
+	x, ok := v.(*types.OpaqueValue)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("%T got an unexpected value: %v", node, v)
+	}
+	stmts, ok := x.Data.([]interfaces.Stmt)
+	if !ok {
+		// programming error
+		return nil, fmt.Errorf("%T got unexpected data: %T", node, x.Data)
+	}
+
+	resources := []engine.Res{}
+	edges := []*interfaces.Edge{}
+	nodes := map[engine.Res]interfaces.Node{} // source node per resource
+
+	for _, stmt := range stmts {
+		output, err := stmt.Output(table)
+		if err != nil {
+			return nil, err
+		}
+		if output == nil {
+			continue
+		}
+		resources = append(resources, output.Resources...)
+		edges = append(edges, output.Edges...)
+		for r, n := range output.Nodes {
+			nodes[r] = n
+		}
+	}
+
+	return &interfaces.Output{
+		Resources: resources,
+		Edges:     edges,
+		Nodes:     nodes,
+	}, nil
 }

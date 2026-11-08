@@ -58,8 +58,9 @@ type ForKVFunc struct {
 
 	EdgeName string // name of the edge used
 
-	SetOnIterBody func(innerTxn interfaces.Txn, ptr types.Value, key, val interfaces.Func) error
-	ClearIterBody func(length int)
+	// BuildIterBody builds a new instance of the body for an iteration, and
+	// adds its graph to the txn.
+	BuildIterBody func(innerTxn interfaces.Txn, key, val interfaces.Func) (interfaces.Stmt, error)
 
 	ArgVertices []interfaces.Func // only one expected
 
@@ -67,6 +68,10 @@ type ForKVFunc struct {
 
 	lastForKVMap       types.Value // remember the last value
 	lastInputMapLength int         // remember the last input map length
+
+	// value carries the instances of the body that we built last, so that
+	// StmtForKV.Output always gets the ones that match its table.
+	value types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -101,8 +106,10 @@ func (obj *ForKVFunc) Info() *interfaces.Info {
 	var typ *types.Type
 
 	if obj.KeyType != nil && obj.ValType != nil { // don't panic if called speculatively
-		// The output is a dummy value. The element funcs take it as an
-		// arg so that they run after us.
+		// The output is an opaque value (with the nil type) which
+		// carries the instances of the body along with the table to
+		// StmtForKV.Output. The element funcs take it as an arg so that
+		// they run after us.
 		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) nil", obj.EdgeName, obj.KeyType, obj.ValType))
 	}
 
@@ -128,8 +135,6 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		return errwrap.Wrapf(err, "could not Reverse")
 	}
 
-	obj.ClearIterBody(obj.lastInputMapLength) // XXX: pass in size?
-
 	// Each element func also takes our output and ignores it. That edge
 	// makes it run after us so that when the keys change, we can rebuild
 	// before an element func whose key is now missing can run.
@@ -137,6 +142,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	argNameVal := "forkvInputMapVal"
 	argNameDummy := OutputFuncDummyArgName
 
+	bodies := []interfaces.Stmt{}
 	forKVMap := obj.lastForKVMap.Map()
 	// XXX: Should we loop in a deterministic order?
 	// XXX: Should our type support the new iterator pattern?
@@ -206,10 +212,13 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			Args: []string{argNameDummy},
 		})
 
-		if err := obj.SetOnIterBody(obj.init.Txn, ptr, inputElemFuncKey, inputElemFuncVal); err != nil {
-			return errwrap.Wrapf(err, "could not call SetOnIterBody()")
+		body, err := obj.BuildIterBody(obj.init.Txn, inputElemFuncKey, inputElemFuncVal)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not call BuildIterBody()")
 		}
+		bodies = append(bodies, body)
 	}
+	obj.value = &types.OpaqueValue{Data: bodies}
 
 	return obj.init.Txn.Commit()
 }
@@ -270,8 +279,7 @@ func (obj *ForKVFunc) Call(ctx context.Context, args []types.Value) (types.Value
 		return nil, interfaces.ErrInterrupt
 	}
 
-	// send dummy value to the output
-	return types.NewNil(), nil // dummy value
+	return obj.value, nil // the bodies to use, see StmtForKV.Output
 }
 
 // Cleanup runs after that function was removed from the graph.

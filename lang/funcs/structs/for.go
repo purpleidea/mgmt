@@ -59,14 +59,19 @@ type ForFunc struct {
 
 	EdgeName string // name of the edge used
 
-	AppendToIterBody func(innerTxn interfaces.Txn, index int, value interfaces.Func) error
-	ClearIterBody    func(length int)
+	// BuildIterBody builds a new instance of the body for an iteration, and
+	// adds its graph to the txn.
+	BuildIterBody func(innerTxn interfaces.Txn, index int, value interfaces.Func) (interfaces.Stmt, error)
 
 	ArgVertices []interfaces.Func // only one expected
 
 	init *interfaces.Init
 
 	lastInputListLength int // remember the last input list length
+
+	// value carries the instances of the body that we built last, so that
+	// StmtFor.Output always gets the ones that match its table.
+	value types.Value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -101,8 +106,10 @@ func (obj *ForFunc) Info() *interfaces.Info {
 	var typ *types.Type
 
 	if obj.IndexType != nil && obj.ValueType != nil { // don't panic if called speculatively
-		// The output is a dummy value. The element funcs take it as an
-		// arg so that they run after us.
+		// The output is an opaque value (with the nil type) which
+		// carries the instances of the body along with the table to
+		// StmtFor.Output. The element funcs take it as an arg so that
+		// they run after us.
 		typ = types.NewType(fmt.Sprintf("func(%s []%s) nil", obj.EdgeName, obj.ValueType))
 	}
 
@@ -128,14 +135,13 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		return errwrap.Wrapf(err, "could not Reverse")
 	}
 
-	obj.ClearIterBody(obj.lastInputListLength) // XXX: pass in size?
-
 	// Each element func also takes our output and ignores it. That edge
 	// makes it run after us so that when the list changes length, we can
 	// rebuild before an element func that is now out of range can run.
 	argName := "forInputList"
 	argNameDummy := OutputFuncDummyArgName
 
+	bodies := []interfaces.Stmt{}
 	for i := 0; i < obj.lastInputListLength; i++ {
 		inputElemFunc := SimpleFnToDirectFunc(
 			"forInputElem["+strconv.Itoa(i)+"]",
@@ -170,10 +176,13 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			Args: []string{argNameDummy},
 		})
 
-		if err := obj.AppendToIterBody(obj.init.Txn, i, inputElemFunc); err != nil {
-			return errwrap.Wrapf(err, "could not call AppendToIterBody()")
+		body, err := obj.BuildIterBody(obj.init.Txn, i, inputElemFunc)
+		if err != nil {
+			return errwrap.Wrapf(err, "could not call BuildIterBody()")
 		}
+		bodies = append(bodies, body)
 	}
+	obj.value = &types.OpaqueValue{Data: bodies}
 
 	return obj.init.Txn.Commit()
 }
@@ -211,8 +220,7 @@ func (obj *ForFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 		return nil, interfaces.ErrInterrupt
 	}
 
-	// send dummy value to the output
-	return types.NewNil(), nil // dummy value
+	return obj.value, nil // the bodies to use, see StmtFor.Output
 }
 
 // Cleanup runs after that function was removed from the graph.

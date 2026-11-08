@@ -145,7 +145,7 @@ func (obj *StmtIfFunc) replaceSubGraph(b bool) error {
 		obj.init.Txn.AddGraph(g)
 		stmts = append(stmts, stmt)
 	}
-	obj.value = &types.OpaqueValue{Data: stmts}
+	obj.value = StmtsToValue(stmts)
 
 	return obj.init.Txn.Commit()
 }

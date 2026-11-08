@@ -38,6 +38,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/funcs/structs"
 	"github.com/purpleidea/mgmt/lang/funcs/vars"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -788,15 +789,10 @@ func outputBuilt(table interfaces.Table, ptr interfaces.Func, node interfaces.No
 	if err != nil {
 		return nil, err
 	}
-	x, ok := v.(*types.OpaqueValue)
-	if !ok {
+	stmts, err := structs.ValueToStmts(v)
+	if err != nil {
 		// programming error
-		return nil, fmt.Errorf("%T got an unexpected value: %v", node, v)
-	}
-	stmts, ok := x.Data.([]interfaces.Stmt)
-	if !ok {
-		// programming error
-		return nil, fmt.Errorf("%T got unexpected data: %T", node, x.Data)
+		return nil, errwrap.Wrapf(err, "%T got bad statements", node)
 	}
 
 	resources := []engine.Res{}

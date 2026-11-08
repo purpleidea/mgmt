@@ -218,7 +218,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		}
 		bodies = append(bodies, body)
 	}
-	obj.value = &types.OpaqueValue{Data: bodies}
+	obj.value = StmtsToValue(bodies)
 
 	return obj.init.Txn.Commit()
 }

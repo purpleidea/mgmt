@@ -30,6 +30,8 @@
 package structs
 
 import (
+	"fmt"
+
 	"github.com/purpleidea/mgmt/lang/funcs/wrapped"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
@@ -159,4 +161,26 @@ func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type, texta
 		F: f,
 		T: typ,
 	}
+}
+
+// StmtsToValue wraps the statements which a func built at runtime (eg: the
+// active branch of an if statement, or the body of each iteration of a for
+// loop) into an opaque value, so that they travel along with the table to the
+// Output of the statement which needs them. Use ValueToStmts to get them back.
+func StmtsToValue(stmts []interfaces.Stmt) types.Value {
+	return &types.OpaqueValue{Data: stmts}
+}
+
+// ValueToStmts returns the statements which StmtsToValue wrapped in this value.
+// It errors if this value didn't come from there.
+func ValueToStmts(v types.Value) ([]interfaces.Stmt, error) {
+	x, ok := v.(*types.OpaqueValue)
+	if !ok {
+		return nil, fmt.Errorf("unexpected value: %v", v)
+	}
+	stmts, ok := x.Data.([]interfaces.Stmt)
+	if !ok {
+		return nil, fmt.Errorf("unexpected data: %T", x.Data)
+	}
+	return stmts, nil
 }

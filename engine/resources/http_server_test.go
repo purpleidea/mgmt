@@ -231,6 +231,151 @@ func TestHTTPServerChildWatchErrorBeforeStartupDoesNotDeadlock(t *testing.T) {
 	}
 }
 
+// pokeRes is a test-only groupable resource whose Watch fires its startup Event
+// and then fires one more Event each time it is poked. It's used to check that
+// the events of a grouped child still reach the parent.
+type pokeRes struct {
+	traits.Base
+	traits.Groupable
+	traits.Refreshable
+
+	init *engine.Init
+
+	poke chan struct{}
+}
+
+func (obj *pokeRes) Default() engine.Res { return &pokeRes{} }
+
+func (obj *pokeRes) Validate() error { return nil }
+
+func (obj *pokeRes) Init(init *engine.Init) error {
+	obj.init = init
+	return nil
+}
+
+func (obj *pokeRes) Cleanup() error { return nil }
+
+func (obj *pokeRes) Watch(ctx context.Context) error {
+	if err := obj.init.Event(ctx); err != nil {
+		return err
+	}
+	for {
+		select {
+		case <-obj.poke:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if err := obj.init.Event(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+func (obj *pokeRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
+	return true, nil
+}
+
+func (obj *pokeRes) Cmp(r engine.Res) error {
+	if _, ok := r.(*pokeRes); !ok {
+		return fmt.Errorf("not a %s", obj.Kind())
+	}
+	return nil
+}
+
+func (obj *pokeRes) UIDs() []engine.ResUID { return nil }
+
+func (obj *pokeRes) GroupCmp(r engine.GroupableRes) error { return nil }
+
+// TestHTTPServerWatchRestart verifies that the http server's Watch can run
+// again after it returns, which is what the engine does when the retry
+// metaparam is set. The channels which carry the events of the grouped children
+// are closed as each Watch exits, so they must not be reused by the next one.
+// Events from a child must reach the server each time, including from a child
+// grouped into a nested http:server:ui, since that resource multiplexes in the
+// same way.
+func TestHTTPServerWatchRestart(t *testing.T) {
+	events := make(chan struct{}, 4)
+	init := &engine.Init{
+		Event: func(ctx context.Context) error {
+			select {
+			case events <- struct{}{}:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+		Refresh: func() bool { return false },
+		Send:    func(interface{}) error { return nil },
+		Recv:    func() map[string]*engine.Send { return map[string]*engine.Send{} },
+		Debug:   testing.Verbose(),
+		Logf:    func(format string, v ...interface{}) { t.Logf(format, v...) },
+	}
+
+	direct := &pokeRes{poke: make(chan struct{})}
+	direct.SetKind("noop")
+	direct.SetName("direct")
+
+	nested := &pokeRes{poke: make(chan struct{})}
+	nested.SetKind("noop")
+	nested.SetName("nested")
+
+	ui := &HTTPServerUIRes{}
+	ui.SetKind(httpServerUIKind)
+	ui.SetName("/ui/")
+	ui.SetGroup([]engine.GroupableRes{nested})
+
+	server := &HTTPServerRes{
+		Address: "127.0.0.1:0",
+	}
+	server.SetKind(httpServerKind)
+	server.SetName("server")
+	server.SetGroup([]engine.GroupableRes{direct, ui})
+
+	if err := server.Init(init); err != nil {
+		t.Fatalf("server Init: %v", err)
+	}
+	defer server.Cleanup()
+
+	for i := 1; i <= 3; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		done := make(chan error, 1)
+		go func() { done <- server.Watch(ctx) }()
+
+		waitEvent := func(what string) {
+			t.Helper()
+			select {
+			case <-events:
+			case err := <-done:
+				t.Fatalf("func Watch #%d exited while waiting for %s: %v", i, what, err)
+			case <-time.After(2 * time.Second):
+				t.Fatalf("func Watch #%d sent no event for %s", i, what)
+			}
+		}
+
+		waitEvent("startup")
+		for _, child := range []*pokeRes{direct, nested} {
+			select {
+			case child.poke <- struct{}{}:
+			case <-time.After(2 * time.Second):
+				t.Fatalf("func Watch #%d: child %s is not watching", i, child.Name())
+			}
+			waitEvent("a poke of child " + child.Name())
+		}
+
+		cancel()
+		select {
+		case err := <-done:
+			if err != context.Canceled {
+				t.Fatalf("func Watch #%d returned %v, want %v", i, err, context.Canceled)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("func Watch #%d did not return after cancel", i)
+		}
+	}
+}
+
 func TestHTTPServerFileEmptyAndMissingContent(t *testing.T) {
 	tests := []struct {
 		name       string

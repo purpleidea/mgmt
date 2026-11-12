@@ -179,6 +179,10 @@ type HTTPServerUIRes struct {
 	Data *HTTPServerUIResData `lang:"data" yaml:"data"`
 
 	//eventStream chan error
+
+	// eventsChanMap carries the events of each grouped resource. It is
+	// rebuilt by every Watch, since Watch closes these when it exits, and
+	// the engine may run Watch again, eg: when it is retried after errors.
 	eventsChanMap map[engine.Res]chan error
 
 	// notifications contains a channel for every long poller waiting for a
@@ -550,7 +554,6 @@ func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 	obj.init = init // save for later
 
 	//obj.eventStream = make(chan error)
-	obj.eventsChanMap = make(map[engine.Res]chan error)
 	obj.notifications = make(map[engine.Res]map[chan struct{}]struct{})
 	obj.rwmutex = &sync.RWMutex{}
 
@@ -562,7 +565,6 @@ func (obj *HTTPServerUIRes) Init(init *engine.Init) error {
 		// what we're planning to use, and we ignore the rest for now...
 		r := res // bind the variable!
 
-		obj.eventsChanMap[r] = make(chan error)
 		obj.notifications[r] = make(map[chan struct{}]struct{})
 		event := func(ctx context.Context) error {
 			select {
@@ -642,6 +644,13 @@ func (obj *HTTPServerUIRes) Cleanup() error {
 // particular one does absolutely nothing but block until we've received a done
 // signal.
 func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
+	// Build these before any of the goroutines below can send on them. We
+	// close each one when its Watch exits, so they can't be reused if this
+	// Watch runs again. Everyone using the previous ones has exited by now.
+	obj.eventsChanMap = make(map[engine.Res]chan error)
+	for _, res := range obj.GetGroup() { // grouped elements
+		obj.eventsChanMap[res] = make(chan error)
+	}
 
 	multiplexedChan := make(chan error)
 	defer close(multiplexedChan) // closes after everyone below us is finished

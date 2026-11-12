@@ -158,6 +158,9 @@ type HTTPServerRes struct {
 
 	// TODO: should we allow adding a list of one-of files directly here?
 
+	// eventsChanMap carries the events of each grouped resource. It is
+	// rebuilt by every Watch, since Watch closes these when it exits, and
+	// the engine may run Watch again, eg: when it is retried after errors.
 	eventsChanMap map[engine.Res]chan error
 	interruptChan chan struct{}
 
@@ -343,15 +346,12 @@ func (obj *HTTPServerRes) Init(init *engine.Init) error {
 	// NOTE: If we don't Init anything that's autogrouped, then it won't
 	// even get an Init call on it.
 
-	obj.eventsChanMap = make(map[engine.Res]chan error)
-
 	// TODO: should we do this in the engine? Do we want to decide it here?
 	for _, res := range obj.GetGroup() { // grouped elements
 		// NOTE: We build a new init, but it's not complete. We only add
 		// what we're planning to use, and we ignore the rest for now...
 		r := res // bind the variable!
 
-		obj.eventsChanMap[r] = make(chan error)
 		event := func(ctx context.Context) error {
 			select {
 			case obj.eventsChanMap[r] <- nil:
@@ -467,6 +467,14 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			return ctx
 		},
 		//MaxHeaderBytes: 1 << 20, XXX: should we add a param for this?
+	}
+
+	// Build these before any of the goroutines below can send on them. We
+	// close each one when its Watch exits, so they can't be reused if this
+	// Watch runs again. Everyone using the previous ones has exited by now.
+	obj.eventsChanMap = make(map[engine.Res]chan error)
+	for _, res := range obj.GetGroup() { // grouped elements
+		obj.eventsChanMap[res] = make(chan error)
 	}
 
 	multiplexedChan := make(chan error)

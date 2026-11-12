@@ -597,7 +597,7 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			}
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
-			return ctx.Err()
+			return context.Cause(ctx)
 		}
 
 		if err := obj.init.Event(ctx); err != nil {

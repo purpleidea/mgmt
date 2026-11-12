@@ -2022,3 +2022,26 @@ func TestReflect0(t *testing.T) {
 		t.Errorf("type did not round trip through Reflect: %+v", err)
 	}
 }
+
+// TestFuncCmpIgnoresArgNames makes sure that two func types are the same as
+// long as their arg types are, even if those args are named differently. A
+// function value keeps the arg names of the lambda (or the function) which made
+// it, but whoever receives that value declares the type of it with names of its
+// own. For example: iter.map gives the arg of its function arg a name of its
+// own, but the lambda which gets passed to it might be `func($x) {...}`. If
+// this changed, the function engine would panic when it checks the type of each
+// value that gets passed to a func (see StructValue.Set) and type unification
+// and call speculation would stop matching function types which are the same.
+func TestFuncCmpIgnoresArgNames(t *testing.T) {
+	typ1 := NewType("func(a str, b int) bool")
+	typ2 := NewType("func(x str, y int) bool")
+	if err := typ1.Cmp(typ2); err != nil {
+		t.Errorf("func types with different arg names don't cmp: %+v", err)
+	}
+
+	// But the arg types (and their order) still matter.
+	typ3 := NewType("func(a int, b str) bool")
+	if err := typ1.Cmp(typ3); err == nil {
+		t.Errorf("func types with different arg types cmp")
+	}
+}

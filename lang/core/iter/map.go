@@ -83,8 +83,8 @@ type MapFunc struct {
 	inputListType  *types.Type
 	outputListType *types.Type
 
-	argFuncs   []interfaces.Func
-	outputFunc interfaces.Func
+	inputFunc  interfaces.Func // passes the input list along after us
+	outputFunc interfaces.Func // where the subgraph sends its value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -200,10 +200,17 @@ func (obj *MapFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
-// SetShape tells the function about some special graph engine pointers.
-func (obj *MapFunc) SetShape(argFuncs []interfaces.Func, outputFunc interfaces.Func) {
-	obj.argFuncs = argFuncs
-	obj.outputFunc = outputFunc
+// Graph adds the vertices which this function needs around it to the txn. The
+// subgraph which it builds reads the input list from one of them, and sends its
+// value to the other one. See interfaces.GraphFunc for the details.
+func (obj *MapFunc) Graph(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("the map needs exactly two args")
+	}
+	inputs, output := structs.AddRuntimeShape(txn, obj, obj.sig(), args, 0)
+	obj.inputFunc = inputs[0]
+	obj.outputFunc = output
+	return output, nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -212,8 +219,8 @@ func (obj *MapFunc) Validate() error {
 		return fmt.Errorf("type is not yet known")
 	}
 
-	if obj.argFuncs == nil || obj.outputFunc == nil {
-		return fmt.Errorf("function did not receive shape information")
+	if obj.inputFunc == nil || obj.outputFunc == nil {
+		return fmt.Errorf("function was not added to the graph with Graph")
 	}
 
 	return nil
@@ -248,7 +255,9 @@ func (obj *MapFunc) Init(init *interfaces.Init) error {
 func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// Create a subgraph which splits the input list into 'n' nodes, applies
 	// 'newFuncValue' to each, then combines the 'n' outputs back into a
-	// list.
+	// list. The subgraphInput passes the input list along after we've run,
+	// so that when it shrinks, we get to rebuild before an element func
+	// which is now out of range can run.
 	//
 	// Here is what the subgraph looks like:
 	//
@@ -256,10 +265,6 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	//	"subgraphInput" -> "inputElemFunc0"
 	//	"subgraphInput" -> "inputElemFunc1"
 	//	"subgraphInput" -> "inputElemFunc2"
-	//
-	//	"map" -> "inputElemFunc0"
-	//	"map" -> "inputElemFunc1"
-	//	"map" -> "inputElemFunc2"
 	//
 	//	"inputElemFunc0" -> "outputElemFunc0"
 	//	"inputElemFunc1" -> "outputElemFunc1"
@@ -280,7 +285,6 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// create the new subgraph
 
 	argNameInputList := "inputList"
-	argNameInputDummy := structs.OutputFuncDummyArgName
 
 	m := make(map[string]*types.Type)
 	ord := []string{}
@@ -320,8 +324,8 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			fmt.Sprintf("mapInputElem[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFunc: expected one argument")
 					}
 					arg := args[0]
 
@@ -337,7 +341,7 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.inputListType, argNameInputDummy, obj.Type)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.inputListType, obj.Type)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
@@ -349,9 +353,6 @@ func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
-		})
-		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
-			Args: []string{argNameInputDummy},
 		})
 		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
 			Args: []string{fmt.Sprintf("outputElem%d", i)},
@@ -374,7 +375,7 @@ func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	}
 
 	// Need this before we can *really* run this properly.
-	if len(obj.argFuncs) != 2 {
+	if obj.inputFunc == nil || obj.outputFunc == nil {
 		return nil, funcs.ErrCantSpeculate
 		//return nil, fmt.Errorf("unexpected input arg length")
 	}
@@ -412,7 +413,7 @@ func (obj *MapFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	// changed, then we need to replace the subgraph with a new one that
 	// uses the new function the correct number of times.
 
-	subgraphInput := obj.argFuncs[0]
+	subgraphInput := obj.inputFunc
 
 	// replaceSubGraph uses the above two values
 	if err := obj.replaceSubGraph(subgraphInput); err != nil {

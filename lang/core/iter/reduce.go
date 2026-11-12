@@ -92,8 +92,9 @@ type ReduceFunc struct {
 	listType *types.Type
 	three    *bool // true means 3 args, false means 2, nil means unbuilt
 
-	argFuncs   []interfaces.Func
-	outputFunc interfaces.Func
+	inputFunc   interfaces.Func // passes the input list along after us
+	initvalFunc interfaces.Func // the initial value arg, if there is one
+	outputFunc  interfaces.Func // where the subgraph sends its value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -177,10 +178,31 @@ func (obj *ReduceFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(l), nil
 }
 
-// SetShape tells the function about some special graph engine pointers.
-func (obj *ReduceFunc) SetShape(argFuncs []interfaces.Func, outputFunc interfaces.Func) {
-	obj.argFuncs = argFuncs
-	obj.outputFunc = outputFunc
+// Graph adds the vertices which this function needs around it to the txn. The
+// subgraph which it builds reads the input list from one of them, and sends its
+// value to the other one. See interfaces.GraphFunc for the details.
+func (obj *ReduceFunc) Graph(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+	if obj.three == nil {
+		// programming error
+		return nil, fmt.Errorf("not built correctly")
+	}
+	// The 2-arg variant is [inputs, function], and the 3-arg variant is
+	// [initval, inputs, function]. The initial value never gets indexed, so
+	// the subgraph can read it directly.
+	expected, list := 2, 0
+	if *obj.three {
+		expected, list = 3, 1
+	}
+	if len(args) != expected {
+		return nil, fmt.Errorf("the reduce needs exactly %d args", expected)
+	}
+	inputs, output := structs.AddRuntimeShape(txn, obj, obj.sig(), args, list)
+	obj.inputFunc = inputs[0]
+	if *obj.three {
+		obj.initvalFunc = args[0]
+	}
+	obj.outputFunc = output
+	return output, nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -192,8 +214,8 @@ func (obj *ReduceFunc) Validate() error {
 		return fmt.Errorf("variant is not yet known")
 	}
 
-	if obj.argFuncs == nil || obj.outputFunc == nil {
-		return fmt.Errorf("function did not receive shape information")
+	if obj.inputFunc == nil || obj.outputFunc == nil {
+		return fmt.Errorf("function was not added to the graph with Graph")
 	}
 
 	return nil
@@ -241,11 +263,6 @@ func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphI
 	//	"subgraphInputs" -> "reduceInputElem2"
 	//	"subgraphInputs" -> "reduceInputElem3"
 	//
-	//	"reduce" -> "reduceInputElem0" # dummy
-	//	"reduce" -> "reduceInputElem1" # dummy
-	//	"reduce" -> "reduceInputElem2" # dummy
-	//	"reduce" -> "reduceInputElem3" # dummy
-	//
 	//	"reduceInputElem0" -> "fn0" # x
 	//	"reduceInputElem1" -> "fn0" # y
 	//	"fn0"              -> "fn1" # x
@@ -272,7 +289,6 @@ func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphI
 	// create the new subgraph
 
 	argNameInputList := "inputList"
-	argNameInputDummy := structs.OutputFuncDummyArgName
 	edgeOut := &interfaces.FuncEdge{Args: []string{structs.OutputFuncArgName}} // "out"
 
 	n := obj.lastInputListLength
@@ -303,17 +319,18 @@ func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphI
 		return obj.init.Txn.Commit()
 	}
 
-	// Build the per-index extractor nodes. Each is gated on the parent
-	// reduce dummy output so that a list shrink can't race a stale
-	// per-index node into reading off the end of the new list.
+	// Build the per-index extractor nodes. Each reads the list from the
+	// subgraphInputs, which passes it along after we've run so that a list
+	// shrink can't race a stale per-index node into reading off the end of
+	// the new list.
 	inputElemFuncs := make([]interfaces.Func, n)
 	for i := 0; i < n; i++ {
 		inputElemFunc := structs.SimpleFnToDirectFunc(
 			fmt.Sprintf("reduceInputElem[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFunc: expected one argument")
 					}
 					arg := args[0]
 
@@ -330,16 +347,13 @@ func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphI
 					}
 					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.listType, argNameInputDummy, obj.Type)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.listType, obj.Type)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
 		obj.init.Txn.AddEdge(subgraphInputs, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
-		})
-		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
-			Args: []string{argNameInputDummy},
 		})
 
 		inputElemFuncs[i] = inputElemFunc
@@ -398,7 +412,7 @@ func (obj *ReduceFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 	}
 
 	// Need this before we can *really* run this properly.
-	if len(obj.argFuncs) != expected {
+	if obj.inputFunc == nil || obj.outputFunc == nil {
 		return nil, funcs.ErrCantSpeculate
 		//return nil, fmt.Errorf("unexpected input arg length")
 	}
@@ -443,20 +457,8 @@ func (obj *ReduceFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 	}
 	obj.lastInputListLength = n
 
-	// Resolve which arg func is which. SetShape gave us the upstream Funcs
-	// in declaration order: 2-arg is [inputs, function]; 3-arg is
-	// [initval, inputs, function].
-	var subgraphInputs interfaces.Func
-	var subgraphInitval interfaces.Func
-	if three {
-		subgraphInitval = obj.argFuncs[0]
-		subgraphInputs = obj.argFuncs[1]
-	} else {
-		subgraphInputs = obj.argFuncs[0]
-	}
-
 	// replaceSubGraph uses the above values
-	if err := obj.replaceSubGraph(subgraphInputs, subgraphInitval); err != nil {
+	if err := obj.replaceSubGraph(obj.inputFunc, obj.initvalFunc); err != nil {
 		return nil, errwrap.Wrapf(err, "could not replace subgraph")
 	}
 

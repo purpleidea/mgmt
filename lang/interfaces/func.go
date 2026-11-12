@@ -424,17 +424,30 @@ type DataFunc interface {
 	SetData(*FuncData)
 }
 
-// ShapelyFunc is a function that might require some additional graph shape
-// information to know where to get and output it's data from. This is typically
-// only implemented by tricky functions like "iter.map" and internal functions.
-type ShapelyFunc interface {
+// GraphFunc is a function which needs some other vertices around it in the
+// function graph, which whoever adds it to the graph must add along with it.
+// This is only needed by tricky functions like "iter.map" which build a
+// subgraph at runtime, since that subgraph needs something to read the args
+// from and something to send its value to. Such a function must never add an
+// edge from itself with its own txn, since that edge would hold a reference on
+// it which only its own Cleanup could release, and so it would never get
+// removed from the graph.
+type GraphFunc interface {
 	Func // implement everything in Func but add the additional requirements
 
-	// SetShape tells the function about some important pointers. It is
-	// called during function graph building typically, and before the
-	// function engine runs this function. IOW it runs before the Init() of
-	// this function.
-	SetShape(argFuncs []Func, outputFunc Func)
+	// Graph adds the vertices which this function needs around it to the
+	// txn, along with their edges. The args are the vertices which have an
+	// edge to this function for each of its args, which whoever called this
+	// has already added. It returns the vertex which outputs the value of
+	// the function. It runs while the function graph is getting built,
+	// after Build, and before Init.
+	//
+	// Graph only queues additions with AddVertex, AddEdge, or AddGraph. The
+	// caller owns the txn and is responsible for committing and reversing
+	// it. Graph must not commit, reverse, free, or retain this txn for
+	// later mutation. Runtime subgraphs use the separate txn supplied to
+	// Init, and must not retain this function itself.
+	Graph(txn Txn, args []Func) (Func, error)
 }
 
 // MetadataFunc is a function that can return some extraneous information about

@@ -91,7 +91,7 @@ const (
 // It's not clear if this (3) option would be allowed to have a Call() method or
 // not, and if it would send interrupts on the Output channel.
 //
-// Of additional note, some functions also require the "ShapelyFunc" API to work
+// Of additional note, some functions also require the "GraphFunc" API to work
 // correctly. Use of this is rare.
 //
 // XXX: If this engine continuously receives function events at a higher speed

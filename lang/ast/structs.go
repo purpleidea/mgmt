@@ -10238,9 +10238,9 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			innerTxn.AddGraph(subgraph)
 
 			// XXX: do we need to use the `out` arg here?
-			// XXX: eg: via .SetShape(args, out)
-			//if shapelyFunc, ok := bodyFunc.(interfaces.ShapelyFunc); ok {
-			//	shapelyFunc.SetShape(args, out)
+			// XXX: eg: via .Graph(txn, args) if it's a GraphFunc
+			//if graphFunc, ok := bodyFunc.(interfaces.GraphFunc); ok {
+			//	graphFunc.Graph(innerTxn, args)
 			//}
 
 			return bodyFunc, nil
@@ -10291,22 +10291,8 @@ func (obj *ExprFunc) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 				})
 			}
 
-			// XXX: is this the best way to pass this stuff in?
-			if shapelyFunc, ok := valueTransformingFunc.(interfaces.ShapelyFunc); ok {
-				// should receive a dummy nil edge and an "out" edge...
-				funcSubgraphOutput := &structs.OutputFunc{ // the new graph shape thing!
-					//Textarea: obj.Textarea,
-					Name:     "funcSubgraphOutput",
-					Type:     obj.typ.Out,
-					EdgeName: structs.OutputFuncArgName,
-				}
-
-				shapelyFunc.SetShape(args, funcSubgraphOutput)
-
-				dummy := &interfaces.FuncEdge{Args: []string{structs.OutputFuncDummyArgName}}
-				txn.AddEdge(valueTransformingFunc, funcSubgraphOutput, dummy) // dummy
-
-				return funcSubgraphOutput, nil
+			if graphFunc, ok := valueTransformingFunc.(interfaces.GraphFunc); ok {
+				return graphFunc.Graph(txn, args)
 			}
 
 			return valueTransformingFunc, nil
@@ -10435,9 +10421,9 @@ func (obj *ExprFunc) Value() (types.Value, error) {
 			innerTxn.AddGraph(subgraph)
 
 			// XXX: do we need to use the `out` arg here?
-			// XXX: eg: via .SetShape(args, out)
-			//if shapelyFunc, ok := bodyFunc.(interfaces.ShapelyFunc); ok {
-			//	shapelyFunc.SetShape(args, out)
+			// XXX: eg: via .Graph(txn, args) if it's a GraphFunc
+			//if graphFunc, ok := bodyFunc.(interfaces.GraphFunc); ok {
+			//	graphFunc.Graph(innerTxn, args)
 			//}
 
 			return bodyFunc, nil
@@ -11340,8 +11326,9 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 			return nil, nil, err
 		}
 
-		// Shapely funcs (eg: iter.map) get their own output node from
-		// the FuncValue, so this static shape works for every callee.
+		// A GraphFunc (eg: iter.map) adds its own output node when the
+		// FuncValue gets called, so this static shape works for every
+		// callee.
 		// Info.Spec doesn't matter here: nothing is run at compile
 		// time, we're only wiring the function directly into the graph.
 		return txn.Graph(), outputFunc, nil
@@ -11363,11 +11350,6 @@ func (obj *ExprCall) Graph(env *interfaces.Env) (*pgraph.Graph, interfaces.Func,
 	edgeNameDummy := structs.OutputFuncDummyArgName
 
 	graph.AddVertex(callSubgraphOutput)
-
-	// XXX: is this the best way to pass this stuff in?
-	if shapelyFunc, ok := funcValueFunc.(interfaces.ShapelyFunc); ok {
-		shapelyFunc.SetShape(argFuncs, callSubgraphOutput)
-	}
 
 	callFunc := &structs.CallFunc{
 		Textarea: obj.Textarea,

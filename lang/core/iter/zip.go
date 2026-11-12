@@ -89,8 +89,9 @@ type ZipFunc struct {
 	inputList2Type *types.Type
 	outputListType *types.Type
 
-	argFuncs   []interfaces.Func
-	outputFunc interfaces.Func
+	inputFunc1 interfaces.Func // passes the first list along after us
+	inputFunc2 interfaces.Func // passes the second list along after us
+	outputFunc interfaces.Func // where the subgraph sends its value
 }
 
 // String returns a simple name for this function. This is needed so this struct
@@ -231,10 +232,18 @@ func (obj *ZipFunc) Build(typ *types.Type) (*types.Type, error) {
 	return obj.sig(), nil
 }
 
-// SetShape tells the function about some special graph engine pointers.
-func (obj *ZipFunc) SetShape(argFuncs []interfaces.Func, outputFunc interfaces.Func) {
-	obj.argFuncs = argFuncs
-	obj.outputFunc = outputFunc
+// Graph adds the vertices which this function needs around it to the txn. The
+// subgraph which it builds reads the two input lists from two of them, and
+// sends its value to the other one. See interfaces.GraphFunc for the details.
+func (obj *ZipFunc) Graph(txn interfaces.Txn, args []interfaces.Func) (interfaces.Func, error) {
+	if len(args) != 3 {
+		return nil, fmt.Errorf("the zip needs exactly three args")
+	}
+	inputs, output := structs.AddRuntimeShape(txn, obj, obj.sig(), args, 0, 1)
+	obj.inputFunc1 = inputs[0]
+	obj.inputFunc2 = inputs[1]
+	obj.outputFunc = output
+	return output, nil
 }
 
 // Validate tells us if the input struct takes a valid form.
@@ -243,8 +252,8 @@ func (obj *ZipFunc) Validate() error {
 		return fmt.Errorf("type is not yet known")
 	}
 
-	if obj.argFuncs == nil || obj.outputFunc == nil {
-		return fmt.Errorf("function did not receive shape information")
+	if obj.inputFunc1 == nil || obj.inputFunc2 == nil || obj.outputFunc == nil {
+		return fmt.Errorf("function was not added to the graph with Graph")
 	}
 
 	return nil
@@ -284,10 +293,11 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 	// lengths), pairs them up by index through 'newFuncValue', and then
 	// stitches the 'n' results back into one output list.
 	//
-	// Each per-index extractor is gated on the parent's dummy output (the
-	// "zip -> ..." edges) so that, on a list shrink, this function gets a
-	// chance to rebuild the subgraph before any stale extractor reads off
-	// the end of the new shorter list.
+	// Each per-index extractor reads its list from subgraphInputs1 or from
+	// subgraphInputs2, which pass them along after this function has run,
+	// so that, on a list shrink this function gets a chance to rebuild the
+	// subgraph before any stale extractor reads off the end of the new
+	// shorter list.
 	//
 	// Here is what the subgraph looks like for n == 3:
 	//
@@ -299,13 +309,6 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 	//	"subgraphInputs2" -> "zipInputElem2[0]"
 	//	"subgraphInputs2" -> "zipInputElem2[1]"
 	//	"subgraphInputs2" -> "zipInputElem2[2]"
-	//
-	//	"zip" -> "zipInputElem1[0]" # dummy
-	//	"zip" -> "zipInputElem1[1]" # dummy
-	//	"zip" -> "zipInputElem1[2]" # dummy
-	//	"zip" -> "zipInputElem2[0]" # dummy
-	//	"zip" -> "zipInputElem2[1]" # dummy
-	//	"zip" -> "zipInputElem2[2]" # dummy
 	//
 	//	"zipInputElem1[0]" -> "fn0" # x
 	//	"zipInputElem2[0]" -> "fn0" # y
@@ -329,7 +332,6 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 	// create the new subgraph
 
 	argNameInputList := "inputList"
-	argNameInputDummy := structs.OutputFuncDummyArgName
 
 	m := make(map[string]*types.Type)
 	ord := []string{}
@@ -367,8 +369,8 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 			fmt.Sprintf("zipInputElem1[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElem1Func: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElem1Func: expected one argument")
 					}
 					list, ok := args[0].(*types.ListValue)
 					if !ok {
@@ -380,7 +382,7 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 					}
 					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.inputList1Type, argNameInputDummy, obj.Type1)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.inputList1Type, obj.Type1)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElem1Func)
@@ -389,8 +391,8 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 			fmt.Sprintf("zipInputElem2[%d]", i),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElem2Func: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElem2Func: expected one argument")
 					}
 					list, ok := args[0].(*types.ListValue)
 					if !ok {
@@ -402,7 +404,7 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 					}
 					return valuesList[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameInputList, obj.inputList2Type, argNameInputDummy, obj.Type2)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameInputList, obj.inputList2Type, obj.Type2)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElem2Func)
@@ -415,15 +417,9 @@ func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.
 		obj.init.Txn.AddEdge(subgraphInputs1, inputElem1Func, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
 		})
-		obj.init.Txn.AddEdge(obj, inputElem1Func, &interfaces.FuncEdge{
-			Args: []string{argNameInputDummy},
-		})
 
 		obj.init.Txn.AddEdge(subgraphInputs2, inputElem2Func, &interfaces.FuncEdge{
 			Args: []string{argNameInputList},
-		})
-		obj.init.Txn.AddEdge(obj, inputElem2Func, &interfaces.FuncEdge{
-			Args: []string{argNameInputDummy},
 		})
 
 		obj.init.Txn.AddEdge(outputElemFunc, outputListFunc, &interfaces.FuncEdge{
@@ -447,7 +443,7 @@ func (obj *ZipFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	}
 
 	// Need this before we can *really* run this properly.
-	if len(obj.argFuncs) != 3 {
+	if obj.inputFunc1 == nil || obj.inputFunc2 == nil || obj.outputFunc == nil {
 		return nil, funcs.ErrCantSpeculate
 		//return nil, fmt.Errorf("unexpected input arg length")
 	}
@@ -493,8 +489,8 @@ func (obj *ZipFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	// we need to replace the subgraph with a new one that uses the new
 	// function the correct number of times.
 
-	subgraphInputs1 := obj.argFuncs[0]
-	subgraphInputs2 := obj.argFuncs[1]
+	subgraphInputs1 := obj.inputFunc1
+	subgraphInputs2 := obj.inputFunc2
 
 	// replaceSubGraph uses the above values
 	if err := obj.replaceSubGraph(subgraphInputs1, subgraphInputs2); err != nil {

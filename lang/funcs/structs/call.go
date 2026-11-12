@@ -59,7 +59,7 @@ type CallFunc struct {
 	FuncType *types.Type // the type of the function
 	EdgeName string      // name of the edge used
 
-	// These two fields are identical to what is used by a ShapelyFunc.
+	// These two fields are like the vertices which a GraphFunc gets.
 	// TODO: Consider just using that interface here instead?
 	ArgVertices  []interfaces.Func
 	OutputVertex interfaces.Func
@@ -167,25 +167,9 @@ func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
 	edge := &interfaces.FuncEdge{Args: []string{OutputFuncArgName}} // "out"
 	obj.init.Txn.AddVertex(outputFunc)
 
-	if shapelyFunc, ok := outputFunc.(interfaces.ShapelyFunc); ok {
-		// should receive a dummy nil edge and an "out" edge...
-		funcSubgraphOutput := &OutputFunc{ // the new graph shape thing!
-			//Textarea: obj.Textarea,
-			Name:     "funcSubgraphOutput",
-			Type:     obj.Type,
-			EdgeName: OutputFuncArgName,
-		}
-
-		shapelyFunc.SetShape(obj.ArgVertices, funcSubgraphOutput)
-
-		dummy := &interfaces.FuncEdge{Args: []string{OutputFuncDummyArgName}}
-		obj.init.Txn.AddEdge(outputFunc, funcSubgraphOutput, dummy) // dummy
-
-		obj.init.Txn.AddEdge(funcSubgraphOutput, obj.OutputVertex, edge)
-	} else {
-		// not shapely
-		obj.init.Txn.AddEdge(outputFunc, obj.OutputVertex, edge)
-	}
+	// If this is the output of a GraphFunc, then it has already added the
+	// vertices it needs around it while the FuncValue was getting called.
+	obj.init.Txn.AddEdge(outputFunc, obj.OutputVertex, edge)
 
 	return obj.init.Txn.Commit()
 }

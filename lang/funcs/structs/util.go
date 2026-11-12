@@ -83,9 +83,9 @@ func SimpleFnToFuncValue(name string, fv *types.FuncValue) *full.FuncValue {
 			}
 
 			// XXX: do we need to use the `out` arg here?
-			// XXX: eg: via .SetShape(args, out)
-			//if shapelyFunc, ok := wrappedFunc.(interfaces.ShapelyFunc); ok {
-			//	shapelyFunc.SetShape(args, out)
+			// XXX: eg: via .Graph(txn, args) if it's a GraphFunc
+			//if graphFunc, ok := wrappedFunc.(interfaces.GraphFunc); ok {
+			//	graphFunc.Graph(txn, args)
 			//}
 
 			return wrappedFunc, nil
@@ -127,22 +127,8 @@ func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type, texta
 			})
 		}
 
-		// XXX: is this the best way to pass this stuff in?
-		if shapelyFunc, ok := valueTransformingFunc.(interfaces.ShapelyFunc); ok {
-			// should receive a dummy nil edge and an "out" edge...
-			funcSubgraphOutput := &OutputFunc{ // the new graph shape thing!
-				//Textarea: obj.Textarea,
-				Name:     "funcSubgraphOutput",
-				Type:     typ.Out, // the return type, not the func type
-				EdgeName: OutputFuncArgName,
-			}
-
-			shapelyFunc.SetShape(args, funcSubgraphOutput)
-
-			dummy := &interfaces.FuncEdge{Args: []string{OutputFuncDummyArgName}}
-			txn.AddEdge(valueTransformingFunc, funcSubgraphOutput, dummy) // dummy
-
-			return funcSubgraphOutput, nil
+		if graphFunc, ok := valueTransformingFunc.(interfaces.GraphFunc); ok {
+			return graphFunc.Graph(txn, args)
 		}
 
 		return valueTransformingFunc, nil
@@ -161,6 +147,53 @@ func FuncToFullFuncValue(makeFunc func() interfaces.Func, typ *types.Type, texta
 		F: f,
 		T: typ,
 	}
+}
+
+// AddRuntimeShape adds the vertices which a function that builds a subgraph at
+// runtime (eg: iter.map) needs around it to the txn, along with their edges.
+// Such a function must never add an edge from itself with its own txn, since
+// that edge would hold a reference on it which only its own Cleanup could
+// release, and so it would never get removed from the graph. Instead, for each
+// of the indexes, this adds a vertex which passes that arg along after the
+// function has run, so that the subgraph can read it from there. It returns
+// those, in the same order, along with the vertex which outputs the value of
+// the function, which is where the subgraph must send its value. They form a
+// chain from the function to the output, each one taking the one before it as
+// its dummy arg, so that none of them is ever a sink. The typ is the signature
+// of the function, and the args are the vertices which have an edge to it for
+// each of its args. See interfaces.GraphFunc.
+func AddRuntimeShape(txn interfaces.Txn, f interfaces.Func, typ *types.Type, args []interfaces.Func, indexes ...int) ([]interfaces.Func, interfaces.Func) {
+	inputs := []interfaces.Func{}
+	prev, prevType := f, types.TypeNil // the function outputs a dummy nil
+	for _, i := range indexes {
+		t := typ.Map[typ.Ord[i]]
+		input := &OutputFunc{
+			Name:      "funcSubgraphInput",
+			EdgeName:  OutputFuncArgName,
+			Type:      t,
+			DummyType: prevType,
+		}
+		txn.AddEdge(args[i], input, &interfaces.FuncEdge{
+			Args: []string{OutputFuncArgName},
+		})
+		txn.AddEdge(prev, input, &interfaces.FuncEdge{
+			Args: []string{OutputFuncDummyArgName},
+		})
+		inputs = append(inputs, input)
+		prev, prevType = input, t
+	}
+
+	output := &OutputFunc{
+		Name:      "funcSubgraphOutput",
+		EdgeName:  OutputFuncArgName,
+		Type:      typ.Out, // the return type, not the func type
+		DummyType: prevType,
+	}
+	txn.AddEdge(prev, output, &interfaces.FuncEdge{
+		Args: []string{OutputFuncDummyArgName},
+	})
+
+	return inputs, output
 }
 
 // StmtsToValue wraps the statements which a func built at runtime (eg: the

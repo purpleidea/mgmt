@@ -30,6 +30,7 @@ test [$lambda($s)] {}
 -- OUTPUT --
 Edge: FuncValue -> map # function
 Edge: _operator -> composite: []str # 0
+Edge: composite: []str -> funcSubgraphInput # out
 Edge: composite: []str -> map # inputs
 Edge: const: str("!") -> _operator # b
 Edge: const: str("+") -> _operator # op
@@ -39,8 +40,9 @@ Edge: const: str("ccc") -> composite: []str # 2
 Edge: const: str("dddd") -> composite: []str # 3
 Edge: const: str("eeeee") -> composite: []str # 4
 Edge: const: str("out1: {{ . }}") -> template # template
+Edge: funcSubgraphInput -> funcSubgraphOutput # dummy
 Edge: funcSubgraphOutput -> template # vars
-Edge: map -> funcSubgraphOutput # dummy
+Edge: map -> funcSubgraphInput # dummy
 Edge: template -> _operator # a
 Vertex: FuncValue
 Vertex: _operator
@@ -54,6 +56,7 @@ Vertex: const: str("ccc")
 Vertex: const: str("dddd")
 Vertex: const: str("eeeee")
 Vertex: const: str("out1: {{ . }}")
+Vertex: funcSubgraphInput
 Vertex: funcSubgraphOutput
 Vertex: map
 Vertex: template

@@ -15,13 +15,15 @@ $s = golang.template("out1: {{ . }}", $out1)
 test [$s] {}
 -- OUTPUT --
 Edge: FuncValue -> map # function
+Edge: composite: []str -> funcSubgraphInput # out
 Edge: composite: []str -> map # inputs
 Edge: const: str("a") -> composite: []str # 0
 Edge: const: str("bb") -> composite: []str # 1
 Edge: const: str("ccc") -> composite: []str # 2
 Edge: const: str("out1: {{ . }}") -> template # template
+Edge: funcSubgraphInput -> funcSubgraphOutput # dummy
 Edge: funcSubgraphOutput -> template # vars
-Edge: map -> funcSubgraphOutput # dummy
+Edge: map -> funcSubgraphInput # dummy
 Edge: template -> composite: []str # 0
 Vertex: FuncValue
 Vertex: composite: []str
@@ -30,6 +32,7 @@ Vertex: const: str("a")
 Vertex: const: str("bb")
 Vertex: const: str("ccc")
 Vertex: const: str("out1: {{ . }}")
+Vertex: funcSubgraphInput
 Vertex: funcSubgraphOutput
 Vertex: map
 Vertex: template

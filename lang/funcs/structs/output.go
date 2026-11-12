@@ -56,6 +56,12 @@ type OutputFunc struct {
 	EdgeName string
 	Type     *types.Type
 
+	// DummyType is the type of the dummy arg, whose value always gets
+	// ignored. If it's nil, then that's the nil type. Setting it lets this
+	// run after a vertex which outputs a real value, eg: so that one
+	// pass-through vertex can run after another.
+	DummyType *types.Type
+
 	init *interfaces.Init
 	last types.Value // last value received to use for diff
 }
@@ -83,8 +89,11 @@ func (obj *OutputFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *OutputFunc) Info() *interfaces.Info {
-	// contains "dummy" return type
-	s := fmt.Sprintf("func(%s %s, %s nil) %s", obj.EdgeName, obj.Type, OutputFuncDummyArgName, obj.Type)
+	dummy := types.TypeNil
+	if obj.DummyType != nil {
+		dummy = obj.DummyType
+	}
+	s := fmt.Sprintf("func(%s %s, %s %s) %s", obj.EdgeName, obj.Type, OutputFuncDummyArgName, dummy, obj.Type)
 	return &interfaces.Info{
 		Pure: false,
 		Memo: false,

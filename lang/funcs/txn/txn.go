@@ -107,15 +107,19 @@ func revOp(op opfn) opfn {
 	return &opRev{
 		Op: op,
 
+		opSkip: &opSkip{},
 		opFlag: &opFlag{},
 	} // pack it
 }
 
 // opRev switches the Fn and Rev methods by wrapping the contained op in each
-// other.
+// other. It must be skippable, since these are the ops which Reverse runs, and
+// it skips them so that their own reverse (which redoes what we just undid) is
+// not stored, or else the next Reverse would redo it.
 type opRev struct {
 	Op opfn
 
+	*opSkip
 	*opFlag
 }
 

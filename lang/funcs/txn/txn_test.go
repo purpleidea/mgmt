@@ -480,6 +480,92 @@ func TestTxnTable(t *testing.T) {
 			},
 		})
 	}
+	{
+		f1 := &testNullFunc{"f1"}
+		f2 := &testNullFunc{"f2"}
+		f3 := &testNullFunc{"f3"}
+		e1 := testEdge("e1")
+
+		// This is what an if statement with no else branch does when it
+		// flips from true to false and back again. A Reverse which runs
+		// after another Reverse, with only an empty Commit in between,
+		// must not undo the first Reverse and add everything back.
+		testCases = append(testCases, test{
+			name: "reverse, empty commit, reverse",
+			actions: []txnTestOp{
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.AddEdge(f1, f2, e1).Commit()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Reverse()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Commit() // nothing pending
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Reverse()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					if l, i := len(g.Adjacency()), 0; l != i {
+						return fmt.Errorf("got len of: %d, exp len of: %d", l, i)
+					}
+					return nil
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					if l, i := len(g.Edges()), 0; l != i {
+						return fmt.Errorf("got len of: %d, exp len of: %d", l, i)
+					}
+					return nil
+				},
+				// The txn still works normally afterwards.
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.AddVertex(f3).Commit()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					if l, i := len(g.Adjacency()), 1; l != i {
+						return fmt.Errorf("got len of: %d, exp len of: %d", l, i)
+					}
+					return nil
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Reverse()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					if l, i := len(g.Adjacency()), 0; l != i {
+						return fmt.Errorf("got len of: %d, exp len of: %d", l, i)
+					}
+					return nil
+				},
+			},
+		})
+	}
+	{
+		f1 := &testNullFunc{"f1"}
+
+		// This is what Cleanup does when it runs right after a Reverse,
+		// such as when an if statement is removed while its empty else
+		// branch is the active one.
+		testCases = append(testCases, test{
+			name: "reverse twice",
+			actions: []txnTestOp{
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.AddVertex(f1).Commit()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Reverse()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					return txn.Reverse()
+				},
+				func(g *pgraph.Graph, txn interfaces.Txn) error {
+					if l, i := len(g.Adjacency()), 0; l != i {
+						return fmt.Errorf("got len of: %d, exp len of: %d", l, i)
+					}
+					return nil
+				},
+			},
+		})
+	}
 	if testing.Short() {
 		t.Logf("available tests:")
 	}

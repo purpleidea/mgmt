@@ -658,24 +658,29 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	innerCtx, cancel := context.WithCancel(ctx) // store for ServeHTTP
+	ctx, cancel := context.WithCancel(ctx) // store for ServeHTTP
 	defer cancel()
-	obj.ctx = innerCtx
+	obj.ctx = ctx
 
 	for _, r := range obj.GetGroup() { // grouped elements
 		res := r // optional in newer golang
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer close(obj.eventsChanMap[res]) // where Watch sends events
-			if err := res.Watch(ctx); err != nil {
+			err := res.Watch(ctx)
+			// Close this channel *before* we report the error. This
+			// is where this Watch is writing to but it is also used
+			// as a "startup" signal, so make sure we do this first,
+			// and avoid any possible deadlocks later down the line!
+			close(obj.eventsChanMap[res]) // where Watch sends events
+			if err != nil {
 				select {
 				case multiplexedChan <- err:
 				case <-ctx.Done():
 				}
 			}
 		}()
-		// wait for Watch first Event() call or immediate error...
+		// wait for Watch first Event() call or immediate error/exit...
 		select {
 		case <-obj.eventsChanMap[res]: // triggers on start or on err...
 		}

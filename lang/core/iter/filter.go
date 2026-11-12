@@ -240,45 +240,43 @@ func (obj *FilterFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph creates a subgraph which first splits the input list into 'n'
+// nodes. Then it applies 'newFuncValue' to each, and sends that value (a bool)
+// along with that input value to a function which combines the values into a
+// struct. One struct (for each input list index) gets passed to the
+// filterOutputList function which then combines the 'n' outputs which have a
+// corresponding `true` value for the 'b' key, back into a filtered list. That
+// combiner struct also has a 'v' key with the original value so we can put it
+// back into the output list if selected. The subgraphInput passes the input
+// list along after we've run, so that when it shrinks, we get to rebuild before
+// an element func which is now out of range can run.
+//
+// Here is what the subgraph looks like:
+//
+//	digraph {
+//		"subgraphInput" -> "filterInputElem0"
+//		"subgraphInput" -> "filterInputElem1"
+//		"subgraphInput" -> "filterInputElem2"
+//
+//		"filterInputElem0" -> "outputElemFunc0"
+//		"filterInputElem1" -> "outputElemFunc1"
+//		"filterInputElem2" -> "outputElemFunc2"
+//
+//		"filterInputElem0" -> "filterCombineList0"
+//		"filterInputElem1" -> "filterCombineList1"
+//		"filterInputElem2" -> "filterCombineList2"
+//
+//		"outputElemFunc0" -> "filterCombineList0"
+//		"outputElemFunc1" -> "filterCombineList1"
+//		"outputElemFunc2" -> "filterCombineList2"
+//
+//		"filterCombineList0" -> "outputListFunc"
+//		"filterCombineList1" -> "outputListFunc"
+//		"filterCombineList2" -> "outputListFunc"
+//
+//		"outputListFunc" -> "funcSubgraphOutput"
+//	}
 func (obj *FilterFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
-	// replaceSubGraph creates a subgraph which first splits the input list
-	// into 'n' nodes. Then it applies 'newFuncValue' to each, and sends
-	// that value (a bool) along with that input value to a function which
-	// combines the values into a struct. One struct (for each input list
-	// index) gets passed to the filterOutputList function which then
-	// combines the 'n' outputs which have a corresponding `true` value for
-	// the 'b' key, back into a filtered list. That combiner struct also has
-	// a 'v' key with the original value so we can put it back into the
-	// output list if selected. The subgraphInput passes the input list
-	// along after we've run, so that when it shrinks, we get to rebuild
-	// before an element func which is now out of range can run.
-	//
-	// Here is what the subgraph looks like:
-	//
-	// digraph {
-	//	"subgraphInput" -> "filterInputElem0"
-	//	"subgraphInput" -> "filterInputElem1"
-	//	"subgraphInput" -> "filterInputElem2"
-	//
-	//	"filterInputElem0" -> "outputElemFunc0"
-	//	"filterInputElem1" -> "outputElemFunc1"
-	//	"filterInputElem2" -> "outputElemFunc2"
-	//
-	//	"filterInputElem0" -> "filterCombineList0"
-	//	"filterInputElem1" -> "filterCombineList1"
-	//	"filterInputElem2" -> "filterCombineList2"
-	//
-	//	"outputElemFunc0" -> "filterCombineList0"
-	//	"outputElemFunc1" -> "filterCombineList1"
-	//	"outputElemFunc2" -> "filterCombineList2"
-	//
-	//	"filterCombineList0" -> "outputListFunc"
-	//	"filterCombineList1" -> "outputListFunc"
-	//	"filterCombineList2" -> "outputListFunc"
-	//
-	//	"outputListFunc" -> "funcSubgraphOutput"
-	// }
-
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
 		return errwrap.Wrapf(err, "could not Reverse")

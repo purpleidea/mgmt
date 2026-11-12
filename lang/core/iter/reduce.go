@@ -246,41 +246,38 @@ func (obj *ReduceFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph builds a chain of function calls that performs a left fold
+// over the input list. Each per-index node extracts one element from the list,
+// and the function value is invoked once per pair, threading the running
+// accumulator through the chain. This shape lets all the per-index reads happen
+// in parallel, while the actual function calls remain a sequential chain.
+//
+// Without an initial value (2-arg variant), with input list [a, b, c, d]:
+//
+//	digraph {
+//		"subgraphInputs" -> "reduceInputElem0"
+//		"subgraphInputs" -> "reduceInputElem1"
+//		"subgraphInputs" -> "reduceInputElem2"
+//		"subgraphInputs" -> "reduceInputElem3"
+//
+//		"reduceInputElem0" -> "fn0" # x
+//		"reduceInputElem1" -> "fn0" # y
+//		"fn0"              -> "fn1" # x
+//		"reduceInputElem2" -> "fn1" # y
+//		"fn1"              -> "fn2" # x
+//		"reduceInputElem3" -> "fn2" # y
+//		"fn2"              -> "subgraphOutput" # out
+//	}
+//
+// With an initial value (3-arg variant), the chain starts with initval instead
+// of the first list element:
+//
+//	"subgraphInitval"  -> "fn0" # x
+//	"reduceInputElem0" -> "fn0" # y
+//	"fn0"              -> "fn1" # x
+//	"reduceInputElem1" -> "fn1" # y
+//	...
 func (obj *ReduceFunc) replaceSubGraph(subgraphInputs interfaces.Func, subgraphInitval interfaces.Func) error {
-	// Build a chain of function calls that performs a left fold over the
-	// input list. Each per-index node extracts one element from the list,
-	// and the function value is invoked once per pair, threading the
-	// running accumulator through the chain. This shape lets all the
-	// per-index reads happen in parallel, while the actual function calls
-	// remain a sequential chain.
-	//
-	// Without an initial value (2-arg variant), with input list
-	// [a, b, c, d]:
-	//
-	// digraph {
-	//	"subgraphInputs" -> "reduceInputElem0"
-	//	"subgraphInputs" -> "reduceInputElem1"
-	//	"subgraphInputs" -> "reduceInputElem2"
-	//	"subgraphInputs" -> "reduceInputElem3"
-	//
-	//	"reduceInputElem0" -> "fn0" # x
-	//	"reduceInputElem1" -> "fn0" # y
-	//	"fn0"              -> "fn1" # x
-	//	"reduceInputElem2" -> "fn1" # y
-	//	"fn1"              -> "fn2" # x
-	//	"reduceInputElem3" -> "fn2" # y
-	//	"fn2"              -> "subgraphOutput" # out
-	// }
-	//
-	// With an initial value (3-arg variant), the chain starts with initval
-	// instead of the first list element:
-	//
-	//	"subgraphInitval"  -> "fn0" # x
-	//	"reduceInputElem0" -> "fn0" # y
-	//	"fn0"              -> "fn1" # x
-	//	"reduceInputElem1" -> "fn1" # y
-	//	...
-
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
 		return errwrap.Wrapf(err, "could not Reverse")

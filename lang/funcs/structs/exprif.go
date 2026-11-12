@@ -140,6 +140,8 @@ func (obj *ExprIfFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph swaps in the subgraph of the chosen branch, and connects its
+// func to the output vertex.
 func (obj *ExprIfFunc) replaceSubGraph(b bool) error {
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {

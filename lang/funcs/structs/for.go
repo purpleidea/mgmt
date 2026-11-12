@@ -134,6 +134,8 @@ func (obj *ForFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph tears down the old subgraph and builds a loop body for each
+// element of the input list, each fed by its own element extractor func.
 func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {

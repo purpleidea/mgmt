@@ -252,31 +252,30 @@ func (obj *MapFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph creates a subgraph which splits the input list into 'n'
+// nodes, applies 'newFuncValue' to each, then combines the 'n' outputs back
+// into a list. The subgraphInput passes the input list along after we've run,
+// so that when it shrinks, we get to rebuild before an element func which is
+// now out of range can run.
+//
+// Here is what the subgraph looks like:
+//
+//	digraph {
+//		"subgraphInput" -> "inputElemFunc0"
+//		"subgraphInput" -> "inputElemFunc1"
+//		"subgraphInput" -> "inputElemFunc2"
+//
+//		"inputElemFunc0" -> "outputElemFunc0"
+//		"inputElemFunc1" -> "outputElemFunc1"
+//		"inputElemFunc2" -> "outputElemFunc2"
+//
+//		"outputElem0" -> "outputListFunc"
+//		"outputElem1" -> "outputListFunc"
+//		"outputElem2" -> "outputListFunc"
+//
+//		"outputListFunc" -> "funcSubgraphOutput"
+//	}
 func (obj *MapFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
-	// Create a subgraph which splits the input list into 'n' nodes, applies
-	// 'newFuncValue' to each, then combines the 'n' outputs back into a
-	// list. The subgraphInput passes the input list along after we've run,
-	// so that when it shrinks, we get to rebuild before an element func
-	// which is now out of range can run.
-	//
-	// Here is what the subgraph looks like:
-	//
-	// digraph {
-	//	"subgraphInput" -> "inputElemFunc0"
-	//	"subgraphInput" -> "inputElemFunc1"
-	//	"subgraphInput" -> "inputElemFunc2"
-	//
-	//	"inputElemFunc0" -> "outputElemFunc0"
-	//	"inputElemFunc1" -> "outputElemFunc1"
-	//	"inputElemFunc2" -> "outputElemFunc2"
-	//
-	//	"outputElem0" -> "outputListFunc"
-	//	"outputElem1" -> "outputListFunc"
-	//	"outputElem2" -> "outputListFunc"
-	//
-	//	"outputListFunc" -> "funcSubgraphOutput"
-	// }
-
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
 		return errwrap.Wrapf(err, "could not Reverse")

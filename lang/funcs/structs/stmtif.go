@@ -115,6 +115,8 @@ func (obj *StmtIfFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph swaps in the graph of a fresh copy of the chosen branch, and
+// stores its statements as the value for StmtIf.Output to use.
 func (obj *StmtIfFunc) replaceSubGraph(b bool) error {
 	if obj.needsReverse { // not on the first run
 		// delete the old subgraph

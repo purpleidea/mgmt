@@ -127,21 +127,20 @@ func (obj *CallFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph creates a subgraph which looks as follows.
+//
+//	digraph {
+//		ArgVertices[0] -> "fn" # spawned
+//		ArgVertices[1] -> "fn" # spawned
+//		ArgVertices[2] -> "fn" # spawned
+//
+//		"fn" -> "callSubgraphOutput" # spawned
+//
+//		"FuncValue" -> "CallFunc" # fn
+//		"CallFunc" -> "callSubgraphOutput" # dummy
+//		"callSubgraphOutput" -> downstream
+//	}
 func (obj *CallFunc) replaceSubGraph(newFuncValue *full.FuncValue) error {
-	// Create a subgraph which looks as follows.
-	//
-	// digraph {
-	//   ArgVertices[0] -> "fn" # spawned
-	//   ArgVertices[1] -> "fn" # spawned
-	//   ArgVertices[2] -> "fn" # spawned
-	//
-	//   "fn" -> "callSubgraphOutput" # spawned
-	//
-	//   "FuncValue" -> "CallFunc" # fn
-	//   "CallFunc" -> "callSubgraphOutput" # dummy
-	//   "callSubgraphOutput" -> downstream
-	// }
-
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
 		return errwrap.Wrapf(err, "could not Reverse")

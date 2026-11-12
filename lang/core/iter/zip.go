@@ -287,43 +287,41 @@ func (obj *ZipFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph builds a subgraph that splits each of the two input lists
+// into 'n' per-index extractor nodes (where 'n' is the lesser of the two list
+// lengths), pairs them up by index through 'newFuncValue', and then stitches
+// the 'n' results back into one output list.
+//
+// Each per-index extractor reads its list from subgraphInputs1 or from
+// subgraphInputs2, which pass them along after this function has run, so that,
+// on a list shrink this function gets a chance to rebuild the subgraph before
+// any stale extractor reads off the end of the new shorter list.
+//
+// Here is what the subgraph looks like for n == 3:
+//
+//	digraph {
+//		"subgraphInputs1" -> "zipInputElem1[0]"
+//		"subgraphInputs1" -> "zipInputElem1[1]"
+//		"subgraphInputs1" -> "zipInputElem1[2]"
+//
+//		"subgraphInputs2" -> "zipInputElem2[0]"
+//		"subgraphInputs2" -> "zipInputElem2[1]"
+//		"subgraphInputs2" -> "zipInputElem2[2]"
+//
+//		"zipInputElem1[0]" -> "fn0" # x
+//		"zipInputElem2[0]" -> "fn0" # y
+//		"zipInputElem1[1]" -> "fn1" # x
+//		"zipInputElem2[1]" -> "fn1" # y
+//		"zipInputElem1[2]" -> "fn2" # x
+//		"zipInputElem2[2]" -> "fn2" # y
+//
+//		"fn0" -> "outputListFunc" # outputElem0
+//		"fn1" -> "outputListFunc" # outputElem1
+//		"fn2" -> "outputListFunc" # outputElem2
+//
+//		"outputListFunc" -> "subgraphOutput"
+//	}
 func (obj *ZipFunc) replaceSubGraph(subgraphInputs1, subgraphInputs2 interfaces.Func) error {
-	// Build a subgraph that splits each of the two input lists into 'n'
-	// per-index extractor nodes (where 'n' is the lesser of the two list
-	// lengths), pairs them up by index through 'newFuncValue', and then
-	// stitches the 'n' results back into one output list.
-	//
-	// Each per-index extractor reads its list from subgraphInputs1 or from
-	// subgraphInputs2, which pass them along after this function has run,
-	// so that, on a list shrink this function gets a chance to rebuild the
-	// subgraph before any stale extractor reads off the end of the new
-	// shorter list.
-	//
-	// Here is what the subgraph looks like for n == 3:
-	//
-	// digraph {
-	//	"subgraphInputs1" -> "zipInputElem1[0]"
-	//	"subgraphInputs1" -> "zipInputElem1[1]"
-	//	"subgraphInputs1" -> "zipInputElem1[2]"
-	//
-	//	"subgraphInputs2" -> "zipInputElem2[0]"
-	//	"subgraphInputs2" -> "zipInputElem2[1]"
-	//	"subgraphInputs2" -> "zipInputElem2[2]"
-	//
-	//	"zipInputElem1[0]" -> "fn0" # x
-	//	"zipInputElem2[0]" -> "fn0" # y
-	//	"zipInputElem1[1]" -> "fn1" # x
-	//	"zipInputElem2[1]" -> "fn1" # y
-	//	"zipInputElem1[2]" -> "fn2" # x
-	//	"zipInputElem2[2]" -> "fn2" # y
-	//
-	//	"fn0" -> "outputListFunc" # outputElem0
-	//	"fn1" -> "outputListFunc" # outputElem1
-	//	"fn2" -> "outputListFunc" # outputElem2
-	//
-	//	"outputListFunc" -> "subgraphOutput"
-	// }
-
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {
 		return errwrap.Wrapf(err, "could not Reverse")

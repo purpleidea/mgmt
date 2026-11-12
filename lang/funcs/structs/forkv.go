@@ -134,6 +134,8 @@ func (obj *ForKVFunc) Init(init *interfaces.Init) error {
 	return nil
 }
 
+// replaceSubGraph tears down the old subgraph and builds a loop body for each
+// key of the input map, each fed by its own key and value extractor funcs.
 func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 	// delete the old subgraph
 	if err := obj.init.Txn.Reverse(); err != nil {

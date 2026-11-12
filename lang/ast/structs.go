@@ -4109,6 +4109,21 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 	// Add a vertex for the list passing itself.
 	edgeName := structs.ForFuncArgNameList
+
+	// The element funcs read the list from here. It runs after the loop
+	// func since it takes the output of that as a dummy arg. We add it and
+	// its edges here and not in the loop func, since the loop func must not
+	// hold any references on itself. See the ForFunc.InputVertex docs.
+	inputFunc := &structs.OutputFunc{
+		Textarea: obj.Textarea,
+		Name:     "forInputList",
+		EdgeName: edgeName,
+		Type: &types.Type{
+			Kind: types.KindList,
+			Val:  obj.valueParam.typ,
+		},
+	}
+
 	forFunc := &structs.ForFunc{
 		Textarea: obj.Textarea,
 
@@ -4119,13 +4134,19 @@ func (obj *StmtFor) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 		BuildIterBody: buildIterBody,
 
-		ArgVertices: []interfaces.Func{f},
+		InputVertex: inputFunc,
 		//OutputVertex: ???,
 	}
 	graph.AddVertex(forFunc)
 	obj.iterPtr = forFunc
 	graph.AddEdge(f, forFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
+	})
+	graph.AddEdge(f, inputFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+	graph.AddEdge(forFunc, inputFunc, &interfaces.FuncEdge{
+		Args: []string{structs.OutputFuncDummyArgName},
 	})
 
 	return graph, nil
@@ -4594,6 +4615,22 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 	// Add a vertex for the map passing itself.
 	edgeName := structs.ForKVFuncArgNameMap
+
+	// The element funcs read the map from here. It runs after the loop
+	// func since it takes the output of that as a dummy arg. We add it and
+	// its edges here and not in the loop func, since the loop func must not
+	// hold any references on itself. See the ForKVFunc.InputVertex docs.
+	inputFunc := &structs.OutputFunc{
+		Textarea: obj.Textarea,
+		Name:     "forkvInputMap",
+		EdgeName: edgeName,
+		Type: &types.Type{
+			Kind: types.KindMap,
+			Key:  obj.keyParam.typ,
+			Val:  obj.valParam.typ,
+		},
+	}
+
 	forKVFunc := &structs.ForKVFunc{
 		Textarea: obj.Textarea,
 
@@ -4604,13 +4641,19 @@ func (obj *StmtForKV) Graph(env *interfaces.Env) (*pgraph.Graph, error) {
 
 		BuildIterBody: buildIterBody,
 
-		ArgVertices: []interfaces.Func{f},
+		InputVertex: inputFunc,
 		//OutputVertex: ???,
 	}
 	graph.AddVertex(forKVFunc)
 	obj.iterPtr = forKVFunc
 	graph.AddEdge(f, forKVFunc, &interfaces.FuncEdge{
 		Args: []string{edgeName},
+	})
+	graph.AddEdge(f, inputFunc, &interfaces.FuncEdge{
+		Args: []string{edgeName},
+	})
+	graph.AddEdge(forKVFunc, inputFunc, &interfaces.FuncEdge{
+		Args: []string{structs.OutputFuncDummyArgName},
 	})
 
 	return graph, nil

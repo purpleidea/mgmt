@@ -62,7 +62,13 @@ type ForKVFunc struct {
 	// adds its graph to the txn.
 	BuildIterBody func(innerTxn interfaces.Txn, key, val interfaces.Func) (interfaces.Stmt, error)
 
-	ArgVertices []interfaces.Func // only one expected
+	// InputVertex passes the map along to the element funcs. It takes our
+	// output as a dummy arg, so that they always run after us. Whoever adds
+	// us to the graph must add it too, along with its edges, so that we
+	// never add an edge from ourself. Such an edge would hold a reference
+	// on us which only our Cleanup could release, and so we'd never get
+	// removed from the graph.
+	InputVertex interfaces.Func
 
 	init *interfaces.Init
 
@@ -94,7 +100,7 @@ func (obj *ForKVFunc) Validate() error {
 		return fmt.Errorf("must specify an edge name")
 	}
 
-	if len(obj.ArgVertices) != 1 {
+	if obj.InputVertex == nil {
 		return fmt.Errorf("function did not receive shape information")
 	}
 
@@ -108,8 +114,7 @@ func (obj *ForKVFunc) Info() *interfaces.Info {
 	if obj.KeyType != nil && obj.ValType != nil { // don't panic if called speculatively
 		// The output is an opaque value (with the nil type) which
 		// carries the instances of the body along with the table to
-		// StmtForKV.Output. The element funcs take it as an arg so that
-		// they run after us.
+		// StmtForKV.Output. The InputVertex takes it as its dummy arg.
 		typ = types.NewType(fmt.Sprintf("func(%s map{%s: %s}) nil", obj.EdgeName, obj.KeyType, obj.ValType))
 	}
 
@@ -135,12 +140,11 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		return errwrap.Wrapf(err, "could not Reverse")
 	}
 
-	// Each element func also takes our output and ignores it. That edge
-	// makes it run after us so that when the keys change, we can rebuild
-	// before an element func whose key is now missing can run.
+	// Each element func reads the map from the InputVertex, which runs
+	// after us, so that when the keys change, we can rebuild before an
+	// element func whose key is now missing can run.
 	argNameKey := "forkvInputMapKey"
 	argNameVal := "forkvInputMapVal"
-	argNameDummy := OutputFuncDummyArgName
 
 	bodies := []interfaces.Stmt{}
 	forKVMap := obj.lastForKVMap.Map()
@@ -154,8 +158,8 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			fmt.Sprintf("forkvInputElemKey[%v]", ptr),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElemFuncKey: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFuncKey: expected one argument")
 					}
 					//arg := args[0]
 					//m, ok := arg.(*types.MapValue)
@@ -166,7 +170,7 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					//return m.Map().Index(?), nil
 					return k, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameKey, obj.mapType(), argNameDummy, obj.KeyType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameKey, obj.mapType(), obj.KeyType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncKey)
@@ -174,17 +178,14 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFuncKey, &interfaces.FuncEdge{
 			Args: []string{argNameKey},
 		})
-		obj.init.Txn.AddEdge(obj, inputElemFuncKey, &interfaces.FuncEdge{
-			Args: []string{argNameDummy},
-		})
 
 		// the val
 		inputElemFuncVal := SimpleFnToDirectFunc(
 			fmt.Sprintf("forkvInputElemVal[%v]", ptr),
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElemFuncVal: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFuncVal: expected one argument")
 					}
 					//return v, nil // If we always rebuild the map.
 					arg := args[0]
@@ -200,16 +201,13 @@ func (obj *ForKVFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return val, nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argNameVal, obj.mapType(), argNameDummy, obj.ValType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argNameVal, obj.mapType(), obj.ValType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFuncVal)
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFuncVal, &interfaces.FuncEdge{
 			Args: []string{argNameVal},
-		})
-		obj.init.Txn.AddEdge(obj, inputElemFuncVal, &interfaces.FuncEdge{
-			Args: []string{argNameDummy},
 		})
 
 		body, err := obj.BuildIterBody(obj.init.Txn, inputElemFuncKey, inputElemFuncVal)
@@ -266,7 +264,7 @@ func (obj *ForKVFunc) Call(ctx context.Context, args []types.Value) (types.Value
 	// on any change, it's easier to leave it as is and simply push new
 	// values down the already built graph if any value changes.
 	if obj.lastInputMapLength != n || obj.cmpMapKeys(forKVMap) != nil {
-		subgraphInput := obj.ArgVertices[0]
+		subgraphInput := obj.InputVertex
 
 		// TODO: Technically we only need to save keys!
 		obj.lastForKVMap = forKVMap

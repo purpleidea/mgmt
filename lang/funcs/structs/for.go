@@ -63,7 +63,13 @@ type ForFunc struct {
 	// adds its graph to the txn.
 	BuildIterBody func(innerTxn interfaces.Txn, index int, value interfaces.Func) (interfaces.Stmt, error)
 
-	ArgVertices []interfaces.Func // only one expected
+	// InputVertex passes the list along to the element funcs. It takes our
+	// output as a dummy arg, so that they always run after us. Whoever adds
+	// us to the graph must add it too, along with its edges, so that we
+	// never add an edge from ourself. Such an edge would hold a reference
+	// on us which only our Cleanup could release, and so we'd never get
+	// removed from the graph.
+	InputVertex interfaces.Func
 
 	init *interfaces.Init
 
@@ -94,7 +100,7 @@ func (obj *ForFunc) Validate() error {
 		return fmt.Errorf("must specify an edge name")
 	}
 
-	if len(obj.ArgVertices) != 1 {
+	if obj.InputVertex == nil {
 		return fmt.Errorf("function did not receive shape information")
 	}
 
@@ -108,8 +114,7 @@ func (obj *ForFunc) Info() *interfaces.Info {
 	if obj.IndexType != nil && obj.ValueType != nil { // don't panic if called speculatively
 		// The output is an opaque value (with the nil type) which
 		// carries the instances of the body along with the table to
-		// StmtFor.Output. The element funcs take it as an arg so that
-		// they run after us.
+		// StmtFor.Output. The InputVertex takes it as its dummy arg.
 		typ = types.NewType(fmt.Sprintf("func(%s []%s) nil", obj.EdgeName, obj.ValueType))
 	}
 
@@ -135,11 +140,10 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 		return errwrap.Wrapf(err, "could not Reverse")
 	}
 
-	// Each element func also takes our output and ignores it. That edge
-	// makes it run after us so that when the list changes length, we can
-	// rebuild before an element func that is now out of range can run.
+	// Each element func reads the list from the InputVertex, which runs
+	// after us, so that when the list changes length, we can rebuild before
+	// an element func that is now out of range can run.
 	argName := "forInputList"
-	argNameDummy := OutputFuncDummyArgName
 
 	bodies := []interfaces.Stmt{}
 	for i := 0; i < obj.lastInputListLength; i++ {
@@ -147,8 +151,8 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 			"forInputElem["+strconv.Itoa(i)+"]",
 			&types.FuncValue{
 				V: func(_ context.Context, args []types.Value) (types.Value, error) {
-					if len(args) != 2 {
-						return nil, fmt.Errorf("inputElemFunc: expected two arguments")
+					if len(args) != 1 {
+						return nil, fmt.Errorf("inputElemFunc: expected one argument")
 					}
 					arg := args[0]
 
@@ -164,16 +168,13 @@ func (obj *ForFunc) replaceSubGraph(subgraphInput interfaces.Func) error {
 					}
 					return values[i], nil
 				},
-				T: types.NewType(fmt.Sprintf("func(%s %s, %s nil) %s", argName, obj.listType(), argNameDummy, obj.ValueType)),
+				T: types.NewType(fmt.Sprintf("func(%s %s) %s", argName, obj.listType(), obj.ValueType)),
 			},
 		)
 		obj.init.Txn.AddVertex(inputElemFunc)
 
 		obj.init.Txn.AddEdge(subgraphInput, inputElemFunc, &interfaces.FuncEdge{
 			Args: []string{argName},
-		})
-		obj.init.Txn.AddEdge(obj, inputElemFunc, &interfaces.FuncEdge{
-			Args: []string{argNameDummy},
 		})
 
 		body, err := obj.BuildIterBody(obj.init.Txn, i, inputElemFunc)
@@ -208,7 +209,7 @@ func (obj *ForFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	// need to change the graph shape! Changing the graph shape is more
 	// expensive, so we don't do it when not necessary.
 	if n != obj.lastInputListLength {
-		subgraphInput := obj.ArgVertices[0]
+		subgraphInput := obj.InputVertex
 
 		//obj.lastForList = forList
 		obj.lastInputListLength = n

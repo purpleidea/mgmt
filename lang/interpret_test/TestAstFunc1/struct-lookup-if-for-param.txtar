@@ -16,9 +16,12 @@ for $i, $v in [sys.load(), sys.load()] {
 }
 -- OUTPUT --
 Edge: composite: []struct{x1 float; x5 float; x15 float} -> for # list
+Edge: composite: []struct{x1 float; x5 float; x15 float} -> forInputList # list
+Edge: for -> forInputList # dummy
 Edge: load -> composite: []struct{x1 float; x5 float; x15 float} # 0
 Edge: load -> composite: []struct{x1 float; x5 float; x15 float} # 1
 Vertex: composite: []struct{x1 float; x5 float; x15 float}
 Vertex: for
+Vertex: forInputList
 Vertex: load
 Vertex: load

@@ -254,7 +254,7 @@ func (obj *HTTPServerFlagRes) Init(init *engine.Init) error {
 
 			Debug: obj.init.Debug,
 			Logf: func(format string, v ...interface{}) {
-				obj.init.Logf(r.String()+": "+format, v...)
+				obj.init.Logf("%s: %s", r, fmt.Sprintf(format, v...))
 			},
 		}
 

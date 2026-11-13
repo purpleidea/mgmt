@@ -744,3 +744,77 @@ func TestPauseDuringRetryLoop(t *testing.T) {
 		t.Errorf("engine Shutdown: %v", err)
 	}
 }
+
+// logfRes is a noop-like resource which logs a message when it is initialized.
+type logfRes struct {
+	resources.NoopRes
+}
+
+// Init runs some startup code for this resource.
+func (obj *logfRes) Init(init *engine.Init) error {
+	init.Logf("have %d of %d devices", 0, 8)
+	return obj.NoopRes.Init(init)
+}
+
+// TestLogfPercentInName checks that a % in a resource name is printed as-is,
+// and isn't interpreted as a formatting verb in the log message of that res.
+func TestLogfPercentInName(t *testing.T) {
+	mutex := &sync.Mutex{}
+	lines := []string{}
+	logf := func(format string, v ...interface{}) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		lines = append(lines, fmt.Sprintf(format, v...))
+	}
+
+	conv := &converger.Coordinator{Timeout: -1, Logf: logf} // never Run
+	if err := conv.Init(); err != nil {
+		t.Fatalf("converger Init: %v", err)
+	}
+	ge := &Engine{
+		Program:   "mgmt",
+		Version:   "0.0.1",
+		Hostname:  "localhost",
+		Converger: conv,
+		Prefix:    t.TempDir(),
+		Logf:      logf,
+	}
+	if err := ge.Init(); err != nil {
+		t.Fatalf("engine Init: %v", err)
+	}
+
+	res := &logfRes{}
+	res.SetKind("noop")
+	res.SetName("50%s off")
+	g, err := pgraph.NewGraph("test")
+	if err != nil {
+		t.Fatalf("pgraph NewGraph: %v", err)
+	}
+	g.AddVertex(res)
+
+	if err := ge.Load(g); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+	if err := ge.Validate(); err != nil {
+		t.Fatalf("engine Validate: %v", err)
+	}
+	if err := ge.Pause(); err != nil { // see the main loop in lib
+		t.Fatalf("engine Pause: %v", err)
+	}
+	if err := ge.Commit(context.Background()); err != nil {
+		t.Fatalf("engine Commit: %v", err)
+	}
+	if err := ge.Shutdown(); err != nil { // still paused, never resumed
+		t.Fatalf("engine Shutdown: %v", err)
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+	want := "noop[50%s off]: have 0 of 8 devices"
+	for _, line := range lines {
+		if line == want {
+			return
+		}
+	}
+	t.Errorf("missing log line %q, got: %q", want, lines)
+}

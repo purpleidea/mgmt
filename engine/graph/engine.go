@@ -330,7 +330,7 @@ func (obj *Engine) Commit(ctx context.Context) error {
 
 			Debug: obj.Debug,
 			Logf: func(format string, v ...interface{}) {
-				obj.Logf(res.String()+": "+format, v...)
+				obj.Logf("%s: %s", res, fmt.Sprintf(format, v...))
 			},
 
 			//paused: true, // start paused (set in Init)

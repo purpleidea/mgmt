@@ -438,16 +438,25 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 			return nil, errwrap.Wrapf(err, "can't get current user")
 		}
 
+		// The xdg spec says to ignore a relative path, and that the
+		// default is ~/.cache/ when it's not set.
 		xdg := os.Getenv("XDG_CACHE_HOME")
-		// Ensure there is a / at the end of the directory path.
-		if xdg != "" && !strings.HasSuffix(xdg, "/") {
-			xdg = xdg + "/"
+		if !strings.HasPrefix(xdg, "/") {
+			xdg = ""
 		}
 		if xdg == "" && user.HomeDir != "" {
-			xdg = fmt.Sprintf("%s/.cache/%s/", user.HomeDir, obj.init.Data.Program)
+			xdg = user.HomeDir + "/.cache/"
+		}
+		if xdg == "" {
+			return nil, fmt.Errorf("can't pick a default --cache-prefix, so specify one")
+		}
+		// Ensure there is a / at the end of the directory path.
+		if !strings.HasSuffix(xdg, "/") {
+			xdg = xdg + "/"
 		}
 
-		xdg += fmt.Sprintf("%s/", ModuleName) // pick a dir for this tool
+		// Pick a dir for this tool, eg: ~/.cache/mgmt/provisioner/
+		xdg += fmt.Sprintf("%s/%s/", obj.init.Data.Program, ModuleName)
 		obj.localArgs.Prefix = &xdg
 	}
 	// We add our dirs to the end of it, so it must be a dir with a slash.

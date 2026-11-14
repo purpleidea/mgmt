@@ -179,6 +179,12 @@ if [ "${#packages[@]}" -gt 0 ]; then
 	go vet -source "${packages[@]}" || failures=$( [ -n "$failures" ] && echo "$failures\\ngo vet -source (${#packages[@]} packages)" || echo "go vet -source (${#packages[@]} packages)" )
 fi
 
+# The http server ui main package has a js && wasm build tag, so go list leaves
+# it out above, and we vet it here for its own platform instead.
+wasm="./engine/resources/http_server_ui/"
+echo -e "\tgo vet: ${wasm} (js/wasm)"
+GOOS=js GOARCH=wasm go vet -source "${wasm}" || failures=$( [ -n "$failures" ] && echo "$failures\\ngo vet -source ${wasm} (js/wasm)" || echo "go vet -source ${wasm} (js/wasm)" )
+
 # loop through individual *.go files
 for file in `find . -maxdepth 9 \( -type f -o -type l \) -name '*.go' -not -path './old/*' -not -path './tmp/*' -not -path './vendor/*' -not -path './sites/*'`; do
 	#if [[ $file == "./vendor/"* ]]; then # skip files that start with...

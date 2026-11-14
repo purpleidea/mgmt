@@ -256,7 +256,7 @@ func (obj *Main) Run() error {
 
 				var element *common.FormElementGeneric // XXX: switch based on x.Kind
 				if err := json.Unmarshal(s, &element); err != nil {
-					fmt.Println("could not unmarshal id %s: %v", id, err)
+					fmt.Printf("could not unmarshal id %s: %v\n", id, err)
 					time.Sleep(2 * time.Second)
 					continue
 				}
@@ -281,7 +281,7 @@ func (obj *Main) Run() error {
 		select {
 		case resp, ok := <-obj.response:
 			if !ok {
-				break
+				return nil // a break would only leave the select
 			}
 			if err := resp.Err; err != nil {
 				fmt.Printf("Err: %+v\n", err)
@@ -290,8 +290,6 @@ func (obj *Main) Run() error {
 			fmt.Printf("Str: %+v\n", resp.Str)
 		}
 	}
-
-	return nil
 }
 
 // Response is a standard response struct which we pass through.

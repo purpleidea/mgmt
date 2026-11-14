@@ -51,10 +51,17 @@ var (
 		// debian, from: https://www.debian.org/ports/
 		"amd64": "amd64",
 		"arm64": "arm64",
-		"i386":  "386",
-		"i486":  "386",
-		"i586":  "386",
-		"i686":  "386",
+		// NOTE: armel and armhf are both arm, so we can't tell them apart
+		"armel":    "arm",
+		"armhf":    "arm",
+		"mips64el": "mips64le",
+		"ppc64el":  "ppc64le",
+		"riscv64":  "riscv64",
+		"s390x":    "s390x",
+		"i386":     "386",
+		"i486":     "386",
+		"i586":     "386",
+		"i686":     "386",
 	}
 
 	// MapGoArchToVirtBuilderArch is a map of GOARCH to virt-builder format.

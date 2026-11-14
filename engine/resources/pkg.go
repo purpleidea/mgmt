@@ -542,15 +542,17 @@ func (obj *PkgRes) untrustedError(err error) error {
 	switch pkErr.Code {
 	case packagekit.PkErrorEnumGPGFailure:
 		obj.init.Logf("package had a GPG failure while verifying")
-		fallthrough
 	case packagekit.PkErrorEnumBadGPGSignature:
-		obj.init.Logf("package has a bad a GPG signature")
-		fallthrough
+		obj.init.Logf("package has a bad GPG signature")
 	case packagekit.PkErrorEnumMissingGPGSignature:
 		obj.init.Logf("package is missing a GPG signature")
-		return errwrap.Wrapf(err, "package is not trusted, use allowuntrusted to allow installing untrusted packages")
+	case packagekit.PkErrorEnumCannotInstallRepoUnsigned:
+		// the apt backend uses this if it can't authenticate a package
+		obj.init.Logf("package can't be authenticated")
+	default:
+		return nil
 	}
-	return nil
+	return errwrap.Wrapf(err, "package is not trusted, use allowuntrusted to allow installing untrusted packages")
 }
 
 // packageAlreadyInstalledError is a helper to provide a better error message.

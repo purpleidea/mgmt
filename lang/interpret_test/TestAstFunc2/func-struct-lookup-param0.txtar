@@ -1,0 +1,18 @@
+-- main.mcl --
+import "golang"
+
+# A struct lookup on a lambda param must see the struct type of the arg that the
+# lambda was called with, so that its result type isn't left ambiguous.
+func foo($name, $st) {
+	golang.template("Hello, {{ .Name }}. {{ .Item }} {{ .Color }}", struct{
+		name => $name,
+		item => $st->item,
+		color => $st->color <|> "purple",
+	})
+}
+
+$out = foo("whack", struct{item => "computers"})
+
+test "${out}" {}
+-- OUTPUT --
+Vertex: test[Hello, whack. computers purple]

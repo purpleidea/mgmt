@@ -455,6 +455,11 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		return nil, fmt.Errorf("--cache-prefix must be a dir with a trailing slash")
 	}
 	obj.init.Logf("cache prefix: %+v", *obj.localArgs.Prefix)
+	// The base class only makes the prefix itself, and not its parents, but
+	// on a new machine even ~/.cache/ might not exist yet, so we make them.
+	if err := os.MkdirAll(*obj.localArgs.Prefix, 0700); err != nil {
+		return nil, errwrap.Wrapf(err, "can't make the --cache-prefix dir")
+	}
 
 	if obj.localArgs.Mac == nil {
 		mac := net.HardwareAddr([]byte{}) // will print empty string

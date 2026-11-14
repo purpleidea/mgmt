@@ -37,12 +37,15 @@ import "fmt"
 import "golang"
 import "golang/path/filepath" as golang_path_filepath
 import "golang/strings" as golang_strings
+import "iter"
 import "list"
 import "local"
+import "map"
 import "net"
 import "os"
+import "regexp"
+import "res/remote"
 import "sys"
-import "value"
 import "world"
 
 $http_suffix = "http/"
@@ -60,6 +63,13 @@ $ipxe_autoexec_filename = "autoexec.ipxe"
 # for an architecture. The .efi must be last for it to work!
 func ipxe_efi_filename($arch) {
 	"ipxe.${arch}.efi" # eg: ipxe.x86_64.efi
+}
+
+# source_host_name returns the name of a host which was installed from a shared
+# config, such as a range, since it has no name of its own. The source is the
+# name of that config, and this is unique, since it comes from its mac address.
+func source_host_name($source, $mac) {
+	"${source}-" + golang_strings.replace_all($mac, ":", "") # eg: mgmt-001122334455
 }
 
 # Debian uses codenames in its mirror paths, and has its own names for each of
@@ -306,6 +316,36 @@ class base($config) {
 		#address => ":${http_port_str}", # you can override the name like this
 		#timeout => 60, # add a timeout (seconds)
 	}
+
+	# Each host tells us that it's installed with one request, which we
+	# store as a record in this etcd key, under its mac address. It has what
+	# the host sent us: its ip, the public key of its root user, its ssh
+	# host key, and its source. That's the name of the shared config, such
+	# as a range, which installed it, or empty if it had a config of its own
+	# from its mac. The classes which need to know about the hosts such as
+	# the remote handoff, read the records from here, so they're kept if
+	# this provisioner goes away. The runner class can add a name and a
+	# handoff to a record, which a host can't send us. The key must not be
+	# in the provisioner/ namespace, since that's where the runner finds the
+	# hosts that it's been asked to install.
+	$store_key = $config->store_key <|> "provisioner_hosts"
+	panic($store_key == "", "provisioner:base $store_key is empty")
+	panic(golang_strings.has_prefix($store_key, "provisioner/"), "provisioner:base $store_key can't be in the provisioner/ namespace")
+
+	http:server:record "/action/done" {
+		store => "etcd:///${store_key}",
+		state => "exists",
+		key => "mac",
+		fields => ["ip", "sshkey", "hostkey", "source"],
+	}
+
+	$hosts_st = world.getval($store_key)
+	$hosts_json = if $hosts_st->exists {
+		$hosts_st->value
+	} else {
+		"{}"
+	}
+	$hosts = encoding.decode_json_flexible($hosts_json, "map{str: struct{ip str; sshkey str; hostkey str; source str; name str; handoff str}}") # export this value to parent scope
 
 	if $ipxe_iso_source != "" { # download it once so we have a copy
 		exec "provisioner-ipxe-iso" {
@@ -949,6 +989,12 @@ class base:host($name, $config) {
 	panic($handoff_code != "" and not golang_strings.has_prefix($handoff_code, "/"), "provisioner:host $handoff_code is not absolute")
 	$handoff_hostname = $config->handoff_hostname <|> ""
 
+	# With the remote handoff, we don't install mgmt on the host. Once it
+	# has told us that it's installed, the handoff class connects to it as
+	# root over ssh with the private key for $sshkey, and runs mgmt there.
+	$handoff_remote = $handoff_type == "remote"
+	panic($handoff_remote and $sshkey == "", "provisioner:host $handoff remote needs an $sshkey")
+
 	# This is a giant driver://user:password@host:port/whatever URL...
 	$bmc_uri = $config->bmc_uri <|> ""
 
@@ -959,8 +1005,6 @@ class base:host($name, $config) {
 		$mac
 	}
 	$provision_key = $hkey # XXX: what unique id should we use for the host? mac? name? hkey?
-	$provision_key_done = "${provision_key}-done"
-	$provision_key_sshkey = "${provision_key}-sshkey"
 
 	#$ret = world.getval($provision_key_done) # has it previously been provisioned?
 	#$val = if $ret->value == "" { # avoid an invalid string killing the parse_bool function
@@ -1170,14 +1214,24 @@ class base:host($name, $config) {
 	panic($handoff_type != "" and len($handoff_packages) == 0, "provisioner:host $handoff_packages list is empty")
 	#$handoff_packages_string = golang_strings.join($handoff_packages, " ")
 
-	$sshkey_flag = "sshkey"
 	$sshkey_type = "ed25519" # TODO: support other options
 	$sshkey_path = "/root/.ssh/id_${sshkey_type}"
 	$setup_sshkey = "mkdir -p '/root/.ssh/' -m 700 && ssh-keygen -N '' -t '${sshkey_type}' -f '${sshkey_path}'" # non-interactive
 	# Setting up the known_hosts file isn't needed since that can be done on
 	# the first run of mgmt, and the initial key can come in from --ssh-url.
 
-	$handoff_binary = if $handoff_type == "" {
+	# Fedora only makes its ssh host keys when sshd first starts, and it
+	# skips any that already exist, so we make them now so that the host can
+	# send us its public key in the same request which tells us that it's
+	# done. That's how remote handoff knows which host key to expect. Debian
+	# already made them when it installed openssh-server, so this is a no-op
+	# there. Like the fedora sshd-keygen script, we fix the selinux labels.
+	$hostkey_path = "/etc/ssh/ssh_host_${sshkey_type}_key.pub"
+	$setup_hostkey = "ssh-keygen -A && { ! command -v restorecon > /dev/null || restorecon -R /etc/ssh/; }"
+
+	# The remote handoff pushes its own binary when it connects, so it never
+	# needs one on the host, nor any firstboot service to start one.
+	$handoff_binary = if $handoff_type == "" or $handoff_remote {
 		""
 	} else {
 		# Copy over the actual mgmt binary. This enables a lot below...
@@ -1207,7 +1261,7 @@ class base:host($name, $config) {
 			""
 		}
 	}
-	$handoff_firstboot = if $handoff_type == "" {
+	$handoff_firstboot = if $handoff_type == "" or $handoff_remote {
 		""
 	} else {
 		# Setup the firstboot service itself.
@@ -1233,8 +1287,27 @@ class base:host($name, $config) {
 		""
 	}
 
-	# TODO: Do we want to signal an http:server:flag if we're a "default" host?
-	$provisioning_done = "/usr/bin/curl --data-urlencode 'done=true' --data-urlencode 'password=sha1TODO' --data-urlencode 'sshtype=ssh-${sshkey_type}' --data-urlencode \"${sshkey_flag}=\$(cut -d ' ' -f 2 '${sshkey_path}.pub')\" --data-urlencode 'sshcomment=root@${handoff_hostname}' -o - 'http://${router_ip}:${http_port_str}/action/done/mac=${provision_key}'"
+	# At the end of its install, the host tells the base class that it's
+	# done, and the base class stores what the host sent as its record.
+	# Without a mac address, we're the host class inside of a range, which
+	# installs many hosts from this one config. So the host looks up its own
+	# mac address to send, and it sends our $name as its source, which is
+	# how the range finds the records of the hosts that it installed. eg: a
+	# host from the range named mgmt sends mac=00:11:22:33:44:55 along with
+	# source=mgmt, but a host with a mac in its config sends no source.
+	$report_source = if $mac == "" {
+		$name
+	} else {
+		""
+	}
+	$provisioning_done = golang.template(deploy.readfile("/files/done.sh.tmpl"), struct{
+		url => "${server_base}action/done",
+		router_ip => $router_ip,
+		mac => $mac,
+		source => $report_source,
+		sshkey_path => "${sshkey_path}.pub",
+		hostkey_path => $hostkey_path,
+	})
 
 	# These install settings can be shared by the installers of each distro.
 	$install_comment = "hello!"
@@ -1253,6 +1326,7 @@ class base:host($name, $config) {
 	}
 	$install_post = [
 		$setup_sshkey, # setup the ssh key
+		$setup_hostkey, # setup the ssh host keys
 		$handoff_binary, # copy over the binary
 		$handoff_cpcode, # copy over a bundle of code
 		$handoff_service, # install a service for mgmt
@@ -1374,42 +1448,22 @@ class base:host($name, $config) {
 		}
 	}
 
-	##$str_true = convert.format_bool(true)
-	##$str_false = convert.format_bool(false)
-	http:server:flag "${name}-done" {
-		key => "done",
-		path => "/action/done/mac=${provision_key}",
-		#mapped => {$str_true => $str_true, $str_false => $str_false},
+	# This is what the host sent us once it was installed, which the base
+	# class stored. Without a mac address, we're a range, which has many
+	# hosts, and so the range class looks at those records instead.
+	$empty_record = struct{
+		ip => "",
+		sshkey => "",
+		hostkey => "",
+		source => "",
+		name => "",
+		handoff => "",
 	}
-	http:server:flag "${name}-sshkey" {
-		key => "${sshkey_flag}",
-		path => "/action/done/mac=${provision_key}",
-	}
-
-	# Persist each callback field separately for this provisioning identity.
-	kv "${name}-done" {
-		key => $provision_key_done,
-	}
-	value "${name}-done" {
-		#any => true, # bool
-	}
-	kv "${name}-sshkey" {
-		key => $provision_key_sshkey,
-	}
-	value "${name}-sshkey" {
-		#any => "",
-	}
-
-	Http:Server:Flag["${name}-done"].value -> Kv["${name}-done"].value
-	Http:Server:Flag["${name}-done"].value -> Value["${name}-done"].any
-	Http:Server:Flag["${name}-sshkey"].value -> Kv["${name}-sshkey"].value
-	Http:Server:Flag["${name}-sshkey"].value -> Value["${name}-sshkey"].any
-
-	$st_done = value.get_str("${name}-done")
-	$provisioned = $st_done->ready and $st_done->value == "true" # export this value to parent scope
-
-	$st_sshkey = value.get_str("${name}-sshkey")
-	$host_sshkey = $st_sshkey->value # export this value to parent scope
+	$record = $hosts[$mac] <|> $empty_record # export this value to parent scope
+	$provisioned = $mac != "" and $mac in map.keys($hosts) # export this value to parent scope
+	$host_ip = $record->ip # export this value to parent scope
+	$host_sshkey = $record->sshkey # export this value to parent scope
+	$host_hostkey = $record->hostkey # export this value to parent scope
 
 	if $provisioned {
 		ssh:authorized_key "provisioner:${name}" { # magic name for collect
@@ -1483,59 +1537,285 @@ class base:range($name, $config) {
 		}
 	}
 
-	$provisioned = $host0.provisioned # export this value to parent scope
-	$host_sshkey = $host0.host_sshkey # export this value to parent scope
+	# Each host that we installed has our name as the source in its record,
+	# so this is true once any of them has been installed. Since we can have
+	# many hosts, their records are in $hosts, and the handoff class can use
+	# them with $any.
+	$source_records = iter.filter(map.values($hosts), func($record) {
+		$record->source == $name
+	})
+	$provisioned = len($source_records) > 0 # export this value to parent scope
 }
 
+# The handoff class is the second half of the remote handoff for the hosts that
+# were installed with that handoff. Once one of them is installed, it connects
+# to it as root over ssh, with the private key for the $sshkey of that host,
+# which it finds in our ~/.ssh/ dir unless you specify $sshid. It pushes our own
+# binary and runs it there as a transient child, which gets this same deploy. So
+# your code must check remote.is_child to know where it's running, and
+# remote.name is the name of that host. What the child does from then on,
+# including if it leaves anything else running, is entirely up to it. When it's
+# finished, it uses a remote:done resource with that same name, and then
+# remote.is_done with that name is true. Then we remove the record of that host
+# from our store, since it no longer needs us, so the $provisioned of its host
+# class is false again. It won't run there again until that's cleared, even if
+# it gets installed again.
+#
+# The $hosts that it hands off to are a map from the mac address of each host to
+# its name. It also hands off to each host which the runner class installed for
+# the remote handoff, with the name that it gave it. With $any, it also hands
+# off to every host with a source, which is every host that a range installed,
+# no matter which one it is. Those are named by the source_host_name function.
+# Nothing else in our store is ever used, since any host on our network can add
+# to it, and even with $any, we never take a host without a source, since that
+# was installed with a config of its own.
+class base:handoff($config) {
+	$empty_hosts map{str: str} = {}
+	$handoff_hosts = $config->hosts <|> $empty_hosts
+	$handoff_any = $config->any <|> false
+	$sshid = $config->sshid <|> "" # empty scans ~/.ssh/ for keys
+
+	forkv $mac, $record in $hosts {
+		# Only the runner class can name a record, since a host can't.
+		$runner_name = if $record->handoff == "remote" {
+			$record->name
+		} else {
+			""
+		}
+		$source_name = if $handoff_any and $record->source != "" and net.is_mac($mac) {
+			source_host_name($record->source, $mac)
+		} else {
+			""
+		}
+		$auto_name = if $runner_name != "" {
+			$runner_name
+		} else {
+			$source_name
+		}
+		$host_name = $handoff_hosts[$mac] <|> $auto_name
+		$ip = $record->ip
+
+		# The host tells us that it's done at the end of its install, so
+		# it must still reboot before sshd answers, and we keep trying
+		# until then. It can take a while for the child to finish, so
+		# this runs async, which lets us keep on swapping in new graphs,
+		# (eg: as other hosts report in) without waiting for it. We
+		# expect the host key which the host sent us, which is the same
+		# trust that we already give to the rest of what it sent. A host
+		# that sent an ip which we can't use is skipped, so that it
+		# can't change our ssh url.
+		if $host_name != "" and regexp.match("^[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+$", $ip) and $record->hostkey != "" {
+			remote "${host_name}" { # the child uses this name with remote:done
+				remote => "ssh://root@${ip}:22",
+				hostname => $host_name, # it must be unique in our cluster
+				ssh_id => $sshid != "" ?: $sshid,
+				hostkey => $record->hostkey,
+
+				caching => true, # cache the remote binary
+				transient => true, # remote:done needs a transient parent
+				tunnelled => true, # the child reaches our etcd through ssh
+
+				Meta:async => true,
+				Meta:retry => -1, # until the host has rebooted and sshd is up
+				Meta:delay => 10000, # ms between each try
+			}
+
+			# This is true once the child has used remote:done, even
+			# if it had an error. Then the host is on its own, so we
+			# remove its record, which also removes the remote
+			# resource above. Its done latch stays, so that it never
+			# runs twice, even if we stop before the record is gone.
+			# But if the host is then installed again, it won't run
+			# there again until that latch is cleared. If it's
+			# installed again and it sends us a new record before
+			# this removes the old one, then we'd remove the new one
+			# too. That's unlikely, but a timestamp in the record
+			# would let us only remove the one that we used. We'll
+			# skip implementing that complexity extension for now.
+			if remote.is_done($host_name) {
+				print "handoff-${host_name}" {
+					msg => "${host_name} has finished its remote handoff",
+
+					Meta:autogroup => false,
+				}
+
+				json:edit "provisioner-handoff-${host_name}" {
+					store => "etcd:///${store_key}",
+					edits => [
+						"del(.[\"${mac}\"])", # a valid mac, or one from $hosts
+					],
+				}
+			}
+		}
+	}
+}
+
+# The runner class installs each host that it's asked for while it's running, so
+# that we can be a long running provisioner service. To ask for a host, add an
+# entry with its name to our provisioner namespace in etcd, with its config as
+# json. Its mac address and its repo uid are required, for example:
+#
+#	etcdctl put /_mgmt/strings/provisioner/web1 '{"mac": "00:11:22:33:44:55", "uid": "fedora44-x86_64", "flavour": "Server", "luks": true}'
+#
+# We install that host with the host class, under that name. On our own network,
+# it needs an "ip" too. Once it's installed, and it has reported to us, we put
+# its name into its record, and then we remove its entry, since we've done what
+# it asked. That also stops us from installing it again if it boots from the
+# network again. An entry that we can't use is skipped, and we print why.
+#
+# By default, each host gets the remote handoff, so the handoff class then runs
+# mgmt on it with that name, and it removes its record once that's done. That
+# needs the handoff class, and an $sshkey for it to log in with. If you ask for
+# the same name again later, then we clear its done latch so that it's handed
+# off again. With "handoff": "svc" in its entry, the host instead runs mgmt as a
+# service on its own, which joins our cluster over ssh, and that needs the etcd
+# server to be in the provisioner_etcd_server key. Since we export the ssh key
+# that the host uses for that from its record, we keep that record.
+#
+# If you ask for a host while it still has a record from the last time that it
+# was asked for, such as with svc, or while its handoff is still running, then
+# we use that record, instead of installing it again. A timestamp in the entry
+# and in the record would let us tell those apart.
 class base:runner($config) {
 	$sshkey = $config->sshkey <|> "" # pub key installed on new host
-	$sshid = $config->sshid <|> "" # custom private key on new host used for client auth | empty: pass all available as possible signer
+	$sshid = $config->sshid <|> "" # for svc: custom private key on new host used for client auth | empty: pass all available as possible signer
 
+	# This is the etcd server that the svc hosts join. It's all one json str
+	# so that it all changes at the same instant. Only svc hosts need it.
 	$etcd_server = world.getval("provisioner_etcd_server")->value # struct{value str; exists bool}
-	if $etcd_server != "" {
-		# all one json str so they all change at the same instant
-		$etcd_server_st = encoding.decode_json_flexible($etcd_server, "struct{host str; port int; hostkey str}")
-		$etcd_server_host = $etcd_server_st->host
-		$etcd_server_port = convert.int_to_str($etcd_server_st->port)
-		$etcd_server_hostkey = golang_strings.trim_space($etcd_server_st->hostkey) # AAAA...
-		$etcd_server_sshurl = "ssh://etcd@${etcd_server_host}:${etcd_server_port}" # eg: ssh://etcd@example.com:22
+	$etcd_server_json = if $etcd_server == "" {
+		"{}"
+	} else {
+		$etcd_server
+	}
+	$etcd_server_st = encoding.decode_json_flexible($etcd_server_json, "struct{host str; port int; hostkey str}")
+	$etcd_server_host = $etcd_server_st->host
+	$etcd_server_port = convert.int_to_str($etcd_server_st->port)
+	$etcd_server_hostkey = golang_strings.trim_space($etcd_server_st->hostkey) # AAAA...
+	$etcd_server_sshurl = "ssh://etcd@${etcd_server_host}:${etcd_server_port}" # eg: ssh://etcd@example.com:22
 
-		# use "StrMapSet" with the hostname we provision so it can change itself!
-		# etcdctl put /_mgmt/strings/provisioner/hostname1 '{"uid": "fedora43-x86_64", "flavour": "Workstation", "mac": "00:11:22:33:44:55", "luks": true}'
-		# etcdctl put /_mgmt/strings/provisioner/hostname2 '{"uid": "fedora43-x86_64", "flavour": "Server", "mac": "aa:bb:cc:dd:ee:ff", "luks": false}'
-		$available = world.kvlookup("provisioner") # map{str: str} (val is json)
-		# looks like:
-		#$available = {
-		#	"hostname1" => struct{
-		#		mac => "00:11:22:33:44:55",
-		#		luks => true,
-		#	},
-		#	"hostname2" => struct{
-		#		mac => "aa:bb:cc:dd:ee:ff",
-		#		flavour => "Server",
-		#	},
-		#}
+	$available = world.kvlookup("provisioner") # map{str: str} (val is json)
+	forkv $k, $json_str in $available {
+		# The "flexible" version here lets us add new struct fields over
+		# time, even if they aren't initially present in the data yet...
+		$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; ip str; luks bool; handoff str}")
 
-		forkv $k, $json_str in $available {
-			# The "flexible" version here lets us add new struct fields over
-			# time, even if they aren't initially present in the data yet...
-			$st = encoding.decode_json_flexible($json_str, "struct{uid str; flavour str; mac str; luks bool}")
+		$uid str = $st->uid
+		$flavour str = $st->flavour
+		$mac str = golang_strings.to_lower($st->mac)
+		$ip str = $st->ip
+		$luks bool = $st->luks
+		$handoff = if $st->handoff == "" {
+			"remote" # the default
+		} else {
+			$st->handoff
+		}
+		$svc = $handoff == "svc"
+		$svc_sshurl = if $svc {
+			$etcd_server_sshurl
+		} else {
+			""
+		}
+		$svc_hostkey = if $svc {
+			$etcd_server_hostkey
+		} else {
+			""
+		}
+		$svc_sshid = if $svc {
+			$sshid
+		} else {
+			""
+		}
 
-			$uid str = $st->uid
-			$flavour str = $st->flavour
-			$mac str = $st->mac
-			$luks bool = $st->luks
+		# A name must only be used by one host, so if a record from
+		# another host has this name, such as an svc host, then we wait
+		# until it's gone, since two of them would conflict. This host
+		# can have one.
+		$no_record = struct{
+			ip => "",
+			sshkey => "",
+			hostkey => "",
+			source => "",
+			name => "",
+			handoff => "",
+		}
+		$own_record = $hosts[$mac] <|> $no_record
+		$own_count = if $own_record->name == $k {
+			1
+		} else {
+			0
+		}
+		$named = iter.filter(map.values($hosts), func($record) {
+			$record->name == $k
+		})
 
-			print "host: ${mac}" {
-				msg => "uid: ${uid}, flavour: ${flavour}",
+		# Anyone with access to our etcd can add an entry, so we check
+		# it, so that a bad one doesn't stop us from installing all of
+		# the others. The future security changes will make this harder.
+		$problems = iter.filter([
+			if len($named) > $own_count {
+				"another host's record has its name"
+			} else {
+				""
+			},
+			if regexp.match("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", $k) {
+				""
+			} else {
+				"its name must be a valid hostname"
+			},
+			if net.is_mac($mac) {
+				""
+			} else {
+				"its mac is invalid"
+			},
+			if regexp.match("^[a-z]+[0-9]+-[a-z0-9_]+$", $uid) {
+				""
+			} else {
+				"its uid is invalid"
+			},
+			if $network != "" and $ip == "" {
+				"it needs an ip on our own network"
+			} else {
+				""
+			},
+			if $handoff == "remote" or $svc {
+				""
+			} else {
+				"its handoff must be remote or svc"
+			},
+			if $handoff == "remote" and $sshkey == "" {
+				"the remote handoff needs an $sshkey"
+			} else {
+				""
+			},
+			if $svc and $etcd_server_hostkey == "" {
+				"svc needs the provisioner_etcd_server key, with a hostkey"
+			} else {
+				""
+			},
+		], func($problem) {
+			$problem != ""
+		})
+
+		if len($problems) > 0 {
+			print "provisioner-runner-${k}" {
+				msg => fmt.printf("skipping %s, since %s", $k, golang_strings.join($problems, ", and ")),
 
 				Meta:autogroup => false,
 			}
-			include host("${k}", struct{ # TODO: do we need a usable name anywhere?
+		} else {
+			print "provisioner-runner-${k}" {
+				msg => fmt.printf("installing %s at %s with %s, for the %s handoff", $k, $mac, $uid, $handoff),
+
+				Meta:autogroup => false,
+			}
+
+			include host($k, struct{
 				repo => $uid,
 				flavour => $flavour,
 				mac => $mac,
-				#ip => "",
+				ip => $ip, # only needed on our own network
+				proxy => $proxy, # it must match the base
 				#bios => false, # false or absent means use uefi
 				#password => "", # openssl passwd -6
 				sshkey => "${sshkey}", # root ssh pub key to add
@@ -1543,10 +1823,10 @@ class base:runner($config) {
 				luks => $luks,
 				#packages => $st->packages,
 				#provision => true, # default if unspecified
-				handoff => "svc", # sets up mgmt with handoff_svc
-				handoff_svc_sshurl => $etcd_server_sshurl,
-				handoff_svc_hostkey => $etcd_server_hostkey,
-				handoff_svc_sshid => $sshid,
+				handoff => $handoff,
+				handoff_svc_sshurl => $svc_sshurl,
+				handoff_svc_hostkey => $svc_hostkey,
+				handoff_svc_sshid => $svc_sshid,
 				#handoff => "exec", # sets up mgmt with handoff_exec
 				#handoff_exec => "mgmt run --ssh-url='${etcd_server_sshurl}' --ssh-hostkey='${etcd_server_hostkey}' --ssh-id='${sshid}' --seeds=http://127.0.0.1:2379 --no-autoedges --no-autogroup --no-pgp empty",
 				#handoff_code => "/etc/mgmt/", # one way to do it
@@ -1555,13 +1835,55 @@ class base:runner($config) {
 				#bmc_uri => $st->bmc_uri,
 			}) as host0
 
-			if $host0.provisioned {
-				# remove the entry once provisioned
-				kv "provisioner" {
-					mapped => true,
-					#state => "absent",
-					#value => # absent to delete key
+			# Once it's installed, it has a record, which is either
+			# new or it already has our name, since we were doing
+			# this before. We put our name and our handoff into it
+			# so that it still has them once this entry is gone, and
+			# then we remove this entry, which is ours to remove,
+			# since it's in our namespace.
+			$record = $host0.record
+			if $host0.provisioned and ($record->name == "" or $record->name == $k) {
+				json:edit "provisioner-runner-${k}" {
+					store => "etcd:///${store_key}",
+					edits => [
+						".[\"${mac}\"].name = \"${k}\"",
+						".[\"${mac}\"].handoff = \"${handoff}\"",
+					],
 				}
+				kv "provisioner/${k}" {} # without a value, this removes the entry
+
+				Json:Edit["provisioner-runner-${k}"] -> Kv["provisioner/${k}"]
+			}
+
+			# If a host with this name had the handoff before, then
+			# its done latch is still there, so we clear it, so that
+			# this one has the handoff too. We only do that before
+			# it has a record, since the handoff needs one, so this
+			# can't make the handoff run twice.
+			if $handoff == "remote" and not $host0.provisioned and remote.is_done($k) {
+				remote "${k}" {
+					remote => "ssh://root@${k}:22", # this must be valid, but it's unused
+					clear => true,
+				}
+			}
+		}
+	}
+
+	# An svc host logs in to our etcd server with the root ssh key from its
+	# record, so we export it, which lets that server collect it. The host
+	# class does that until the entry for that host is gone, and then we do
+	# it, from its record, which we keep for that reason.
+	forkv $mac, $record in $hosts {
+		$name = $record->name
+		if $record->handoff == "svc" and $name != "" and not ($name in map.keys($available)) and $record->sshkey != "" {
+			ssh:authorized_key "provisioner:${name}" { # magic name for collect
+				type => "ssh-ed25519", # the host class makes this type of key
+				key => $record->sshkey,
+				comment => "root@${name}",
+				state => "exists",
+
+				Meta:hidden => true,
+				Meta:export => ["*"], # TODO: get the etcd hostname?
 			}
 		}
 	}

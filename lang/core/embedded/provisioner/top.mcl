@@ -32,75 +32,106 @@
 
 import "fmt"
 import "os"
+import "res/remote"
 import "embedded/provisioner" # embedded import
+import "handoff/" # the --handoff-remote module, which the cli puts beside us
 
-# TODO: get all of the values first from the cli config file, and then a webui
-include provisioner.base(struct{
-	interface => provisioner.cli_interface(),
-	network => provisioner.cli_network(),
-	router => provisioner.cli_router(),
-	dns => provisioner.cli_dns(),
-	proxy => provisioner.cli_proxy(), # the master switch
-
-	prefix => provisioner.cli_prefix(),
-	firewalld => provisioner.cli_firewalld(),
-}) as base
-
-include base.repo(struct{
-	distro => provisioner.cli_distro(),
-	version => provisioner.cli_version(), # not an int!
-	arch => provisioner.cli_arch(),
-	flavour => provisioner.cli_flavour(),
-
-	# pick one from: https://admin.fedoraproject.org/mirrormanager/
-	mirror => provisioner.cli_mirror(), # eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/
-	rsync => provisioner.cli_rsync(), # eg: rsync://mirror.csclub.uwaterloo.ca/fedora-enchilada/linux/
-}) #as repo
-$distro = provisioner.cli_distro()
-$version = provisioner.cli_version()
-$arch = provisioner.cli_arch()
-$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
-$handoff = if provisioner.cli_handoff_code() != "" { # TODO: check other types
-	"code"
+# With --handoff-remote, once a host is installed, we run mgmt on it over ssh,
+# and it gets this same deploy, so this is the part of it which runs there. Its
+# name is mgmt0, or without a mac address, it's mgmt with its own one added, eg:
+# mgmt-001122334455, since then we can install any number of hosts.
+if remote.is_child() {
+	include handoff.host(remote.name())
 } else {
-	if provisioner.cli_handoff_exec() != "" { # TODO: check other types
-		"exec"
+	# TODO: get all of the values first from the cli config file, and then a webui
+	include provisioner.base(struct{
+		interface => provisioner.cli_interface(),
+		network => provisioner.cli_network(),
+		router => provisioner.cli_router(),
+		dns => provisioner.cli_dns(),
+		proxy => provisioner.cli_proxy(), # the master switch
+
+		prefix => provisioner.cli_prefix(),
+		firewalld => provisioner.cli_firewalld(),
+	}) as base
+
+	include base.repo(struct{
+		distro => provisioner.cli_distro(),
+		version => provisioner.cli_version(), # not an int!
+		arch => provisioner.cli_arch(),
+		flavour => provisioner.cli_flavour(),
+
+		# pick one from: https://admin.fedoraproject.org/mirrormanager/
+		mirror => provisioner.cli_mirror(), # eg: https://mirror.csclub.uwaterloo.ca/fedora/linux/
+		rsync => provisioner.cli_rsync(), # eg: rsync://mirror.csclub.uwaterloo.ca/fedora-enchilada/linux/
+	}) #as repo
+	$distro = provisioner.cli_distro()
+	$version = provisioner.cli_version()
+	$arch = provisioner.cli_arch()
+	$uid = "${distro}${version}-${arch}" # eg: fedora39-x86_64
+	$handoff = if provisioner.cli_handoff_code() != "" { # TODO: check other types
+		"code"
 	} else {
-		""
+		if provisioner.cli_handoff_exec() != "" { # TODO: check other types
+			"exec"
+		} else {
+			if provisioner.cli_handoff_remote() != "" {
+				"remote"
+			} else {
+				""
+			}
+		}
 	}
-}
-$host_config = struct{
-	#repo => $repo.uid, # type unification performance is very slow here
-	repo => $uid,
-	flavour => provisioner.cli_flavour(),
-	mac => provisioner.cli_mac(),
-	ip => provisioner.cli_ip(),
-	bios => provisioner.cli_bios(), # false or absent means use uefi
-	proxy => provisioner.cli_proxy(),
-	network => provisioner.cli_proxy_range(), # only used by a proxy range
-	ipxe => provisioner.cli_ipxe(),
-	password => provisioner.cli_password(), # openssl passwd -6
-	part => provisioner.cli_part(),
-	luks => provisioner.cli_luks(),
-	packages => provisioner.cli_packages(),
-	#provision => true,	# default if unspecified
-	handoff => $handoff, # alternatively some code word or querystring
-	handoff_exec => provisioner.cli_handoff_exec(),
-	#handoff_code => "/etc/mgmt/", # one way to do it
-	handoff_code => provisioner.cli_handoff_code(),
-	handoff_module_path => provisioner.cli_handoff_module_path(),
-	handoff_hostname => provisioner.cli_handoff_hostname(),
-	bmc_uri => provisioner.cli_bmc_uri(),
-}
-# TODO: do we need a usable name anywhere?
-if provisioner.cli_mac() == "" { # provision any host which asks
-	include base.range("host0", $host_config) as host0
-} else {
-	include base.host("host0", $host_config) as host0
-}
+	$host_config = struct{
+		#repo => $repo.uid, # type unification performance is very slow here
+		repo => $uid,
+		flavour => provisioner.cli_flavour(),
+		mac => provisioner.cli_mac(),
+		ip => provisioner.cli_ip(),
+		bios => provisioner.cli_bios(), # false or absent means use uefi
+		proxy => provisioner.cli_proxy(),
+		network => provisioner.cli_proxy_range(), # only used by a proxy range
+		ipxe => provisioner.cli_ipxe(),
+		password => provisioner.cli_password(), # openssl passwd -6
+		sshkey => provisioner.cli_ssh_key(), # root ssh pub key to add
+		part => provisioner.cli_part(),
+		luks => provisioner.cli_luks(),
+		packages => provisioner.cli_packages(),
+		#provision => true,	# default if unspecified
+		handoff => $handoff, # alternatively some code word or querystring
+		handoff_exec => provisioner.cli_handoff_exec(),
+		#handoff_code => "/etc/mgmt/", # one way to do it
+		handoff_code => provisioner.cli_handoff_code(),
+		handoff_module_path => provisioner.cli_handoff_module_path(),
+		handoff_hostname => provisioner.cli_handoff_hostname(),
+		bmc_uri => provisioner.cli_bmc_uri(),
+	}
+	# TODO: do we need a usable name anywhere?
+	$mac = provisioner.cli_mac()
+	if $mac == "" { # provision any host which asks
+		include base.range("mgmt", $host_config) as host # names hosts mgmt-<mac>
+	} else {
+		include base.host("mgmt0", $host_config) as host
+	}
 
-#if $host0.provisioned {
-#	print "provisioned" {
-#		msg => fmt.printf("%s has ssh key: %s", $host0.name, $host0.sshkey),
-#	}
-#}
+	# Once each host is installed, this runs mgmt on it and it prints a msg
+	# when that's finished. Without a mac address, that's any host which
+	# we've installed since we don't know about any of them ahead of time.
+	if $handoff == "remote" {
+		$no_hosts map{str: str} = {}
+		include base.handoff(struct{
+			hosts => if $mac == "" {
+				$no_hosts
+			} else {
+				{$mac => "mgmt0"}
+			},
+			any => $mac == "",
+		})
+	}
+
+	#if $host.provisioned {
+	#	print "provisioned" {
+	#		msg => fmt.printf("%s has ssh key: %s", $host.name, $host.sshkey),
+	#	}
+	#}
+}

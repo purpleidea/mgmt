@@ -32,6 +32,7 @@
 package coreprovisioner
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -45,11 +46,15 @@ import (
 	"github.com/purpleidea/mgmt/entry"
 	"github.com/purpleidea/mgmt/lang/embedded"
 	"github.com/purpleidea/mgmt/lang/funcs/simple"
+	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
 	"github.com/purpleidea/mgmt/lang/unification/fastsolver"
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/password"
+	"github.com/purpleidea/mgmt/util/sshutil"
+
+	"golang.org/x/crypto/ssh"
 )
 
 const (
@@ -61,6 +66,17 @@ const (
 
 	// Frontend is the name of the GAPI to run.
 	Frontend = "lang"
+
+	// deployDirname is the dir in our prefix which we build our deploy in.
+	deployDirname = "deploy/"
+
+	// handoffDirname is the dir beside top.mcl in our deploy, which it
+	// imports the handoff module from.
+	handoffDirname = "handoff/"
+
+	// defaultSSHKey is the public key that we authorize on the host when
+	// none is specified, if it exists. It's what ssh-keygen makes for you.
+	defaultSSHKey = sshutil.DefaultSSHDir + "id_ed25519.pub"
 )
 
 // NOTE: Grouped like shown is better, but you _can_ do it separately...
@@ -73,6 +89,11 @@ var fs embed.FS // grouped is better
 //
 //go:embed top.mcl
 var top []byte
+
+// NOTE: This is the default module for the handoff import in top.mcl.
+//
+//go:embed handoff.mcl
+var handoff []byte
 
 // localArgs is our struct which is used to modify the CLI parser.
 type localArgs struct {
@@ -193,6 +214,13 @@ type localArgs struct {
 	// password, and it will be salted and hashed for you.
 	Password *string `arg:"--password" help:"the 'openssl passwd -6' salted password" func:"-"` // skip auto func gen
 
+	// SSHKey is the path to an ssh public key file, and we authorize that
+	// key for root on the host. The remote handoff logs in with it, using
+	// the matching private key, which must be in our ~/.ssh/ dir. If you
+	// don't specify this, we use ~/.ssh/id_ed25519.pub if it exists, and if
+	// you specify the empty string, then we don't authorize any key.
+	SSHKey *string `arg:"--ssh-key" help:"ssh public key file to authorize for root on the host" func:"-"` // see cli_ssh_key
+
 	// Part is the magic partitioning scheme to use. At the moment you can
 	// either specify `plain` or `btrfs`. The default empty string will use
 	// the `plain` scheme.
@@ -217,8 +245,20 @@ type localArgs struct {
 	// static code deploy bolus. This is useful for isolated, one-time runs.
 	HandoffCode string `arg:"--handoff-code" help:"code dir to handoff to host" func:"cli_handoff_code"` // eg: /etc/mgmt/
 
+	// HandoffRemote specifies that we want to handoff to this machine by
+	// running mgmt on it over ssh once it's installed. That mgmt runs the
+	// same code that we do which includes the `host` class from the module
+	// in this dir on that host, with the name that we have for it as its
+	// only arg. When it has finished, it should use that name for its
+	// `remote:done` resource. The host tells us its ip once it's installed,
+	// so without --mac, this happens for every host that we install. This
+	// needs an ssh key, which is found automatically if it's the default
+	// one. (See --ssh-key.)
+	HandoffRemote string `arg:"--handoff-remote" help:"module dir to run on the host over ssh" func:"cli_handoff_remote"` // eg: ~/mgmt/handoff/
+
 	// HandoffModulePath is the code handoff module path dir that we use.
-	// It's an absolute path on this local machine. (The provisioner!)
+	// It's an absolute path on this local machine. (The provisioner!) It is
+	// also the module path that the --handoff-remote module imports from.
 	HandoffModulePath string `arg:"--handoff-module-path" help:"module path dir to use for handoff" func:"cli_handoff_module_path"` // eg: /etc/mgmt/modules/
 
 	// HandoffHostname specifies that we want to handoff a hostname to set
@@ -246,6 +286,9 @@ type provisioner struct {
 
 	// salted password
 	password string
+
+	// ssh public key in the authorized_keys format
+	sshkey string
 }
 
 // Init implements the Initable interface which lets us collect some data and
@@ -398,6 +441,10 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 
 		xdg += fmt.Sprintf("%s/", ModuleName) // pick a dir for this tool
 		obj.localArgs.Prefix = &xdg
+	}
+	// We add our dirs to the end of it, so it must be a dir with a slash.
+	if !strings.HasSuffix(*obj.localArgs.Prefix, "/") {
+		return nil, fmt.Errorf("--prefix must be a dir with a trailing slash")
 	}
 	obj.init.Logf("cache prefix: %+v", *obj.localArgs.Prefix)
 
@@ -569,6 +616,73 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 		obj.init.Logf("handoff hostname: %s", h)
 	}
 
+	if obj.localArgs.SSHKey == nil { // use the obvious default if it exists
+		p := defaultSSHKey
+		expanded, err := util.ExpandHome(p)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := os.Stat(expanded); err == nil {
+			obj.localArgs.SSHKey = &p
+		}
+	}
+	var sshKey ssh.PublicKey
+	if p := obj.localArgs.SSHKey; p != nil && *p != "" {
+		expanded, err := util.ExpandHome(*p)
+		if err != nil {
+			return nil, err
+		}
+		data, err := os.ReadFile(expanded)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "can't read --ssh-key")
+		}
+		key, _, _, rest, err := ssh.ParseAuthorizedKey(data)
+		if err != nil {
+			return nil, errwrap.Wrapf(err, "invalid --ssh-key")
+		}
+		if len(bytes.TrimSpace(rest)) > 0 { // the installers want one line
+			return nil, fmt.Errorf("--ssh-key must only contain one key")
+		}
+		sshKey = key
+		obj.sshkey = strings.TrimSpace(string(data))
+		obj.init.Logf("ssh key: %s (%s)", expanded, ssh.FingerprintSHA256(key))
+	}
+
+	if p := obj.localArgs.HandoffRemote; p != "" {
+		if obj.localArgs.HandoffCode != "" || obj.localArgs.HandoffExec != "" {
+			return nil, fmt.Errorf("--handoff-remote can't be used with another handoff")
+		}
+		if sshKey == nil {
+			return nil, fmt.Errorf("--handoff-remote needs --ssh-key, or a key at %s", defaultSSHKey)
+		}
+		if err := obj.checkSigner(sshKey); err != nil {
+			return nil, err
+		}
+
+		expanded, err := util.ExpandHome(p)
+		if err != nil {
+			return nil, err
+		}
+		if fi, err := os.Stat(expanded); err != nil {
+			return nil, err
+		} else if !fi.IsDir() {
+			return nil, fmt.Errorf("--handoff-remote is not a dir: %s", expanded)
+		}
+		obj.localArgs.HandoffRemote = expanded
+		obj.init.Logf("handoff remote: %s", expanded)
+	}
+
+	// Our top.mcl imports the handoff module from beside it, so we deploy
+	// from a dir that we build, instead of from a string of code.
+	deployDir := *obj.localArgs.Prefix + deployDirname
+	if err := obj.stage(deployDir); err != nil {
+		return nil, errwrap.Wrapf(err, "can't build our deploy in: %s", deployDir)
+	}
+	runArgs.RunLang.Input = deployDir
+	if p := obj.localArgs.HandoffModulePath; p != "" && obj.localArgs.HandoffRemote != "" {
+		runArgs.RunLang.ModulePath = strings.TrimSuffix(p, "/") + "/" // it's a dir
+	}
+
 	// Do this last to let others fail early b/c this has user interaction.
 	if obj.localArgs.Password == nil {
 		b, err := password.ReadPasswordCtxPrompt(ctx, "["+ModuleName+"] password: ")
@@ -664,6 +778,55 @@ func (obj *provisioner) checkProxy(existing bool) error {
 	return nil
 }
 
+// checkSigner checks that our ~/.ssh/ dir has the private key for this public
+// key, since that's where the remote handoff looks for the keys that it logs in
+// with. Without this, we'd only find out once the host had been installed.
+func (obj *provisioner) checkSigner(key ssh.PublicKey) error {
+	helper := &sshutil.Helper{
+		Debug: obj.init.Debug,
+		Logf:  obj.init.Logf,
+	}
+	signers, err := helper.KeySigners()
+	if err != nil {
+		return errwrap.Wrapf(err, "can't scan for ssh keys")
+	}
+	for _, signer := range signers {
+		if bytes.Equal(signer.PublicKey().Marshal(), key.Marshal()) {
+			return nil
+		}
+	}
+	return fmt.Errorf("the private key for --ssh-key isn't in %s", sshutil.DefaultSSHDir)
+}
+
+// stage builds our deploy in this dir, which is our top.mcl with the handoff
+// module that it imports beside it. That import is static, so the module must
+// always exist, and we use our default one if we weren't given any. It's built
+// fresh each time, since it's only read when we first deploy it. The dir must
+// end with a slash.
+func (obj *provisioner) stage(dir string) error {
+	// We add our files to the end of it, so it must be a dir with a slash.
+	if !strings.HasSuffix(dir, "/") {
+		return fmt.Errorf("dir must end with a slash: %s", dir)
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	if err := os.WriteFile(dir+interfaces.MainFilename, top, 0600); err != nil {
+		return err
+	}
+	handoffDir := dir + handoffDirname
+	if p := obj.localArgs.HandoffRemote; p != "" {
+		return os.CopyFS(handoffDir, os.DirFS(p))
+	}
+	if err := os.Mkdir(handoffDir, 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(handoffDir+interfaces.MainFilename, handoff, 0600)
+}
+
 // Register generates some functions that expose the output of our local CLI.
 func (obj *provisioner) Register(moduleName string) error {
 
@@ -692,6 +855,20 @@ func (obj *provisioner) Register(moduleName string) error {
 			//localArgs := *obj.localArgs // optional
 			return &types.StrValue{
 				V: obj.password,
+			}, nil
+		},
+	})
+	simple.ModuleRegister(moduleName, "cli_ssh_key", &simple.Scaffold{
+		I: &simple.Info{
+			Pure: false,
+			Memo: false,
+			Fast: false,
+			Spec: false,
+		},
+		T: types.NewType("func() str"),
+		F: func(ctx context.Context, input []types.Value) (types.Value, error) {
+			return &types.StrValue{
+				V: obj.sshkey, // the key, not the path to it
 			}, nil
 		},
 	})

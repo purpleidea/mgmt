@@ -1,0 +1,30 @@
+#
+#	done
+#
+# Tell the provisioner that we're installed, with what it needs to carry on. We
+# send the address that we reach it from, and without a mac address of our own
+# in our config, we were installed from a shared one, such as a range, so we
+# send the mac address of the device which has that address, and the name of
+# the config, as our source. As the last command this sets the result, so if it
+# doesn't work, then the install fails.
+mgmt_route="$(ip -o route get '{{ .Router_ip }}')"
+mgmt_ip="$(echo "${mgmt_route}" | sed -n 's/.* src \([^ ]*\).*/\1/p')"
+{{ if .Mac -}}
+mgmt_mac='{{ .Mac }}'
+{{ else -}}
+mgmt_dev="$(echo "${mgmt_route}" | sed -n 's/.* dev \([^ ]*\).*/\1/p')"
+mgmt_mac="$(ip -o link show dev "${mgmt_dev}" | sed -n 's/.* link\/ether \([^ ]*\).*/\1/p')"
+{{ end -}}
+if [ -z "${mgmt_ip}" ] || [ -z "${mgmt_mac}" ]; then
+	echo "can't find the ip and mac address that we reach the provisioner with" >&2
+	exit 1
+fi
+/usr/bin/curl --silent --show-error --fail --retry 10 --retry-delay 5 --retry-connrefused \
+	--data-urlencode "mac=${mgmt_mac}" \
+	--data-urlencode "ip=${mgmt_ip}" \
+	--data-urlencode "sshkey=$(cut -d ' ' -f 2 '{{ .Sshkey_path }}')" \
+	--data-urlencode "hostkey=$(cut -d ' ' -f 2 '{{ .Hostkey_path }}')" \
+{{- if .Source }}
+	--data-urlencode 'source={{ .Source }}' \
+{{- end }}
+	-o - '{{ .Url }}'

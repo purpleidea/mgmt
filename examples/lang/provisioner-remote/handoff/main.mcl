@@ -1,0 +1,22 @@
+# This module is what the host runs once the provisioner has installed it. The
+# provisioner includes this host class there with the name that it has for the
+# host, and it waits until we tell it that we're done, with that same name. What
+# happens after that is up to us. This one does a first stage of work, and then
+# it exits, since the default signal of remote:done tells our parent to send us
+# a ^C. Code here could instead set up a service which keeps running mgmt, join
+# some other cluster, or do anything else that you'd like.
+
+import "res/remote"
+
+class host($name) {
+	$parent = remote.parent()
+
+	file "/etc/motd" {
+		state => $const.res.file.state.exists,
+		content => "${name} was provisioned by ${parent}\n",
+	}
+
+	remote:done $name {}
+
+	File["/etc/motd"] -> Remote:Done[$name] # finish the work first
+}

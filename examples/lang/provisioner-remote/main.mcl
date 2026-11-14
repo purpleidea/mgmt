@@ -1,0 +1,65 @@
+# This shows how you can glue the provisioner together yourself, so that a host
+# which it installs then gets set up by your own code. Once the host has been
+# installed, the provisioner runs mgmt on it over ssh as a transient child of
+# ours, and that child gets this same deploy, so is_child picks which part of it
+# runs where. The part for the host is a host class in a module so that you can
+# also use that module with the provisioner cli, like this:
+#
+#	mgmt provisioner --mac 00:11:22:33:44:55 --proxy --handoff-remote examples/lang/provisioner-remote/handoff/
+#
+# Run mgmt as root, since the provisioner needs privileged ports and packages:
+#
+#	mgmt run --tmp-prefix lang examples/lang/provisioner-remote/
+#
+# This uses proxy dhcp, so it works on the network that you already have. Your
+# own dhcp server still gives the host its ip, and the provisioner only sends it
+# what it needs to boot from the network.
+#
+# WARNING: This erases the disk of the host with this mac address, when it boots
+# from the network!
+
+import "embedded/provisioner"
+import "os"
+import "res/remote"
+
+import "handoff/"
+
+$name = "server1"
+$mac = "00:11:22:33:44:55"
+
+if remote.is_child() {
+	include handoff.host(remote.name()) # this is $name
+} else {
+	include provisioner.base(struct{
+		proxy => true, # the master switch for proxy dhcp
+		prefix => "/var/cache/mgmt/provisioner/",
+	}) as base
+
+	include base.repo(struct{
+		distro => "fedora",
+		version => "44",
+		arch => "x86_64",
+		mirror => "https://download.fedoraproject.org/pub/fedora/linux/",
+	})
+
+	include base.host($name, struct{
+		repo => "fedora44-x86_64",
+		flavour => "Server",
+		mac => $mac,
+		proxy => true, # it gets its ip from your own dhcp server
+		sshkey => os.readfile("/root/.ssh/id_ed25519.pub"), # we log in with this
+		handoff => "remote", # this installs it for the handoff below
+		handoff_hostname => $name,
+	})
+
+	# Once it's installed, this runs mgmt on it, with the name that we give it.
+	include base.handoff(struct{
+		hosts => {$mac => $name},
+	})
+
+	if remote.is_done($name) {
+		print "next" {
+			msg => "${name} has finished its first stage",
+		}
+	}
+}

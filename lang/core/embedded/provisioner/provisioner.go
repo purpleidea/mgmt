@@ -134,8 +134,10 @@ type localArgs struct {
 
 	// Prefix is a directory to store some provisioner specific state such
 	// as cached distro packages. It can be safely deleted. If you don't
-	// specify this value, one will be chosen automatically.
-	Prefix *string `arg:"--prefix" help:"local XDG_CACHE_HOME path" func:"cli_prefix"` // eg: ~/.cache/mgmt/provisioner/
+	// specify this value, one will be chosen automatically. It's not named
+	// --prefix, since that's the mgmt prefix, which would win if we shared
+	// its name.
+	Prefix *string `arg:"--cache-prefix" help:"local XDG_CACHE_HOME path" func:"cli_prefix"` // eg: ~/.cache/mgmt/provisioner/
 
 	// Firewalld will automatically open the required ports for being a
 	// provisioner. By default this is enabled, but it can be disabled if
@@ -336,6 +338,12 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 	}
 	//localArgs := *obj.localArgs // optional
 
+	// We always run mgmt with a tmp prefix, so its own prefix can't be set.
+	// Without this, it would only fail later with a confusing error.
+	if libConfig.Prefix != nil {
+		return nil, fmt.Errorf("--prefix (or MGMT_PREFIX) can't be used, did you mean --cache-prefix?")
+	}
+
 	// Add custom defaults, and improve some as well.
 
 	if s := obj.localArgs.Interface; s == nil || *obj.localArgs.Interface == "" {
@@ -444,7 +452,7 @@ func (obj *provisioner) Customize(a interface{}) (*cli.RunArgs, error) {
 	}
 	// We add our dirs to the end of it, so it must be a dir with a slash.
 	if !strings.HasSuffix(*obj.localArgs.Prefix, "/") {
-		return nil, fmt.Errorf("--prefix must be a dir with a trailing slash")
+		return nil, fmt.Errorf("--cache-prefix must be a dir with a trailing slash")
 	}
 	obj.init.Logf("cache prefix: %+v", *obj.localArgs.Prefix)
 

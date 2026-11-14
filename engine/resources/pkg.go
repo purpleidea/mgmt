@@ -324,20 +324,20 @@ func (obj *PkgRes) versionNotFoundError(ctx context.Context, bus *packagekit.Con
 	}
 	versions := []string{}
 	installed := make(map[string]bool)
-	for _, packageID := range resolved {
+	for _, p := range resolved {
 		// format is: name;version;arch;data
-		s := strings.Split(packageID, ";")
+		s := strings.Split(p.PackageID, ";")
 		if len(s) != 4 || s[0] != name || s[1] == "" {
 			continue
 		}
-		ver, arch, data := s[1], s[2], s[3]
+		ver, arch := s[1], s[2]
 		if b, err := packagekit.IsMyArch(arch); err != nil || !b {
 			continue
 		}
 		if !util.StrInList(ver, versions) {
 			versions = append(versions, ver)
 		}
-		if packagekit.FlagInData("installed", data) {
+		if p.Info == packagekit.PkInfoEnumInstalled {
 			installed[ver] = true
 		}
 	}
@@ -503,8 +503,8 @@ func (obj *PkgRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	obj.init.Logf("Set(%s): %s...", obj.State, obj.fmtNames(util.StrListIntersection(applyPackages, obj.getNames())))
 	switch obj.State {
 	case PkgStateUninstalled: // run remove
-		// NOTE: packageID is different than when installed, because now
-		// it has the "installed" flag added to the data portion of it!!
+		// NOTE: this is the packageID of the installed package which on
+		// some backends differs from the available one in its data part
 		err = bus.RemovePackages(packageIDs, transactionFlags)
 
 	case PkgStateNewest: // TODO: isn't this the same operation as install, below?

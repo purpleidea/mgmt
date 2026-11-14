@@ -176,9 +176,10 @@ const ( //typedef enum
 	PkErrorEnumRepoAlreadySet
 )
 
-// constants from packagekit c library.
+// constants from packagekit c library. Unlike the filter and transaction flag
+// enums, these are sent over dbus as plain values, and not as a bitfield.
 const ( //typedef enum
-	PkInfoEnumUnknown uint64 = 1 << iota
+	PkInfoEnumUnknown uint32 = iota
 	PkInfoEnumInstalled
 	PkInfoEnumAvailable
 	PkInfoEnumLow
@@ -204,6 +205,11 @@ const ( //typedef enum
 	PkInfoEnumUntrusted
 	PkInfoEnumTrusted
 	PkInfoEnumUnavailable
+	PkInfoEnumCritical
+	PkInfoEnumInstall
+	PkInfoEnumRemove
+	PkInfoEnumObsolete
+	PkInfoEnumDowngrade
 	PkInfoEnumLast
 )
 
@@ -255,6 +261,37 @@ type PkPackageIDActionData struct {
 	Version   string
 	PackageID string
 	Newest    bool
+}
+
+// PkPackage is a package as emitted by the PackageKit Package signal.
+type PkPackage struct {
+	// Info is the PkInfoEnum value for the package. When resolving, this is
+	// how we know if a package is installed, since each backend puts
+	// something different in the data portion of the PackageID.
+	Info uint32
+
+	// PackageID has the format of: name;version;arch;data
+	PackageID string
+}
+
+// newPkPackage builds a PkPackage from the body of a Package signal. It errors
+// if the body is malformed, so that we never index past the end of a packageID.
+func newPkPackage(body []interface{}) (*PkPackage, error) {
+	if len(body) != 3 { // info, packageID, summary
+		return nil, fmt.Errorf("error in package body: %v", body)
+	}
+	info, ok := body[0].(uint32)
+	if !ok {
+		return nil, fmt.Errorf("error in package body: %v", body)
+	}
+	packageID, ok := body[1].(string)
+	if !ok || len(strings.SplitN(packageID, ";", 4)) != 4 {
+		return nil, fmt.Errorf("error in package body: %v", body)
+	}
+	return &PkPackage{
+		Info:      info,
+		PackageID: packageID,
+	}, nil
 }
 
 // NewBus returns a new bus connection.
@@ -370,12 +407,12 @@ func (obj *Conn) CreateTransaction() (dbus.ObjectPath, error) {
 }
 
 // ResolvePackages runs the PackageKit Resolve method and returns the result.
-func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter uint64) ([]string, error) {
-	packageIDs := []string{}
+func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter uint64) ([]*PkPackage, error) {
+	result := []*PkPackage{}
 	ch := make(chan *dbus.Signal, PkBufferSize)   // we need to buffer :(
 	interfacePath, err := obj.CreateTransaction() // emits Destroy on close
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	// add signal matches for Package and Finished which will always be last
@@ -394,7 +431,7 @@ func (obj *Conn) ResolvePackages(ctx context.Context, packages []string, filter 
 		obj.Logf("ResolvePackages(): Call: Success!")
 	}
 	if call.Err != nil {
-		return []string{}, call.Err
+		return nil, call.Err
 	}
 loop:
 	for {
@@ -403,7 +440,7 @@ loop:
 		case signal, ok := <-ch:
 			if !ok {
 				// channel closed, e.g. the bus connection died
-				return []string{}, fmt.Errorf("signal channel closed unexpectedly")
+				return nil, fmt.Errorf("signal channel closed unexpectedly")
 			}
 			if obj.Debug {
 				obj.Logf("ResolvePackages(): Signal: %+v", signal)
@@ -414,21 +451,20 @@ loop:
 			}
 
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
-				return []string{}, newPkError(signal.Body)
+				return nil, newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
-				//pkg_int, ok := signal.Body[0].(int)
-				packageID, ok := signal.Body[1].(string)
-				// format is: name;version;arch;data
-				if !ok {
-					continue loop
+				pkg, err := newPkPackage(signal.Body)
+				if err != nil {
+					return nil, err
 				}
-				//comment, ok := signal.Body[2].(string)
-				for _, p := range packageIDs {
-					if packageID == p {
+				// compare info too, so we never drop the one
+				// that says a packageID is installed
+				for _, p := range result {
+					if *pkg == *p {
 						continue loop // duplicate!
 					}
 				}
-				packageIDs = append(packageIDs, packageID)
+				result = append(result, pkg)
 			} else if signal.Name == FmtTransactionMethod("Finished") {
 				// TODO: should we wait for the Destroy signal?
 				break loop
@@ -436,49 +472,38 @@ loop:
 				// should already be broken
 				break loop
 			} else {
-				return []string{}, fmt.Errorf("error in body: %v", signal.Body)
+				return nil, fmt.Errorf("error in body: %v", signal.Body)
 			}
 
 		case <-ctx.Done(): // the engine cancelled us, e.g. a slow network
-			return []string{}, ctx.Err()
+			return nil, ctx.Err()
 		}
 	}
-	return packageIDs, nil
+	return result, nil
 }
 
 // IsInstalledList queries a list of packages to see if they are installed.
 func (obj *Conn) IsInstalledList(ctx context.Context, packages []string) ([]bool, error) {
 	var filter uint64          // initializes at the "zero" value of 0
 	filter += PkFilterEnumArch // always search in our arch
-	packageIDs, err := obj.ResolvePackages(ctx, packages, filter)
+	resolved, err := obj.ResolvePackages(ctx, packages, filter)
 	if err != nil {
 		return nil, errwrap.Wrapf(err, "error resolving packages")
 	}
 
-	var m = make(map[string]int)
-	for _, packageID := range packageIDs {
-		s := strings.Split(packageID, ";")
-		//if len(s) != 4 { continue } // this would be a bug!
-		pkg := s[0]
-		flags := strings.Split(s[3], ":")
-		for _, f := range flags {
-			if f == "installed" {
-				if _, exists := m[pkg]; !exists {
-					m[pkg] = 0
-				}
-				m[pkg]++ // if we see pkg installed, increment
-				break
-			}
+	installed := make(map[string]bool)
+	for _, p := range resolved {
+		if p.Info != PkInfoEnumInstalled {
+			continue
 		}
+		// format is: name;version;arch;data
+		pkg, _, _ := strings.Cut(p.PackageID, ";")
+		installed[pkg] = true
 	}
 
 	r := make([]bool, 0, len(packages))
 	for _, p := range packages {
-		if value, exists := m[p]; exists {
-			r = append(r, value > 0) // at least 1 means installed
-		} else {
-			r = append(r, false)
-		}
+		r = append(r, installed[p])
 	}
 	return r, nil
 }
@@ -842,14 +867,11 @@ loop:
 			if signal.Name == FmtTransactionMethod("ErrorCode") {
 				return nil, newPkError(signal.Body)
 			} else if signal.Name == FmtTransactionMethod("Package") {
-
-				//pkg_int, ok := signal.Body[0].(int)
-				packageID, ok := signal.Body[1].(string)
-				// format is: name;version;arch;data
-				if !ok {
-					continue loop
+				pkg, err := newPkPackage(signal.Body)
+				if err != nil {
+					return nil, err
 				}
-				//comment, ok := signal.Body[2].(string)
+				packageID := pkg.PackageID
 				for _, p := range packageIDs { // optional?
 					if packageID == p {
 						continue loop // duplicate!
@@ -904,13 +926,13 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 	}
 	var index int
 
-	for _, packageID := range resolved {
+	for _, p := range resolved {
 		index = -1
+		packageID := p.PackageID
 		//obj.Logf("* %v", packageID)
 		// format is: name;version;arch;data
-		s := strings.Split(packageID, ";")
-		//if len(s) != 4 { continue } // this would be a bug!
-		pkg, ver, arch, data := s[0], s[1], s[2], s[3]
+		s := strings.SplitN(packageID, ";", 4) // validated by newPkPackage
+		pkg, ver, arch := s[0], s[1], s[2]
 		// we might need to allow some of this, eg: i386 .deb on amd64
 		b, err := IsMyArch(arch)
 		if err != nil {
@@ -935,12 +957,14 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 		stateIsVersion := (state != "installed" && state != "uninstalled" && state != "newest") // must be a ver. string
 
 		if stateIsVersion {
-			if state == ver && ver != "" { // we match what we want...
+			// we match what we want... and if this version is both
+			// installed and in a repo, then prefer the installed ID
+			if state == ver && ver != "" && (usePackageID[index] == "" || p.Info == PkInfoEnumInstalled) {
 				usePackageID[index] = packageID
 			}
 		}
 
-		if FlagInData("installed", data) {
+		if p.Info == PkInfoEnumInstalled {
 			installed[index] = true
 			version[index] = ver
 			// state of "uninstalled" matched during CheckApply, and
@@ -949,7 +973,9 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 				usePackageID[index] = packageID // save for later
 			}
 		} else { // not installed...
-			if !stateIsVersion {
+			// if we already saw the installed packageID, keep it,
+			// since it's what we remove, and what we get files of
+			if !stateIsVersion && !installed[index] {
 				// if there is more than one result, eg: there
 				// is the old and newest version of a package,
 				// then this section can run more than once...
@@ -972,14 +998,13 @@ func (obj *Conn) PackagesToPackageIDs(ctx context.Context, packageMap map[string
 	for _, packageID := range updates {
 		//obj.Logf("* %v", packageID)
 		// format is: name;version;arch;data
-		s := strings.Split(packageID, ";")
-		//if len(s) != 4 { continue } // this would be a bug!
-		pkg, _, _, _ := s[0], s[1], s[2], s[3]
+		pkg, _, _ := strings.Cut(packageID, ";")
 		for index := range packages { // find pkg if it exists
 			if pkg == packages[index] {
 				state := packageMap[pkg] // lookup
 				newest[index] = false
-				if state == "installed" || state == "newest" {
+				// if installed, keep the installed packageID
+				if state == "newest" || (state == "installed" && !installed[index]) {
 					// fix up in case above wasn't correct!
 					usePackageID[index] = packageID
 				}
@@ -1120,18 +1145,6 @@ func FilterPackageState(m map[string]*PkPackageIDActionData, packages []string, 
 		}
 	}
 	return result, err
-}
-
-// FlagInData asks whether a flag exists inside the data portion of a packageID
-// field?
-func FlagInData(flag, data string) bool {
-	flags := strings.Split(data, ":")
-	for _, f := range flags {
-		if f == flag {
-			return true
-		}
-	}
-	return false
 }
 
 // FmtTransactionMethod builds the transaction method string properly.

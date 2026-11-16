@@ -237,8 +237,9 @@ func (obj *Engine) Apply(fn func(*pgraph.Graph) error) error {
 
 // Commit runs a graph sync and swaps the loaded graph with the current one. If
 // it errors, then the running graph wasn't changed. It is recommended that you
-// pause the engine before running this, and resume it after you're done.
-func (obj *Engine) Commit(ctx context.Context) error {
+// pause the engine before running this, and resume it after you're done. Any
+// Cleanup errors are returned all together at the end.
+func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 	// It would be safer to lock this, but it would be slower and mask bugs.
 	//obj.mutex.Lock()
 	//defer obj.mutex.Unlock()
@@ -394,6 +395,12 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		return nil
 	}
 
+	// Collect the Cleanup() errors to return all together at the end.
+	var removeErr error
+	defer func() {
+		reterr = errwrap.Append(reterr, removeErr)
+	}()
+
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		res, ok := vertex.(engine.Res)
@@ -425,9 +432,9 @@ func (obj *Engine) Commit(ctx context.Context) error {
 		cancel()
 
 		// close the state and resource
-		// FIXME: will this mess up the sync and block the engine?
 		if err := obj.state[vertex].Cleanup(); err != nil {
-			return errwrap.Wrapf(err, "the Res did not Cleanup")
+			// We don't return this, it's collected, see above.
+			removeErr = errwrap.Append(removeErr, errwrap.Wrapf(err, "%s did not Cleanup", res))
 		}
 
 		// delete to free up memory from old graphs

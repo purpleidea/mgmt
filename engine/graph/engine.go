@@ -852,9 +852,13 @@ func (obj *Engine) Shutdown() error {
 
 	// this is a graph switch (graph sync) that switches to an empty graph!
 	if err := obj.Load(emptyGraph); err != nil { // copy in empty graph
+		// programming error
 		reterr = errwrap.Append(reterr, err)
+		// A graph is still pending, and it can't ever run now, so we
+		// replace it. Otherwise the Commit would run it instead of
+		// shutting us down.
+		obj.nextGraph = emptyGraph
 	}
-	// FIXME: Do we want to run commit if Load failed? Does this even work?
 	// the commit will cause the graph sync to shut things down cleverly...
 	// Don't cancel this context, because we want to shut down cleanly!
 	if err := obj.Commit(context.Background()); err != nil {

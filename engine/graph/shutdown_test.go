@@ -226,3 +226,30 @@ func TestSwapCleanupErrors(t *testing.T) {
 		t.Errorf("expected no resource states, got %d", n)
 	}
 }
+
+// TestShutdownPendingGraph checks that a Shutdown which is run while a graph is
+// still pending shuts down the graph that's running, and that it doesn't run
+// the pending one instead. This is a mistake by the caller, so it's an error.
+func TestShutdownPendingGraph(t *testing.T) {
+	ge, cleanup := newTestEngine(t)
+
+	running := newCleanupRes("running", false)
+	pending := newCleanupRes("pending", false)
+
+	swapTestGraph(t, ge, newCleanupGraph(t, "first", running))
+	if err := ge.Pause(); err != nil {
+		t.Fatalf("engine Pause: %v", err)
+	}
+	if err := ge.Load(newCleanupGraph(t, "second", pending)); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+
+	if err := shutdownTestEngine(t, ge, cleanup); err == nil {
+		t.Errorf("expected an error about the pending graph")
+	}
+	checkCleanups(t, 1, running)
+	checkCleanups(t, 0, pending) // it never ran
+	if n := len(ge.state); n != 0 {
+		t.Errorf("expected no resource states, got %d", n)
+	}
+}

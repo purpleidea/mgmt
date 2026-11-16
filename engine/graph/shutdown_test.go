@@ -45,7 +45,7 @@ import (
 )
 
 // cleanupRes is a noop-like resource which counts how many times it was
-// initialized and cleaned up, and which can error when it's cleaned up.
+// initialized and cleaned up, and which can error when either of those happens.
 type cleanupRes struct {
 	resources.NoopRes
 
@@ -53,12 +53,20 @@ type cleanupRes struct {
 
 	cleanupErr error // what Cleanup returns
 
-	inits    atomic.Int32
+	// initsLeft is how many more times Init can work, for all of the
+	// resources which share this counter. After that, Init errors. If it's
+	// nil, then Init always works.
+	initsLeft *atomic.Int32
+
+	inits    atomic.Int32 // only the ones which worked
 	cleanups atomic.Int32
 }
 
 // Init runs some startup code for this resource.
 func (obj *cleanupRes) Init(init *engine.Init) error {
+	if obj.initsLeft != nil && obj.initsLeft.Add(-1) < 0 {
+		return fmt.Errorf("init %s failed", obj.Name())
+	}
 	obj.inits.Add(1)
 	obj.init = init // save for later
 	return obj.NoopRes.Init(init)
@@ -222,6 +230,76 @@ func TestSwapCleanupErrors(t *testing.T) {
 		t.Fatalf("engine Shutdown: %v", err)
 	}
 	checkCleanups(t, 1, a, b, kept, added)
+	if n := len(ge.state); n != 0 {
+		t.Errorf("expected no resource states, got %d", n)
+	}
+}
+
+// TestSwapInitError checks that a graph swap which fails because a new resource
+// doesn't Init, leaves the engine so that it can still shut down. The resources
+// which that swap removed are gone, so they must not get removed a second time.
+// A new resource which did Init never ran, so it has to be cleaned up.
+func TestSwapInitError(t *testing.T) {
+	ge, cleanup := newTestEngine(t)
+
+	old := newCleanupRes("old", false)
+	kept := newCleanupRes("kept", false)
+
+	swapTestGraph(t, ge, newCleanupGraph(t, "first", old, kept))
+	if err := ge.Pause(); err != nil {
+		t.Fatalf("engine Pause: %v", err)
+	}
+
+	// Whichever of these two new ones is added first works, and then the
+	// other one errors. This removes the old one, before it adds either.
+	initsLeft := &atomic.Int32{}
+	initsLeft.Store(1)
+	x := newCleanupRes("x", false)
+	x.initsLeft = initsLeft
+	y := newCleanupRes("y", false)
+	y.initsLeft = initsLeft
+	checkNew := func() {
+		t.Helper()
+		if n := x.inits.Load() + y.inits.Load(); n != 1 {
+			t.Errorf("expected one new resource to init, got %d", n)
+		}
+		for _, res := range []*cleanupRes{x, y} {
+			if i, c := res.inits.Load(), res.cleanups.Load(); i != c {
+				t.Errorf("expected %d cleanups of %s, got %d", i, res, c)
+			}
+		}
+	}
+
+	second := newCleanupGraph(t, "second", newCleanupRes("kept", false), x, y)
+	if err := ge.Load(second); err != nil {
+		t.Fatalf("engine Load: %v", err)
+	}
+	if err := ge.Validate(); err != nil {
+		t.Fatalf("engine Validate: %v", err)
+	}
+	err := ge.Commit(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "init ") {
+		t.Fatalf("expected the init error, got: %v", err)
+	}
+	checkCleanups(t, 1, old)
+	checkNew()
+	// The engine only has the one which is still running.
+	if n, exp := ge.graph.NumVertices(), 1; n != exp {
+		t.Errorf("expected %d vertices in the graph, got %d", exp, n)
+	}
+	if n, exp := len(ge.state), 1; n != exp {
+		t.Errorf("expected %d resource states, got %d", exp, n)
+	}
+
+	// The main loop in lib does this when a Commit fails.
+	if err := ge.Abort(); err != nil {
+		t.Fatalf("engine Abort: %v", err)
+	}
+	if err := shutdownTestEngine(t, ge, cleanup); err != nil {
+		t.Fatalf("engine Shutdown: %v", err)
+	}
+	checkCleanups(t, 1, old, kept)
+	checkNew()
 	if n := len(ge.state); n != 0 {
 		t.Errorf("expected no resource states, got %d", n)
 	}

@@ -267,6 +267,8 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		activeMetas[engine.PtrUID(res)] = struct{}{} // add
 	}
 
+	// The vertices that we added, to clean them up if the graph sync fails.
+	added := []pgraph.Vertex{}
 	start := []func() error{} // functions to run after graphsync to start...
 	vertexAddFn := func(vertex pgraph.Vertex) error {
 		// some of these validation steps happen before this Commit step
@@ -283,8 +285,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		if _, exists := obj.state[vertex]; exists {
 			return fmt.Errorf("the Res state already exists")
 		}
-
-		obj.addSenders(res)
 
 		// Skip this if Hidden since we can have a hidden res that has
 		// the same kind+name as a regular res, and this would conflict.
@@ -311,7 +311,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		//	return errwrap.Wrapf(err, "can't create state prefix")
 		//}
 
-		obj.waits[vertex] = &sync.WaitGroup{}
 		state := &State{
 			// XXX: We are building a new node but it's getting the
 			// old graph right away? We do set it at the end of the
@@ -347,6 +346,12 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		obj.tlock.Lock()
 		obj.state[vertex] = state
 		obj.tlock.Unlock()
+
+		// Make these additions only after Init can't fail anymore, so
+		// that it's easier to clean up if it does fail.
+		obj.waits[vertex] = &sync.WaitGroup{}
+		obj.addSenders(res)
+		added = append(added, vertex)
 
 		fn := func() error {
 			// start the Worker
@@ -401,6 +406,9 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		reterr = errwrap.Append(reterr, removeErr)
 	}()
 
+	// The vertices that we removed, to take them out of the graph if the
+	// graph sync fails.
+	removed := []pgraph.Vertex{}
 	free := []func() error{} // functions to run after graphsync to reset...
 	vertexRemoveFn := func(vertex pgraph.Vertex) error {
 		res, ok := vertex.(engine.Res)
@@ -420,6 +428,7 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		obj.deleteSenders(res)
 
 		// wait for exit before starting new graph!
+		removed = append(removed, vertex)     // it can't be removed twice
 		close(obj.state[vertex].removeDone)   // causes doneCtx to cancel
 		close(obj.state[vertex].resumeSignal) // unblock (it only closes here)
 
@@ -493,6 +502,21 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 	// topologically sorted order because it already paused in that order.
 	obj.Logf("graph sync...")
 	if err := obj.graph.GraphSync(obj.nextGraph, vertexCmpFn, vertexAddFn, vertexRemoveFn, engine.EdgeCmpFn); err != nil {
+		// GraphSync stops at the first thing which fails, and then it
+		// leaves our graph as it was. That's not what we have anymore.
+		// What it removed is gone for good, and what it added has a
+		// state, but it's not in the graph, and it will never start.
+		// We're done, and all that's left is to Shutdown, which only
+		// removes what's in the graph. So we clean up what was added,
+		// and we take what was removed out of the graph, or else the
+		// Shutdown would miss the former, and remove the latter twice.
+		for _, vertex := range added {
+			err = errwrap.Append(err, vertexRemoveFn(vertex))
+		}
+		obj.graph.DeleteVertex(removed...)
+		for _, fn := range free { // from vertexRemoveFn
+			err = errwrap.Append(err, fn())
+		}
 		return errwrap.Wrapf(err, "error running graph sync")
 	}
 

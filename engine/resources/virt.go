@@ -54,6 +54,8 @@ func init() {
 	engine.RegisterResource("virt", func() engine.Res { return &VirtRes{} })
 }
 
+var _ engine.BackgroundRes = &VirtRes{} // compile time check
+
 const (
 	// DefaultMaxCPUs is the default number of possible cpu "slots" used.
 	DefaultMaxCPUs = 32
@@ -72,6 +74,7 @@ const (
 type VirtRes struct {
 	traits.Base // add the base methods without re-implementation
 	traits.Refreshable
+	traits.Backgroundable
 
 	init *engine.Init
 

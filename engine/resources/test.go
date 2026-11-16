@@ -45,6 +45,8 @@ func init() {
 	engine.RegisterResource("test", func() engine.Res { return &TestRes{} })
 }
 
+var _ engine.BackgroundRes = &TestRes{} // compile time check
+
 // TestRes is a resource that is mostly harmless and is used for internal tests.
 type TestRes struct {
 	traits.Base // add the base methods without re-implementation
@@ -52,6 +54,7 @@ type TestRes struct {
 	traits.Refreshable
 	traits.Sendable
 	traits.Recvable
+	traits.Backgroundable
 
 	init *engine.Init
 

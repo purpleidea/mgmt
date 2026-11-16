@@ -44,6 +44,8 @@ func init() {
 	engine.RegisterResource("schedule", func() engine.Res { return &ScheduleRes{} })
 }
 
+var _ engine.BackgroundRes = &ScheduleRes{} // compile time check
+
 // ScheduleRes is a resource which starts up a "distributed scheduler". All
 // nodes of the same namespace will be part of the same scheduling pool. The
 // scheduling result can be determined by using the "schedule" function. If the
@@ -51,6 +53,7 @@ func init() {
 // undefined which options if any will get chosen.
 type ScheduleRes struct {
 	traits.Base // add the base methods without re-implementation
+	traits.Backgroundable
 
 	init *engine.Init
 

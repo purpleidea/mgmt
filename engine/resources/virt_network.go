@@ -56,6 +56,8 @@ func init() {
 	engine.RegisterResource("virt:network:range", func() engine.Res { return &VirtNetworkRangeRes{} })
 }
 
+var _ engine.BackgroundRes = &VirtNetworkRes{} // compile time check
+
 const (
 	// VirtNetworkStateUp ensures the network is up. Whether it is defined
 	// or not depends on the "transient" property.
@@ -99,6 +101,7 @@ type VirtNetworkRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // TODO: add autoedge support
 	traits.Groupable // can have VirtNetworkHostRes and more, grouped into it
+	traits.Backgroundable
 
 	init *engine.Init
 

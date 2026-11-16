@@ -129,11 +129,12 @@ func TestLowerStructFieldNameToFieldName2(t *testing.T) {
 	}
 
 	expected := map[string]string{
-		"base":        "Base",        // all resources have this trait
-		"groupable":   "Groupable",   // the TestRes has this trait
-		"refreshable": "Refreshable", // the TestRes has this trait
-		"sendable":    "Sendable",
-		"recvable":    "Recvable",
+		"base":           "Base",        // all resources have this trait
+		"groupable":      "Groupable",   // the TestRes has this trait
+		"refreshable":    "Refreshable", // the TestRes has this trait
+		"sendable":       "Sendable",
+		"recvable":       "Recvable",
+		"backgroundable": "Backgroundable",
 
 		"bool": "Bool",
 		"str":  "Str",

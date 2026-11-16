@@ -111,7 +111,7 @@ type Engine struct {
 	// Pause.
 	realizeSet map[pgraph.Vertex]struct{}
 
-	bgState map[string]*bgState // background state for each resource kind
+	bgState map[bgID]*bgState // background state for each resource kind and key
 
 	wg *sync.WaitGroup // wg for the whole engine (only used for close)
 
@@ -165,7 +165,7 @@ func (obj *Engine) Init() error {
 
 	obj.senders = make(map[string]engine.SendableRes)
 
-	obj.bgState = make(map[string]*bgState)
+	obj.bgState = make(map[bgID]*bgState)
 
 	obj.wg = &sync.WaitGroup{}
 
@@ -246,8 +246,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 
 	// TODO: Does this hurt performance or graph changes ?
 
-	backgroundKinds := make(map[string]int)
-
 	activeMetas := make(map[engine.ResPtrUID]struct{})
 	for vertex := range obj.state {
 		res, ok := vertex.(engine.Res)
@@ -258,10 +256,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		// the same kind+name as a regular res, and this would conflict.
 		if res.MetaParams().Hidden {
 			continue
-		}
-
-		if _, ok := res.(engine.BackgroundRes); ok {
-			backgroundKinds[res.Kind()]++
 		}
 
 		activeMetas[engine.PtrUID(res)] = struct{}{} // add
@@ -454,7 +448,7 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 			delete(obj.waits, vertex)
 			return nil
 		}
-		free = append(free, fn) // do this at the end, so we don't panic
+		free = append(free, fn) // do this after the sync, so we don't panic
 		return nil
 	}
 
@@ -520,6 +514,16 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		return errwrap.Wrapf(err, "error running graph sync")
 	}
 
+	// We run these afterwards, so that the state structs (that might get
+	// referenced) are not destroyed while someone might poke or use one. We
+	// do it before anything else, so that if something below errors, the
+	// state still matches the graph which we swapped in.
+	for _, fn := range free {
+		if err := fn(); err != nil {
+			return errwrap.Wrapf(err, "error running free fn")
+		}
+	}
+
 	// This happens after GraphSync when vertexRemoveFn and vertexAddFn are
 	// done running. Those two modified the activeMetas map. It's important
 	// that vertexRemoveFn runs before vertexAddFn, but GraphSync guarantees
@@ -536,9 +540,8 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 	}
 	obj.mlock.Unlock()
 
-	// Run StartBackground here before the Watch() for each resource starts.
-	// That Watch starts in the start loop below... We want the background
-	// up first since Watch might want to use something from the Background.
+	// Find the backgrounds that the new graph needs, one per kind and key.
+	backgrounds := make(map[bgID]struct{})
 	for _, vertex := range obj.graph.Vertices() { // TODO: sorted order?
 		res, ok := vertex.(engine.Res)
 		if !ok { // should not happen, previously validated
@@ -546,16 +549,46 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 		}
 
 		// don't start background if it's not supported or it's hidden!
-		if _, ok := res.(engine.BackgroundRes); !ok || res.MetaParams().Hidden {
+		bgRes, ok := res.(engine.BackgroundRes)
+		if !ok || res.MetaParams().Hidden {
 			continue
 		}
-		kind := res.Kind()
+		backgrounds[bgID{kind: res.Kind(), key: bgRes.BackgroundKey()}] = struct{}{}
+	}
 
-		if err := obj.StartBackground(ctx, kind); err != nil {
-			obj.Logf("background(%s) start error: %v", kind, err)
+	// Stop anything remaining here since they're not in the resource graph.
+	// The Watch functions of this kind must be done running by the time we
+	// run this cleanup! This prevents race conditions between the two...
+	//
+	// The graph sync removed all of those resources, so that's the case. We
+	// stop these before starting any new ones, since two different keys
+	// might claim the same thing, eg: two overlapping network addresses. We
+	// don't return on error, because when we Shutdown this is the only
+	// thing that stops them, and we don't want to leave the rest running.
+	var e error
+	for id := range obj.bgState { // StopBackground deletes, which is safe
+		if _, exists := backgrounds[id]; exists {
+			continue // still needed
+		}
+		if err := obj.StopBackground(id.kind, id.key); err != nil {
+			// TODO: should we shutdown the engine?
+			obj.Logf("background(%s) stop error: %v", id.String(), err)
+			e = errwrap.Append(e, errwrap.Wrapf(err, "error stopping background(%s)", id.String()))
+		}
+	}
+	if e != nil {
+		// They're all stopped, but we're broken, so don't start more.
+		return e
+	}
+
+	// Run StartBackground here before the Watch() for each resource starts.
+	// That Watch starts in the start loop below... We want the background
+	// up first since Watch might want to use something from the Background.
+	for id := range backgrounds {
+		if err := obj.StartBackground(ctx, id.kind, id.key); err != nil {
+			obj.Logf("background(%s) start error: %v", id.String(), err)
 			return errwrap.Wrapf(err, "error starting background")
 		}
-		delete(backgroundKinds, kind) // don't need to start it anymore
 	}
 
 	// We run these afterwards, so that we don't unnecessarily start anyone
@@ -563,13 +596,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 	for _, fn := range start {
 		if err := fn(); err != nil {
 			return errwrap.Wrapf(err, "error running start fn")
-		}
-	}
-	// We run these afterwards, so that the state structs (that might get
-	// referenced) are not destroyed while someone might poke or use one.
-	for _, fn := range free {
-		if err := fn(); err != nil {
-			return errwrap.Wrapf(err, "error running free fn")
 		}
 	}
 	obj.nextGraph = nil
@@ -600,18 +626,6 @@ func (obj *Engine) Commit(ctx context.Context) (reterr error) {
 	// Precompute the realize wait set once, now that the new graph is here.
 	// This is nil, unless a realize resource exists somewhere in the graph.
 	obj.realizeSet = obj.realizeWaitSet(realizeSeeds)
-
-	// Stop anything remaining here since they're not in the resource graph.
-	// The Watch functions of this kind must be done running by the time we
-	// run this cleanup! This prevents race conditions between the two...
-	for kind := range backgroundKinds {
-		if err := obj.StopBackground(kind); err != nil {
-			// TODO: should we shutdown the engine?
-			obj.Logf("background(%s) stop error: %v", kind, err)
-			// XXX: collect all stop errors and return them together?
-			return errwrap.Wrapf(err, "error stopping background")
-		}
-	}
 
 	return nil
 }

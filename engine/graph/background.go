@@ -38,13 +38,14 @@ import (
 	"github.com/purpleidea/mgmt/util"
 )
 
-// StartBackground starts up the background function for this kind, if one isn't
-// already running. If you cancel this context, it's because you want to abort
-// the startup and exit everything early. That function may error after startup.
-// This function isn't thread-safe, because it's currently only called linearly
-// from inside the Commit function, which uses it sequentially.
-func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
-	if _, exists := obj.bgState[kind]; exists {
+// StartBackground starts up the background function for this kind and key, if
+// one isn't already running. If you cancel this context, it's because you want
+// to abort the startup and exit everything early. That function may error after
+// startup. This function isn't thread-safe, because it's currently only called
+// linearly from inside the Commit function, which uses it sequentially.
+func (obj *Engine) StartBackground(ctx context.Context, kind, key string) error {
+	id := bgID{kind: kind, key: key}
+	if _, exists := obj.bgState[id]; exists {
 		return nil // already running
 	}
 
@@ -66,14 +67,16 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 		cancel: cancel,
 		//err: nil, // err is set after background func exits
 	}
-	obj.bgState[kind] = state
+	obj.bgState[id] = state
 	handle := &engine.BackgroundHandle{
+		Key:   key,
 		Local: obj.Local,
 		World: obj.World,
 		Debug: obj.Debug,
 		Logf: func(format string, v ...interface{}) {
 			// TODO: is this a sane prefix to use here?
-			obj.Logf(fmt.Sprintf("background(%s): ", kind)+format, v...)
+			// id may contain a % so it can't be part of the format
+			obj.Logf("background(%s): %s", id.String(), fmt.Sprintf(format, v...))
 		},
 	}
 	backgroundFunc := background(handle) // build the real background function
@@ -107,16 +110,16 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 		default:
 		}
 		wg.Wait() // the goroutine is finishing, so this is quick
-		delete(obj.bgState, kind)
+		delete(obj.bgState, id)
 		if err := state.err; err != nil {
 			return err
 		}
 		// It's not running, so anything that needs it can't work.
-		return fmt.Errorf("background(%s) exited before it was ready", kind)
+		return fmt.Errorf("background(%s) exited before it was ready", id.String())
 	case <-ctx.Done(): // exited early before ready, so cleanup early
 		cancel()  // main ctx died, something is wrong, kill bgCtx
 		wg.Wait() // wait for the background goroutine to finish
-		delete(obj.bgState, kind)
+		delete(obj.bgState, id)
 		if err := state.err; err != nil {
 			return err
 		}
@@ -124,13 +127,14 @@ func (obj *Engine) StartBackground(ctx context.Context, kind string) error {
 	}
 }
 
-// StopBackground stops the background function for this kind if one is running.
-// This doesn't take a context, because it's a shutdown procedure, and
+// StopBackground stops the background function for this kind and key if one is
+// running. This doesn't take a context, because it's a shutdown procedure, and
 // cancelling this kind of scenario is something we'd do on shutdown anyways...
 // This function isn't thread-safe, because it's currently only called linearly
 // from inside the Commit function, which uses it sequentially.
-func (obj *Engine) StopBackground(kind string) error {
-	bgState, exists := obj.bgState[kind]
+func (obj *Engine) StopBackground(kind, key string) error {
+	id := bgID{kind: kind, key: key}
+	bgState, exists := obj.bgState[id]
 	if !exists {
 		return nil // already stopped
 	}
@@ -139,14 +143,28 @@ func (obj *Engine) StopBackground(kind string) error {
 
 	// add a watchdog to catch slow exiting or blocked background functions
 	watchdogFn := func(msg string) {
-		obj.Logf("background: %s: %s", kind, msg)
+		obj.Logf("background: %s: %s", id.String(), msg)
 	}
 	cancel := util.WatchdogFn(watchdogFn)
 	bgState.wg.Wait()
 	cancel()
 
-	delete(obj.bgState, kind)
+	delete(obj.bgState, id)
 	return bgState.err // read only after waitgroup
+}
+
+// bgID identifies a background function. There's one for each kind and key.
+type bgID struct {
+	kind string
+	key  string
+}
+
+// String returns the kind, and the key if there is one, for logs and errors.
+func (obj *bgID) String() string {
+	if obj.key == "" {
+		return obj.kind
+	}
+	return fmt.Sprintf("%s, %q", obj.kind, obj.key)
 }
 
 // bgState holds state information for each running background function. The err

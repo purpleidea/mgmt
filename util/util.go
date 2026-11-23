@@ -624,38 +624,36 @@ func CloseAfter(ctx context.Context, d time.Duration) <-chan struct{} {
 
 // SystemBusPrivateUsable makes using the private bus usable.
 // TODO: should be upstream: https://github.com/godbus/dbus/issues/15
-func SystemBusPrivateUsable() (conn *dbus.Conn, err error) {
-	conn, err = dbus.SystemBusPrivate()
+func SystemBusPrivateUsable() (*dbus.Conn, error) {
+	conn, err := dbus.SystemBusPrivate()
 	if err != nil {
 		return nil, err
 	}
-	if err = conn.Auth(nil); err != nil {
+	if err := conn.Auth(nil); err != nil {
 		_ = conn.Close()
-		conn = nil
-		return
+		return nil, err
 	}
-	if err = conn.Hello(); err != nil {
+	if err := conn.Hello(); err != nil {
 		_ = conn.Close()
-		conn = nil
+		return nil, err
 	}
 	return conn, nil // success
 }
 
 // SessionBusPrivateUsable makes using the private bus usable.
 // TODO: should be upstream: https://github.com/godbus/dbus/issues/15
-func SessionBusPrivateUsable() (conn *dbus.Conn, err error) {
-	conn, err = dbus.SessionBusPrivate()
+func SessionBusPrivateUsable() (*dbus.Conn, error) {
+	conn, err := dbus.SessionBusPrivate()
 	if err != nil {
 		return nil, err
 	}
-	if err = conn.Auth(nil); err != nil {
+	if err := conn.Auth(nil); err != nil {
 		_ = conn.Close()
-		conn = nil
-		return
+		return nil, err
 	}
-	if err = conn.Hello(); err != nil {
+	if err := conn.Hello(); err != nil {
 		_ = conn.Close()
-		conn = nil
+		return nil, err
 	}
 	return conn, nil // success
 }

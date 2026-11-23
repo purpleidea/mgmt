@@ -332,6 +332,22 @@ func UnitPath(unit string) dbus.ObjectPath {
 	return dbus.ObjectPath(b.String())
 }
 
+// UnitFileState returns the enablement state of the named unit, eg: enabled or
+// disabled. It asks the manager, which reads the unit files from disk each
+// time, the same as systemctl is-enabled does. Don't read the UnitFileState
+// property of the unit instead, since systemd caches that until the next
+// daemon-reload, so it misses any enable or disable that happened since, even
+// one done over the bus.
+func UnitFileState(ctx context.Context, conn *dbus.Conn, unit string) (string, error) {
+	obj := conn.Object(BusName, ManagerPath)
+	var state string
+	call := obj.CallWithContext(ctx, ManagerInterface+".GetUnitFileState", 0, unit)
+	if err := call.Store(&state); err != nil {
+		return "", errwrap.Wrapf(err, "failed to get unit file state")
+	}
+	return state, nil
+}
+
 // subscribe asks systemd to send out its signals. It only sends most of them if
 // at least one client on the bus has asked for them, and it forgets about us
 // when we disconnect, so we never need to call Unsubscribe.

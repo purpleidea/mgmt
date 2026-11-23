@@ -41,6 +41,7 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/systemd"
 
@@ -222,18 +223,6 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 	defer conn.Close()
 
-	// if we share the bus with others, we will get each others messages!!
-	//var bus *dbus.Conn
-	//if obj.Session {
-	//	bus, err = util.SessionBusPrivateUsable()
-	//} else {
-	//	bus, err = util.SystemBusPrivateUsable()
-	//}
-	//if err != nil {
-	//	return errwrap.Wrapf(err, "failed to connect to bus")
-	//}
-	//defer bus.Close()
-
 	svc := obj.svc() // systemd name
 
 	loadState, err := conn.GetUnitPropertyContext(ctx, svc, "LoadState")
@@ -256,14 +245,14 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	running := (activeState.Value == dbus.MakeVariant("active"))
 	stateOK := ((obj.State == "") || (obj.State == "running" && running) || (obj.State == "stopped" && !running))
 
-	startupState, err := conn.GetUnitPropertyContext(ctx, svc, "UnitFileState")
-	if err != nil {
-		return false, errwrap.Wrapf(err, "failed to get unit file state")
+	startupOK := (obj.Startup == "") // undefined is always ok
+	if !startupOK {
+		startupState, err := obj.unitFileState(ctx)
+		if err != nil {
+			return false, err
+		}
+		startupOK = (startupState == obj.Startup) // enabled or disabled
 	}
-
-	enabled := (startupState.Value == dbus.MakeVariant("enabled"))
-	disabled := (startupState.Value == dbus.MakeVariant("disabled"))
-	startupOK := ((obj.Startup == "") || (obj.Startup == "enabled" && enabled) || (obj.Startup == "disabled" && disabled))
 
 	// NOTE: if this svc resource is embedded as a composite resource inside
 	// of another resource using a technique such as `makeComposite()`, then
@@ -424,6 +413,29 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	}
 
 	return false, nil // success
+}
+
+// unitFileState returns the enablement state of our unit, read fresh from disk.
+// We don't use the UnitFileState property of the unit, because systemd caches
+// it until the next daemon-reload, so after an enable or disable, even our own,
+// we would read the old state and keep doing the same change over again. Since
+// go-systemd has no method for this, and doesn't let us make the call ourselves
+// on its connection, we use a short-lived one of our own, which we close before
+// returning, so that it's not held open while we wait on a job.
+func (obj *SvcRes) unitFileState(ctx context.Context) (string, error) {
+	var conn *dbus.Conn
+	var err error
+	if obj.Session {
+		conn, err = util.SessionBusPrivateUsable()
+	} else {
+		conn, err = util.SystemBusPrivateUsable()
+	}
+	if err != nil {
+		return "", errwrap.Wrapf(err, "failed to connect to bus")
+	}
+	defer conn.Close() // ignore the error
+
+	return systemd.UnitFileState(ctx, conn, obj.svc())
 }
 
 // waitJob blocks until systemd reports the result of a job that was previously

@@ -121,6 +121,15 @@ type SvcRes struct {
 	// true we always do a full restart (stop then start) which re-runs the
 	// unit's ExecStart.
 	Restart bool `lang:"restart" yaml:"restart"`
+
+	// NoDaemonReload skips the daemon-reload that we otherwise do after we
+	// enable or disable the unit. That reload is what systemctl does too,
+	// unless you pass it --no-reload, and it makes systemd see the change
+	// now instead of only at the next reload or boot. Until then, systemd
+	// also reports that every unit needs a daemon-reload. Since each svc
+	// does its own reload, you might set this when changing many at once
+	// and then do a single reload yourself.
+	NoDaemonReload bool `lang:"no_daemon_reload" yaml:"no_daemon_reload"`
 }
 
 // Default returns some sensible defaults for this resource.
@@ -278,10 +287,19 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 
 	if !startupOK && obj.Startup != "" {
 		files := []string{svc} // the svc represented in a list
+		changed := false       // did systemd add or remove a symlink?
 		if obj.Startup == "enabled" {
-			_, _, err = conn.EnableUnitFilesContext(ctx, files, false, true)
+			var changes []sdbus.EnableUnitFileChange
+			_, changes, err = conn.EnableUnitFilesContext(ctx, files, false, true)
+			for _, x := range changes {
+				changed = changed || isUnitFileModified(x.Type)
+			}
 		} else if obj.Startup == "disabled" {
-			_, err = conn.DisableUnitFilesContext(ctx, files, false)
+			var changes []sdbus.DisableUnitFileChange
+			changes, err = conn.DisableUnitFilesContext(ctx, files, false)
+			for _, x := range changes {
+				changed = changed || isUnitFileModified(x.Type)
+			}
 		} else {
 			// pass
 		}
@@ -292,6 +310,18 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			obj.init.Logf("service enabled")
 		} else if obj.Startup == "disabled" {
 			obj.init.Logf("service disabled")
+		}
+
+		// We only reload if something changed. A unit which never
+		// reaches the state that we want, eg: a static one that we've
+		// been asked to enable, comes back here on every CheckApply,
+		// and since our own Watch sees each reload, we'd loop forever.
+		if changed && !obj.NoDaemonReload {
+			// systemctl daemon-reload
+			if err := conn.ReloadContext(ctx); err != nil {
+				return false, errwrap.Wrapf(err, "failed to daemon-reload")
+			}
+			obj.init.Logf("daemon reloaded")
 		}
 	}
 
@@ -491,6 +521,9 @@ func (obj *SvcRes) Cmp(r engine.Res) error {
 	if obj.Restart != res.Restart {
 		return fmt.Errorf("the Restart differs")
 	}
+	if obj.NoDaemonReload != res.NoDaemonReload {
+		return fmt.Errorf("the NoDaemonReload differs")
+	}
 
 	return nil
 }
@@ -680,4 +713,11 @@ func (obj *SvcResAutoEdgesCron) Next() []engine.ResUID {
 // should continue.
 func (obj *SvcResAutoEdgesCron) Test([]bool) bool {
 	return false // only get one svc -> cron edge
+}
+
+// isUnitFileModified returns true if the type of a change that systemd reported
+// for an enable or disable means that it actually added or removed a symlink.
+// Systemd also reports changes which modify nothing, eg: masked or dangling.
+func isUnitFileModified(typ string) bool {
+	return typ == "symlink" || typ == "unlink"
 }

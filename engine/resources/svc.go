@@ -41,10 +41,10 @@ import (
 	"github.com/purpleidea/mgmt/engine"
 	"github.com/purpleidea/mgmt/engine/traits"
 	engineUtil "github.com/purpleidea/mgmt/engine/util"
-	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
+	"github.com/purpleidea/mgmt/util/systemd"
 
-	systemd "github.com/coreos/go-systemd/v22/dbus" // change namespace
+	sdbus "github.com/coreos/go-systemd/v22/dbus" // change namespace
 	systemdUtil "github.com/coreos/go-systemd/v22/util"
 	"github.com/godbus/dbus/v5" // namespace collides with systemd wrapper
 )
@@ -160,242 +160,34 @@ func (obj *SvcRes) Watch(ctx context.Context) error {
 		return fmt.Errorf("systemd is not running")
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel() // make sure we always close any below ctx just in case!
-
-	var conn *systemd.Conn
-	var err error
-	if obj.Session {
-		conn, err = systemd.NewUserConnectionContext(ctx) // user session
-	} else {
-		// we want NewSystemConnectionContext but New... falls back to this
-		conn, err = systemd.NewWithContext(ctx) // needs root access
+	// This only listens for dbus signals, it never polls. Once Init has
+	// returned, any change to the unit will reach us, so it's safe to send
+	// the first event now and let CheckApply read the current state.
+	watcher := &systemd.UnitWatcher{
+		Unit:    obj.svc(), // systemd name
+		Session: obj.Session,
 	}
-	if err != nil {
-		return errwrap.Wrapf(err, "failed to connect to systemd")
+	if err := watcher.Init(ctx); err != nil {
+		return errwrap.Wrapf(err, "failed to watch svc")
 	}
-	defer conn.Close()
-
-	// if we share the bus with others, we will get each others messages!!
-	var bus *dbus.Conn
-	if obj.Session {
-		bus, err = util.SessionBusPrivateUsable()
-	} else {
-		bus, err = util.SystemBusPrivateUsable()
-	}
-	if err != nil {
-		return errwrap.Wrapf(err, "failed to connect to bus")
-	}
-	defer bus.Close()
-
-	// NOTE: I guess it's not the worst-case scenario if we drop signal or
-	// if it fills up and we block. Whichever way the upstream implements it
-	// we'll have a back log of signals to loop through which is just fine.
-	chBus := make(chan *dbus.Signal, 10) // TODO: what size if any?
-	defer close(chBus)                   // NOTE: closing a chan that contains a value is ok
-	bus.Signal(chBus)
-	defer bus.RemoveSignal(chBus) // not needed here, but nice for symmetry
-
-	// Legacy way to do this matching...
-	//method := "org.freedesktop.DBus.AddMatch"
-	//flags := dbus.Flags(0)
-	//args := []interface{}{"type='signal',interface='org.freedesktop.systemd1.Manager',member='Reloading'"}
-	//call := bus.BusObject().CallWithContext(ctx, method, flags, args...) // *dbus.Call
-	//if err := call.Err; err != nil {
-	//	return errwrap.Wrapf(err, "failed to connect signal on bus")
-	//}
-	matchOptions := []dbus.MatchOption{
-		dbus.WithMatchInterface("org.freedesktop.systemd1.Manager"),
-		dbus.WithMatchMember("Reloading"),
-	}
-	if err := bus.AddMatchSignalContext(ctx, matchOptions...); err != nil {
-		return errwrap.Wrapf(err, "failed to add match signal on bus")
-	}
-	defer func() {
-		// On shutdown, we prefer to give this a chance to run. If we
-		// use the main ctx, then it will error because ctx cancelled.
-		ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Millisecond)
-		defer cancel()
-		if err := bus.RemoveMatchSignalContext(ctx, matchOptions...); err != nil {
-			obj.init.Logf("failed to remove match signal on bus: %+v", err)
-		}
-	}()
+	defer watcher.Close() // ignore the error
 
 	if err := obj.init.Event(ctx); err != nil {
 		return err
 	}
-
-	svc := obj.svc() // systemd name
-
-	set := conn.NewSubscriptionSet() // no error should be returned
-	// XXX: dynamic bugs: https://github.com/coreos/go-systemd/issues/474
-	set.Add(svc) // it's okay if the svc doesn't exist yet
-	chSub, chSubErr := set.SubscribeContext(ctx)
-	//defer close(chSub) // cannot close receive-only channel
-	//defer close(chSubErr) // cannot close receive-only channel
-	defer func() { // drain to avoid deadlock with this crappy function
-		// The go-systemd subscribe goroutine only closes chSub and
-		// chSubErr once the ctx we passed to SubscribeContext is done.
-		// Our defer cancel() above runs *after* this defer (they run
-		// LIFO) so if Watch is returning because of an error rather
-		// than a cancelled ctx, those channels would never close and
-		// this drain would block forever. Cancel here first so they
-		// close.
-		cancel()
-		// XXX: https://github.com/coreos/go-systemd/pull/514 or similar
-		// The main loop above sets chSub or chSubErr to nil once it has
-		// seen it close. A receive on a nil channel blocks forever, so
-		// treat an already-nil channel as already-drained, otherwise we
-		// deadlock in the select below waiting on a close we can never
-		// observe.
-		chSubClosed := chSub == nil
-		chSubErrClosed := chSubErr == nil
-		for {
-			if chSubClosed && chSubErrClosed {
-				return
-			}
-
-			select {
-			case _, ok := <-chSub:
-				if !ok {
-					chSubClosed = true
-					chSub = nil
-				}
-			case _, ok := <-chSubErr:
-				if !ok {
-					chSubErrClosed = true
-					chSubErr = nil
-				}
-			}
-		}
-	}()
 
 	for {
 		if obj.init.Debug {
 			obj.init.Logf("watching...")
 		}
 		select {
-
-		case sig, ok := <-chBus:
+		case msg, ok := <-watcher.Events():
 			if !ok {
-				chBus = nil
-				return fmt.Errorf("unexpected close") // we close this one!
-			}
-			if obj.init.Debug {
-				obj.init.Logf("sig: %+v", sig)
-			}
-
-			// This event happens if we `systemctl daemon-reload` or
-			// if `systemctl enable/disable <svc>` is run. For both
-			// of these situations we seem to always get two events.
-			// The first seems to have `Body:[true]`, and the second
-			// has `Body:[false]`.
-
-			// https://pkg.go.dev/github.com/godbus/dbus/v5#Signal
-			//eg: &{Sender::1.287 Path:/org/freedesktop/systemd1 Name:org.freedesktop.systemd1.Manager.Reloading Body:[false] Sequence:7}
-			if sig.Name != "org.freedesktop.systemd1.Manager.Reloading" {
-				// not for us
-				continue
-			}
-
-			if len(sig.Body) == 0 {
-				// does this ever happen? send a signal for now
-				obj.init.Logf("daemon reload with empty body")
-				break // break out of select and send event now
-			}
-
-			if len(sig.Body) > 1 {
-				// does this ever happen? send a signal for now
-				obj.init.Logf("daemon reload with big body")
-				break // break out of select and send event now
-			}
-
-			b, ok := sig.Body[0].(bool)
-			if !ok {
-				// does this ever happen? send a signal for now
-				obj.init.Logf("daemon reload with badly typed body")
-				break // break out of select and send event now
-			}
-
-			// We do all of this annoying parsing to cut our event
-			// count by half, since these signals seem to come in
-			// pairs. We skip the "true" one that comes first.
-			if b {
-				if obj.init.Debug {
-					obj.init.Logf("skipping daemon-reload start")
-				}
-				continue
-			}
-			if obj.init.Debug {
-				obj.init.Logf("daemon reload") // success!
-			}
-
-		case event, ok := <-chSub:
-			if !ok {
-				chSub = nil
-				continue
-			}
-			if obj.init.Debug {
-				obj.init.Logf("event: %+v", event)
-			}
-
-			// The value returned is a map in case we monitor many.
-			unitStatus, ok := event[svc]
-			if !ok { // not me
-				continue
-			}
-
-			if unitStatus == nil {
-				if obj.init.Debug {
-					obj.init.Logf("service stopped")
-				}
-				break // break out of select and send event now
-			}
-
-			msg := ""
-			switch event[svc].ActiveState { // string
-			case "active":
-				msg = "service started"
-			case "inactive":
-				msg = "service stopped"
-			case "reloading":
-				msg = "service reloading"
-			case "failed":
-				msg = "service failed"
-			case "activating":
-				msg = "service activating"
-			case "deactivating":
-				msg = "service deactivating"
-			default:
-				return fmt.Errorf("unknown service state: %s", event[svc].ActiveState)
+				return watcher.Err()
 			}
 			if obj.init.Debug {
 				obj.init.Logf("%s", msg)
 			}
-
-		case err, ok := <-chSubErr:
-			if !ok {
-				chSubErr = nil
-				continue
-			}
-			if err == nil {
-				obj.init.Logf("unexpected nil error")
-				continue
-			}
-			// I think this happens if systemd package is updating.
-			// XXX: if chSubErr returns an err does it keep working?
-			// XXX: Do we have to restart the set.Subscribe ?
-			if err.Error() == "Remote peer disconnected" {
-				obj.init.Logf("remote peer disconnected")
-				select {
-				case <-time.After(1 * time.Second):
-					obj.init.Logf("remote peer retrying")
-				case <-ctx.Done():
-					return ctx.Err()
-				}
-				continue
-			}
-			return errwrap.Wrapf(err, "unknown error")
 
 		case <-ctx.Done(): // closed by the engine to signal shutdown
 			return ctx.Err()
@@ -417,13 +209,13 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel() // make sure we always close any below ctx just in case!
 
-	var conn *systemd.Conn
+	var conn *sdbus.Conn
 	var err error
 	if obj.Session {
-		conn, err = systemd.NewUserConnectionContext(ctx) // user session
+		conn, err = sdbus.NewUserConnectionContext(ctx) // user session
 	} else {
 		// we want NewSystemConnectionContext but New... falls back to this
-		conn, err = systemd.NewWithContext(ctx) // needs root access
+		conn, err = sdbus.NewWithContext(ctx) // needs root access
 	}
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to connect to systemd")

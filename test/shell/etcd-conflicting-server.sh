@@ -8,20 +8,21 @@ pid1=$!
 sleep 15s	# let it startup
 
 # run a second one that should conflict because a server is already running...
-$TIMEOUT "$MGMT" run --no-pgp --tmp-prefix empty &
-pid2=$!
-wait $pid2
-e=$?
-if [ $e -eq 0 ]; then
+$TIMEOUT "$MGMT" run --no-pgp --tmp-prefix empty
+second_status=$?
+
+# Signal timeout's mgmt child directly so timeout reports its exit status.
+shutdown_status=0
+pkill -INT -P "$pid1" -x "${MGMT##*/}" || shutdown_status=$?
+wait "$pid1" || shutdown_status=$?
+
+if [ "$second_status" -eq 0 ]; then
 	echo "second mgmt exited successfully when error was expected"
 	exit 1
 fi
-if [ $e -ne 1 ]; then
-	echo "second mgmt exited with unexpected error of $e"
-	exit $e
+if [ "$second_status" -ne 1 ]; then
+	echo "second mgmt exited with unexpected error of $second_status"
+	exit "$second_status"
 fi
 
-$(kill -SIGINT $pid1)&	# send ^C to exit 1st mgmt
-wait $pid1	# get exit status
-# if pid1 exits because of a timeout, then it blocked, and this is a bug!
-exit $?
+exit "$shutdown_status"

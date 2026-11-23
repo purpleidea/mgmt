@@ -294,21 +294,21 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 			for _, x := range changes {
 				changed = changed || isUnitFileModified(x.Type)
 			}
-		} else if obj.Startup == "disabled" {
+		}
+		if obj.Startup == "disabled" {
 			var changes []sdbus.DisableUnitFileChange
 			changes, err = conn.DisableUnitFilesContext(ctx, files, false)
 			for _, x := range changes {
 				changed = changed || isUnitFileModified(x.Type)
 			}
-		} else {
-			// pass
 		}
 		if err != nil {
 			return false, errwrap.Wrapf(err, "unable to change startup status")
 		}
 		if obj.Startup == "enabled" {
 			obj.init.Logf("service enabled")
-		} else if obj.Startup == "disabled" {
+		}
+		if obj.Startup == "disabled" {
 			obj.init.Logf("service disabled")
 		}
 
@@ -360,7 +360,8 @@ func (obj *SvcRes) CheckApply(ctx context.Context, apply bool) (bool, error) {
 		case SystemdUnitResultDone:
 			if obj.State == "running" {
 				obj.init.Logf("service started")
-			} else if obj.State == "stopped" {
+			}
+			if obj.State == "stopped" {
 				obj.init.Logf("service stopped")
 			}
 

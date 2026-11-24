@@ -82,47 +82,59 @@ func SyncDirToDisk(srcFs SyncFs, src, dst string) error {
 	for _, e := range srcEntries {
 		srcChild := path.Join(src, e.Name())
 		dstChild := path.Join(dst, e.Name())
-		dstInfo, _ := os.Stat(dstChild)
 
-		if e.IsDir() {
-			if dstInfo != nil && !dstInfo.IsDir() {
-				if err := os.Remove(dstChild); err != nil {
-					return err
-				}
-			}
-			// The owner must be able to write in each dir we make,
-			// or we couldn't sync into it, and eg: each dir in an
-			// embedded fs is 0555.
-			if err := os.MkdirAll(dstChild, e.Mode()|0700); err != nil {
-				return err
-			}
-			if err := SyncDirToDisk(srcFs, srcChild, dstChild); err != nil {
+		if !e.IsDir() {
+			if err := SyncFileToDisk(srcFs, srcChild, dstChild, e.Mode()); err != nil {
 				return err
 			}
 			continue
 		}
 
-		if dstInfo != nil && dstInfo.IsDir() {
-			if err := os.RemoveAll(dstChild); err != nil {
+		if dstInfo, _ := os.Stat(dstChild); dstInfo != nil && !dstInfo.IsDir() {
+			if err := os.Remove(dstChild); err != nil {
 				return err
 			}
-			dstInfo = nil
 		}
-		data, err := srcFs.ReadFile(srcChild)
-		if err != nil {
+		// The owner must be able to write in each dir we make, or we
+		// couldn't sync into it, and eg: each dir in an embedded fs is
+		// 0555.
+		if err := os.MkdirAll(dstChild, e.Mode()|0700); err != nil {
 			return err
 		}
-		if dstInfo != nil {
-			if existing, err := os.ReadFile(dstChild); err == nil && bytes.Equal(existing, data) {
-				continue
-			}
-		}
-		// The owner must be able to write each file we make, or we
-		// couldn't change it in a later sync, and eg: each file in an
-		// embedded fs is 0444.
-		if err := os.WriteFile(dstChild, data, e.Mode()|0200); err != nil {
+		if err := SyncDirToDisk(srcFs, srcChild, dstChild); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// SyncFileToDisk syncs the src file on the srcFs to the dst file on our local
+// disk, the same way that SyncDirToDisk syncs each file. If dst is a dir, then
+// it's removed first. A dst that's already the same is left alone, since
+// unnecessary churn would cause unnecessary events. The file is read whole into
+// memory, and it's written with os.WriteFile, which isn't atomic. If we make
+// dst, it gets the perm mode, which is usually the mode of src, plus what the
+// owner needs to change it in a later sync. The mode of a dst that already
+// exists isn't changed.
+func SyncFileToDisk(srcFs SyncFs, src, dst string, perm os.FileMode) error {
+	dstInfo, _ := os.Stat(dst)
+	if dstInfo != nil && dstInfo.IsDir() {
+		if err := os.RemoveAll(dst); err != nil {
+			return err
+		}
+		dstInfo = nil
+	}
+	data, err := srcFs.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	if dstInfo != nil {
+		if existing, err := os.ReadFile(dst); err == nil && bytes.Equal(existing, data) {
+			return nil
+		}
+	}
+	// The owner must be able to write each file we make, or we couldn't
+	// change it in a later sync, and eg: each file in an embedded fs is
+	// 0444.
+	return os.WriteFile(dst, data, perm|0200)
 }

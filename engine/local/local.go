@@ -457,7 +457,12 @@ func valueWrite(ctx context.Context, prefix, key string, value interface{}) erro
 		return err
 	}
 	s += "\n" // files end with a newline
-	return os.WriteFile(p, []byte(s), 0600)
+
+	// We write a temporary file, and rename it into place, so that a crash
+	// can't leave a partial value behind, which we couldn't decode.
+	// TODO: Clean up any temporary file which a crash before the rename
+	// left behind.
+	return writeFileAtomic(ctx, p, nil, []byte(s)) // made with 0600
 }
 
 func valueRemove(ctx context.Context, prefix, key string) error {
@@ -474,7 +479,8 @@ func valueRemove(ctx context.Context, prefix, key string) error {
 	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	return nil // ignore not found errors
+	// ignore not found errors
+	return syncDir(path.Dir(p)) // so that the remove survives a crash
 }
 
 // VarDirInit are the init values that the VarDir API needs to work correctly.

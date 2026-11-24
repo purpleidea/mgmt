@@ -268,10 +268,10 @@ func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) e
 		case ch <- struct{}{}: // must be async and not block forever
 			// send
 
-			// We don't ever exit here, because that would be the equivalent
-			// of dropping a notification on the floor. This loop is
-			// non-blocking, and so it's okay to just finish it up quickly.
-			//case <-ctx.Done():
+		default:
+			// The notify chan is buffered (1) so if it's full then
+			// a notification is already pending and dropping this
+			// one coalesces them, which is exactly what we want.
 		}
 	}
 

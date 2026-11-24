@@ -62,6 +62,99 @@ func TestWrite(t *testing.T) {
 	}
 }
 
+// TestValueSetWatcherNotReading checks that ValueSet doesn't wait for a watcher
+// which isn't reading its events. It used to, while it held the mutex for every
+// key, so one slow watcher stalled every other caller. If that watcher was then
+// cancelled, its cleanup waited for that same mutex, which was a deadlock.
+func TestValueSetWatcherNotReading(t *testing.T) {
+	value := &Value{}
+	value.Init(&ValueInit{
+		Prefix: t.TempDir(),
+		Logf: func(format string, v ...interface{}) {
+			t.Logf("value: "+format, v...)
+		},
+	})
+
+	// timeout runs fn, and fails if it doesn't return in time.
+	timeout := func(name string, fn func() error) {
+		t.Helper()
+		done := make(chan error, 1)
+		go func() { done <- fn() }()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("%s: %v", name, err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("%s: blocked", name)
+		}
+	}
+	set := func(val interface{}) {
+		t.Helper()
+		timeout("func ValueSet", func() error {
+			return value.ValueSet(context.Background(), "key", val)
+		})
+	}
+	get := func() interface{} {
+		t.Helper()
+		var val interface{}
+		timeout("func ValueGet", func() error {
+			var err error
+			val, err = value.ValueGet(context.Background(), "key")
+			return err
+		})
+		return val
+	}
+	recv := func(ch chan struct{}) {
+		t.Helper()
+		select {
+		case <-ch:
+		case <-time.After(10 * time.Second):
+			t.Fatalf("no watch event")
+		}
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ch, err := value.ValueWatch(ctx, "key")
+	if err != nil {
+		t.Fatalf("func ValueWatch: %v", err)
+	}
+
+	// Nobody reads ch, so the watcher holds one event, and its buffer holds
+	// the next one. The sets after that must coalesce, and not wait.
+	for _, val := range []string{"a", "b", "c"} {
+		set(val)
+	}
+
+	// An event is still pending, and after it we read the newest value.
+	recv(ch)
+	if val := get(); val != "c" {
+		t.Fatalf("got: %v, expected: c", val)
+	}
+
+	// Once we've read what's pending, a new change still sends an event.
+	for drained := false; !drained; {
+		select {
+		case <-ch:
+		case <-time.After(100 * time.Millisecond):
+			drained = true
+		}
+	}
+	set("d")
+	recv(ch)
+
+	// Fill the watcher up again, and cancel it while it's stuck sending.
+	// Its cleanup must not deadlock with the sets.
+	set("e")
+	set("f")
+	cancel()
+	set("g")
+	if val := get(); val != "g" {
+		t.Fatalf("got: %v, expected: g", val)
+	}
+}
+
 func TestHTTPPool(t *testing.T) {
 	ctx := context.Background()
 	pool := &HTTPPool{}

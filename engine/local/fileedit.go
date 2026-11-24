@@ -233,3 +233,27 @@ func syncDir(dir string) error {
 	}
 	return nil
 }
+
+// mkdirAllSync is os.MkdirAll, but it also syncs each dir that it makes into
+// its parent, so that the new dirs survive a crash, along with what we put in
+// them. A dir which already exists costs nothing more.
+func mkdirAllSync(dir string, perm os.FileMode) error {
+	made := []string{} // the dirs which we'll make, the deepest one first
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		if _, err := os.Stat(d); err == nil {
+			break
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+		made = append(made, d)
+	}
+	if err := os.MkdirAll(dir, perm); err != nil {
+		return err
+	}
+	for _, d := range made {
+		if err := syncDir(filepath.Dir(d)); err != nil {
+			return err
+		}
+	}
+	return nil
+}

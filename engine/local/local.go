@@ -35,6 +35,7 @@ package local
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -45,6 +46,10 @@ import (
 
 	"github.com/purpleidea/mgmt/util"
 )
+
+// errValueDecode is in the error from valueRead when the file of a value is
+// there, but we can't decode it, eg: if it's corrupt.
+const errValueDecode = util.Error("could not decode value")
 
 // API implements the base handle for all the methods in this package. If we
 // were going to have more than one implementation for all of these, then this
@@ -194,10 +199,16 @@ func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error)
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	var val interface{}
-	//var err error
+	return obj.get(ctx, prefix, key)
+}
+
+// get is the helper version of ValueGet where the caller must hold the mutex.
+// The first time that it sees a key, it loads it from disk into memory, and
+// after that it only uses the memory, since everything that changes it goes
+// through here.
+func (obj *Value) get(ctx context.Context, prefix, key string) (interface{}, error) {
 	if _, skip := obj.skipread[key]; !skip {
-		val, err = valueRead(ctx, prefix, key) // must return val == nil if missing
+		val, err := valueRead(ctx, prefix, key) // must return val == nil if missing
 		if err != nil {
 			// We had an actual read issue. Report this and stop
 			// because it means we might not be allowing our
@@ -205,16 +216,17 @@ func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error)
 			return nil, err
 		}
 		// File not found errors are masked in the valueRead function
-	}
 
-	// Anything in memory, will override whatever we might have read.
-	value, exists := obj.values[key]
-	if !exists {
+		// Anything in memory, will override whatever we might have
+		// read, otherwise we keep what we read so the cache is warm.
+		if _, exists := obj.values[key]; !exists && val != nil {
+			obj.values[key] = val
+		}
 		// disable future disk reads since the cache is now warm!
 		obj.skipread[key] = struct{}{}
-		return val, nil // if val is nil, we didn't find it
 	}
-	return value, nil
+
+	return obj.values[key], nil // if it's nil, we didn't find it
 }
 
 // ValueSet sets a value to our in-memory, key-value store that is backed by
@@ -229,14 +241,27 @@ func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) e
 	obj.mutex.Lock()
 	defer obj.mutex.Unlock()
 
-	// If we're already in the correct state, then return early and *don't*
-	// send any events at the very end...
-	v, exists := obj.values[key]
-	if !exists && value == nil {
-		return nil // already in the correct state
+	return obj.set(ctx, prefix, key, value)
+}
+
+// set is the helper version of ValueSet where the caller must hold the mutex.
+func (obj *Value) set(ctx context.Context, prefix, key string, value interface{}) error {
+	// Compare with what's on disk too, if we haven't loaded it yet, or we
+	// wouldn't remove a value which was only on disk. If what's on disk
+	// can't be decoded, then we replace it, since nothing else can.
+	v, err := obj.get(ctx, prefix, key)
+	if err != nil && !errors.Is(err, errValueDecode) {
+		return err
 	}
-	// We can't use == since it panics on a list or a map.
-	if exists && reflect.DeepEqual(v, value) {
+	if err != nil {
+		obj.init.Logf("replacing the value of key %s: %v", key, err)
+	}
+
+	// If we're already in the correct state, then return early and *don't*
+	// send any events at the very end... We can't use == since it panics on
+	// a list or a map. What we couldn't decode is never the correct state,
+	// even if we're removing it.
+	if err == nil && reflect.DeepEqual(v, value) {
 		return nil // already in the correct state
 	}
 
@@ -259,6 +284,7 @@ func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) e
 	} else {
 		obj.values[key] = value // store to in-memory map
 	}
+	obj.skipread[key] = struct{}{} // memory is correct, even if get failed
 
 	// We still notify on remove/delete!
 	for ch, k := range obj.notify { // send notifications to any watchers...
@@ -380,7 +406,11 @@ func valueRead(ctx context.Context, prefix, key string) (interface{}, error) {
 	s := string(b)
 	s = strings.TrimSpace(s) // get rid of any newline
 
-	return util.B64ToValue(s)
+	value, err := util.B64ToValue(s)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errValueDecode, err)
+	}
+	return value, nil
 }
 
 func valueWrite(ctx context.Context, prefix, key string, value interface{}) error {

@@ -34,6 +34,8 @@ package local
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -80,6 +82,61 @@ func TestValueSetList(t *testing.T) {
 		t.Fatalf("func ValueGet: %v", err)
 	} else if !reflect.DeepEqual(val, []string{"b"}) {
 		t.Fatalf("got: %#v, expected: %#v", val, []string{"b"})
+	}
+}
+
+// TestValueRestart checks that a value which is on disk from before a restart
+// can be read more than once, and can be removed. It used to read back as nil
+// after the first read, and removing it did nothing. A value which we can't
+// decode must still be replaceable, since nothing else can fix it.
+func TestValueRestart(t *testing.T) {
+	ctx := context.Background()
+	prefix := t.TempDir()
+	restart := func() *Value {
+		value := &Value{}
+		value.Init(&ValueInit{
+			Prefix: prefix,
+			Logf:   t.Logf,
+		})
+		return value
+	}
+
+	if err := restart().ValueSet(ctx, "key", "stored"); err != nil {
+		t.Fatalf("func ValueSet: %v", err)
+	}
+
+	value := restart()
+	for i := 0; i < 2; i++ {
+		if val, err := value.ValueGet(ctx, "key"); err != nil {
+			t.Fatalf("func ValueGet: %v", err)
+		} else if val != "stored" {
+			t.Fatalf("read %d got: %#v, expected: stored", i, val)
+		}
+	}
+
+	if err := restart().ValueSet(ctx, "key", nil); err != nil {
+		t.Fatalf("func ValueSet: %v", err)
+	}
+	if val, err := restart().ValueGet(ctx, "key"); err != nil {
+		t.Fatalf("func ValueGet: %v", err)
+	} else if val != nil {
+		t.Fatalf("got: %#v, expected: nil", val)
+	}
+
+	// A value which we can't decode can still be replaced, or removed.
+	file := filepath.Join(prefix, "value", "key")
+	for _, val := range []interface{}{"fixed", nil} {
+		if err := os.WriteFile(file, []byte("corrupt\n"), 0600); err != nil {
+			t.Fatalf("func WriteFile: %v", err)
+		}
+		if err := restart().ValueSet(ctx, "key", val); err != nil {
+			t.Fatalf("func ValueSet: %v", err)
+		}
+		if v, err := restart().ValueGet(ctx, "key"); err != nil {
+			t.Fatalf("func ValueGet: %v", err)
+		} else if v != val {
+			t.Fatalf("got: %#v, expected: %#v", v, val)
+		}
 	}
 }
 

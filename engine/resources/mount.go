@@ -150,6 +150,14 @@ func (obj *MountRes) Default() engine.Res {
 	}
 }
 
+// unitName returns the systemd name of our mount unit, eg: /mnt/foo is
+// mnt-foo.mount, which is the same as systemd-escape --path --suffix=mount. We
+// escape the path on its own, and then add the suffix, since it's not part of
+// the path, eg: / is -.mount, and a trailing slash doesn't count.
+func (obj *MountRes) unitName() string {
+	return unit.UnitNamePathEscape(obj.Name()) + ".mount"
+}
+
 // Validate if the params passed in are valid data.
 func (obj *MountRes) Validate() error {
 	var err error
@@ -230,7 +238,7 @@ func (obj *MountRes) Watch(ctx context.Context) error {
 
 	// add a dbus rule to watch signals from the mount unit.
 	args := fmt.Sprintf("type='signal', path='%s', arg0='%s'",
-		dbusUnitPath+sdbus.PathBusEscape(unit.UnitNamePathEscape((obj.Name()+".mount"))),
+		dbusUnitPath+sdbus.PathBusEscape(obj.unitName()),
 		dbusMountInterface,
 	)
 	if call := conn.BusObject().Call(engineUtil.DBusAddMatch, 0, args); call.Err != nil {

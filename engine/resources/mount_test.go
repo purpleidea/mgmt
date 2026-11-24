@@ -304,3 +304,21 @@ func TestMountCompare(t *testing.T) {
 		}
 	}
 }
+
+func TestMountUnitName(t *testing.T) {
+	tests := map[string]string{ // from systemd-escape --path --suffix=mount
+		"/":            "-.mount",
+		"/mnt/foo":     "mnt-foo.mount",
+		"/mnt/foo/":    "mnt-foo.mount",
+		"/mnt/my-disk": `mnt-my\x2ddisk.mount`,
+		"/mnt/.hidden": "mnt-.hidden.mount",
+		"/.snapshots":  `\x2esnapshots.mount`,
+	}
+	for name, expected := range tests {
+		res := &MountRes{}
+		res.SetName(name)
+		if s := res.unitName(); s != expected {
+			t.Errorf("mount %q: got %q, expected %q", name, s, expected)
+		}
+	}
+}

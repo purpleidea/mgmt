@@ -157,7 +157,9 @@ type ValueInit struct {
 	Logf   func(format string, v ...interface{})
 }
 
-// Value is the API for getting, setting, and watching local values.
+// Value is the API for getting, setting, and watching local values. Each key is
+// the name of the file of its value, so it can't be empty, contain a slash, or
+// be . or ..
 type Value struct {
 	init         *ValueInit
 	mutex        *sync.Mutex
@@ -191,6 +193,9 @@ func (obj *Value) Init(init *ValueInit) {
 // being used with the language type system. If the value doesn't exist, we
 // return a nil value and no error.
 func (obj *Value) ValueGet(ctx context.Context, key string) (interface{}, error) {
+	if err := valueCheckKey(key); err != nil {
+		return nil, err
+	}
 	prefix, err := obj.getPrefix()
 	if err != nil {
 		return nil, err
@@ -233,6 +238,9 @@ func (obj *Value) get(ctx context.Context, prefix, key string) (interface{}, err
 // on-disk storage. If you provide a nil value, this is the equivalent of
 // removing or deleting the value.
 func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) error {
+	if err := valueCheckKey(key); err != nil {
+		return err
+	}
 	prefix, err := obj.getPrefix()
 	if err != nil {
 		return err
@@ -314,6 +322,9 @@ func (obj *Value) set(ctx context.Context, prefix, key string, value interface{}
 // must be fast, and it must not call this API, which would deadlock. It must
 // not modify the value it gets, since that's the one we've stored.
 func (obj *Value) ValueEdit(ctx context.Context, key string, fn func(interface{}) (interface{}, error)) error {
+	if err := valueCheckKey(key); err != nil {
+		return err
+	}
 	prefix, err := obj.getPrefix()
 	if err != nil {
 		return err
@@ -338,6 +349,9 @@ func (obj *Value) ValueEdit(ctx context.Context, key string, fn func(interface{}
 // because after the initial startup which always sends a single startup event,
 // it suffices to watch the in-memory store for events!
 func (obj *Value) ValueWatch(ctx context.Context, key string) (chan struct{}, error) {
+	if err := valueCheckKey(key); err != nil {
+		return nil, err
+	}
 	// No need to look at the prefix on disk, because we can do all our
 	// watches from memory!
 	//prefix, err := obj.getPrefix()
@@ -410,6 +424,21 @@ func (obj *Value) getPrefix() (string, error) {
 	obj.prefixExists = true // former race write
 
 	return obj.prefix, nil
+}
+
+// valueCheckKey errors if a key isn't a file name in the value dir, eg: if it's
+// ../foo, which would be a file outside of it.
+func valueCheckKey(key string) error {
+	if key == "" {
+		return fmt.Errorf("key is empty")
+	}
+	if strings.Contains(key, "/") {
+		return fmt.Errorf("key contains slash")
+	}
+	if key == "." || key == ".." {
+		return fmt.Errorf("key is %s", key)
+	}
+	return nil
 }
 
 func valueRead(ctx context.Context, prefix, key string) (interface{}, error) {

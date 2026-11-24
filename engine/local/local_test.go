@@ -141,6 +141,29 @@ func TestValueRestart(t *testing.T) {
 	}
 }
 
+// TestValueKeyOutside checks that a key can't reach a file outside of the value
+// dir. It used to be able to write, or remove, any file that we could.
+func TestValueKeyOutside(t *testing.T) {
+	ctx := context.Background()
+	prefix := t.TempDir()
+	value := &Value{}
+	value.Init(&ValueInit{
+		Prefix: prefix,
+		Logf:   t.Logf,
+	})
+
+	file := filepath.Join(prefix, "outside")
+	if err := os.WriteFile(file, []byte("data\n"), 0600); err != nil {
+		t.Fatalf("func WriteFile: %v", err)
+	}
+	if err := value.ValueSet(ctx, "../outside", nil); err == nil {
+		t.Fatalf("func ValueSet: expected an error")
+	}
+	if _, err := os.Stat(file); err != nil {
+		t.Fatalf("func Stat: %v", err)
+	}
+}
+
 // TestValueEdit checks that concurrent edits of one key don't lose any writes.
 func TestValueEdit(t *testing.T) {
 	ctx := context.Background()

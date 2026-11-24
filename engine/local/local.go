@@ -305,6 +305,34 @@ func (obj *Value) set(ctx context.Context, prefix, key string, value interface{}
 	return nil
 }
 
+// ValueEdit atomically edits a value in our in-memory, key-value store that is
+// backed by on-disk storage. The function gets the current value, or nil if it
+// doesn't exist, and returns the new one, or nil to remove it, the same as with
+// ValueSet. If it errors, then nothing is changed, and we return that error.
+// This lets more than one writer share a key without losing each other's
+// writes. The function runs once, while we hold the lock for every key, so it
+// must be fast, and it must not call this API, which would deadlock. It must
+// not modify the value it gets, since that's the one we've stored.
+func (obj *Value) ValueEdit(ctx context.Context, key string, fn func(interface{}) (interface{}, error)) error {
+	prefix, err := obj.getPrefix()
+	if err != nil {
+		return err
+	}
+
+	obj.mutex.Lock()
+	defer obj.mutex.Unlock()
+
+	v, err := obj.get(ctx, prefix, key)
+	if err != nil {
+		return err
+	}
+	value, err := fn(v)
+	if err != nil {
+		return err
+	}
+	return obj.set(ctx, prefix, key, value)
+}
+
 // ValueWatch watches a value from our in-memory, key-value store that is backed
 // by on-disk storage. Conveniently, it never has to watch the on-disk storage,
 // because after the initial startup which always sends a single startup event,

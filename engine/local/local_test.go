@@ -37,6 +37,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -137,6 +138,43 @@ func TestValueRestart(t *testing.T) {
 		} else if v != val {
 			t.Fatalf("got: %#v, expected: %#v", v, val)
 		}
+	}
+}
+
+// TestValueEdit checks that concurrent edits of one key don't lose any writes.
+func TestValueEdit(t *testing.T) {
+	ctx := context.Background()
+	value := &Value{}
+	value.Init(&ValueInit{
+		Prefix: t.TempDir(),
+		Logf:   t.Logf,
+	})
+
+	const count = 50
+	wg := &sync.WaitGroup{}
+	errs := make(chan error, count)
+	for i := 0; i < count; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- value.ValueEdit(ctx, "key", func(v interface{}) (interface{}, error) {
+				n, _ := v.(int) // nil is zero
+				return n + 1, nil
+			})
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("func ValueEdit: %v", err)
+		}
+	}
+
+	if val, err := value.ValueGet(ctx, "key"); err != nil {
+		t.Fatalf("func ValueGet: %v", err)
+	} else if val != count {
+		t.Fatalf("got: %#v, expected: %d", val, count)
 	}
 }
 

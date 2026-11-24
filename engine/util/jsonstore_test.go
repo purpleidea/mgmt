@@ -87,6 +87,23 @@ func TestParseJSONStore(t *testing.T) {
 			str:      "etcd:////foo",
 		},
 		{
+			name:     "local",
+			handle:   "local:///hosts",
+			scheme:   JSONStoreSchemeLocal,
+			location: "hosts",
+			str:      "local:///hosts",
+		},
+		{
+			name:   "local key with a slash",
+			handle: "local:///foo/hosts",
+			fail:   true,
+		},
+		{
+			name:   "local parent dir",
+			handle: "local:///..",
+			fail:   true,
+		},
+		{
 			name:   "relative path",
 			handle: "tmp/store.json",
 			fail:   true,

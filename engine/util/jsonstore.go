@@ -36,6 +36,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -50,11 +51,16 @@ const (
 
 	// JSONStoreSchemeFile is the scheme of a JSON store in a local file.
 	JSONStoreSchemeFile = "file"
+
+	// JSONStoreSchemeLocal is the scheme of a JSON store in the Local Value
+	// API, which keeps it in the mgmt prefix dir of this host.
+	JSONStoreSchemeLocal = "local"
 )
 
 // ParseJSONStore parses a store handle. It accepts an absolute path, a file
-// URI, or an etcd URI. Examples are /etc/mgmt/hosts.json,
-// file:///etc/mgmt/hosts.json and etcd:///magic/hosts.
+// URI, an etcd URI, or a local URI. Examples are /etc/mgmt/hosts.json,
+// file:///etc/mgmt/hosts.json, etcd:///magic/hosts and local:///hosts. A local
+// key is a file name in the mgmt prefix dir, so it can't have a slash in it.
 func ParseJSONStore(handle string) (*JSONStore, error) {
 	if handle == "" {
 		return nil, fmt.Errorf("store handle is empty")
@@ -107,20 +113,45 @@ func ParseJSONStore(handle string) (*JSONStore, error) {
 			Location: location,
 		}, nil
 
+	case JSONStoreSchemeLocal:
+		if uri.Host != "" {
+			return nil, fmt.Errorf("local store host is not supported")
+		}
+		if uri.RawQuery != "" || uri.Fragment != "" {
+			return nil, fmt.Errorf("local store query and fragment are not supported")
+		}
+		if uri.Opaque != "" {
+			return nil, fmt.Errorf("local store path is not absolute")
+		}
+
+		location := strings.TrimPrefix(uri.Path, "/")
+		if location == "" {
+			return nil, fmt.Errorf("local store key is empty")
+		}
+		if strings.Contains(location, "/") || location == "." || location == ".." {
+			return nil, fmt.Errorf("local store key must be a file name")
+		}
+		return &JSONStore{
+			Scheme:   JSONStoreSchemeLocal,
+			Location: location,
+		}, nil
+
 	default:
 		return nil, fmt.Errorf("unknown store scheme: %s", uri.Scheme)
 	}
 }
 
 // JSONStore is where a resource keeps a JSON document, either in a local file,
-// or in etcd. Its edits go through the Local and World API's, which make them
-// atomic, so a resource never needs to coordinate with any others that share
-// its store.
+// in etcd, or in the Local Value API. Its edits go through the Local and World
+// API's, which make them atomic, so a resource never needs to coordinate with
+// any others that share its store.
 type JSONStore struct {
-	// Scheme is either JSONStoreSchemeFile or JSONStoreSchemeEtcd.
+	// Scheme is JSONStoreSchemeFile, JSONStoreSchemeEtcd or
+	// JSONStoreSchemeLocal.
 	Scheme string
 
-	// Location is the absolute path of the file, or the etcd key.
+	// Location is the absolute path of the file, the etcd key, or the local
+	// key.
 	Location string
 }
 
@@ -129,8 +160,8 @@ type JSONStore struct {
 // same store back from it.
 func (obj *JSONStore) String() string {
 	path := obj.Location // an absolute file path
-	if obj.Scheme == JSONStoreSchemeEtcd {
-		path = "/" + obj.Location // an etcd key, which may start with a slash
+	if obj.Scheme == JSONStoreSchemeEtcd || obj.Scheme == JSONStoreSchemeLocal {
+		path = "/" + obj.Location // an etcd key may start with a slash
 	}
 	return (&url.URL{Scheme: obj.Scheme, Path: path}).String()
 }
@@ -144,6 +175,9 @@ func (obj *JSONStore) Watch(ctx context.Context, init *engine.Init) error {
 
 	case JSONStoreSchemeEtcd:
 		return obj.etcdWatch(ctx, init)
+
+	case JSONStoreSchemeLocal:
+		return obj.localWatch(ctx, init)
 
 	default:
 		return fmt.Errorf("unsupported JSON store scheme: %s", obj.Scheme)
@@ -220,6 +254,70 @@ func (obj *JSONStore) etcdWatch(ctx context.Context, init *engine.Init) error {
 	}
 }
 
+// localWatch watches a JSON document stored in the Local Value API.
+func (obj *JSONStore) localWatch(ctx context.Context, init *engine.Init) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // stops the watch
+
+	events, err := init.Local.ValueWatch(ctx, obj.Location)
+	if err != nil {
+		return errwrap.Wrapf(err, "could not watch JSON store")
+	}
+
+	// The watch sends its first event at startup, which is our startup event.
+	for {
+		select {
+		case _, ok := <-events:
+			if !ok {
+				return fmt.Errorf("unexpected close")
+			}
+
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
+		if err := init.Event(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+// Get returns the whole document, or nil if there isn't one.
+func (obj *JSONStore) Get(ctx context.Context, init *engine.Init) (*string, error) {
+	switch obj.Scheme {
+	case JSONStoreSchemeFile:
+		data, err := os.ReadFile(obj.Location)
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		value := string(data)
+		return &value, nil
+
+	case JSONStoreSchemeEtcd:
+		value, err := init.World.StrGet(ctx, obj.Location)
+		if err != nil && init.World.StrIsNotExist(err) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &value, nil
+
+	case JSONStoreSchemeLocal:
+		v, err := init.Local.ValueGet(ctx, obj.Location)
+		if err != nil {
+			return nil, err
+		}
+		return jsonStoreLocalString(v)
+
+	default:
+		return nil, fmt.Errorf("unsupported JSON store scheme: %s", obj.Scheme)
+	}
+}
+
 // Edit atomically edits the whole document. The edit function gets the current
 // document, or nil if there isn't one, and returns the new one, or nil to
 // remove it. Nothing is written if it returns the same document. It can run
@@ -232,9 +330,38 @@ func (obj *JSONStore) Edit(ctx context.Context, init *engine.Init, fn func(*stri
 	case JSONStoreSchemeEtcd:
 		return init.World.StrEdit(ctx, obj.Location, fn)
 
+	case JSONStoreSchemeLocal:
+		return init.Local.ValueEdit(ctx, obj.Location, func(v interface{}) (interface{}, error) {
+			value, err := jsonStoreLocalString(v)
+			if err != nil {
+				return nil, err
+			}
+			output, err := fn(value)
+			if err != nil {
+				return nil, err
+			}
+			if output == nil {
+				return nil, nil // remove it
+			}
+			return *output, nil
+		})
+
 	default:
 		return fmt.Errorf("unsupported JSON store scheme: %s", obj.Scheme)
 	}
+}
+
+// jsonStoreLocalString returns the document which is stored in the Local Value
+// API, or nil if there isn't one. It's stored as a string.
+func jsonStoreLocalString(v interface{}) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	value, ok := v.(string)
+	if !ok {
+		return nil, fmt.Errorf("the JSON store value is not a string")
+	}
+	return &value, nil
 }
 
 // DecodeJSONObject decodes exactly one JSON object. Numbers are kept as their

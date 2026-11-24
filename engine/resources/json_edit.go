@@ -49,9 +49,10 @@ func init() {
 
 // JSONEditRes applies declarative edits to a JSON document. The resource name
 // selects where the complete document is kept unless Store overrides it. A file
-// URI or absolute path names a local file, and an etcd URI names a key in
-// mgmt's shared string store, which is the same storage used by the kv
-// resource.
+// URI or absolute path names a local file, an etcd URI names a key in mgmt's
+// shared string store, which is the same storage used by the kv resource, and a
+// local URI names a key in this host's Local Value API, which is the same
+// storage used by the value resource.
 //
 // Edits use a deliberately small, jq-like assignment syntax:
 //
@@ -69,17 +70,17 @@ func init() {
 // objects; deletion of a missing path is already converged. Each batch of edits
 // is atomic, so it never loses a concurrent change to the same store from some
 // other resource, even in another process for an etcd store. A file store is
-// only safe from the other resources in this process. A missing etcd key is an
-// empty document, but a missing file is an error.
+// only safe from the other resources in this process. A missing etcd or local
+// key is an empty document, but a missing file is an error.
 type JSONEditRes struct {
 	traits.Base
 
 	init *engine.Init
 
 	// Store optionally overrides the resource name as the store handle. It
-	// accepts an absolute path, a file URI, or an etcd URI. Examples are
-	// /etc/mgmt/hosts.json, file:///etc/mgmt/hosts.json, and
-	// etcd:///magic/hosts.
+	// accepts an absolute path, a file URI, an etcd URI, or a local URI.
+	// Examples are /etc/mgmt/hosts.json, file:///etc/mgmt/hosts.json,
+	// etcd:///magic/hosts, and local:///hosts.
 	Store string `lang:"store" yaml:"store"`
 
 	// Edits are the jq-like operations to converge. They are applied in

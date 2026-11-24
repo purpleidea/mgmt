@@ -568,8 +568,8 @@ func TestHTTPServerLongpollShutdownUnblocksHeldClient(t *testing.T) {
 		if result.status != http.StatusServiceUnavailable {
 			t.Fatalf("held long poll status = %d, want %d", result.status, http.StatusServiceUnavailable)
 		}
-		if result.retryAfter == "" {
-			t.Fatal("held long poll response did not include Retry-After")
+		if result.retryAfter != "0" {
+			t.Fatalf("held long poll Retry-After = %q, want %q", result.retryAfter, "0")
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("held long poll request did not unblock")

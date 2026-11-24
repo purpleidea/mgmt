@@ -31,16 +31,19 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
+	"github.com/purpleidea/mgmt/engine/resources/socket"
 	"github.com/purpleidea/mgmt/engine/traits"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -58,6 +61,12 @@ const (
 func init() {
 	engine.RegisterResource(httpServerKind, func() engine.Res { return &HTTPServerRes{} })
 }
+
+var _ engine.BackgroundRes = &HTTPServerRes{} // compile time check
+
+// httpServerSockets holds the listening sockets which the http:server
+// background workers keep open, by address.
+var httpServerSockets = socket.NewMap()
 
 // HTTPServerGroupableRes is the interface that you must implement if you want
 // to allow a resource the ability to be grouped into the http server resource.
@@ -99,6 +108,16 @@ type HTTPServerGroupableRes interface {
 //
 // This http server may not be security hardened for the public internet.
 //
+// When this resource stops, eg: on a graph swap or on exit, it stops serving
+// new connections, and it lets go of any long poll requests right away.
+// Transfers which are already running, eg: downloads, can finish, for up to the
+// ShutdownTimeout. After that, or on an interrupt, every remaining connection
+// is closed. No request handler ever runs after this resource has stopped. The
+// listening socket stays open across graph swaps for as long as there's an
+// http:server with the same address, so new connections wait for the next one
+// to start, instead of being refused. This isn't done when the port is zero,
+// since each bind of that picks a new random port.
+//
 // TODO: add support for TLS
 // XXX: Make the http:server:ui resource that functions can read data from!
 // XXX: The http:server:ui resource can also take in values from those functions
@@ -106,6 +125,7 @@ type HTTPServerRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
 	traits.Groupable // can have HTTPServerFileRes and others grouped into it
+	traits.Backgroundable
 
 	init *engine.Init
 
@@ -425,15 +445,16 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(context.Canceled)
 
-	// TODO: I think we could replace all this with:
-	//obj.conn, err := net.Listen("tcp", obj.getAddress())
-	// ...but what is the advantage?
-	addr, err := net.ResolveTCPAddr("tcp", obj.getAddress())
-	if err != nil {
-		return errwrap.Wrapf(err, "could not resolve address")
+	// If our background worker is keeping a socket open for our address,
+	// then that's what we serve, and closing our listener only detaches us
+	// from it. Otherwise, eg: for a port of zero, or in the tests, this
+	// Watch owns the socket.
+	var err error
+	if sock := httpServerSockets.Get(obj.getAddress()); sock != nil {
+		obj.conn, err = sock.Attach()
+	} else {
+		obj.conn, err = socket.Listen(obj.getAddress())
 	}
-
-	obj.conn, err = net.ListenTCP("tcp", addr)
 	if err != nil {
 		return errwrap.Wrapf(err, "could not start listener")
 	}
@@ -443,10 +464,27 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		obj.init.Logf("warning: listening on all interfaces at %s", obj.getAddress())
 	}
 
+	// We wait for every handler to return before Watch does, since none of
+	// them may outlive this resource. The http.Server doesn't do that for
+	// us when we Close it.
+	handlers := &httpServerHandlers{
+		mutex: &sync.Mutex{},
+		wg:    &sync.WaitGroup{},
+	}
+
 	obj.serveMux = http.NewServeMux() // do it here in case Watch restarts!
 	// TODO: We could consider having the obj.GetGroup loop here, instead of
 	// essentially having our own "router" API with AcceptHTTP.
-	obj.serveMux.HandleFunc("/", obj.handler())
+	obj.serveMux.HandleFunc("/", handlers.wrap(obj.handler()))
+
+	// The requests get this ctx instead of the Watch one, so that they can
+	// keep going while we drain. It's only cancelled at the cut. Draining
+	// is closed as the drain starts, so that the handlers which only wait
+	// for an event, eg: long polls, can let go right away.
+	drainCtx, drainCancel := context.WithCancel(context.WithoutCancel(ctx))
+	defer drainCancel()
+	draining := make(chan struct{})
+	baseCtx := context.WithValue(drainCtx, httpServerDrainingKey{}, (<-chan struct{})(draining))
 
 	readTimeout := uint64(0)
 	if i := obj.getReadTimeout(); i != nil {
@@ -462,9 +500,9 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		ReadTimeout:  time.Duration(readTimeout) * time.Second,
 		WriteTimeout: time.Duration(writeTimeout) * time.Second,
 		BaseContext: func(net.Listener) context.Context {
-			// This means that our ctx will get used as the parent
+			// This means that this ctx will get used as the parent
 			// for all the requests. Closing this cancels them all!
-			return ctx
+			return baseCtx
 		},
 		//MaxHeaderBytes: 1 << 20, XXX: should we add a param for this?
 	}
@@ -535,15 +573,23 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		return err
 	}
 
+	// The cut ends the drain. It cancels the request contexts, which stops
+	// things like upstream proxy downloads, and it closes every connection,
+	// which unblocks any write that's stuck on a client which stopped
+	// reading. It's safe to run more than once, and during Shutdown.
+	cut := func() {
+		drainCancel()
+		// TODO: should we bubble up the error from Close?
+		_ = obj.server.Close()
+	}
+
 	shutdownChan := make(chan struct{}) // server shutdown finished signal
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		select {
 		case <-obj.interruptChan:
-			// TODO: should we bubble up the error from Close?
-			// TODO: do we need a mutex around this Close?
-			_ = obj.server.Close() // kill it quickly!
+			cut() // kill it quickly!
 		case <-shutdownChan:
 			// let this exit
 		}
@@ -554,7 +600,10 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 		defer wg.Done()
 
 		err := obj.server.Serve(obj.conn) // blocks until Shutdown() is called!
-		if err == nil || err == http.ErrServerClosed {
+		// The drain closes our listener just before Shutdown, which
+		// makes Serve return net.ErrClosed instead.
+		if err == nil || err == http.ErrServerClosed || errors.Is(err, net.ErrClosed) {
+			// This doesn't cancel the requests, they use drainCtx.
 			cancel(nil)
 			return
 		}
@@ -563,9 +612,20 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 
 	// When Shutdown is called, Serve, ListenAndServe, and ListenAndServeTLS
 	// immediately return ErrServerClosed. Make sure the program doesn't
-	// exit and waits instead for Shutdown to return.
+	// exit and waits instead for Shutdown to return. This is the drain.
 	defer func() {
 		defer close(shutdownChan) // signal that shutdown is finished
+
+		// Stop the Watch of each of the grouped resources. The engine
+		// usually did that already, but not if a child errored.
+		cancel(context.Canceled)
+
+		// Stop taking new connections before we let go of the long
+		// polls, so that a client which reconnects at once goes to the
+		// next server, eg: after a graph swap, and not back to us.
+		_ = obj.conn.Close()
+		close(draining)
+
 		innerCtx := context.Background()
 		if i := obj.getShutdownTimeout(); i != nil && *i > 0 {
 			var cancel context.CancelFunc
@@ -573,12 +633,15 @@ func (obj *HTTPServerRes) Watch(ctx context.Context) error {
 			innerCtx, cancel = context.WithTimeout(innerCtx, time.Duration(*i)*time.Second)
 			defer cancel()
 		}
-		err := obj.server.Shutdown(innerCtx) // shutdown gracefully
-		if err == context.DeadlineExceeded {
-			// TODO: should we bubble up the error from Close?
-			// TODO: do we need a mutex around this Close?
-			_ = obj.server.Close() // kill it now
+		// This stops serving new connections, and waits for the ones
+		// that are running to finish.
+		if err := obj.server.Shutdown(innerCtx); err != nil {
+			cut() // the timeout expired, so kill it now
 		}
+
+		// Close doesn't wait for the handlers to return, and Shutdown
+		// doesn't wait for the hijacked ones, so we wait for them here.
+		handlers.closeAndWait()
 	}()
 
 	for {
@@ -710,6 +773,46 @@ func (obj *HTTPServerRes) Cmp(r engine.Res) error {
 func (obj *HTTPServerRes) Interrupt() error {
 	close(obj.interruptChan) // this should cause obj.server.Close() to run!
 	return nil
+}
+
+// BackgroundKey returns the address, so that there's one background worker for
+// each address. It keeps the listening socket open across graph swaps.
+func (obj *HTTPServerRes) BackgroundKey() string {
+	return obj.getAddress()
+}
+
+// Background keeps the listening socket for one address open for as long as
+// there's an http:server with that address in the graph, including across the
+// graph swaps. The key in the handle is that address. It doesn't bind the
+// socket itself, the first Watch does that, so that a bind error stays an error
+// of that resource, and doesn't stop the whole engine. It does nothing if the
+// port is zero, see httpServerKeepsSocket.
+func (obj *HTTPServerRes) Background(handle *engine.BackgroundHandle) engine.BackgroundFunc {
+	return func(ctx context.Context, ready chan<- struct{}) error {
+		if !httpServerKeepsSocket(handle.Key) {
+			close(ready)
+			select {
+			case <-ctx.Done():
+			}
+			return ctx.Err()
+		}
+
+		sock, err := httpServerSockets.Add(handle.Key)
+		if err != nil {
+			return err
+		}
+		close(ready)
+
+		select {
+		case <-ctx.Done():
+		}
+
+		// The Watch of every resource with this address has returned.
+		if err := httpServerSockets.Remove(sock); err != nil {
+			handle.Logf("could not close the socket: %v", err)
+		}
+		return ctx.Err()
+	}
 }
 
 // Copy copies the resource. Don't call it directly, use engine.ResCopy instead.
@@ -855,4 +958,69 @@ func (obj *HTTPServerRes) handler() func(http.ResponseWriter, *http.Request) {
 		http.NotFound(w, req)
 		return
 	}
+}
+
+// httpServerHandlers keeps track of the running handlers, so that Watch can
+// wait for all of them to return. Once it's closed, no new handler can start,
+// since one which started after the wait would outlive the resource.
+type httpServerHandlers struct {
+	mutex  *sync.Mutex // guards closed, and orders the wg.Add with wg.Wait
+	wg     *sync.WaitGroup
+	closed bool
+}
+
+// wrap returns a handler which runs this one, unless we're closed.
+func (obj *httpServerHandlers) wrap(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		obj.mutex.Lock()
+		if obj.closed {
+			obj.mutex.Unlock()
+			// Watch is returning, so we can't use the resources.
+			w.Header().Set("Retry-After", "0") // the next server
+			http.Error(w, "http server shutting down", http.StatusServiceUnavailable)
+			return
+		}
+		obj.wg.Add(1)
+		obj.mutex.Unlock()
+		defer obj.wg.Done()
+
+		handler(w, req)
+	}
+}
+
+// closeAndWait stops any new handler from starting, and then waits for all the
+// ones which are running to return.
+func (obj *httpServerHandlers) closeAndWait() {
+	obj.mutex.Lock()
+	obj.closed = true
+	obj.mutex.Unlock()
+
+	obj.wg.Wait()
+}
+
+// httpServerDrainingKey is the request context key for the channel which the
+// http:server closes when it starts to drain.
+type httpServerDrainingKey struct{}
+
+// httpServerDraining returns a channel which is closed once the http:server
+// that is serving this request starts to drain. A handler which only waits for
+// an event, eg: a long poll, should let go then, since the server would
+// otherwise wait for it until the cut. It returns nil, which blocks forever, if
+// this ctx doesn't come from an http:server.
+func httpServerDraining(ctx context.Context) <-chan struct{} {
+	ch, _ := ctx.Value(httpServerDrainingKey{}).(<-chan struct{})
+	return ch
+}
+
+// httpServerKeepsSocket returns true if the background worker keeps a listening
+// socket open for this address. It doesn't when the port is zero, since that
+// asks for a new random port, so two http:servers with that same address must
+// each get a socket of their own, instead of sharing one.
+func httpServerKeepsSocket(address string) bool {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return true // Validate catches this, and the bind fails anyways
+	}
+	n, err := strconv.Atoi(port)
+	return err != nil || n != 0 // a name like "http" isn't zero
 }

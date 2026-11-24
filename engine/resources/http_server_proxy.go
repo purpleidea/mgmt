@@ -30,8 +30,8 @@
 package resources
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -41,7 +41,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
+	"syscall"
 	"time"
 
 	"github.com/purpleidea/mgmt/engine"
@@ -50,19 +50,15 @@ import (
 
 const (
 	httpServerProxyKind = httpServerKind + ":proxy"
-)
 
-var (
-	// httpServerProxyRWMutex synchronizes against reads and writes to the
-	// cache.
-	// TODO: we could instead have a per-cache path individual mutex, but to
-	// keep things simple for now, we just lumped them all together.
-	httpServerProxyRWMutex *sync.RWMutex
+	// httpServerProxyTempPrefix is the start of the name of every partial
+	// download in the cache. Requests for any path which has a component
+	// that starts with this are refused, so that a partial download can't
+	// ever be served.
+	httpServerProxyTempPrefix = ".mgmt-partial-"
 )
 
 func init() {
-	httpServerProxyRWMutex = &sync.RWMutex{}
-
 	engine.RegisterResource(httpServerProxyKind, func() engine.Res { return &HTTPServerProxyRes{} })
 }
 
@@ -82,13 +78,22 @@ var _ HTTPServerGroupableRes = &HTTPServerProxyRes{} // compile time check
 // create this as a resource which responds to the same type of request as an
 // http:server:file resource or any other kind of resource, it is undefined
 // behaviour which will answer the request. The most common clash will happen if
-// both are present at the same path. This particular implementation stores some
-// file data in memory as a convenience instead of streaming directly to
-// clients. This makes locking much easier, but is wasteful. If you plan on
-// using this for huge files and on systems with low amounts of memory, you
-// might want to optimize this. The resultant proxy path is determined by
+// both are present at the same path. The resultant proxy path is determined by
 // subtracting the `Sub` field from the `Path` (and request path) and then
 // appending the result to the `Head` field.
+//
+// The cache can be used by any number of concurrent clients, and by more than
+// one of these resources, even across graph swaps. A file in the cache is
+// either absent or complete, since a download is written to a private partial
+// file, which is only renamed into place once the whole body has arrived, just
+// after the client that it was downloaded for has received all of it. As a
+// result, no client ever waits for another client or for another download, so a
+// slow or stalled client can only slow itself down. Both the cache hits and the
+// downloads are streamed, so the memory used doesn't grow with file size. If
+// the cache can't be written to, then we still serve the client. A request for
+// a file which is not in the cache yet downloads it from upstream, even if
+// another request for that same file is already doing so, and whichever
+// finishes last is the one in the cache, but they're all identical anyways.
 type HTTPServerProxyRes struct {
 	traits.Base      // add the base methods without re-implementation
 	traits.Edgeable  // XXX: add autoedge support
@@ -134,6 +139,10 @@ type HTTPServerProxyRes struct {
 	// TODO: Add a Force param to let a dir in cache folder get converted to a file or vice-versa
 	// TODO: Add an alternate API that consumes a "mapping" function instead
 	// of Sub/Head. Eg: mapping => func($s) { {"/fedora/" => "https://example.com/foo/" }[$s] }
+	// TODO: Concurrent requests for the same uncached file should share one
+	// upstream download, which they would each stream from at their own
+	// pace, instead of each one downloading it separately.
+	// TODO: Clean up partial files left behind in the cache after a crash.
 
 	// pathParser is the local instantiation of our parser that gets reused.
 	pathParser *pathParser
@@ -153,221 +162,204 @@ func (obj *HTTPServerProxyRes) getPath() string {
 	return obj.Name()
 }
 
-// serveHTTP is the real implementation of ServeHTTP, but with a more ergonomic
-// signature.
-func (obj *HTTPServerProxyRes) serveHTTP(ctx context.Context, method, requestPath string) (handlerFuncError, error) {
+// serveHTTP is the real implementation of ServeHTTP. It only returns an error
+// if it hasn't written anything to the client yet, so that we can send one.
+func (obj *HTTPServerProxyRes) serveHTTP(w http.ResponseWriter, req *http.Request) error {
 	// TODO: switch requestPath to use safepath.AbsPath instead of a string
+	requestPath := req.URL.Path // TODO: is this what we want here?
 
 	result, err := obj.pathParser.parse(requestPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	cachePath := result.cachePath
 
 	if obj.Cache != "" { // check in the cache...
 		// TODO: do cache invalidation here
-		fn, err := obj.getCachedFile(ctx, cachePath)
-		if err != nil && !os.IsNotExist(err) {
-			// cache dir is broken, error?
-			return nil, err
+		served, err := obj.serveCached(w, req, result.cachePath)
+		if err != nil {
+			return err // cache dir is broken
 		}
-		if err == nil {
-			obj.init.Logf("cache: %q", cachePath)
-			return fn, nil
+		if served {
+			return nil
 		}
-		// otherwise, it must be a file not found in cache error...
+		// otherwise, it's not in the cache...
 	}
 
 	if obj.Head == "" { // we can't download (we can only pull from cache)
-		return nil, fmt.Errorf("can't proxy") // NOT a 404 error!
+		return fmt.Errorf("can't proxy") // NOT a 404 error!
 	}
 
+	return obj.serveUpstream(w, req, result)
+}
+
+// serveCached serves the file from our local cache if it's in there. It returns
+// false if it isn't, and it only errors if the cache itself is broken. Files
+// are only renamed into the cache once they're complete, so we don't need to
+// lock anything here. Once we've opened it, we keep reading that same file,
+// even if a newer download replaces it while we're still serving it.
+func (obj *HTTPServerProxyRes) serveCached(w http.ResponseWriter, req *http.Request, cachePath string) (bool, error) {
+	f, err := os.Open(cachePath)
+	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
+		return false, nil // not in the cache
+	}
+	if err != nil {
+		return false, err
+	}
+	defer f.Close() // ignore error
+
+	fi, err := f.Stat()
+	if err != nil {
+		return false, err
+	}
+	if fi.IsDir() { // we only cache files
+		return false, nil
+	}
+
+	obj.init.Logf("cache: %q", cachePath)
+	requestPath := req.URL.Path // TODO: is this what we want here?
+	http.ServeContent(w, req, requestPath, fi.ModTime(), f)
+	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
+	return true, nil
+}
+
+// serveUpstream downloads the file from upstream, and streams it to the client.
+// If we have a cache, then it also streams it into a partial file there, which
+// is put into the cache once all of it has arrived. Problems with the cache are
+// logged, but they don't affect the client.
+func (obj *HTTPServerProxyRes) serveUpstream(w http.ResponseWriter, req *http.Request, result *pathResult) error {
+	method := req.Method
 	proxyURL := result.proxyURL
+	cachePath := result.cachePath
 
 	// FIXME: should we be using a different client?
 	client := http.DefaultClient
+	// This keeps going while the http:server drains, and it's cancelled at
+	// the cut if the drain takes too long or on an interrupt.
 	//nolint:gosec // G704: proxyURL is rooted at the operator-configured Head; proxying to it is this resource's purpose
-	request, err := http.NewRequestWithContext(ctx, method, proxyURL, nil) // (*Request, error)
+	request, err := http.NewRequestWithContext(req.Context(), method, proxyURL, nil) // (*Request, error)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// TODO: add a progress logf...
 	obj.init.Logf("%s: %s", method, proxyURL)
 
-	return func(w http.ResponseWriter, req *http.Request) error {
+	// Tell the client right away, that we're working on things...
+	// TODO: Is this valuable to give us more time to block?
+	// NOTE: Using this header breaks wget2!
+	//w.WriteHeader(http.StatusProcessing) // http 102, RFC 2518, 10.1
 
-		// Tell the client right away, that we're working on things...
-		// TODO: Is this valuable to give us more time to block?
-		// NOTE: Using this header breaks wget2!
-		//w.WriteHeader(http.StatusProcessing) // http 102, RFC 2518, 10.1
-
-		//nolint:gosec // G704: request targets the operator-configured Head; proxying to it is this resource's purpose
-		response, err := client.Do(request) // (*Response, error)
-		if err != nil {
-			return err
-		}
-		defer response.Body.Close() // free
-
-		if response.StatusCode != http.StatusOK { // 200
-			return &httpError{
-				//http.StatusText(http.StatusCode)
-				msg:  fmt.Sprintf("bad status: %d", response.StatusCode),
-				code: http.StatusNotFound, // 404
-			}
-		}
-
-		// Determine the last-modified time if we can.
-		modtime := time.Now()
-
-		key := http.CanonicalHeaderKey("Last-Modified")
-		if headers, exists := response.Header[key]; exists && len(headers) > 0 { // []string
-			text := headers[len(headers)-1]           // last element
-			lastModified, err := http.ParseTime(text) // (time.Time, error)
-			if err == nil {
-				modtime = lastModified
-			}
-		}
-
-		// We stream the download into both the client requesting it
-		// indirectly through this proxy, and also into the cache if we
-		// want to store the file. This lets us not OOM on large files.
-		// This is necessary because otherwise a client would get bored
-		// of waiting for us to download large files before sending them
-		// off. One downside is we haven't implemented range requests
-		// that http.ServeContent did for us magically, and we also
-		// currently might not do all of the http/header magic it did.
-
-		var copyError error
-		writers := []io.Writer{w} // out to the client
-
-		// A HEAD request only retrieves metadata, so it must not create
-		// an empty cache entry.
-		if obj.Cache != "" && method != http.MethodHead { // check in the cache...
-			httpServerProxyRWMutex.Lock()
-			defer httpServerProxyRWMutex.Unlock()
-
-			// store in cachePath
-			if err := os.MkdirAll(filepath.Dir(cachePath), 0700); err != nil {
-				return err
-			}
-
-			// store the last modified time if set
-			// TODO: is there a file last-modified-time precision
-			// issue if we use this value in a future HTTP
-			// If-Modified-Since header?
-			defer func() { // Do this after the file closes
-				if copyError != nil {
-					return // skip if we have a copy error
-				}
-				if err := os.Chtimes(cachePath, time.Time{}, modtime); err != nil {
-					// TODO: what do we do here?
-					obj.init.Logf("could not chtimes: %q", cachePath)
-				}
-			}()
-
-			// TODO: use ctx
-			out, err := os.Create(cachePath)
-			if err != nil {
-				return err
-			}
-			defer out.Close()
-			writers = append(writers, out)
-
-			// TODO: consider doing something like this to stream?
-			//reader = io.TeeReader(reader, writer)
-		}
-
-		requestPath := req.URL.Path // TODO: is this what we want here?
-
-		if !isZeroTime(modtime) { // from: src/net/http/fs.go:setLastModified
-			w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
-		}
-
-		if obj.init.Debug || true {
-			obj.init.Logf("got content-length: %d bytes", response.ContentLength)
-		}
-
-		if size := response.ContentLength; size > 0 {
-			w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-		}
-
-		// Use the file's extension to find the ctype, skip if we would
-		// need to seek into the file to read some header content bytes.
-		// TODO: Is this sufficient for setting Content-Type ?
-		if ctype := mime.TypeByExtension(filepath.Ext(requestPath)); ctype != "" {
-			w.Header().Set("Content-Type", ctype)
-		}
-
-		w.WriteHeader(http.StatusOK) // Tell client everything is ok.
-		if method == http.MethodHead {
-			// end early, no content
-			return nil
-		}
-
-		//if progressBar {
-		//	writers = append(writers, progress)
-		//}
-		writer := io.MultiWriter(writers...)
-		if len(writers) == 1 {
-			writer = writers[0] // simplify
-		}
-		if _, err := io.Copy(writer, response.Body); err != nil {
-			if obj.Cache != "" { // check in the cache...
-				// We already took the mutex earlier!
-				obj.init.Logf("removing a partial file: %q", cachePath)
-				if err := os.Remove(cachePath); err != nil {
-					// TODO: what do we do here?
-					obj.init.Logf("could not remove: %q", cachePath)
-				}
-			}
-			// Even if we have an error, it's too late to error.
-			//return err // superfluous response.WriteHeader call
-			copyError = err // store for defer
-			return nil
-		}
-
-		//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
-		return nil
-	}, nil
-}
-
-// getCachedFile pulls a file from our local cache if it exists. It returns the
-// correct http handler on success, which we can then run.
-func (obj *HTTPServerProxyRes) getCachedFile(ctx context.Context, absPath string) (handlerFuncError, error) {
-	// TODO: if infinite reads keep coming in, do we indefinitely-postpone
-	// the locking so that a new file can be saved in the cache?
-	httpServerProxyRWMutex.RLock()
-	defer httpServerProxyRWMutex.RUnlock()
-
-	f, err := os.Open(absPath)
+	//nolint:gosec // G704: request targets the operator-configured Head; proxying to it is this resource's purpose
+	response, err := client.Do(request) // (*Response, error)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	defer f.Close() // ignore error
+	defer response.Body.Close() // free
+
+	if response.StatusCode != http.StatusOK { // 200
+		return &httpError{
+			//http.StatusText(http.StatusCode)
+			msg:  fmt.Sprintf("bad status: %d", response.StatusCode),
+			code: http.StatusNotFound, // 404
+		}
+	}
 
 	// Determine the last-modified time if we can.
 	modtime := time.Now()
-	fi, err := f.Stat()
-	if err == nil {
-		modtime = fi.ModTime()
+
+	key := http.CanonicalHeaderKey("Last-Modified")
+	if headers, exists := response.Header[key]; exists && len(headers) > 0 { // []string
+		text := headers[len(headers)-1]           // last element
+		lastModified, err := http.ParseTime(text) // (time.Time, error)
+		if err == nil {
+			modtime = lastModified
+		}
 	}
-	// TODO: if Stat errors, should we fail the whole thing?
 
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
+	// We stream the download into both the client requesting it indirectly
+	// through this proxy, and also into the cache if we want to store the
+	// file. This lets us not OOM on large files. This is necessary because
+	// otherwise a client would get bored of waiting for us to download
+	// large files before sending them off. One downside is we haven't
+	// implemented range requests that http.ServeContent did for us
+	// magically, and we also currently might not do all of the http/header
+	// magic it did.
+
+	// A HEAD request only retrieves metadata, so it must not create an
+	// empty cache entry, and a request that looks like a dir can't be
+	// stored as a file.
+	var fill *httpServerProxyFill // nil when we're not caching
+	if obj.Cache != "" && method != http.MethodHead && !strings.HasSuffix(cachePath, "/") {
+		fill, err = newHTTPServerProxyFill(cachePath)
+		if err != nil {
+			obj.init.Logf("not caching: %q: %s", cachePath, err)
+			fill = nil
+		} else {
+			defer fill.abort() // does nothing once it's committed
+		}
 	}
 
-	handle := bytes.NewReader(data) // buffer for mutex
+	requestPath := req.URL.Path // TODO: is this what we want here?
 
-	return func(w http.ResponseWriter, req *http.Request) error {
-		requestPath := req.URL.Path // TODO: is this what we want here?
-		http.ServeContent(w, req, requestPath, modtime, handle)
-		//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
+	if !isZeroTime(modtime) { // from: src/net/http/fs.go:setLastModified
+		w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
+	}
+
+	if obj.init.Debug || true {
+		obj.init.Logf("got content-length: %d bytes", response.ContentLength)
+	}
+
+	if size := response.ContentLength; size > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	}
+
+	// Use the file's extension to find the ctype, skip if we would need to
+	// seek into the file to read some header content bytes.
+	// TODO: Is this sufficient for setting Content-Type ?
+	if ctype := mime.TypeByExtension(filepath.Ext(requestPath)); ctype != "" {
+		w.Header().Set("Content-Type", ctype)
+	}
+
+	w.WriteHeader(http.StatusOK) // Tell client everything is ok.
+	if method == http.MethodHead {
+		// end early, no content
 		return nil
-	}, nil
+	}
+
+	var body io.Reader = response.Body
+	if fill != nil {
+		body = io.TeeReader(response.Body, fill) // this never errors
+	}
+	if _, err := io.Copy(w, body); err != nil {
+		if fill != nil {
+			obj.init.Logf("discarding a partial download: %q", cachePath)
+		}
+		// Even if we have an error, it's too late to error.
+		//return err // superfluous response.WriteHeader call
+		obj.init.Logf("copy error: %s", err)
+		return nil
+	}
+	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
+
+	if fill == nil {
+		return nil
+	}
+
+	// The client has everything now, so send it all to them before we wait
+	// on the disk. They can't tell if the cache works or not, so it's fine.
+	// TODO: This only helps when upstream sent a Content-Length. Without
+	// one, the response is chunked, and its last chunk is only sent once
+	// we return, so the client waits for the fsync in the commit. Either
+	// way, the next request on a keep-alive connection waits for it too. We
+	// could instead commit in a goroutine which the http:server waits for
+	// like it does for the handlers, eg: an httpServerGo(ctx, fn) that
+	// finds the handler WaitGroup in the request ctx. Then we'd return at
+	// once, and the cache entry would still exist before Watch returns.
+	_ = http.NewResponseController(w).Flush() // ignore error
+	if err := fill.commit(modtime); err != nil {
+		obj.init.Logf("could not cache: %q: %s", cachePath, err)
+	}
+	return nil
 }
 
 // ParentName is used to limit which resources autogroup into this one. If it's
@@ -404,10 +396,6 @@ func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	// XXX: does this cancel when our resource does?
-	ctx := req.Context()        // context.Context
-	requestPath := req.URL.Path // TODO: is this what we want here?
-
 	// TODO: use safepath instead
 	//absPath, err := safepath.ParseIntoAbsPath(requestPath)
 	//if err != nil {
@@ -415,20 +403,12 @@ func (obj *HTTPServerProxyRes) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	//	sendHTTPError(w, err)
 	//	return
 	//}
-	//fn, err := obj.serveHTTP(ctx, req.Method, absPath)
 
-	fn, err := obj.serveHTTP(ctx, req.Method, requestPath)
-	if err != nil {
+	if err := obj.serveHTTP(w, req); err != nil {
 		obj.init.Logf("error: %s", err)
 		sendHTTPError(w, err)
 		return
 	}
-	if err := fn(w, req); err != nil {
-		obj.init.Logf("error: %s", err)
-		sendHTTPError(w, err)
-		return
-	}
-	//obj.init.Logf("%d bytes sent", n) // XXX: how do we know (on the server-side) if it worked?
 }
 
 // Validate checks if the resource data structure was populated correctly.
@@ -622,13 +602,98 @@ func (obj *pathParser) parse(requestPath string) (*pathResult, error) {
 	}
 
 	rel := strings.TrimPrefix(requestPath, obj.path) // we already checked
+	if obj.cache != "" {
+		// Never serve a partial download, even if it's asked for.
+		for _, s := range strings.Split(rel, "/") {
+			if strings.HasPrefix(s, httpServerProxyTempPrefix) {
+				return nil, newHTTPError(http.StatusNotFound) // 404
+			}
+		}
+	}
 	result.cachePath = obj.cache + rel
 
 	return result, nil
 }
 
-// handlerFuncError is http.HandlerFunc, but with a more ergonomic signature.
-type handlerFuncError func(http.ResponseWriter, *http.Request) error
+// httpServerProxyFill is a download into the cache, which is only visible at
+// its path once it's complete. It's written to a private partial file next to
+// that path, which commit renames into place. Since a rename is atomic, anyone
+// reading the cache only ever sees whole files, without any locking. Writes to
+// this never fail, so that a broken cache never breaks the stream to a client,
+// but after the first error it stops writing, and it can't be committed.
+type httpServerProxyFill struct {
+	path string   // the destination in the cache
+	file *os.File // the partial file, in the same dir so rename is atomic
+	err  error    // the first write error
+	done bool     // set once the partial file is committed or removed
+}
+
+// newHTTPServerProxyFill starts a new partial download for this cache path. It
+// comes from the request, but it's always inside the cache dir, since parse
+// only takes a clean request path, and AcceptHTTP keeps that under our path.
+func newHTTPServerProxyFill(path string) (*httpServerProxyFill, error) {
+	dir := filepath.Dir(path)
+	//nolint:gosec // G703: path is inside the cache dir, see above
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return nil, err
+	}
+	file, err := os.CreateTemp(dir, httpServerProxyTempPrefix+"*")
+	if err != nil {
+		return nil, err
+	}
+	return &httpServerProxyFill{
+		path: path,
+		file: file,
+	}, nil
+}
+
+// Write writes into the partial file. It never errors, see the struct docs.
+func (obj *httpServerProxyFill) Write(p []byte) (int, error) {
+	if obj.err == nil {
+		_, obj.err = obj.file.Write(p)
+	}
+	return len(p), nil
+}
+
+// commit puts the download into the cache, and replaces what's there if needed.
+// Only run it once the whole body has arrived. The data is synced first, so
+// that after a crash, the file in the cache is either absent or complete.
+func (obj *httpServerProxyFill) commit(modtime time.Time) error {
+	if obj.err != nil {
+		return obj.err
+	}
+	if err := obj.file.Sync(); err != nil {
+		return err
+	}
+	if err := obj.file.Close(); err != nil {
+		return err
+	}
+	name := obj.file.Name()
+	if !isZeroTime(modtime) {
+		// TODO: is there a file last-modified-time precision issue if
+		// we use this value in a future HTTP If-Modified-Since header?
+		if err := os.Chtimes(name, time.Time{}, modtime); err != nil {
+			return err
+		}
+	}
+	//nolint:gosec // G703: path is inside the cache dir, see newHTTPServerProxyFill
+	if err := os.Rename(name, obj.path); err != nil {
+		return err
+	}
+	obj.done = true
+	return nil
+}
+
+// abort removes the partial file, unless it was committed already.
+func (obj *httpServerProxyFill) abort() {
+	if obj.done {
+		return
+	}
+	obj.done = true
+	_ = obj.file.Close() // it might be closed already
+	//nolint:gosec // G703: CreateTemp made this inside the cache dir
+	_ = os.Remove(obj.file.Name())
+}
 
 // isZeroTime reports whether t is obviously unspecified (either zero or
 // Unix()=0). Adapted from: src/net/http/fs.go

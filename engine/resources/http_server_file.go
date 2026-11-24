@@ -328,8 +328,18 @@ func (obj *HTTPServerFileRes) ServeHTTP(w http.ResponseWriter, req *http.Request
 		case <-ch: // our content changed
 			event = true
 
-		// HTTPServerRes connects request contexts to its Watch ctx via
-		// the BaseContext field so parent shutdown unblocks this here!
+		// The http:server is stopping. It waits for running requests,
+		// so a long poll has to let go now, or it would hold that up.
+		// It already stopped taking new connections, so the client can
+		// reconnect at once. After a graph swap, the next server gets
+		// that, even if it's not up yet, since the socket stays open.
+		case <-httpServerDraining(req.Context()):
+			w.Header().Set("Retry-After", "0") // reconnect at once
+			http.Error(w, "http server shutting down", http.StatusServiceUnavailable)
+			return
+
+		// HTTPServerRes cancels the request contexts via the field
+		// BaseContext at the end of its shutdown, which unblocks this.
 		case <-req.Context().Done():
 			// The client disappeared, hung up or http:server Watch
 			// died. This can happen during graph swap. Tell client

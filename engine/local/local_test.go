@@ -62,6 +62,27 @@ func TestWrite(t *testing.T) {
 	}
 }
 
+// TestValueSetList checks that changing a list value doesn't panic, which it
+// did when we compared the values with ==.
+func TestValueSetList(t *testing.T) {
+	ctx := context.Background()
+	value := &Value{}
+	value.Init(&ValueInit{
+		Prefix: t.TempDir(),
+		Logf:   t.Logf,
+	})
+	for _, val := range [][]string{{"a"}, {"b"}} {
+		if err := value.ValueSet(ctx, "key", val); err != nil {
+			t.Fatalf("func ValueSet: %v", err)
+		}
+	}
+	if val, err := value.ValueGet(ctx, "key"); err != nil {
+		t.Fatalf("func ValueGet: %v", err)
+	} else if !reflect.DeepEqual(val, []string{"b"}) {
+		t.Fatalf("got: %#v, expected: %#v", val, []string{"b"})
+	}
+}
+
 // TestValueSetWatcherNotReading checks that ValueSet doesn't wait for a watcher
 // which isn't reading its events. It used to, while it held the mutex for every
 // key, so one slow watcher stalled every other caller. If that watcher was then

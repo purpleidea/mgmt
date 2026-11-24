@@ -235,7 +235,8 @@ func (obj *Value) ValueSet(ctx context.Context, key string, value interface{}) e
 	if !exists && value == nil {
 		return nil // already in the correct state
 	}
-	if exists && v == value { // XXX: reflect.DeepEqual(v, value) ?
+	// We can't use == since it panics on a list or a map.
+	if exists && reflect.DeepEqual(v, value) {
 		return nil // already in the correct state
 	}
 

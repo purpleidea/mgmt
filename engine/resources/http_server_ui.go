@@ -191,8 +191,6 @@ type HTTPServerUIRes struct {
 
 	// rwmutex guards the notifications map.
 	rwmutex *sync.RWMutex
-
-	ctx context.Context // set by Watch
 }
 
 // Default returns some sensible defaults for this resource.
@@ -392,7 +390,7 @@ func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		}
 
 		// we're storing data...
-		if err := res.SetValue(obj.ctx, values); err != nil {
+		if err := res.SetValue(c.Request.Context(), values); err != nil {
 			msg := fmt.Sprintf("bad data: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 			return
@@ -450,7 +448,7 @@ func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		val, err := res.GetValue(obj.ctx)
+		val, err := res.GetValue(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal Server Error",
@@ -493,15 +491,26 @@ func (obj *HTTPServerUIRes) ServeHTTP(w http.ResponseWriter, req *http.Request) 
 		//		"error": "Internal Server Error",
 		//		"code":  500,
 		//	})
-		case <-obj.ctx.Done(): // in case Watch dies
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Internal Server Error",
-				"code":  500,
+
+		// The http:server is stopping, eg: for a graph swap. It waits
+		// for running requests, so we let go now. It doesn't take new
+		// connections anymore, so the client can reconnect at once, and
+		// the next server gets that, since the socket stays open. This
+		// doesn't use our Watch ctx, since that's cancelled before the
+		// http:server stops taking new connections.
+		case <-httpServerDraining(c.Request.Context()):
+			c.Header("Retry-After", "0") // reconnect at once
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"error": "Service Unavailable",
+				"code":  503,
 			})
+			return
+
+		case <-c.Request.Context().Done(): // the client left, or the cut
 			return
 		}
 
-		val, err := res.GetValue(obj.ctx)
+		val, err := res.GetValue(c.Request.Context())
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Internal Server Error",
@@ -658,9 +667,8 @@ func (obj *HTTPServerUIRes) Watch(ctx context.Context) error {
 	wg := &sync.WaitGroup{}
 	defer wg.Wait()
 
-	ctx, cancel := context.WithCancel(ctx) // store for ServeHTTP
+	ctx, cancel := context.WithCancel(ctx) // stops every child on exit
 	defer cancel()
-	obj.ctx = ctx
 
 	for _, r := range obj.GetGroup() { // grouped elements
 		res := r // optional in newer golang

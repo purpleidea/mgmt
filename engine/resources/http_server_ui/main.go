@@ -38,6 +38,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"syscall/js"
 	"time"
 
@@ -250,6 +251,25 @@ func (obj *Main) Run() error {
 				resp.Body.Close()
 				if err != nil {
 					fmt.Println("Error reading response:", err)
+					time.Sleep(2 * time.Second)
+					continue
+				}
+
+				// The server is stopping, eg: for a graph swap,
+				// and it tells us when to reconnect.
+				if resp.StatusCode == http.StatusServiceUnavailable {
+					delay := 2 * time.Second
+					if n, err := strconv.Atoi(resp.Header.Get("Retry-After")); err == nil && n >= 0 {
+						delay = time.Duration(n) * time.Second
+					}
+					time.Sleep(delay)
+					continue
+				}
+
+				// Only a 200 has a value in it. Anything else, eg:
+				// an error, must not erase the field.
+				if resp.StatusCode != http.StatusOK {
+					fmt.Printf("Long poll for %s got status: %d\n", id, resp.StatusCode)
 					time.Sleep(2 * time.Second)
 					continue
 				}

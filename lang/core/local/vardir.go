@@ -151,6 +151,9 @@ func (obj *VarDirFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 	// NOTE: The above checks ensure we don't get either "" or "/" as input!
 
 	p := fmt.Sprintf("%s/", path.Join(VarDirFunctionsPrefix, reldir))
+	if !strings.HasPrefix(p, VarDirFunctionsPrefix) { // the join removed each ..
+		return nil, fmt.Errorf("path is outside of the prefix")
+	}
 
 	if obj.init == nil {
 		return nil, funcs.ErrCantSpeculate

@@ -535,7 +535,8 @@ func (obj *VarDirImpl) Init(init *VarDirInit) {
 	obj.prefix = fmt.Sprintf("%s/", path.Join(obj.init.Prefix, "vardir"))
 }
 
-// VarDir returns a directory rooted at the internal prefix.
+// VarDir returns a directory rooted at the internal prefix. It must be inside
+// of it, so eg: ../foo/ is an error.
 func (obj *VarDirImpl) VarDir(ctx context.Context, reldir string) (string, error) {
 	if strings.HasPrefix(reldir, "/") {
 		return "", fmt.Errorf("path must be relative")
@@ -551,6 +552,9 @@ func (obj *VarDirImpl) VarDir(ctx context.Context, reldir string) (string, error
 	}
 
 	result := fmt.Sprintf("%s/", path.Join(prefix, reldir))
+	if !strings.HasPrefix(result, prefix) { // the join removed each ..
+		return "", fmt.Errorf("path is outside of the prefix")
+	}
 
 	// TODO: Should we mkdir this?
 	obj.mutex.Lock()

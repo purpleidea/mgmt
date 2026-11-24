@@ -188,7 +188,9 @@ func (obj *DirectoryFunc) Call(ctx context.Context, args []types.Value) (types.V
 	// NOTE: The above checks ensure we don't get "//" as input!
 
 	// XXX: do we want to make the dest dir a hash of the input path?
-	prefix := fmt.Sprintf("%s/", path.Join(DirectoryDeployPrefix, reldir))
+	// We clean it first, the same as the deploy fs does, so that the copy
+	// is where the files come from, and a .. can't leave our prefix.
+	prefix := fmt.Sprintf("%s/", path.Join(DirectoryDeployPrefix, path.Clean(reldir)))
 
 	result, err := obj.init.Local.VarDir(ctx, prefix)
 	if err != nil {

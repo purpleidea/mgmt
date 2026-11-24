@@ -609,11 +609,17 @@ func (obj *PoolImpl) Pool(ctx context.Context, namespace, uid string, config *Po
 	if strings.Contains(namespace, "/") {
 		return 0, fmt.Errorf("namespace contains slash")
 	}
+	if namespace == "." || namespace == ".." { // or it's not a dir in prefix
+		return 0, fmt.Errorf("namespace is %s", namespace)
+	}
 	if uid == "" {
 		return 0, fmt.Errorf("uid is empty")
 	}
 	if strings.Contains(uid, "/") {
 		return 0, fmt.Errorf("uid contains slash")
+	}
+	if uid == "." || uid == ".." { // or its file isn't in the namespace dir
+		return 0, fmt.Errorf("uid is %s", uid)
 	}
 
 	prefix, err := obj.getPrefix()

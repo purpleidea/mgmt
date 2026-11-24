@@ -53,7 +53,9 @@ type SyncFs interface {
 // exist. Anything in dst which isn't in src gets removed, and a file that's
 // already the same is left alone, since unnecessary churn would cause
 // unnecessary events. Each file is read whole into memory, and it's written
-// with os.WriteFile, which isn't atomic.
+// with os.WriteFile, which isn't atomic. Each file and dir we make gets the
+// mode of its source, plus what the owner needs to change it in a later sync.
+// The mode of one that already exists isn't changed.
 // XXX: verify it is correct
 func SyncDirToDisk(srcFs SyncFs, src, dst string) error {
 	srcEntries, err := srcFs.ReadDir(src)
@@ -88,7 +90,10 @@ func SyncDirToDisk(srcFs SyncFs, src, dst string) error {
 					return err
 				}
 			}
-			if err := os.MkdirAll(dstChild, e.Mode()); err != nil {
+			// The owner must be able to write in each dir we make,
+			// or we couldn't sync into it, and eg: each dir in an
+			// embedded fs is 0555.
+			if err := os.MkdirAll(dstChild, e.Mode()|0700); err != nil {
 				return err
 			}
 			if err := SyncDirToDisk(srcFs, srcChild, dstChild); err != nil {
@@ -112,7 +117,10 @@ func SyncDirToDisk(srcFs SyncFs, src, dst string) error {
 				continue
 			}
 		}
-		if err := os.WriteFile(dstChild, data, e.Mode()); err != nil {
+		// The owner must be able to write each file we make, or we
+		// couldn't change it in a later sync, and eg: each file in an
+		// embedded fs is 0444.
+		if err := os.WriteFile(dstChild, data, e.Mode()|0200); err != nil {
 			return err
 		}
 	}

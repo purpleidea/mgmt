@@ -165,3 +165,43 @@ func TestSyncDirToDisk1(t *testing.T) {
 		t.Errorf("sync again changed an mtime")
 	}
 }
+
+// TestSyncDirToDisk2 syncs from a source with the modes of an embedded fs,
+// where each file is 0444 and each dir is 0555, and then syncs a change to it.
+func TestSyncDirToDisk2(t *testing.T) {
+	srcFs1 := NewIOFs(fstest.MapFS{ // each implicit dir is 0555
+		"src/a":     &fstest.MapFile{Data: []byte("a"), Mode: 0444},
+		"src/sub/b": &fstest.MapFile{Data: []byte("b"), Mode: 0444},
+		"src/sub/c": &fstest.MapFile{Data: []byte("c"), Mode: 0444},
+	})
+	srcFs2 := NewIOFs(fstest.MapFS{
+		"src/a":     &fstest.MapFile{Data: []byte("A"), Mode: 0444},
+		"src/sub/b": &fstest.MapFile{Data: []byte("B"), Mode: 0444},
+	})
+
+	dst := t.TempDir()
+	if err := SyncDirToDisk(srcFs1, "/src/", dst); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+	expected := map[string]string{
+		"a":     "a",
+		"sub/":  "",
+		"sub/b": "b",
+		"sub/c": "c",
+	}
+	if tree := dirSyncTree(t, dst); !reflect.DeepEqual(tree, expected) {
+		t.Errorf("tree: got %v, expected %v", tree, expected)
+	}
+
+	if err := SyncDirToDisk(srcFs2, "/src/", dst); err != nil {
+		t.Fatalf("sync a change: %v", err)
+	}
+	expected = map[string]string{
+		"a":     "A",
+		"sub/":  "",
+		"sub/b": "B",
+	}
+	if tree := dirSyncTree(t, dst); !reflect.DeepEqual(tree, expected) {
+		t.Errorf("tree after a change: got %v, expected %v", tree, expected)
+	}
+}

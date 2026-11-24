@@ -62,6 +62,32 @@ func TestUnitPath(t *testing.T) {
 	}
 }
 
+func TestUnitNameMangle(t *testing.T) {
+	tests := map[string]string{
+		"":             "",
+		"sshd":         "sshd",
+		"avahi-daemon": "avahi-daemon", // systemd-escape would change this
+		"getty@tty1":   "getty@tty1",
+		"a:b_c.d":      "a:b_c.d",
+		`a\x2db`:       `a\x2db`, // already escaped
+		"foo!":         `foo\x21`,
+		"foo bar":      `foo\x20bar`,
+		"a/b":          "a-b",
+		"foo*":         `foo\x2a`, // not a glob, unlike systemctl
+		"\x00":         `\x00`,
+		"\x01":         `\x01`,     // two hex digits, always
+		"é":            `\xc3\xa9`, // each byte on its own
+	}
+	for name, expected := range tests {
+		if s := UnitNameMangle(name); s != expected {
+			t.Errorf("name %q: got %q, expected %q", name, s, expected)
+		}
+		if s := UnitNameMangle(expected); s != expected {
+			t.Errorf("name %q: mangled again: %q", expected, s)
+		}
+	}
+}
+
 func TestActiveState(t *testing.T) {
 	tests := []struct {
 		body     []interface{}

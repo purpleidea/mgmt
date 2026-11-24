@@ -332,6 +332,33 @@ func UnitPath(unit string) dbus.ObjectPath {
 	return dbus.ObjectPath(b.String())
 }
 
+// UnitNameMangle turns a name into one that's allowed in a unit name, the same
+// way that systemctl does with the names you give it, eg: foo! becomes foo\x21.
+// This is the escaping that systemd does in unit_name_mangle: ASCII letters,
+// digits and the characters :-_.\@ are kept, a slash becomes a dash, and every
+// other byte becomes \x followed by two lowercase hex digits. Unlike with
+// systemd-escape, a name that's already allowed doesn't change, so a dash, an
+// instance such as getty@tty1, or something that's already escaped, are all
+// kept as they are. Do this first, and then UnitPath on the result.
+func UnitNameMangle(name string) string {
+	var b strings.Builder
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		alpha := ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+		digit := '0' <= c && c <= '9'
+		if alpha || digit || strings.IndexByte(`:-_.\@`, c) >= 0 {
+			b.WriteByte(c)
+			continue
+		}
+		if c == '/' {
+			b.WriteByte('-')
+			continue
+		}
+		fmt.Fprintf(&b, `\x%02x`, c)
+	}
+	return b.String()
+}
+
 // UnitFileState returns the enablement state of the named unit, eg: enabled or
 // disabled. It asks the manager, which reads the unit files from disk each
 // time, the same as systemctl is-enabled does. Don't read the UnitFileState

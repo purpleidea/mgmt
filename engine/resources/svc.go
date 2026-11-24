@@ -159,9 +159,11 @@ func (obj *SvcRes) Cleanup() error {
 	return nil
 }
 
-// svc is a helper that returns the systemd name.
+// svc is a helper that returns the systemd name. We mangle the name the same
+// way that systemctl does, eg: foo! becomes foo\x21.service, since systemd
+// rejects a unit name with a character like that in it.
 func (obj *SvcRes) svc() string {
-	return fmt.Sprintf("%s.service", obj.Name())
+	return fmt.Sprintf("%s.service", systemd.UnitNameMangle(obj.Name()))
 }
 
 // Watch is the primary listener for this resource and it outputs events.
@@ -617,8 +619,8 @@ func (obj *SvcRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 func (obj *SvcRes) UIDs() []engine.ResUID {
 	x := &SvcUID{
 		BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-		name:    obj.Name(),  // svc name
-		session: obj.Session, // user session
+		name:    systemd.UnitNameMangle(obj.Name()), // svc name
+		session: obj.Session,                        // user session
 	}
 	return []engine.ResUID{x}
 }

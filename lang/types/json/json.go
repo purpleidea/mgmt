@@ -237,3 +237,113 @@ func convertJSON(val interface{}, typ *types.Type, flexible bool) (types.Value, 
 
 	panic("malformed type")
 }
+
+// CheckType returns an error if a value of this type can't be encoded as JSON
+// by ValueToJSON. A map must have str keys, since that's all that JSON has, and
+// a func, or a variant, can't be encoded at all. Each value of a type which
+// passes can be read back by ValueOfJSON, with the same type.
+func CheckType(typ *types.Type) error {
+	if typ == nil {
+		return fmt.Errorf("type is nil")
+	}
+
+	switch typ.Kind {
+	case types.KindBool, types.KindStr, types.KindInt, types.KindFloat:
+		return nil
+
+	case types.KindList:
+		return CheckType(typ.Val)
+
+	case types.KindMap:
+		if typ.Key == nil || typ.Key.Kind != types.KindStr {
+			return fmt.Errorf("a map must have str keys, got: %s", typ.Key)
+		}
+		return CheckType(typ.Val)
+
+	case types.KindStruct:
+		for _, k := range typ.Ord {
+			if err := CheckType(typ.Map[k]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	return fmt.Errorf("can't encode a value of type: %s", typ)
+}
+
+// ValueToJSON returns the JSON of a value, which ValueOfJSON can read back with
+// the same type. A struct is an object, with a key for each field, and so is a
+// map, which must have str keys. The keys are sorted, so a value always has the
+// same JSON. A float which JSON can't represent, eg: NaN, is an error.
+func ValueToJSON(v types.Value) (string, error) {
+	if err := CheckType(v.Type()); err != nil {
+		return "", err
+	}
+	x, err := toJSON(v)
+	if err != nil {
+		return "", err
+	}
+
+	buf := &strings.Builder{}
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false) // this is data, and not for html
+	if err := enc.Encode(x); err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(buf.String(), "\n"), nil // Encode adds one
+}
+
+// toJSON is the recursive helper that turns a value into the golang value which
+// encoding/json encodes as its JSON. Its type must have passed CheckType.
+func toJSON(v types.Value) (interface{}, error) {
+	switch v.Type().Kind {
+	case types.KindBool:
+		return v.Bool(), nil
+
+	case types.KindStr:
+		return v.Str(), nil
+
+	case types.KindInt:
+		return v.Int(), nil
+
+	case types.KindFloat:
+		return v.Float(), nil
+
+	case types.KindList:
+		l := []interface{}{} // so an empty list isn't null
+		for _, x := range v.List() {
+			xx, err := toJSON(x) // recurse
+			if err != nil {
+				return nil, err
+			}
+			l = append(l, xx)
+		}
+		return l, nil
+
+	case types.KindMap:
+		m := make(map[string]interface{})
+		for k, x := range v.Map() {
+			xx, err := toJSON(x) // recurse
+			if err != nil {
+				return nil, err
+			}
+			m[k.Str()] = xx
+		}
+		return m, nil
+
+	case types.KindStruct:
+		m := make(map[string]interface{})
+		for k, x := range v.Struct() {
+			xx, err := toJSON(x) // recurse
+			if err != nil {
+				return nil, err
+			}
+			m[k] = xx
+		}
+		return m, nil
+	}
+
+	// programming error
+	return nil, fmt.Errorf("can't encode a value of type: %s", v.Type())
+}

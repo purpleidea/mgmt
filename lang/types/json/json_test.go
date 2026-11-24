@@ -33,6 +33,7 @@ package json
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/purpleidea/mgmt/lang/types"
@@ -272,5 +273,76 @@ func TestValueOfJSON1(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+// TestValueToJSON0 reads each JSON with its type, and checks that it's encoded
+// back to the same JSON. Each one is already in the form that ValueToJSON
+// writes, eg: with its keys sorted.
+func TestValueToJSON0(t *testing.T) {
+	testCases := []struct {
+		str string
+		typ string
+	}{
+		{`true`, "bool"},
+		{`"hello\t\"world\"\n<&>"`, "str"},
+		{`-42`, "int"},
+		{`9223372036854775807`, "int"},
+		{`1.5`, "float"},
+		{`[]`, "[]str"},
+		{`["a","b"]`, "[]str"},
+		{`{}`, "map{str: int}"},
+		{`{"a":1,"b":2}`, "map{str: int}"},
+		{`{"a":1,"b":"x"}`, "struct{b str; a int}"},
+		{`{"hosts":{"h1":["x"],"h2":[]},"n":0.25}`, "struct{hosts map{str: []str}; n float}"},
+		{`[{"a":true},{"a":false}]`, "[]struct{a bool}"},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("test #%d", i), func(t *testing.T) {
+			typ := types.NewType(tc.typ)
+			if typ == nil {
+				t.Fatalf("invalid type: %s", tc.typ)
+			}
+			v, err := ValueOfJSON(tc.str, typ)
+			if err != nil {
+				t.Fatalf("func ValueOfJSON: %v", err)
+			}
+			s, err := ValueToJSON(v)
+			if err != nil {
+				t.Fatalf("func ValueToJSON: %v", err)
+			}
+			if s != tc.str {
+				t.Errorf("got: %s, expected: %s", s, tc.str)
+			}
+		})
+	}
+}
+
+// TestValueToJSON1 checks that a value which JSON can't represent, or which
+// ValueOfJSON couldn't read back, is an error.
+func TestValueToJSON1(t *testing.T) {
+	for _, s := range []string{
+		"map{int: str}",
+		"[]map{bool: str}",
+		"struct{a str; b map{float: int}}",
+		"func(str) str",
+		"[]func() int",
+	} {
+		if err := CheckType(types.NewType(s)); err == nil {
+			t.Errorf("type %s: expected an error", s)
+		}
+	}
+
+	if _, err := ValueToJSON(&types.FloatValue{V: math.NaN()}); err == nil {
+		t.Errorf("math NaN: expected an error")
+	}
+
+	m := types.NewMap(types.NewType("map{int: str}"))
+	if err := m.Set(&types.IntValue{V: 1}, &types.StrValue{V: "a"}); err != nil {
+		t.Fatalf("func Set: %v", err)
+	}
+	if _, err := ValueToJSON(m); err == nil {
+		t.Errorf("map with int keys: expected an error")
 	}
 }

@@ -1,0 +1,13 @@
+-- main.mcl --
+import "encoding"
+
+$x = struct{b => ["x", "y"], a => {"k" => 1}, c => 1.5, d => true, e => "q\"<"}
+$s = encoding.encode_json($x)
+test [$s] {}
+
+# It reads back as the same value.
+$y = encoding.decode_json($s, "struct{b []str; a map{str: int}; c float; d bool; e str}")
+test [if $y == $x { "same" } else { "different" }] {}
+-- OUTPUT --
+Vertex: test[{"a":{"k":1},"b":["x","y"],"c":1.5,"d":true,"e":"q\"<"}]
+Vertex: test[same]

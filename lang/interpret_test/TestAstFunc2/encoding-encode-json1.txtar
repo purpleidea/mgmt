@@ -1,0 +1,8 @@
+-- main.mcl --
+import "encoding"
+
+# JSON only has str keys, so this couldn't be read back.
+$s = encoding.encode_json({1 => "a"})
+test [$s] {}
+-- OUTPUT --
+# err: errUnify: error setting type: func() { <built-in:encode_json> }, error: can't build encoding.encode_json with func(x map{int: str}) str: a map must have str keys, got: int: /main.mcl @ 4:6-4:38

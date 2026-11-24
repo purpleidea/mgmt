@@ -671,6 +671,11 @@ func (obj *PoolImpl) Pool(ctx context.Context, namespace, uid string, config *Po
 		if f.IsDir() {
 			continue // unexpected!
 		}
+		// Skip anything else, eg: a temporary file which a crash left
+		// behind while we wrote a uid file.
+		if !strings.HasSuffix(f.Name(), ".uid") {
+			continue
+		}
 		d, err := fn(path.Join(dir, f.Name()))
 		if err != nil {
 			return 0, err // real error
@@ -685,7 +690,12 @@ func (obj *PoolImpl) Pool(ctx context.Context, namespace, uid string, config *Po
 
 	m++                                    // increment
 	data := []byte(fmt.Sprintf("%d\n", m)) // it's polite to end with \n
-	if err := os.WriteFile(file, data, 0600); err != nil {
+
+	// We write a temporary file, and rename it into place, so that a crash
+	// can't leave a partial uid file behind, which we couldn't read.
+	// TODO: Clean up any temporary file which a crash before the rename
+	// left behind.
+	if err := writeFileAtomic(ctx, file, nil, data); err != nil { // 0600
 		return 0, err
 	}
 

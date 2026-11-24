@@ -271,6 +271,36 @@ func TestValueSetWatcherNotReading(t *testing.T) {
 	}
 }
 
+// TestPoolTempFile checks that a temporary file, which a crash can leave behind
+// while we write a uid file, doesn't break the pool.
+func TestPoolTempFile(t *testing.T) {
+	ctx := context.Background()
+	prefix := t.TempDir()
+	pool := &PoolImpl{}
+	pool.Init(&PoolInit{
+		Prefix: prefix,
+		Logf:   t.Logf,
+	})
+
+	if d, err := pool.Pool(ctx, "ns", "a", nil); err != nil {
+		t.Fatalf("func Pool: %v", err)
+	} else if d != 1 {
+		t.Fatalf("got: %d, expected: 1", d)
+	}
+
+	// An empty one, as if we crashed right after we made it.
+	tmp := filepath.Join(prefix, "pool", "ns", ".b.uid.123456")
+	if err := os.WriteFile(tmp, []byte{}, 0600); err != nil {
+		t.Fatalf("func WriteFile: %v", err)
+	}
+
+	if d, err := pool.Pool(ctx, "ns", "b", nil); err != nil {
+		t.Fatalf("func Pool: %v", err)
+	} else if d != 2 {
+		t.Fatalf("got: %d, expected: 2", d)
+	}
+}
+
 func TestHTTPPool(t *testing.T) {
 	ctx := context.Background()
 	pool := &HTTPPool{}

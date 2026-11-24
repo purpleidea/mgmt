@@ -43,6 +43,7 @@ import (
 	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 	"github.com/purpleidea/mgmt/util/recwatch"
+	"github.com/purpleidea/mgmt/util/systemd"
 
 	sdbus "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/coreos/go-systemd/v22/unit"
@@ -165,6 +166,25 @@ func (obj *CronRes) Default() engine.Res {
 	}
 }
 
+// timer returns the systemd name of our timer unit. We mangle the name the same
+// way that systemctl does, eg: foo! becomes foo\x21.timer, so that it's the
+// name that the svc resource uses too, and so that it can't contain a slash,
+// which would put the unit file into some other dir.
+func (obj *CronRes) timer() string {
+	return fmt.Sprintf("%s.timer", systemd.UnitNameMangle(obj.Name()))
+}
+
+// service returns the systemd name of the unit that our timer starts. If none
+// was given, systemd starts the service with the same name as the timer. We
+// don't mangle a Unit that was given, since it goes into the unit file as is,
+// where it may contain specifiers, eg: %N.service.
+func (obj *CronRes) service() string {
+	if obj.Unit != "" {
+		return obj.Unit
+	}
+	return fmt.Sprintf("%s.service", systemd.UnitNameMangle(obj.Name()))
+}
+
 // makeComposite creates a pointer to a FileRes. The pointer is used to validate
 // and initialize the nested file resource and to apply the file state in
 // CheckApply.
@@ -278,7 +298,7 @@ func (obj *CronRes) Watch(ctx context.Context) error {
 	args = append(args, "type='signal'")
 	args = append(args, "interface='org.freedesktop.systemd1.Manager'")
 	//args = append(args, "eavesdrop='true'") // XXX: not allowed anymore?
-	args = append(args, fmt.Sprintf("arg2='%s.timer'", obj.Name()))
+	args = append(args, fmt.Sprintf("arg2='%s'", obj.timer()))
 
 	// match dbus messages
 	if call := bus.BusObject().Call(engineUtil.DBusAddMatch, 0, strings.Join(args, ",")); call.Err != nil {
@@ -386,12 +406,14 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 	}
 	defer conn.Close()
 
+	timer := obj.timer() // systemd name
+
 	// get the load state and active state of the timer unit
-	loadState, err := conn.GetUnitProperty(fmt.Sprintf("%s.timer", obj.Name()), "LoadState")
+	loadState, err := conn.GetUnitProperty(timer, "LoadState")
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to get load state")
 	}
-	activeState, err := conn.GetUnitProperty(fmt.Sprintf("%s.timer", obj.Name()), "ActiveState")
+	activeState, err := conn.GetUnitProperty(timer, "ActiveState")
 	if err != nil {
 		return false, errwrap.Wrapf(err, "failed to get active state")
 	}
@@ -424,8 +446,7 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 	defer godbusConn.Close()
 
 	// We probably always want to enable this...
-	svc := fmt.Sprintf("%s.timer", obj.Name()) // systemd name
-	files := []string{svc}                     // the svc represented in a list
+	files := []string{timer} // the timer represented in a list
 	if obj.Startup == "enabled" {
 		_, _, err = conn.EnableUnitFilesContext(ctx, files, false, true)
 	} else if obj.Startup == "disabled" {
@@ -437,9 +458,9 @@ func (obj *CronRes) unitCheckApply(ctx context.Context, apply bool) (bool, error
 
 	// stop or restart the unit
 	if obj.State == "absent" {
-		return false, engineUtil.StopUnit(ctx, godbusConn, fmt.Sprintf("%s.timer", obj.Name()))
+		return false, engineUtil.StopUnit(ctx, godbusConn, timer)
 	}
-	return false, engineUtil.RestartUnit(ctx, godbusConn, fmt.Sprintf("%s.timer", obj.Name()))
+	return false, engineUtil.RestartUnit(ctx, godbusConn, timer)
 }
 
 // Cmp compares two resources and returns an error if they are not equivalent.
@@ -534,15 +555,11 @@ func (obj *CronRes) AutoEdges(ctx context.Context) (engine.AutoEdge, error) {
 // UIDs includes all params to make a unique identification of this object. Most
 // resources only return one although some resources can return multiple.
 func (obj *CronRes) UIDs() []engine.ResUID {
-	unit := fmt.Sprintf("%s.service", obj.Name())
-	if obj.Unit != "" {
-		unit = obj.Unit
-	}
 	uids := []engine.ResUID{
 		&CronUID{
 			BaseUID: engine.BaseUID{Name: obj.Name(), Kind: obj.Kind()},
-			unit:    unit,        // name of target unit
-			session: obj.Session, // user session
+			unit:    obj.service(), // name of target unit
+			session: obj.Session,   // user session
 		},
 	}
 	if file, err := obj.makeComposite(); err == nil {
@@ -575,7 +592,7 @@ func (obj *CronRes) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (obj *CronRes) UnitFilePath() (string, error) {
 	// root timer
 	if !obj.Session {
-		return fmt.Sprintf("/etc/systemd/system/%s.timer", obj.Name()), nil
+		return fmt.Sprintf("/etc/systemd/system/%s", obj.timer()), nil
 	}
 	// user timer
 	u, err := user.Current()
@@ -585,7 +602,7 @@ func (obj *CronRes) UnitFilePath() (string, error) {
 	if u.HomeDir == "" {
 		return "", fmt.Errorf("user has no home directory")
 	}
-	return path.Join(u.HomeDir, "/.config/systemd/user/", fmt.Sprintf("%s.timer", obj.Name())), nil
+	return path.Join(u.HomeDir, "/.config/systemd/user/", obj.timer()), nil
 }
 
 // unitFileContents returns the contents of the unit file representing the

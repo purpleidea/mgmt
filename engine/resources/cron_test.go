@@ -91,3 +91,49 @@ func TestCronCmp(t *testing.T) {
 		}
 	})
 }
+
+func TestCronUnitName(t *testing.T) {
+	tests := []struct {
+		name string // the name of the cron resource
+		file string // the timer unit file that it writes
+		unit string // the unit that the timer starts
+	}{
+		{"backup", "/etc/systemd/system/backup.timer", "backup.service"},
+		{
+			"foo!", // like systemctl
+			`/etc/systemd/system/foo\x21.timer`,
+			`foo\x21.service`,
+		},
+		{"a/b", "/etc/systemd/system/a-b.timer", "a-b.service"},
+		{
+			"../../tmp/x", // stays in the unit dir
+			"/etc/systemd/system/..-..-tmp-x.timer",
+			"..-..-tmp-x.service",
+		},
+	}
+	for _, tc := range tests {
+		res := &CronRes{}
+		res.SetName(tc.name)
+		file, err := res.UnitFilePath()
+		if err != nil {
+			t.Fatalf("func UnitFilePath: %v", err)
+		}
+		if file != tc.file {
+			t.Errorf("cron %q: got file %q, expected %q", tc.name, file, tc.file)
+		}
+		uid, ok := res.UIDs()[0].(*CronUID)
+		if !ok {
+			t.Fatalf("cron %q: first uid is not a CronUID", tc.name)
+		}
+		if uid.unit != tc.unit {
+			t.Errorf("cron %q: got unit %q, expected %q", tc.name, uid.unit, tc.unit)
+		}
+
+		// The svc of the same name is the one that the timer starts.
+		svc := &SvcRes{}
+		svc.SetName(tc.name)
+		if s := svc.svc(); s != uid.unit {
+			t.Errorf("cron %q: starts %q, but the svc is %q", tc.name, uid.unit, s)
+		}
+	}
+}

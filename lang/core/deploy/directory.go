@@ -30,16 +30,15 @@
 package coredeploy
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"strings"
 
 	"github.com/purpleidea/mgmt/lang/funcs"
 	"github.com/purpleidea/mgmt/lang/interfaces"
 	"github.com/purpleidea/mgmt/lang/types"
+	"github.com/purpleidea/mgmt/util"
 	"github.com/purpleidea/mgmt/util/errwrap"
 )
 
@@ -198,75 +197,10 @@ func (obj *DirectoryFunc) Call(ctx context.Context, args []types.Value) (types.V
 	}
 
 	// Sync the deploy dir contents into our local var dir, `rsync --delete`
-	// style. Unnecessary churn would cause unnecessary events!
+	// style.
 	// XXX: We need some sort of long-term cleanup mechanism if deploys
 	// constantly change and leave behind old files.
-	// XXX: pull this sync function into a lib and verify it is correct
-	var sync func(srcDir, dstDir string) error
-	sync = func(srcDir, dstDir string) error {
-		srcEntries, err := fs.ReadDir(srcDir)
-		if err != nil {
-			return err
-		}
-		keep := make(map[string]struct{}, len(srcEntries))
-		for _, e := range srcEntries {
-			keep[e.Name()] = struct{}{}
-		}
-		dstEntries, err := os.ReadDir(dstDir)
-		if err != nil {
-			return err
-		}
-		for _, e := range dstEntries {
-			if _, ok := keep[e.Name()]; ok {
-				continue
-			}
-			if err := os.RemoveAll(path.Join(dstDir, e.Name())); err != nil {
-				return err
-			}
-		}
-
-		for _, e := range srcEntries {
-			srcChild := path.Join(srcDir, e.Name())
-			dstChild := path.Join(dstDir, e.Name())
-			dstInfo, _ := os.Stat(dstChild)
-
-			if e.IsDir() {
-				if dstInfo != nil && !dstInfo.IsDir() {
-					if err := os.Remove(dstChild); err != nil {
-						return err
-					}
-				}
-				if err := os.MkdirAll(dstChild, e.Mode()); err != nil {
-					return err
-				}
-				if err := sync(srcChild, dstChild); err != nil {
-					return err
-				}
-				continue
-			}
-
-			if dstInfo != nil && dstInfo.IsDir() {
-				if err := os.RemoveAll(dstChild); err != nil {
-					return err
-				}
-				dstInfo = nil
-			}
-			data, err := fs.ReadFile(srcChild)
-			if err != nil {
-				return err
-			}
-			if dstInfo != nil {
-				if existing, err := os.ReadFile(dstChild); err == nil && bytes.Equal(existing, data) {
-					continue
-				}
-			}
-			if err := os.WriteFile(dstChild, data, e.Mode()); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := sync(p, result); err != nil {
+	if err := util.SyncDirToDisk(fs, p, result); err != nil {
 		return nil, errwrap.Wrapf(err, "can't sync dir `%s` (%s)", directory, p)
 	}
 

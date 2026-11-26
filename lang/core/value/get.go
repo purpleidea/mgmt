@@ -118,6 +118,8 @@ func (obj *GetFunc) ArgGen(index int) (string, error) {
 func (obj *GetFunc) sig() *types.Type {
 	// func(key str) struct{value ?1; ready bool}
 	typ := "?1"
+	// If we're not built yet, this contains a unification variable which
+	// type unification needs to see, since we're not an InferableFunc.
 	if obj.Type != nil {
 		typ = obj.Type.String()
 	}
@@ -201,16 +203,12 @@ func (obj *GetFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *GetFunc) Info() *interfaces.Info {
-	var sig *types.Type
-	if obj.Type != nil { // don't panic if called speculatively
-		sig = obj.sig() // helper
-	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
 		Fast: false,
 		Spec: false,
-		Sig:  sig,
+		Sig:  obj.sig(), // helper
 		Err:  obj.Validate(),
 	}
 }

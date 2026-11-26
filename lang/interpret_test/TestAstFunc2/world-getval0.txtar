@@ -1,0 +1,22 @@
+-- main.mcl --
+import "fmt"
+import "world"
+
+# This key exists, and it has a value.
+$st1 = world.getval("key1")
+test [fmt.printf("key1: %t %s", $st1->exists, $st1->value)] {}
+
+# This key exists, but its value is empty.
+$st2 = world.getval("key2")
+test [fmt.printf("key2: %t %s", $st2->exists, $st2->value)] {}
+
+# This key doesn't exist.
+$st3 = world.getval("key3")
+test [fmt.printf("key3: %t %s", $st3->exists, $st3->value)] {}
+-- WORLD/str/key1 --
+hello
+-- WORLD/str/key2 --
+-- OUTPUT --
+Vertex: test[key1: true hello]
+Vertex: test[key2: true ]
+Vertex: test[key3: false ]

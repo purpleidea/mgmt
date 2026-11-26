@@ -706,6 +706,7 @@ func TestAstFunc2(t *testing.T) {
 	const magicErrorInterpret = "errInterpret: "
 	const magicErrorAutoEdge = "errAutoEdge: "
 	const magicEmpty = "# empty!"
+	const magicWorldStr = "WORLD/str/" // prefix of a world str key to set
 	dir, err := util.TestDirFull()
 	if err != nil {
 		t.Errorf("could not get tests directory: %+v", err)
@@ -789,6 +790,7 @@ func TestAstFunc2(t *testing.T) {
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
+			worldStr := make(map[string]string) // initial world str keys
 			found := false
 			for _, file := range archive.Files {
 				if file.Name == "OUTPUT" {
@@ -798,6 +800,22 @@ func TestAstFunc2(t *testing.T) {
 				}
 				if file.Name == "CONFIG" {
 					testConfig = file.Data
+					continue
+				}
+				if strings.HasPrefix(file.Name, magicWorldStr) {
+					key := strings.TrimPrefix(file.Name, magicWorldStr)
+					if key == "" {
+						t.Errorf("err parsing txtar(%s): empty world str key", txtarFile)
+						return
+					}
+					if _, exists := worldStr[key]; exists {
+						t.Errorf("err parsing txtar(%s): duplicate world str key: %s", txtarFile, key)
+						return
+					}
+					// The data of a txtar file always ends
+					// with a newline which isn't part of
+					// the value.
+					worldStr[key] = strings.TrimSuffix(string(file.Data), "\n")
 					continue
 				}
 
@@ -998,6 +1016,8 @@ func TestAstFunc2(t *testing.T) {
 				// TODO: is this correct? (seems to work for testing)
 				StandaloneFs: fs, // used for static deploys
 			}
+			// There's no etcd here, so keep the str keys in memory.
+			world = newTestStrWorld(world, worldStr)
 			worldInit := &engine.WorldInit{
 				Debug: testing.Verbose(), // set via the -test.v flag to `go test`
 				Logf: func(format string, v ...interface{}) {

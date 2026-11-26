@@ -43,6 +43,9 @@ const (
 	// GetValFuncName is the name this function is registered as.
 	GetValFuncName = "getval"
 
+	// TryGetValFuncName is the name this function is registered as.
+	TryGetValFuncName = "try_getval"
+
 	// arg names...
 	getValArgNameKey = "key"
 
@@ -53,14 +56,27 @@ const (
 
 func init() {
 	funcs.ModuleRegister(ModuleName, GetValFuncName, func() interfaces.Func { return &GetValFunc{} })
+	funcs.ModuleRegister(ModuleName, TryGetValFuncName, func() interfaces.Func { return &GetValFunc{Try: true} })
 }
 
 var _ interfaces.StreamableFunc = &GetValFunc{}
 
 // GetValFunc is special function which returns the value of a given key in the
-// exposed world.
+// exposed world. If the Try field is set then it returns the value directly,
+// and errors with a catchable error when the key doesn't exist so that you can
+// use the except operator to supply a fallback value, eg:
+//
+//	world.try_getval("foo") <|> "default"
+//
+// Otherwise it returns a struct with the value and a field to say whether it
+// exists.
 type GetValFunc struct {
 	interfaces.Textarea
+
+	// Try specifies that this returns the value directly instead of in a
+	// struct, and that it errors with a catchable error if the key doesn't
+	// exist.
+	Try bool
 
 	init *interfaces.Init
 
@@ -71,6 +87,9 @@ type GetValFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *GetValFunc) String() string {
+	if obj.Try {
+		return TryGetValFuncName
+	}
 	return GetValFuncName
 }
 
@@ -91,15 +110,20 @@ func (obj *GetValFunc) Validate() error {
 
 // Info returns some static info about itself.
 func (obj *GetValFunc) Info() *interfaces.Info {
+	// output is a struct with two fields:
+	// value is the zero value if not exists. A bool for that in other field.
+	sig := types.NewType(fmt.Sprintf("func(%s str) struct{%s str; %s bool}", getValArgNameKey, getValFieldNameValue, getValFieldNameExists))
+	if obj.Try {
+		// output is the value, or a catchable error if it's missing
+		sig = types.NewType(fmt.Sprintf("func(%s str) str", getValArgNameKey))
+	}
 	return &interfaces.Info{
 		Pure: false, // definitely false
 		Memo: false,
 		Fast: false,
 		Spec: false,
-		// output is a struct with two fields:
-		// value is the zero value if not exists. A bool for that in other field.
-		Sig: types.NewType(fmt.Sprintf("func(%s str) struct{%s str; %s bool}", getValArgNameKey, getValFieldNameValue, getValFieldNameExists)),
-		Err: obj.Validate(),
+		Sig:  sig,
+		Err:  obj.Validate(),
 	}
 }
 
@@ -211,7 +235,17 @@ func (obj *GetValFunc) Call(ctx context.Context, args []types.Value) (types.Valu
 		return nil, errwrap.Wrapf(err, "channel read failed on `%s`", key)
 	}
 
+	if !exists && obj.Try {
+		// This error is catchable, since a missing key is expected
+		// until someone sets it, and since Stream keeps watching the
+		// key, we'll recover once it is set.
+		return nil, interfaces.Sentinelf("no value exists for `%s`", key)
+	}
+
 	s := &types.StrValue{V: val}
+	if obj.Try {
+		return s, nil
+	}
 	b := &types.BoolValue{V: exists}
 	st := types.NewStruct(obj.Info().Sig.Out)
 	if err := st.Set(getValFieldNameValue, s); err != nil {

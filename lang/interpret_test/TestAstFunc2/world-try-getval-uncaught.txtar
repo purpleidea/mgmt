@@ -1,0 +1,7 @@
+-- main.mcl --
+import "world"
+
+# This key doesn't exist, and nothing catches the error.
+test [world.try_getval("missing")] {}
+-- OUTPUT --
+# err: errStream: no value exists for `missing`: /main.mcl @ 4:7-4:34

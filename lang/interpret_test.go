@@ -65,6 +65,7 @@ import (
 	"github.com/purpleidea/mgmt/lang/interpret"
 	"github.com/purpleidea/mgmt/lang/parser"
 	"github.com/purpleidea/mgmt/lang/types"
+	jsonUtil "github.com/purpleidea/mgmt/lang/types/json"
 	"github.com/purpleidea/mgmt/lang/unification"
 	"github.com/purpleidea/mgmt/pgraph"
 	"github.com/purpleidea/mgmt/util"
@@ -706,7 +707,8 @@ func TestAstFunc2(t *testing.T) {
 	const magicErrorInterpret = "errInterpret: "
 	const magicErrorAutoEdge = "errAutoEdge: "
 	const magicEmpty = "# empty!"
-	const magicWorldStr = "WORLD/str/" // prefix of a world str key to set
+	const magicLocalValue = "LOCAL/value/" // prefix of a local value to set
+	const magicWorldStr = "WORLD/str/"     // prefix of a world str key to set
 	dir, err := util.TestDirFull()
 	if err != nil {
 		t.Errorf("could not get tests directory: %+v", err)
@@ -790,7 +792,8 @@ func TestAstFunc2(t *testing.T) {
 			// copy files out into the test temp directory
 			var testOutput []byte
 			var testConfig []byte
-			worldStr := make(map[string]string) // initial world str keys
+			localValue := make(map[string]interface{}) // initial local values
+			worldStr := make(map[string]string)        // initial world str keys
 			found := false
 			for _, file := range archive.Files {
 				if file.Name == "OUTPUT" {
@@ -800,6 +803,28 @@ func TestAstFunc2(t *testing.T) {
 				}
 				if file.Name == "CONFIG" {
 					testConfig = file.Data
+					continue
+				}
+				if strings.HasPrefix(file.Name, magicLocalValue) {
+					// The name is the key and its mcl type,
+					// eg: LOCAL/value/foo int, and the data
+					// is JSON.
+					s := strings.TrimPrefix(file.Name, magicLocalValue)
+					key, typ, ok := strings.Cut(s, " ")
+					if !ok || key == "" || typ == "" {
+						t.Errorf("err parsing txtar(%s): invalid local value: %s", txtarFile, file.Name)
+						return
+					}
+					if _, exists := localValue[key]; exists {
+						t.Errorf("err parsing txtar(%s): duplicate local value: %s", txtarFile, key)
+						return
+					}
+					value, err := jsonUtil.ValueOfJSON(string(file.Data), types.NewType(typ))
+					if err != nil {
+						t.Errorf("err parsing txtar(%s): local value %s: %+v", txtarFile, key, err)
+						return
+					}
+					localValue[key] = value.Value() // golang value
 					continue
 				}
 				if strings.HasPrefix(file.Name, magicWorldStr) {
@@ -1005,6 +1030,14 @@ func TestAstFunc2(t *testing.T) {
 					logf("local: api: "+format, v...)
 				},
 			}).Init()
+
+			for key, value := range localValue {
+				if err := localAPI.ValueSet(context.TODO(), key, value); err != nil {
+					t.Errorf("test #%d: FAIL", index)
+					t.Errorf("test #%d: ValueSet failed: %+v", index, err)
+					return
+				}
+			}
 
 			// implementation of the World API (alternatives can be substituted in)
 			var world engine.World

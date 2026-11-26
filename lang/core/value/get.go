@@ -63,6 +63,21 @@ const (
 	// variant can only pull in values of type float.
 	GetFloatFuncName = "get_float"
 
+	// TryGetFuncName is the name this function is registered as.
+	TryGetFuncName = "try_get"
+
+	// TryGetBoolFuncName is the name this function is registered as.
+	TryGetBoolFuncName = "try_get_bool"
+
+	// TryGetStrFuncName is the name this function is registered as.
+	TryGetStrFuncName = "try_get_str"
+
+	// TryGetIntFuncName is the name this function is registered as.
+	TryGetIntFuncName = "try_get_int"
+
+	// TryGetFloatFuncName is the name this function is registered as.
+	TryGetFloatFuncName = "try_get_float"
+
 	// arg names...
 	getArgNameKey = "key"
 	// struct field names...
@@ -76,6 +91,12 @@ func init() {
 	funcs.ModuleRegister(ModuleName, GetStrFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeStr} })
 	funcs.ModuleRegister(ModuleName, GetIntFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeInt} })
 	funcs.ModuleRegister(ModuleName, GetFloatFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeFloat} })
+
+	funcs.ModuleRegister(ModuleName, TryGetFuncName, func() interfaces.Func { return &GetFunc{Try: true} })
+	funcs.ModuleRegister(ModuleName, TryGetBoolFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeBool, Try: true} })
+	funcs.ModuleRegister(ModuleName, TryGetStrFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeStr, Try: true} })
+	funcs.ModuleRegister(ModuleName, TryGetIntFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeInt, Try: true} })
+	funcs.ModuleRegister(ModuleName, TryGetFloatFuncName, func() interfaces.Func { return &GetFunc{Type: types.TypeFloat, Try: true} })
 }
 
 var _ interfaces.StreamableFunc = &GetFunc{}
@@ -84,12 +105,24 @@ var _ interfaces.StreamableFunc = &GetFunc{}
 // value resource that it gets it from. If it is initialized with a fixed Type
 // field, then it becomes a statically typed version that can only return keys
 // of that type. It is instead recommended to use the Get* functions that are
-// more strictly typed.
+// more strictly typed. If the Try field is set then it returns the value
+// directly, and errors with a catchable error when the value doesn't exist so
+// that you can use the except operator to supply a fallback value, eg:
+//
+//	value.try_get_str("foo") <|> "default"
+//
+// Otherwise it returns a struct with the value and a field to say whether it
+// exists.
 type GetFunc struct {
 	interfaces.Textarea
 
 	// Type is the actual type being used for the value we are looking up.
 	Type *types.Type
+
+	// Try specifies that this returns the value directly instead of in a
+	// struct, and that it errors with a catchable error if the value
+	// doesn't exist.
+	Try bool
 
 	init *interfaces.Init
 
@@ -102,6 +135,9 @@ type GetFunc struct {
 // String returns a simple name for this function. This is needed so this struct
 // can satisfy the pgraph.Vertex interface.
 func (obj *GetFunc) String() string {
+	if obj.Try {
+		return TryGetFuncName
+	}
 	return GetFuncName
 }
 
@@ -122,6 +158,12 @@ func (obj *GetFunc) sig() *types.Type {
 	// type unification needs to see, since we're not an InferableFunc.
 	if obj.Type != nil {
 		typ = obj.Type.String()
+	}
+
+	if obj.Try {
+		// func(key str) ?1
+		// output is the value, or a catchable error if it's missing
+		return types.NewType(fmt.Sprintf("func(%s str) %s", getArgNameKey, typ))
 	}
 
 	// output is a struct with two fields:
@@ -158,6 +200,11 @@ func (obj *GetFunc) Build(typ *types.Type) (*types.Type, error) {
 		return nil, fmt.Errorf("key must be str kind")
 	}
 
+	if obj.Try {
+		obj.Type = typ.Out // type of our value
+		return obj.sig(), nil
+	}
+
 	if typ.Out.Kind != types.KindStruct {
 		return nil, fmt.Errorf("return must be kind struct")
 	}
@@ -190,6 +237,7 @@ func (obj *GetFunc) Copy() interfaces.Func {
 		Textarea: obj.Textarea,
 
 		Type: obj.Type, // don't copy because we use this after unification
+		Try:  obj.Try,
 
 		init: obj.init, // likely gets overwritten anyways
 	}
@@ -305,6 +353,10 @@ func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	}
 
 	typ, exists := obj.Info().Sig.Out.Map[getFieldNameValue] // type of value field
+	if obj.Try {
+		// we return the value itself, and not in a struct
+		typ, exists = obj.Info().Sig.Out, true
+	}
 	if !exists || typ == nil {
 		// programming error
 		return nil, fmt.Errorf("missing type for %s field", getFieldNameValue)
@@ -332,6 +384,13 @@ func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 		isReady = false
 	}
 
+	if !isReady && obj.Try {
+		// This error is catchable, since a missing value is expected
+		// until something like the value resource sets it, and since
+		// Stream keeps watching the key, we'll recover once it is set.
+		return nil, interfaces.Sentinelf("no value exists for `%s`", key)
+	}
+
 	ready := &types.BoolValue{V: isReady}
 	value := typ.New() // new zero value of that typ
 	if isReady {
@@ -347,6 +406,10 @@ func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 			// improve type unification? -- if it's possible, yes.
 			return nil, errwrap.Wrapf(err, "type mismatch, check type in Value[%s]", key)
 		}
+	}
+
+	if obj.Try {
+		return value, nil
 	}
 
 	st := types.NewStruct(obj.Info().Sig.Out)

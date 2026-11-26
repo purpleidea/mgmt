@@ -1,0 +1,36 @@
+-- main.mcl --
+import "fmt"
+import "value"
+
+# These values exist, so we get them.
+test [value.try_get_str("str1") <|> "default"] {}
+test [fmt.printf("int: %d", value.try_get_int("int1") <|> -1)] {}
+test [fmt.printf("bool: %t", value.try_get_bool("bool1") <|> false)] {}
+test [fmt.printf("float: %f", value.try_get_float("float1") <|> -1.0)] {}
+
+# This value exists, but it's empty, which isn't the same as missing.
+test [fmt.printf("empty: '%s'", value.try_get_str("str2") <|> "default")] {}
+
+# The type of the polymorphic variant comes from the fallback value.
+test [fmt.printf("poly: %d", value.try_get("int1") <|> -1)] {}
+
+# This value doesn't exist, so the except operator catches the error.
+test [fmt.printf("missing: %s", value.try_get_str("missing") <|> "default")] {}
+-- LOCAL/value/str1 str --
+"hello"
+-- LOCAL/value/str2 str --
+""
+-- LOCAL/value/int1 int --
+42
+-- LOCAL/value/bool1 bool --
+true
+-- LOCAL/value/float1 float --
+3.5
+-- OUTPUT --
+Vertex: test[bool: true]
+Vertex: test[empty: '']
+Vertex: test[float: 3.5]
+Vertex: test[hello]
+Vertex: test[int: 42]
+Vertex: test[missing: default]
+Vertex: test[poly: 42]

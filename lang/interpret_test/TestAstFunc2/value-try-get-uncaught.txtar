@@ -1,0 +1,7 @@
+-- main.mcl --
+import "value"
+
+# This value doesn't exist, and nothing catches the error.
+test [value.try_get_str("missing")] {}
+-- OUTPUT --
+# err: errStream: no value exists for `missing`: /main.mcl @ 4:7-4:35

@@ -1,0 +1,13 @@
+-- main.mcl --
+import "fmt"
+import "value"
+
+# The polymorphic variant gets its value type from printf, through a variable.
+$st = value.get("missing1")
+test [fmt.printf("%t %d", $st->exists, $st->value)] {}
+
+# And straight from the call.
+test [fmt.printf("direct: %s", value.get("missing2")->value)] {}
+-- OUTPUT --
+Vertex: test[direct: ]
+Vertex: test[false 0]

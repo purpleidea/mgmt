@@ -11024,6 +11024,11 @@ func (obj *ExprCall) getPartials(fn *ExprFunc) (*types.Type, []types.Value, erro
 		if err1 != nil { // make sure we really do have a nil type
 			mapped[name] = nil
 		}
+		if mapped[name] == nil {
+			// Even if the type isn't fully known yet, we might know
+			// its structure, such as the fields of a struct.
+			mapped[name] = speculatePartialType(arg) // possibly nil
+		}
 
 		if err2 != nil || partialValues[i] == nil || partialValues[i].Type() == nil || partialValues[i].Type().HasUni() {
 			partialValues[i] = nil

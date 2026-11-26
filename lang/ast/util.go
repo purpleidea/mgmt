@@ -594,6 +594,59 @@ func unwrapSynthetic(node interfaces.Node) interfaces.Node {
 	}
 }
 
+// speculatePartialType returns the type of an expression when that type has
+// unification variables in it, which is why its Type method can't return it.
+// For example, the polymorphic value.get function returns a struct with a value
+// field of type ?1, and a struct lookup on that needs to know the type of that
+// field. The unification variables are fresh ones, so they only describe the
+// structure, and type unification links them to the real ones. This returns nil
+// if nothing useful is known.
+func speculatePartialType(expr interfaces.Expr) *types.Type {
+	switch x := expr.(type) {
+	case *ExprVar:
+		if x.scope == nil {
+			return nil
+		}
+		target, exists := x.scope.Variables[x.Name]
+		if !exists {
+			return nil
+		}
+		return speculatePartialType(target)
+
+	case *ExprCall:
+		exprFunc, isFn := trueCallee(x.expr).(*ExprFunc)
+		if !isFn || exprFunc.Function == nil || exprFunc.function == nil {
+			return nil
+		}
+		// An inferable function only knows its type at the call site.
+		if _, isInferable := exprFunc.function.(interfaces.InferableFunc); isInferable {
+			return nil
+		}
+		info := exprFunc.function.Info()
+		if info == nil || info.Sig == nil || info.Sig.Out == nil {
+			return nil
+		}
+		typ := info.Sig.Out
+
+		if typ.HasVariant() || typ.Kind == types.KindUnification {
+			return nil // a bare unification variable says nothing
+		}
+		return typ.Copy() // with fresh unification variables
+
+	case *ExprTopLevel:
+		return speculatePartialType(x.Definition)
+
+	case *ExprSingleton:
+		return speculatePartialType(x.Definition)
+
+	case *ExprParen: // usually removed by Interpolate before this runs
+		return speculatePartialType(x.Inner)
+
+	default:
+		return nil
+	}
+}
+
 // newExprParam is a helper function to create an ExprParam with the internal
 // key set to the pointer of the thing we're creating.
 func newExprParam(name string, typ *types.Type) *ExprParam {

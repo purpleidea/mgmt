@@ -4,14 +4,14 @@ import "value"
 
 # These values exist.
 $st1 = value.get_str("key1")
-test [fmt.printf("key1: %t %s", $st1->ready, $st1->value)] {}
+test [fmt.printf("key1: %t %s", $st1->exists, $st1->value)] {}
 
 $st2 = value.get_int("key2")
-test [fmt.printf("key2: %t %d", $st2->ready, $st2->value)] {}
+test [fmt.printf("key2: %t %d", $st2->exists, $st2->value)] {}
 
 # This value doesn't exist.
 $st3 = value.get_str("key3")
-test [fmt.printf("key3: %t %s", $st3->ready, $st3->value)] {}
+test [fmt.printf("key3: %t %s", $st3->exists, $st3->value)] {}
 -- LOCAL/value/key1 str --
 "hello"
 -- LOCAL/value/key2 int --

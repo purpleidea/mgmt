@@ -3,7 +3,7 @@ import "fmt"
 import "value"
 
 # The polymorphic variant gets its value type from the type of the bind.
-$st struct{value int; ready bool} = value.get("missing")
-test [fmt.printf("%t %d", $st->ready, $st->value)] {}
+$st struct{value int; exists bool} = value.get("missing")
+test [fmt.printf("%t %d", $st->exists, $st->value)] {}
 -- OUTPUT --
 Vertex: test[false 0]

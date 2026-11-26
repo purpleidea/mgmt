@@ -38,7 +38,7 @@ Http:Server:Flag["${name1}"].value -> Value["${name1}"].any
 
 #$st_val1 = value.get_bool($name1)
 $st_val1 = value.get_str($name1)
-$val1 = $st_val1->ready and $st_val1->value == "true" # export this value to parent scope
+$val1 = $st_val1->exists and $st_val1->value == "true" # export this value to parent scope
 
 http:server:flag "${name2}" {
 	key => "${key2}", # different key!

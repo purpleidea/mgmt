@@ -20,12 +20,12 @@ http:server:ui "/ui/" {
 
 $text1_id = "text1"
 $range1_id = "range1"
-$text1_val = if $ret1->ready {
+$text1_val = if $ret1->exists {
 	$ret1->value
 } else {
 	"default" # some default
 }
-$range1_val = if $ret2->ready {
+$range1_val = if $ret2->exists {
 	$ret2->value
 } else {
 	"2" # some default

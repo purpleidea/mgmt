@@ -81,8 +81,8 @@ const (
 	// arg names...
 	getArgNameKey = "key"
 	// struct field names...
-	getFieldNameValue = "value"
-	getFieldNameReady = "ready"
+	getFieldNameValue  = "value"
+	getFieldNameExists = "exists"
 )
 
 func init() {
@@ -152,7 +152,7 @@ func (obj *GetFunc) ArgGen(index int) (string, error) {
 
 // helper
 func (obj *GetFunc) sig() *types.Type {
-	// func(key str) struct{value ?1; ready bool}
+	// func(key str) struct{value ?1; exists bool}
 	typ := "?1"
 	// If we're not built yet, this contains a unification variable which
 	// type unification needs to see, since we're not an InferableFunc.
@@ -167,8 +167,8 @@ func (obj *GetFunc) sig() *types.Type {
 	}
 
 	// output is a struct with two fields:
-	// value is the zero value if not ready. A bool for that in other field.
-	return types.NewType(fmt.Sprintf("func(%s str) struct{%s %s; %s bool}", getArgNameKey, getFieldNameValue, typ, getFieldNameReady))
+	// value is the zero value if not exists. A bool for that in other field.
+	return types.NewType(fmt.Sprintf("func(%s str) struct{%s %s; %s bool}", getArgNameKey, getFieldNameValue, typ, getFieldNameExists))
 }
 
 // Build is run to turn the polymorphic, undetermined function, into the
@@ -218,11 +218,11 @@ func (obj *GetFunc) Build(typ *types.Type) (*types.Type, error) {
 	if !exists || tValue == nil {
 		return nil, fmt.Errorf("first struct field must be specified")
 	}
-	tReady, exists := typ.Out.Map[typ.Out.Ord[1]]
-	if !exists || tReady == nil {
+	tExists, exists := typ.Out.Map[typ.Out.Ord[1]]
+	if !exists || tExists == nil {
 		return nil, fmt.Errorf("second struct field must be specified")
 	}
-	if tReady.Kind != types.KindBool {
+	if tExists.Kind != types.KindBool {
 		return nil, fmt.Errorf("second struct field must be bool kind")
 	}
 
@@ -416,8 +416,8 @@ func (obj *GetFunc) Call(ctx context.Context, args []types.Value) (types.Value, 
 	if err := st.Set(getFieldNameValue, value); err != nil {
 		return nil, errwrap.Wrapf(err, "struct could not add field `%s`, val: `%s`", getFieldNameValue, value)
 	}
-	if err := st.Set(getFieldNameReady, ready); err != nil {
-		return nil, errwrap.Wrapf(err, "struct could not add field `%s`, val: `%s`", getFieldNameReady, ready)
+	if err := st.Set(getFieldNameExists, ready); err != nil {
+		return nil, errwrap.Wrapf(err, "struct could not add field `%s`, val: `%s`", getFieldNameExists, ready)
 	}
 
 	return st, nil // put struct into interface type

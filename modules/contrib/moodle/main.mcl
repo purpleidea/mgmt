@@ -174,7 +174,7 @@ class frontend($st) {
 
 	$password = value.get_str("moodle db password")
 
-	if $password->ready {
+	if $password->exists {
 		$db_password = $password->value
 
 		if not os.file_exists("${basedir}/config-dist.php") {
@@ -379,7 +379,7 @@ host        ${db_name}      ${db_user}      ::1/128        password",
 
 	$password = value.get_str("moodle db password")
 
-	if $password->ready {
+	if $password->exists {
 		print "pass" {
 			msg => $password->value,
 		}
